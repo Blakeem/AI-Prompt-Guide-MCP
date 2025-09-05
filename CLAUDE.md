@@ -1,8 +1,17 @@
-# CLAUDE.md - Assistant Instructions for SpecDocs MCP Server
+# CLAUDE.md - Assistant Instructions for Spec-Docs MCP Server
 
 ## Project Overview
 
-TBD 
+This is a Markdown CRUD toolkit for building an MCP server that allows full Create, Read, Update, and Delete operations on Markdown files. The toolkit uses deterministic slug-based addressing for sections and enforces strict duplicate heading prevention.
+
+**Purpose:** Enable LLMs to manage specification documents programmatically without direct markdown manipulation, providing a clean interface for document CRUD operations through MCP tools.
+
+**Key Features:**
+- Slug-based section addressing (e.g., `#get-users-id`, `#api-limits-quotas`) 
+- Hierarchical TOC generation and navigation
+- Duplicate heading prevention among siblings
+- File safety with precondition checks
+- Comprehensive markdown parsing and serialization 
 
 **Package Manager**: pnpm (NOT npm or yarn)
 **Language**: TypeScript with strict mode enabled
