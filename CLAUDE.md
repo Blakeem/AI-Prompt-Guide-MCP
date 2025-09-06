@@ -125,3 +125,58 @@ async getDocument(docPath: string): Promise<CachedDocument | null> {
 ### **Key Design Principle**
 **ALWAYS use the existing markdown parsing tools** (`listHeadings()`, `buildToc()`, `insertRelative()`, `readSection()`) instead of manual string manipulation. The toolkit provides these tools specifically to avoid brittle string parsing that breaks on edge cases.
 
+## TESTING AND DEVELOPMENT
+
+### MCP Inspector Testing (REQUIRED)
+**ALWAYS use the MCP Inspector for testing and validation:**
+
+1. **Starting Inspector:**
+   ```bash
+   pnpm inspector:dev
+   ```
+
+2. **Common Port Issues:**
+   - If you see "PORT IS IN USE" errors, kill existing processes:
+   ```bash
+   lsof -i :6277  # Check proxy port
+   lsof -i :6274  # Check inspector port 
+   kill <PID>     # Kill the processes
+   ```
+
+3. **Inspector URL:** Access at `http://127.0.0.1:6274` with the provided auth token
+
+### Common Development Issues & Solutions
+
+#### 1. **Global Document Cache Initialization**
+When testing DocumentManager programmatically:
+```typescript
+import { initializeGlobalCache } from './dist/document-cache.js';
+import { DocumentManager } from './dist/document-manager.js';
+
+// REQUIRED: Initialize cache before creating manager
+initializeGlobalCache(docsRoot);
+const manager = new DocumentManager(docsRoot);
+```
+
+#### 2. **ES Module Import Errors**
+- Use `.js` extensions in import statements (TypeScript requirement)
+- Use `import` syntax, not `require()` (ES modules enabled)
+- Built files are in `dist/` directory, not `build/`
+
+#### 3. **Archive Functionality Testing**
+- Archive system creates `/archived` directory with audit trails
+- Test files should be in `.spec-docs-mcp/docs/` structure
+- Always verify both document movement AND audit file creation
+
+#### 4. **Background Process Management**
+- Use `run_in_background: true` for long-running commands
+- Check process output with BashOutput tool
+- Kill processes properly using KillBash tool or direct `kill` commands
+
+### Integration Testing Workflow
+1. **Start Inspector** → `pnpm inspector:dev`
+2. **Run Quality Gates** → `pnpm test:run && pnpm lint && pnpm typecheck`
+3. **Test CRUD Operations** → Use inspector interface
+4. **Verify Archive System** → Create, then archive test documents
+5. **Check Templates** → Verify `.spec-docs-mcp/templates/` accessibility
+

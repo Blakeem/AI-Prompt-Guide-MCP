@@ -323,18 +323,23 @@ export interface PromptDefinition {
 export function getVisiblePrompts(_state: SessionState): PromptDefinition[] {
   return [
     {
-      name: 'document_workflow_intro',
-      description: 'Introduction to document creation workflow and best practices',
+      name: 'architect-specification-document',
+      description: 'Advanced technical documentation architecture for complex systems and APIs',
       arguments: [],
     },
     {
-      name: 'research_best_practices',
-      description: 'Guide for researching and gathering accurate, current information',
+      name: 'construct-professional-guide',
+      description: 'Systematic professional document construction with enterprise-grade quality',
       arguments: [],
     },
     {
-      name: 'documentation_standards',
-      description: 'Standards and conventions for consistent, high-quality documentation',
+      name: 'investigate-and-validate',
+      description: 'Advanced intelligence gathering and source validation for technical accuracy',
+      arguments: [],
+    },
+    {
+      name: 'standardize-content-format',
+      description: 'Enterprise-grade content standardization and professional formatting engine',
       arguments: [],
     },
   ];
@@ -347,9 +352,10 @@ export async function getPromptTemplate(name: string): Promise<string | null> {
   try {
     // Map prompt names to template types
     const templateMap: Record<string, string> = {
-      'document_workflow_intro': 'document_workflow_intro',
-      'research_best_practices': 'research_best_practices', 
-      'documentation_standards': 'documentation_standards',
+      'architect-specification-document': 'architect-specification-document',
+      'construct-professional-guide': 'construct-professional-guide',
+      'investigate-and-validate': 'investigate-and-validate',
+      'standardize-content-format': 'standardize-content-format',
     };
 
     const templateType = templateMap[name];
@@ -362,7 +368,7 @@ export async function getPromptTemplate(name: string): Promise<string | null> {
     const loader = getTemplateLoader();
     await loader.initialize();
     
-    const template = await loader.loadTemplate(templateType as 'document_workflow_intro' | 'research_best_practices' | 'documentation_standards');
+    const template = await loader.loadTemplate(templateType as 'architect-specification-document' | 'construct-professional-guide' | 'investigate-and-validate' | 'standardize-content-format');
     return template.content;
   } catch {
     // Fallback for any errors
@@ -374,17 +380,19 @@ export async function getPromptTemplate(name: string): Promise<string | null> {
  * Fallback prompt content if template loading fails
  */
 function getDefaultPromptContent(name: string): string | null {
-  if (name === 'document_workflow_intro') {
-    return `# Document Creation Workflow
+  if (name === 'architect-specification-document') {
+    return `# architect-specification-document
 
-Welcome! This system helps you create and maintain high-quality technical documentation using research-driven best practices.
+**Function:** Advanced technical documentation architecture for complex systems and APIs
 
-## Next Steps
-1. Review the research and documentation standards
-2. Run 'start_document_workflow' to unlock document management tools
-3. Begin creating structured, well-researched documentation
+**Status:** Ready for activation | **Complexity:** Advanced | **Output:** Production-grade technical specifications
 
-Focus on accuracy, clarity, and current information! 📚`;
+## Activation Instructions
+1. Execute 'unlock_document_tools' to initialize this architectural function
+2. Begin systematic specification construction
+3. Apply enterprise-grade documentation protocols
+
+Activate this module to gain sophisticated document building capabilities! 🚀`;
   }
   return null;
 }

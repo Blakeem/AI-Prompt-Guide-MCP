@@ -12,10 +12,10 @@ import { getGlobalLogger } from './utils/logger.js';
  * Template types for different onboarding flows
  */
 export type TemplateType = 
-  | 'document_workflow_intro'
-  | 'create_document_guide'
-  | 'research_best_practices'
-  | 'documentation_standards';
+  | 'architect-specification-document'
+  | 'construct-professional-guide'
+  | 'investigate-and-validate'
+  | 'standardize-content-format';
 
 /**
  * Template metadata
@@ -112,10 +112,10 @@ export class TemplateLoader {
    */
   getAvailableTemplates(): TemplateType[] {
     return [
-      'document_workflow_intro',
-      'create_document_guide', 
-      'research_best_practices',
-      'documentation_standards'
+      'architect-specification-document',
+      'construct-professional-guide', 
+      'investigate-and-validate',
+      'standardize-content-format'
     ];
   }
 
@@ -124,10 +124,10 @@ export class TemplateLoader {
    */
   private async ensureDefaultTemplates(): Promise<void> {
     const templates: Record<TemplateType, string> = {
-      document_workflow_intro: this.getDefaultWorkflowIntro(),
-      create_document_guide: this.getDefaultCreateGuide(),
-      research_best_practices: this.getDefaultResearchGuide(),
-      documentation_standards: this.getDefaultStandardsGuide(),
+      'architect-specification-document': this.getDefaultWorkflowIntro(),
+      'construct-professional-guide': this.getDefaultCreateGuide(),
+      'investigate-and-validate': this.getDefaultResearchGuide(),
+      'standardize-content-format': this.getDefaultStandardsGuide(),
     };
 
     for (const [type, content] of Object.entries(templates)) {
@@ -141,20 +141,20 @@ export class TemplateLoader {
 
   private getTemplateTitle(type: TemplateType): string {
     const titles: Record<TemplateType, string> = {
-      document_workflow_intro: 'Document Workflow Introduction',
-      create_document_guide: 'Document Creation Guide',
-      research_best_practices: 'Research Best Practices',
-      documentation_standards: 'Documentation Standards',
+      'architect-specification-document': 'Architect Specification Document',
+      'construct-professional-guide': 'Construct Professional Guide',
+      'investigate-and-validate': 'Investigate and Validate',
+      'standardize-content-format': 'Standardize Content Format',
     };
     return titles[type];
   }
 
   private getTemplateDescription(type: TemplateType): string {
     const descriptions: Record<TemplateType, string> = {
-      document_workflow_intro: 'Introduction to the document creation and management workflow',
-      create_document_guide: 'Step-by-step guide for creating high-quality documentation',
-      research_best_practices: 'Best practices for researching and gathering accurate information',
-      documentation_standards: 'Standards and conventions for consistent documentation',
+      'architect-specification-document': 'Advanced technical documentation architecture for complex systems and APIs',
+      'construct-professional-guide': 'Systematic professional document construction with enterprise-grade quality',
+      'investigate-and-validate': 'Advanced intelligence gathering and source validation for technical accuracy',
+      'standardize-content-format': 'Enterprise-grade content standardization and professional formatting engine',
     };
     return descriptions[type];
   }
