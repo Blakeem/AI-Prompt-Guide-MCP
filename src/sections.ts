@@ -110,7 +110,7 @@ function ensureUniqueAmongSiblings(
   // Check for duplicates among siblings
   for (let i = 0; i < headings.length; i++) {
     const heading = headings[i];
-    if (heading === undefined || heading.node === undefined) continue;
+    if (heading?.node === undefined) continue;
 
     const headingParentIndex = getParentIndex(i);
     
