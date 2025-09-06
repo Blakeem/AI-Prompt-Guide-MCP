@@ -12,11 +12,7 @@ import type { ServerConfig, SpecDocsError } from './types/index.js';
  */
 function createError(message: string, code: string, context?: Record<string, unknown>): SpecDocsError {
   const error = new Error(message) as SpecDocsError;
-  (error as any).code = code;
-  if (context) {
-    (error as any).context = context;
-  }
-  return error;
+  return Object.assign(error, { code, context });
 }
 
 /**
@@ -66,36 +62,44 @@ function loadEnvironmentVariables(): Record<string, string | undefined> {
 function parseEnvironmentVariables(env: Record<string, string | undefined>): Record<string, unknown> {
   const config: Record<string, unknown> = {};
 
-  if (env['MCP_SERVER_NAME']) config['serverName'] = env['MCP_SERVER_NAME'];
-  if (env['MCP_SERVER_VERSION']) config['serverVersion'] = env['MCP_SERVER_VERSION'];
-  if (env['LOG_LEVEL']) config['logLevel'] = env['LOG_LEVEL'];
-  if (env['DOCS_BASE_PATH']) config['docsBasePath'] = env['DOCS_BASE_PATH'];
+  if (env['MCP_SERVER_NAME'] != null && env['MCP_SERVER_NAME'].length > 0) {
+    config['serverName'] = env['MCP_SERVER_NAME'];
+  }
+  if (env['MCP_SERVER_VERSION'] != null && env['MCP_SERVER_VERSION'].length > 0) {
+    config['serverVersion'] = env['MCP_SERVER_VERSION'];
+  }
+  if (env['LOG_LEVEL'] != null && env['LOG_LEVEL'].length > 0) {
+    config['logLevel'] = env['LOG_LEVEL'];
+  }
+  if (env['DOCS_BASE_PATH'] != null && env['DOCS_BASE_PATH'].length > 0) {
+    config['docsBasePath'] = env['DOCS_BASE_PATH'];
+  }
 
-  if (env['MAX_FILE_SIZE']) {
+  if (env['MAX_FILE_SIZE'] != null && env['MAX_FILE_SIZE'].length > 0) {
     const parsed = parseInt(env['MAX_FILE_SIZE'], 10);
     if (!isNaN(parsed)) config['maxFileSize'] = parsed;
   }
 
-  if (env['MAX_FILES_PER_OPERATION']) {
+  if (env['MAX_FILES_PER_OPERATION'] != null && env['MAX_FILES_PER_OPERATION'].length > 0) {
     const parsed = parseInt(env['MAX_FILES_PER_OPERATION'], 10);
     if (!isNaN(parsed)) config['maxFilesPerOperation'] = parsed;
   }
 
-  if (env['RATE_LIMIT_REQUESTS_PER_MINUTE']) {
+  if (env['RATE_LIMIT_REQUESTS_PER_MINUTE'] != null && env['RATE_LIMIT_REQUESTS_PER_MINUTE'].length > 0) {
     const parsed = parseInt(env['RATE_LIMIT_REQUESTS_PER_MINUTE'], 10);
     if (!isNaN(parsed)) config['rateLimitRequestsPerMinute'] = parsed;
   }
 
-  if (env['RATE_LIMIT_BURST_SIZE']) {
+  if (env['RATE_LIMIT_BURST_SIZE'] != null && env['RATE_LIMIT_BURST_SIZE'].length > 0) {
     const parsed = parseInt(env['RATE_LIMIT_BURST_SIZE'], 10);
     if (!isNaN(parsed)) config['rateLimitBurstSize'] = parsed;
   }
 
-  if (env['ENABLE_FILE_SAFETY_CHECKS']) {
+  if (env['ENABLE_FILE_SAFETY_CHECKS'] != null && env['ENABLE_FILE_SAFETY_CHECKS'].length > 0) {
     config['enableFileSafetyChecks'] = env['ENABLE_FILE_SAFETY_CHECKS'].toLowerCase() === 'true';
   }
 
-  if (env['ENABLE_MTIME_PRECONDITION']) {
+  if (env['ENABLE_MTIME_PRECONDITION'] != null && env['ENABLE_MTIME_PRECONDITION'].length > 0) {
     config['enableMtimePrecondition'] = env['ENABLE_MTIME_PRECONDITION'].toLowerCase() === 'true';
   }
 
@@ -113,7 +117,7 @@ export function loadConfig(): ServerConfig {
     const result = ServerConfigSchema.safeParse(parsedEnv);
     
     if (!result.success) {
-      const errors = result.error.issues.map((err: any) => 
+      const errors = result.error.issues.map((err: z.ZodIssue) => 
         `${err.path.join('.')}: ${err.message}`
       ).join(', ');
       
@@ -149,7 +153,7 @@ export function validatePartialConfig(config: Partial<ServerConfig>): void {
     const result = ServerConfigSchema.partial().safeParse(config);
     
     if (!result.success) {
-      const errors = result.error.issues.map((err: any) => 
+      const errors = result.error.issues.map((err: z.ZodIssue) => 
         `${err.path.join('.')}: ${err.message}`
       ).join(', ');
       

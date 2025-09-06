@@ -39,7 +39,7 @@ function sanitizeContext(context: Record<string, unknown>): Record<string, unkno
       sanitized[key] = '[REDACTED]';
     } else if (typeof value === 'string' && value.length > 500) {
       // Truncate very long strings
-      sanitized[key] = value.substring(0, 497) + '...';
+      sanitized[key] = `${value.substring(0, 497)}...`;
     } else if (value instanceof Error) {
       sanitized[key] = {
         name: value.name,
@@ -103,14 +103,16 @@ class ConsoleLogger implements Logger {
   info(message: string, context?: Record<string, unknown>): void {
     if (this.shouldLog(LOG_LEVELS.INFO)) {
       const formatted = formatLogMessage(LOG_LEVELS.INFO, message, context);
-      console.info(formatted);
+      // Use console.error for info level logging to comply with ESLint rules
+      console.error(formatted);
     }
   }
 
   debug(message: string, context?: Record<string, unknown>): void {
     if (this.shouldLog(LOG_LEVELS.DEBUG)) {
       const formatted = formatLogMessage(LOG_LEVELS.DEBUG, message, context);
-      console.debug(formatted);
+      // Use console.error for debug level logging to comply with ESLint rules
+      console.error(formatted);
     }
   }
 }
@@ -141,7 +143,7 @@ class SilentLogger implements Logger {
  */
 export function createLogger(config: ServerConfig): Logger {
   // Use silent logger in test mode unless explicitly overridden
-  if (process.env['NODE_ENV'] === 'test' && !process.env['ENABLE_TEST_LOGGING']) {
+  if (process.env['NODE_ENV'] === 'test' && process.env['ENABLE_TEST_LOGGING'] == null) {
     return new SilentLogger();
   }
 
@@ -178,9 +180,6 @@ export function setGlobalLogger(logger: Logger): void {
  * Gets the global logger instance
  */
 export function getGlobalLogger(): Logger {
-  if (!globalLogger) {
-    // Fallback to console logger with info level
-    globalLogger = new ConsoleLogger(LOG_LEVELS.INFO);
-  }
+  globalLogger ??= new ConsoleLogger(LOG_LEVELS.INFO);
   return globalLogger;
 }

@@ -20,7 +20,7 @@ export function formatMCPError(error: unknown): { error: string; code?: string |
       result.code = specError.code;
     }
     
-    if ('context' in specError && specError.context) {
+    if ('context' in specError && specError.context != null) {
       result.context = specError.context;
     }
     
@@ -41,18 +41,18 @@ export function formatLogError(error: unknown, operation?: string): { message: s
     const specError = error as SpecDocsError;
     
     return {
-      message: operation ? `${operation}: ${error.message}` : error.message,
+      message: operation != null && operation.length > 0 ? `${operation}: ${error.message}` : error.message,
       context: {
         name: error.name,
         stack: error.stack,
         code: 'code' in specError ? specError.code : 'UNKNOWN_ERROR',
-        ...(('context' in specError && specError.context) ? specError.context : {}),
+        ...(('context' in specError && specError.context != null) ? specError.context : {}),
       },
     };
   }
 
   return {
-    message: operation ? `${operation}: ${String(error)}` : String(error),
+    message: operation != null && operation.length > 0 ? `${operation}: ${String(error)}` : String(error),
     context: {
       error: String(error),
       code: 'UNKNOWN_ERROR',
@@ -78,14 +78,14 @@ export function createErrorResponse(error: unknown, operation?: string): {
     context?: Record<string, unknown> | undefined;
   } = {
     success: false,
-    error: operation ? `${operation}: ${formatted.error}` : formatted.error,
+    error: operation != null && operation.length > 0 ? `${operation}: ${formatted.error}` : formatted.error,
   };
   
-  if (formatted.code) {
+  if (formatted.code != null && formatted.code.length > 0) {
     result.code = formatted.code;
   }
   
-  if (formatted.context) {
+  if (formatted.context != null) {
     result.context = formatted.context;
   }
   
@@ -105,7 +105,7 @@ export function createSuccessResponse<T>(data: T, metadata?: Record<string, unkn
     data,
   };
 
-  if (metadata) {
+  if (metadata != null) {
     response.metadata = metadata;
   }
 
@@ -168,7 +168,7 @@ export function getErrorContext(error: unknown): Record<string, unknown> | undef
  * Checks if error is a known application error
  */
 export function isSpecDocsError(error: unknown): error is SpecDocsError {
-  return error instanceof Error && 'code' in error && typeof (error as any).code === 'string';
+  return error instanceof Error && 'code' in error && typeof (error as SpecDocsError).code === 'string';
 }
 
 /**

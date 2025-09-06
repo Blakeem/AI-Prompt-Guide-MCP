@@ -22,11 +22,7 @@ import type {
  */
 function createError(message: string, code: string, context?: Record<string, unknown>): SpecDocsError {
   const error = new Error(message) as SpecDocsError;
-  (error as any).code = code;
-  if (context) {
-    (error as any).context = context;
-  }
-  return error;
+  return Object.assign(error, { code, context });
 }
 
 /**
@@ -60,7 +56,7 @@ function findParentHeadingIndex(tree: Root, slug: string): number | null {
   const headings: Array<{ node: MdHeading; index: number }> = [];
   let counter = -1;
 
-  visitParents(tree as any, 'heading', (node: MdHeading) => {
+  visitParents(tree, 'heading', (node: MdHeading) => {
     counter++;
     headings.push({ node, index: counter });
   });
@@ -94,7 +90,7 @@ function ensureUniqueAmongSiblings(
   const headings: Array<{ node: MdHeading; index: number }> = [];
   let counter = -1;
 
-  visitParents(tree as any, 'heading', (node: MdHeading) => {
+  visitParents(tree, 'heading', (node: MdHeading) => {
     counter++;
     headings.push({ node, index: counter });
   });
@@ -173,7 +169,7 @@ export function readSection(markdown: string, slug: string): string | null {
   const tree = parseMarkdown(markdown);
   let captured: string | null = null;
 
-  headingRange(tree as any, matchHeadingBySlug(slug), (start, nodes, end) => {
+  headingRange(tree, matchHeadingBySlug(slug), (start, nodes, end) => {
     // Serialize the captured section including the heading
     const section: Root = {
       type: 'root',
@@ -224,7 +220,7 @@ export function replaceSectionBody(
   const sanitizedChildren = newBodyTree.children.filter(node => node.type !== 'heading');
 
   let found = false;
-  headingRange(tree as any, matchHeadingBySlug(slug), (start, _nodes, end) => {
+  headingRange(tree, matchHeadingBySlug(slug), (start, _nodes, end) => {
     found = true;
     return [start, ...sanitizedChildren, end].filter(Boolean);
   });
@@ -291,7 +287,7 @@ export function insertRelative(
     const headings: Array<{ node: MdHeading; index: number }> = [];
     let counter = -1;
     
-    visitParents(tree as any, 'heading', (node: MdHeading) => {
+    visitParents(tree, 'heading', (node: MdHeading) => {
       counter++;
       headings.push({ node, index: counter });
     });
@@ -335,7 +331,7 @@ export function insertRelative(
   let found = false;
   const resultTree = parseMarkdown(markdown); // Fresh tree for mutation
   
-  headingRange(resultTree as any, matchHeadingBySlug(refSlug), (start, nodes, end) => {
+  headingRange(resultTree, matchHeadingBySlug(refSlug), (start, nodes, end) => {
     found = true;
     
     switch (mode) {
@@ -403,7 +399,7 @@ export function renameHeading(markdown: string, slug: string, newTitle: string):
   const headings: Array<{ node: MdHeading; index: number }> = [];
   let counter = -1;
   
-  visitParents(tree as any, 'heading', (node: MdHeading) => {
+  visitParents(tree, 'heading', (node: MdHeading) => {
     counter++;
     headings.push({ node, index: counter });
   });
@@ -473,7 +469,7 @@ export function deleteSection(markdown: string, slug: string): string {
   const tree = parseMarkdown(markdown);
   let found = false;
 
-  headingRange(tree as any, matchHeadingBySlug(slug), () => {
+  headingRange(tree, matchHeadingBySlug(slug), () => {
     found = true;
     return []; // Return empty array to delete the entire section
   });

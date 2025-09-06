@@ -11,11 +11,7 @@ import type { FileSnapshot, SpecDocsError } from './types/index.js';
  */
 function createError(message: string, code: string, context?: Record<string, unknown>): SpecDocsError {
   const error = new Error(message) as SpecDocsError;
-  (error as any).code = code;
-  if (context) {
-    (error as any).context = context;
-  }
-  return error;
+  return Object.assign(error, { code, context });
 }
 
 /**

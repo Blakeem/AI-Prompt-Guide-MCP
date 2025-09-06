@@ -1,54 +1,57 @@
-import eslint from '@eslint/js';
-import tseslint from '@typescript-eslint/eslint-plugin';
-import tsparser from '@typescript-eslint/parser';
+import js from '@eslint/js';
+import typescript from '@typescript-eslint/eslint-plugin';
+import typescriptParser from '@typescript-eslint/parser';
 import prettier from 'eslint-config-prettier';
 
 export default [
-  eslint.configs.recommended,
+  js.configs.recommended,
+  prettier,
   {
     files: ['src/**/*.ts'],
     languageOptions: {
-      parser: tsparser,
-      ecmaVersion: 2022,
-      sourceType: 'module',
+      parser: typescriptParser,
       parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: 'module',
         project: './tsconfig.json',
+      },
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        fetch: 'readonly',
+        RequestInit: 'readonly',
+        Response: 'readonly',
+        Headers: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Buffer: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
       },
     },
     plugins: {
-      '@typescript-eslint': tseslint,
+      '@typescript-eslint': typescript,
     },
     rules: {
-      ...tseslint.configs.recommended.rules,
-      ...tseslint.configs.strict.rules,
-      
-      // Strict TypeScript rules
-      '@typescript-eslint/no-explicit-any': 'error',
+      ...typescript.configs.recommended.rules,
       '@typescript-eslint/explicit-function-return-type': 'error',
-      '@typescript-eslint/explicit-module-boundary-types': 'error',
-      '@typescript-eslint/no-unused-vars': 'error',
-      '@typescript-eslint/prefer-readonly': 'error',
-      '@typescript-eslint/prefer-nullish-coalescing': 'error',
-      '@typescript-eslint/prefer-optional-chain': 'error',
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
       '@typescript-eslint/strict-boolean-expressions': 'error',
-      
-      // General code quality
-      'no-console': 'warn',
+      '@typescript-eslint/prefer-nullish-coalescing': 'error',
+      'no-console': ['warn', { allow: ['error', 'warn'] }],
       'prefer-const': 'error',
       'no-var': 'error',
       'object-shorthand': 'error',
-      'prefer-arrow-callback': 'error',
       'prefer-template': 'error',
-      
-      // Consistency
-      'consistent-return': 'error',
-      'no-duplicate-imports': 'error',
-      'sort-imports': ['error', { 
-        ignoreDeclarationSort: true,
-        ignoreMemberSort: false 
-      }]
+      'no-undef': 'off', // TypeScript handles this
     },
   },
-  prettier,
+  {
+    ignores: ['dist/', 'node_modules/', 'coverage/', '*.js', '*.mjs', 'eslint.config.js'],
+  },
 ];

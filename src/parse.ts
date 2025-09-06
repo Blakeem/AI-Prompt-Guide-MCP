@@ -16,11 +16,7 @@ import type { Heading, TocNode, HeadingDepth, SpecDocsError } from './types/inde
  */
 function createError(message: string, code: string, context?: Record<string, unknown>): SpecDocsError {
   const error = new Error(message) as SpecDocsError;
-  (error as any).code = code;
-  if (context) {
-    (error as any).context = context;
-  }
-  return error;
+  return Object.assign(error, { code, context });
 }
 
 /**
@@ -63,7 +59,7 @@ export function listHeadings(markdown: string): readonly Heading[] {
   // Track parent-child relationships through AST traversal
   let counter = -1;
 
-  visitParents(tree as any, 'heading', (node: MdHeading) => {
+  visitParents(tree, 'heading', (node: MdHeading) => {
     counter++;
 
     // Validate heading count limit
@@ -102,7 +98,8 @@ export function listHeadings(markdown: string): readonly Heading[] {
     
     // Look through already processed headings in reverse order
     for (let i = headings.length - 1; i >= 0; i--) {
-      if (headings[i]!.depth < depth) {
+      const heading = headings[i];
+      if (heading && heading.depth < depth) {
         parentIndex = i;
         break;
       }
