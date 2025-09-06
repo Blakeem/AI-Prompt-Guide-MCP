@@ -18,7 +18,7 @@ export interface SessionState {
  * Manages per-session state
  */
 export class SessionStore {
-  private sessions = new Map<string, SessionState>();
+  private readonly sessions = new Map<string, SessionState>();
 
   /**
    * Get or create session state
@@ -30,7 +30,11 @@ export class SessionStore {
         hasAcknowledged: false,
       });
     }
-    return this.sessions.get(sessionId)!;
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found - this should not happen`);
+    }
+    return session;
   }
 
   /**

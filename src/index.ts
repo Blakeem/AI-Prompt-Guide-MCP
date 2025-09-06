@@ -214,11 +214,11 @@ function registerTools(): void {
           () => {
             // Send list_changed notifications
             logger.info('Sending list_changed notifications');
-            server.notification({
+            void server.notification({
               method: 'notifications/tools/list_changed',
               params: {},
             });
-            server.notification({
+            void server.notification({
               method: 'notifications/prompts/list_changed',
               params: {},
             });
@@ -289,12 +289,12 @@ function registerTools(): void {
     const prompts = getVisiblePrompts(sessionState);
     
     const prompt = prompts.find(p => p.name === name);
-    if (!prompt) {
+    if (prompt == null) {
       throw new Error(`Unknown prompt: ${name}`);
     }
     
     const template = getPromptTemplate(name);
-    if (!template) {
+    if (template == null) {
       throw new Error(`No template for prompt: ${name}`);
     }
     
