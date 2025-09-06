@@ -147,7 +147,7 @@ function registerTools(): void {
     
     logger.debug('Returning visible tools', { 
       sessionId, 
-      hasAcknowledged: sessionState.hasAcknowledged,
+      hasStartedWorkflow: sessionState.hasStartedWorkflow,
       toolCount: tools.length 
     });
     
@@ -293,7 +293,7 @@ function registerTools(): void {
       throw new Error(`Unknown prompt: ${name}`);
     }
     
-    const template = getPromptTemplate(name);
+    const template = await getPromptTemplate(name);
     if (template == null) {
       throw new Error(`No template for prompt: ${name}`);
     }

@@ -75,3 +75,4 @@ working/
 # Final test results (these are generated)
 .spec-docs-mcp/docs/final-result.md
 .spec-docs-mcp/docs/working-test.md
+.spec-docs-mcp/docs/

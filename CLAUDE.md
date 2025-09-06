@@ -31,3 +31,97 @@ This is a Markdown CRUD toolkit for building an MCP server that allows full Crea
 - `pnpm test` - Watch mode for development (stays running)
 - `pnpm test:coverage` - Run with coverage report
 
+## COMMON ESLINT ISSUES & SOLUTIONS
+
+Based on practical experience implementing this system, here are the most common linting issues encountered and their proper solutions:
+
+### 1. **Non-null Assertions (`@typescript-eslint/no-non-null-assertion`)**
+❌ **Avoid:** `array[0]!.property` or `value!`
+✅ **Use:** Explicit null checks with proper handling
+```typescript
+// Bad
+const firstHeading = headings[0]!.slug;
+
+// Good 
+const firstHeading = headings[0];
+if (firstHeading != null) {
+  const slug = firstHeading.slug;
+  // ... use slug
+}
+```
+
+### 2. **Contradictory Optional Chain vs Strict Boolean Rules**
+When ESLint gives contradictory suggestions between `prefer-optional-chain` and `strict-boolean-expressions`:
+```typescript
+// If both rules conflict, use explicit null check with disable comment
+// eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+if (value != null && value.startsWith('#')) {
+  // ... handle value
+}
+```
+
+### 3. **Nullish Coalescing (`@typescript-eslint/prefer-nullish-coalescing`)**
+❌ **Avoid:** `||` for potentially falsy values
+✅ **Use:** `??` for null/undefined checks
+```typescript
+// Bad
+const title = heading.title || 'Default Title';
+const matches = content.match(regex) || [];
+
+// Good
+const title = heading.title ?? 'Default Title'; 
+const matches = content.match(regex) ?? [];
+```
+
+### 4. **Nullish Assignment (`@typescript-eslint/prefer-nullish-coalescing`)**
+❌ **Avoid:** Manual null checks for assignment
+✅ **Use:** `??=` operator
+```typescript
+// Bad
+if (document.sections == null) {
+  document.sections = new Map();
+}
+
+// Good
+document.sections ??= new Map();
+```
+
+### 5. **String Concatenation (`prefer-template`)**
+❌ **Avoid:** String concatenation with `+`
+✅ **Use:** Template literals
+```typescript
+// Bad
+content += '\n\n' + tocPlaceholder;
+
+// Good
+content = `${content}\n\n${tocPlaceholder}`;
+```
+
+### 6. **Strict Boolean Expressions (`@typescript-eslint/strict-boolean-expressions`)**
+❌ **Avoid:** Implicit truthiness checks
+✅ **Use:** Explicit comparisons
+```typescript
+// Bad - implicit truthiness
+if (line && !line.startsWith('#')) { }
+
+// Good - explicit checks
+if (line != null && line !== '' && !line.startsWith('#')) { }
+```
+
+### 7. **Function Return Types (`@typescript-eslint/explicit-function-return-type`)**
+Always add explicit return types to public methods:
+```typescript
+// Bad
+async getDocument(docPath: string) {
+  return await this.cache.getDocument(docPath);
+}
+
+// Good
+async getDocument(docPath: string): Promise<CachedDocument | null> {
+  return await this.cache.getDocument(docPath);
+}
+```
+
+### **Key Design Principle**
+**ALWAYS use the existing markdown parsing tools** (`listHeadings()`, `buildToc()`, `insertRelative()`, `readSection()`) instead of manual string manipulation. The toolkit provides these tools specifically to avoid brittle string parsing that breaks on edge cases.
+
