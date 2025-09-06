@@ -224,38 +224,6 @@ export class DocumentManager {
     logger.info('Updated document section', { path: docPath, slug });
   }
 
-  /**
-   * Insert new section relative to existing one
-   */
-  async insertSection(
-    docPath: string,
-    refSlug: string,
-    mode: InsertMode,
-    depth: HeadingDepth,
-    title: string,
-    content = '',
-    options: UpdateSectionOptions = {}
-  ): Promise<void> {
-    const absolutePath = this.getAbsolutePath(docPath);
-    const snapshot = await readFileSnapshot(absolutePath);
-    
-    const updated = insertRelative(snapshot.content, refSlug, mode, depth, title, content);
-    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated);
-
-    // Update TOC if requested
-    if (options.updateToc === true) {
-      setTimeout(() => {
-        void this.updateTableOfContents(docPath);
-      }, 100);
-    }
-
-    logger.info('Inserted document section', { 
-      path: docPath, 
-      refSlug, 
-      mode, 
-      title 
-    });
-  }
 
   /**
    * Rename a heading
@@ -303,16 +271,93 @@ export class DocumentManager {
   }
 
   /**
-   * Delete entire document
+   * Archive document (move to archive folder)
    */
-  async deleteDocument(docPath: string): Promise<void> {
+  async archiveDocument(docPath: string, reason?: string): Promise<void> {
     const absolutePath = this.getAbsolutePath(docPath);
-    await fs.unlink(absolutePath);
+    const archiveDir = path.join(this.docsRoot, 'archived');
+    const archivePath = path.join(archiveDir, docPath.startsWith('/') ? docPath.slice(1) : docPath);
+    
+    // Ensure archive directory exists
+    await ensureDirectoryExists(path.dirname(archivePath));
+    
+    // Move file to archive
+    await fs.rename(absolutePath, archivePath);
+    
+    // Create audit trail file
+    if (reason != null && reason !== '') {
+      const auditPath = `${archivePath}.audit`;
+      const auditInfo = {
+        originalPath: docPath,
+        archivedAt: new Date().toISOString(),
+        reason,
+        archivedBy: 'MCP Document Manager'
+      };
+      await fs.writeFile(auditPath, JSON.stringify(auditInfo, null, 2), 'utf8');
+    }
     
     // Invalidate cache
     this.cache.invalidateDocument(docPath);
     
-    logger.info('Deleted document', { path: docPath });
+    logger.info('Archived document', { path: docPath, reason });
+  }
+
+  /**
+   * Insert section at specific location
+   */
+  async insertSection(
+    docPath: string,
+    referenceSlug: string,
+    insertMode: InsertMode,
+    depth: HeadingDepth | undefined,
+    title: string,
+    content: string,
+    options: UpdateSectionOptions = {}
+  ): Promise<void> {
+    const absolutePath = this.getAbsolutePath(docPath);
+    const snapshot = await readFileSnapshot(absolutePath);
+    
+    // Determine depth if not specified
+    let finalDepth: HeadingDepth;
+    if (depth != null) {
+      finalDepth = Math.max(1, Math.min(6, depth)) as HeadingDepth;
+    } else {
+      // Auto-determine depth based on insertion mode
+      const document = await this.cache.getDocument(docPath);
+      if (!document) {
+        throw new Error(`Document not found: ${docPath}`);
+      }
+      
+      const refHeading = document.headings.find(h => h.slug === referenceSlug);
+      if (!refHeading) {
+        throw new Error(`Reference section not found: ${referenceSlug}`);
+      }
+      
+      finalDepth = insertMode === 'append_child' 
+        ? Math.min(6, refHeading.depth + 1) as HeadingDepth
+        : refHeading.depth;
+    }
+    
+    const updated = insertRelative(snapshot.content, referenceSlug, insertMode, finalDepth, title, content);
+    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated);
+
+    // Update TOC if requested
+    if (options.updateToc === true) {
+      setTimeout(() => {
+        void this.updateTableOfContents(docPath);
+      }, 100);
+    }
+
+    logger.info('Inserted section', { path: docPath, referenceSlug, title, mode: insertMode });
+  }
+
+  /**
+   * Move section to different location (implementation needed)
+   */
+  async moveSection(docPath: string, sectionSlug: string, targetSlug: string, position: string): Promise<void> {
+    // This would require implementing section extraction and re-insertion
+    // For now, throw a helpful error with all the context
+    throw new Error(`Move section operation not yet implemented. Document: ${docPath}, Section: ${sectionSlug}, Target: ${targetSlug}, Position: ${position}`);
   }
 
   /**

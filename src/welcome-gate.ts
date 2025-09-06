@@ -4,6 +4,7 @@
  */
 
 import type { DocumentManager } from './document-manager.js';
+import type { HeadingDepth } from './types/index.js';
 
 // Using a custom error type that matches McpError structure
 
@@ -136,11 +137,17 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
 
   const workflowGatewayTool: ToolDefinition[] = [
     {
-      name: 'start_document_workflow',
-      description: 'Start the document creation workflow and unlock document management tools',
+      name: 'unlock_document_tools',
+      description: 'Unlock document management tools (create, update, archive documents)',
       inputSchema: {
         type: 'object',
-        properties: {},
+        properties: {
+          show_overview: {
+            type: 'boolean',
+            description: 'Show complete document structure overview after unlocking',
+            default: true,
+          },
+        },
         additionalProperties: false,
       },
     },
@@ -201,21 +208,90 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
       },
     },
     {
-      name: 'delete_document',
-      description: 'Delete a document (use with caution)',
+      name: 'archive_document',
+      description: 'Archive a document (move to archive folder for safety)',
       inputSchema: {
         type: 'object',
         properties: {
           path: {
             type: 'string',
-            description: 'Document path to delete',
+            description: 'Document path to archive',
           },
-          confirm: {
-            type: 'boolean',
-            description: 'Confirmation flag (must be true to proceed)',
+          reason: {
+            type: 'string',
+            description: 'Optional reason for archiving (for audit trail)',
           },
         },
-        required: ['path', 'confirm'],
+        required: ['path'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'insert_section',
+      description: 'Insert a new section at a specific location',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Document path',
+          },
+          reference_section: {
+            type: 'string',
+            description: 'Reference section slug to insert relative to',
+          },
+          position: {
+            type: 'string',
+            enum: ['before', 'after', 'child'],
+            description: 'Where to insert relative to reference section',
+            default: 'after',
+          },
+          title: {
+            type: 'string',
+            description: 'New section title',
+          },
+          content: {
+            type: 'string',
+            description: 'Initial section content',
+            default: '',
+          },
+          depth: {
+            type: 'number',
+            minimum: 1,
+            maximum: 6,
+            description: 'Heading depth (1-6). If not specified, determined from position',
+          },
+        },
+        required: ['path', 'reference_section', 'title'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'move_section',
+      description: 'Move a section to a different location',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Document path',
+          },
+          section_slug: {
+            type: 'string',
+            description: 'Section to move',
+          },
+          target_section: {
+            type: 'string',
+            description: 'Target section to move relative to',
+          },
+          position: {
+            type: 'string',
+            enum: ['before', 'after', 'child'],
+            description: 'Where to move relative to target',
+            default: 'after',
+          },
+        },
+        required: ['path', 'section_slug', 'target_section'],
         additionalProperties: false,
       },
     },
@@ -354,8 +430,10 @@ export async function executeTool(
   onListChanged?: () => void
 ): Promise<unknown> {
   switch (toolName) {
-    case 'start_document_workflow': {
+    case 'unlock_document_tools': {
       const firstTime = !state.hasStartedWorkflow;
+      const showOverview = Boolean(args['show_overview'] ?? true);
+      
       state.hasStartedWorkflow = true;
       state.workflowStartedAt = new Date();
       
@@ -363,21 +441,58 @@ export async function executeTool(
       if (firstTime && onListChanged) {
         onListChanged();
       }
+
+      // Get document structure overview if requested
+      let documentStructure = {};
+      if (showOverview) {
+        try {
+          const manager = await getDocumentManager();
+          const documents = await manager.listDocuments();
+          
+          documentStructure = {
+            totalDocuments: documents.length,
+            documentsByPath: documents.reduce((acc, doc) => {
+              const pathParts = doc.path.split('/').filter(Boolean);
+              const category = pathParts[0] ?? 'root';
+              acc[category] ??= [];
+              acc[category].push({
+                path: doc.path,
+                title: doc.title,
+                headings: doc.headingCount,
+                words: doc.wordCount,
+                lastModified: doc.lastModified
+              });
+              return acc;
+            }, {} as Record<string, Array<{path: string, title: string, headings: number, words: number, lastModified: Date}>>)
+          };
+        } catch {
+          // Don't fail if we can't get structure
+        }
+      }
       
       return {
         success: true,
         message: firstTime 
-          ? 'Document workflow started! Document management tools are now available. Please refresh your tool list to see them.'
-          : 'Document workflow already active. All tools remain available.',
+          ? 'Document management tools unlocked! You now have access to comprehensive document operations.'
+          : 'Document tools already active. All tools remain available.',
         workflowActive: true,
         startedAt: state.workflowStartedAt.toISOString(),
-        availableTools: [
-          'create_document - Create new structured documents',
-          'update_document_section - Modify existing document sections',
-          'delete_document - Remove documents (with confirmation)',
-          'browse_documents - Explore document organization',
-          'search_documents - Find relevant content'
+        unlockedTools: [
+          'create_document - Create new documents with templates and TOC',
+          'update_document_section - Modify specific document sections',
+          'insert_section - Add new sections at precise locations', 
+          'move_section - Reorganize document structure',
+          'archive_document - Safely archive documents (recommended over deletion)',
+          'browse_documents - Explore existing document organization',
+          'search_documents - Find content across all documents'
         ],
+        documentStructure: showOverview ? documentStructure : undefined,
+        nextSteps: [
+          'Use browse_documents to explore existing content',
+          'Use search_documents to find specific topics',
+          'Use create_document to add new documentation',
+          'Remember: always research thoroughly before writing'
+        ]
       };
     }
 
@@ -661,7 +776,7 @@ export async function executeTool(
       }
     }
 
-    case 'delete_document': {
+    case 'archive_document': {
       // Check if workflow has been started
       if (!state.hasStartedWorkflow) {
         throw new Error(
@@ -670,24 +785,7 @@ export async function executeTool(
             message: 'Document management not available',
             data: {
               reason: 'WORKFLOW_NOT_STARTED',
-              details: "Please run 'start_document_workflow' first to unlock document management tools.",
-            },
-          })
-        );
-      }
-      
-      const docPath = (args['path'] as string) ?? '';
-      const confirm = Boolean(args['confirm']);
-      
-      if (!confirm) {
-        throw new Error(
-          JSON.stringify({
-            code: -32602,
-            message: 'Deletion requires confirmation',
-            data: {
-              reason: 'CONFIRMATION_REQUIRED',
-              details: 'Set confirm parameter to true to proceed with deletion',
-              path: docPath,
+              details: "Please run 'unlock_document_tools' first to unlock document management tools.",
             },
           })
         );
@@ -695,40 +793,183 @@ export async function executeTool(
       
       try {
         const manager = await getDocumentManager();
+        const docPath = (args['path'] as string) ?? '';
+        const reason = (args['reason'] as string) ?? '';
         const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
         
-        // Check if document exists before deletion
+        // Check if document exists before archiving
         const document = await manager.getDocument(normalizedPath);
         if (!document) {
           throw new Error(`Document not found: ${normalizedPath}`);
         }
         
-        await manager.deleteDocument(normalizedPath);
+        await manager.archiveDocument(normalizedPath, reason);
         
         return {
           success: true,
-          message: `Document deleted successfully: ${normalizedPath}`,
-          deleted: {
-            path: normalizedPath,
+          message: `Document archived successfully: ${normalizedPath}`,
+          archived: {
+            originalPath: normalizedPath,
+            archivePath: `/archived${normalizedPath}`,
             title: document.metadata.title,
-            deletedAt: new Date().toISOString(),
+            archivedAt: new Date().toISOString(),
+            reason: reason || 'No reason provided',
             stats: {
               headings: document.headings.length,
               words: document.metadata.wordCount
             }
           },
-          warning: 'This action cannot be undone. Document has been permanently removed.',
+          note: 'Archived documents can be restored by moving them back from the archive folder.',
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(
           JSON.stringify({
             code: -32603,
-            message: 'Failed to delete document',
+            message: 'Failed to archive document',
             data: {
-              reason: 'DELETION_ERROR',
+              reason: 'ARCHIVE_ERROR',
               details: message,
-              path: docPath,
+              path: args['path'],
+            },
+          })
+        );
+      }
+    }
+
+    case 'insert_section': {
+      // Check if workflow has been started
+      if (!state.hasStartedWorkflow) {
+        throw new Error(
+          JSON.stringify({
+            code: -32002,
+            message: 'Document management not available',
+            data: {
+              reason: 'WORKFLOW_NOT_STARTED',
+              details: "Please run 'unlock_document_tools' first to unlock document management tools.",
+            },
+          })
+        );
+      }
+      
+      try {
+        const manager = await getDocumentManager();
+        const docPath = (args['path'] as string) ?? '';
+        const referenceSection = (args['reference_section'] as string) ?? '';
+        const position = (args['position'] as string) ?? 'after';
+        const title = (args['title'] as string) ?? '';
+        const content = (args['content'] as string) ?? '';
+        const explicitDepth = args['depth'] as number | undefined;
+        
+        if (!docPath || !referenceSection || !title) {
+          throw new Error('Missing required parameters: path, reference_section, and title');
+        }
+        
+        const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
+        
+        // Map position to our insert mode
+        const insertMode = position === 'before' ? 'insert_before' 
+          : position === 'child' ? 'append_child' 
+          : 'insert_after';
+        
+        await manager.insertSection(
+          normalizedPath, 
+          referenceSection, 
+          insertMode, 
+          explicitDepth as HeadingDepth | undefined, 
+          title, 
+          content, 
+          { updateToc: true }
+        );
+        
+        return {
+          success: true,
+          message: `Section "${title}" inserted successfully`,
+          section: {
+            path: normalizedPath,
+            title,
+            position: `${position} ${referenceSection}`,
+            insertedAt: new Date().toISOString()
+          },
+          nextSteps: [
+            'Use update_document_section to add more content',
+            'Use browse_documents to see the updated structure',
+            'Use search_documents to verify content is discoverable'
+          ]
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          JSON.stringify({
+            code: -32603,
+            message: 'Failed to insert section',
+            data: {
+              reason: 'INSERT_ERROR',
+              details: message,
+              path: args['path'],
+              title: args['title'],
+            },
+          })
+        );
+      }
+    }
+
+    case 'move_section': {
+      // Check if workflow has been started
+      if (!state.hasStartedWorkflow) {
+        throw new Error(
+          JSON.stringify({
+            code: -32002,
+            message: 'Document management not available',
+            data: {
+              reason: 'WORKFLOW_NOT_STARTED',
+              details: "Please run 'unlock_document_tools' first to unlock document management tools.",
+            },
+          })
+        );
+      }
+      
+      try {
+        const manager = await getDocumentManager();
+        const docPath = (args['path'] as string) ?? '';
+        const sectionSlug = (args['section_slug'] as string) ?? '';
+        const targetSection = (args['target_section'] as string) ?? '';
+        const position = (args['position'] as string) ?? 'after';
+        
+        if (!docPath || !sectionSlug || !targetSection) {
+          throw new Error('Missing required parameters: path, section_slug, and target_section');
+        }
+        
+        const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
+        
+        await manager.moveSection(normalizedPath, sectionSlug, targetSection, position);
+        
+        return {
+          success: true,
+          message: `Section "${sectionSlug}" moved successfully`,
+          moved: {
+            path: normalizedPath,
+            section: sectionSlug,
+            newPosition: `${position} ${targetSection}`,
+            movedAt: new Date().toISOString()
+          },
+          nextSteps: [
+            'Use browse_documents to verify the new structure',
+            'Check that all internal links still work',
+            'Update any cross-references if needed'
+          ]
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          JSON.stringify({
+            code: -32603,
+            message: 'Failed to move section',
+            data: {
+              reason: 'MOVE_ERROR',
+              details: message,
+              path: args['path'],
+              section: args['section_slug'],
             },
           })
         );
