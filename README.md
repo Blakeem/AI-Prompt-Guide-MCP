@@ -48,7 +48,7 @@ Built with:
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/spec-docs-mcp.git
+git clone https://github.com/Blakeem/spec-docs-mcp.git
 cd spec-docs-mcp
 
 # Install dependencies
