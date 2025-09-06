@@ -21,11 +21,27 @@ import {
 import { ensureDirectoryExists, fileExists } from './fsio.js';
 import { MCP_TOOL_NAMES } from './constants/defaults.js';
 import type { ServerConfig } from './types/index.js';
+import { 
+  SessionStore, 
+  getVisibleTools, 
+  getVisiblePrompts, 
+  getPromptTemplate,
+  executeTool 
+} from './welcome-gate.js';
+import { 
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema
+} from '@modelcontextprotocol/sdk/types.js';
 
 /**
  * Global server configuration
  */
 let serverConfig: ServerConfig;
+
+/**
+ * Session store for tracking acknowledgments
+ */
+const sessionStore = new SessionStore();
 
 /**
  * MCP Server instance
@@ -37,7 +53,12 @@ const server = new Server(
   },
   {
     capabilities: {
-      tools: {},
+      tools: {
+        listChanged: true,  // We support dynamic tool list changes
+      },
+      prompts: {
+        listChanged: true,  // We support dynamic prompt list changes
+      },
     },
   }
 );
@@ -115,34 +136,47 @@ async function handleTestConnection(args: Record<string, unknown>): Promise<unkn
 function registerTools(): void {
   const logger = getGlobalLogger();
 
-  // List available tools
+  // List available tools (dynamic based on session state)
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     logger.debug('Listing available tools');
     
-    return {
-      tools: [
-        {
-          name: MCP_TOOL_NAMES.TEST_CONNECTION,
-          description: 'Test server connection and validate configuration',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              includeServerInfo: {
-                type: 'boolean',
-                description: 'Include detailed server configuration information',
-                default: false,
-              },
-              includeSystemInfo: {
-                type: 'boolean',
-                description: 'Include system information (Node.js, platform, etc.)',
-                default: false,
-              },
+    // For now, use a default session ID (in production, this would come from the transport)
+    const sessionId = 'default';
+    const sessionState = sessionStore.getSession(sessionId);
+    const tools = getVisibleTools(sessionState);
+    
+    logger.debug('Returning visible tools', { 
+      sessionId, 
+      hasAcknowledged: sessionState.hasAcknowledged,
+      toolCount: tools.length 
+    });
+    
+    // Add the static test_connection tool
+    const allTools = [
+      {
+        name: MCP_TOOL_NAMES.TEST_CONNECTION,
+        description: 'Test server connection and validate configuration',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            includeServerInfo: {
+              type: 'boolean',
+              description: 'Include detailed server configuration information',
+              default: false,
             },
-            additionalProperties: false,
+            includeSystemInfo: {
+              type: 'boolean',
+              description: 'Include system information (Node.js, platform, etc.)',
+              default: false,
+            },
           },
+          additionalProperties: false,
         },
-      ],
-    };
+      },
+      ...tools,
+    ];
+    
+    return { tools: allTools };
   });
 
   // Handle tool calls
@@ -152,31 +186,68 @@ function registerTools(): void {
     logger.debug('Handling tool call', { toolName: name, args });
 
     try {
-      switch (name) {
-        case MCP_TOOL_NAMES.TEST_CONNECTION:
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(await handleTestConnection(args ?? {}), null, 2),
-              },
-            ],
-          };
+      // Handle static tools first
+      if (name === MCP_TOOL_NAMES.TEST_CONNECTION) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await handleTestConnection(args ?? {}), null, 2),
+            },
+          ],
+        };
+      }
 
-        default:
-          logger.warn('Unknown tool requested', { toolName: name });
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(
-                  createErrorResponse(`Unknown tool: ${name}`, 'tool_call'),
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
+      // Handle dynamic tools from welcome-gate
+      const sessionId = 'default';
+      const sessionState = sessionStore.getSession(sessionId);
+      
+      // Check if this is a dynamic tool
+      const availableTools = getVisibleTools(sessionState);
+      const toolExists = availableTools.some(t => t.name === name);
+      
+      if (toolExists) {
+        const result = await executeTool(
+          name, 
+          args ?? {}, 
+          sessionState,
+          () => {
+            // Send list_changed notifications
+            logger.info('Sending list_changed notifications');
+            server.notification({
+              method: 'notifications/tools/list_changed',
+              params: {},
+            });
+            server.notification({
+              method: 'notifications/prompts/list_changed',
+              params: {},
+            });
+          }
+        );
+        
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      // Unknown tool
+      logger.warn('Unknown tool requested', { toolName: name });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              createErrorResponse(`Unknown tool: ${name}`, 'tool_call'),
+              null,
+              2
+            ),
+          },
+        ],
       }
     } catch (error) {
       const { message, context } = formatLogError(error, `tool_call:${name}`);
@@ -197,7 +268,51 @@ function registerTools(): void {
     }
   });
 
-  logger.info('MCP tools registered successfully');
+  // Register prompt handlers
+  server.setRequestHandler(ListPromptsRequestSchema, async () => {
+    logger.debug('Listing available prompts');
+    
+    const sessionId = 'default';
+    const sessionState = sessionStore.getSession(sessionId);
+    const prompts = getVisiblePrompts(sessionState);
+    
+    return { prompts };
+  });
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const { name } = request.params;
+    
+    logger.debug('Getting prompt', { promptName: name });
+    
+    const sessionId = 'default';
+    const sessionState = sessionStore.getSession(sessionId);
+    const prompts = getVisiblePrompts(sessionState);
+    
+    const prompt = prompts.find(p => p.name === name);
+    if (!prompt) {
+      throw new Error(`Unknown prompt: ${name}`);
+    }
+    
+    const template = getPromptTemplate(name);
+    if (!template) {
+      throw new Error(`No template for prompt: ${name}`);
+    }
+    
+    return {
+      ...prompt,
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: template,
+          },
+        },
+      ],
+    };
+  });
+
+  logger.info('MCP tools and prompts registered successfully');
 }
 
 /**
