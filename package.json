@@ -19,8 +19,8 @@
     "format:check": "prettier --check \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "prepare": "pnpm build",
-    "inspector": "npx @modelcontextprotocol/inspector node dist/index.js",
-    "inspector:dev": "npx @modelcontextprotocol/inspector tsx src/index.ts"
+    "inspector": "npx --yes @modelcontextprotocol/inspector node dist/index.js",
+    "inspector:dev": "npx --yes @modelcontextprotocol/inspector tsx src/index.ts"
   },
   "keywords": [
     "mcp",

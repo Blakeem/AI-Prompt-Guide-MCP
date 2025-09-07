@@ -128,22 +128,60 @@ async getDocument(docPath: string): Promise<CachedDocument | null> {
 ## TESTING AND DEVELOPMENT
 
 ### MCP Inspector Testing (REQUIRED)
-**ALWAYS use the MCP Inspector for testing and validation:**
 
-1. **Starting Inspector:**
+#### **Development Workflow**
+Use **ad hoc inspector sessions** - start only when testing, stop immediately after:
+
+```bash
+# Start inspector for testing
+pnpm inspector:dev
+
+# Test functionality in browser
+# Stop inspector immediately: Ctrl+C
+```
+
+#### **Inspector Startup Process**
+1. **Check for conflicts first:**
+   ```bash
+   lsof -i :6277  # Check proxy port  
+   lsof -i :6274  # Check inspector port
+   # Kill any running processes: kill <PID>
+   ```
+
+2. **Start fresh inspector:**
    ```bash
    pnpm inspector:dev
    ```
 
-2. **Common Port Issues:**
-   - If you see "PORT IS IN USE" errors, kill existing processes:
-   ```bash
-   lsof -i :6277  # Check proxy port
-   lsof -i :6274  # Check inspector port 
-   kill <PID>     # Kill the processes
+3. **Access URL:** Open the provided URL with pre-filled auth token:
+   ```
+   🔗 Open inspector with token pre-filled:
+      http://localhost:6274/?MCP_PROXY_AUTH_TOKEN=<token>
    ```
 
-3. **Inspector URL:** Access at `http://127.0.0.1:6274` with the provided auth token
+#### **Handoff Protocol**
+**For user testing sessions:**
+1. **Assistant**: Stop all background inspectors  
+2. **User**: Start fresh inspector with `pnpm inspector:dev`
+3. **User**: Test functionality, then stop with `Ctrl+C`
+4. **Clean environment**: No persistent background processes
+
+#### **Port Conflict Resolution**
+If you encounter "PORT IS IN USE" errors:
+```bash
+# Method 1: Find and kill specific processes
+lsof -i :6277 -i :6274  # Show what's using the ports
+kill <PID1> <PID2> <PID3>  # Kill the specific process IDs
+
+# Method 2: Kill by process pattern (more aggressive)
+pkill -f "inspector.*tsx"
+pkill -f "modelcontextprotocol"
+
+# Method 3: One-liner to clear both ports
+lsof -ti :6277,:6274 | xargs -r kill
+```
+
+**Common Cause**: Orphaned inspector processes that detached from Claude Code sessions but are still running in background.
 
 ### Common Development Issues & Solutions
 
@@ -180,3 +218,10 @@ const manager = new DocumentManager(docsRoot);
 4. **Verify Archive System** → Create, then archive test documents
 5. **Check Templates** → Verify `.spec-docs-mcp/templates/` accessibility
 
+## DEBUGGING PRINCIPLES
+
+### **Never Mask Issues - Always Find Root Cause**
+When encountering warnings or errors:
+
+❌ **DON'T:** Hide warnings with grep, redirects, or suppression  
+✅ **DO:** Trace to the actual source and resolve properly
