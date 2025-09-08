@@ -39,11 +39,11 @@ export async function createMCPServer(): Promise<{
   await ensureDirectoryExists(serverConfig.docsBasePath);
   logger.debug('Docs directory ready', { path: serverConfig.docsBasePath });
 
-  // Create server instance
+  // Create server instance with package.json name and version
   const server = new Server(
     {
-      name: 'spec-docs-mcp',
-      version: '1.0.0',
+      name: serverConfig.serverName,
+      version: serverConfig.serverVersion,
     },
     {
       capabilities: {
