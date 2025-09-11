@@ -12,9 +12,7 @@ import type { HeadingDepth } from './types/index.js';
  * Session state tracking for each connection
  */
 export interface SessionState {
-  hasStartedWorkflow: boolean;
   sessionId: string;
-  workflowStartedAt?: Date;
 }
 
 /**
@@ -30,7 +28,6 @@ export class SessionStore {
     if (!this.sessions.has(sessionId)) {
       this.sessions.set(sessionId, {
         sessionId,
-        hasStartedWorkflow: false,
       });
     }
     const session = this.sessions.get(sessionId);
@@ -40,16 +37,6 @@ export class SessionStore {
     return session;
   }
 
-  /**
-   * Start document workflow for session
-   */
-  startWorkflow(sessionId: string): boolean {
-    const session = this.getSession(sessionId);
-    const wasStarted = session.hasStartedWorkflow;
-    session.hasStartedWorkflow = true;
-    session.workflowStartedAt = new Date();
-    return !wasStarted; // Return true if this was the first time starting
-  }
 
   /**
    * Reset session (for testing)
@@ -81,10 +68,10 @@ export interface ToolDefinition {
 }
 
 /**
- * Get visible tools based on session state
+ * Get all available tools
  */
-export function getVisibleTools(state: SessionState): ToolDefinition[] {
-  const alwaysAvailableTools: ToolDefinition[] = [
+export function getVisibleTools(_state: SessionState): ToolDefinition[] {
+  const tools: ToolDefinition[] = [
     {
       name: 'browse_documents',
       description: 'Browse and list existing documents in the knowledge base',
@@ -130,24 +117,6 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
           },
         },
         required: ['query'],
-        additionalProperties: false,
-      },
-    },
-  ];
-
-  const workflowGatewayTool: ToolDefinition[] = [
-    {
-      name: 'unlock_document_tools',
-      description: 'Unlock document management tools (create, update, archive documents)',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          show_overview: {
-            type: 'boolean',
-            description: 'Show complete document structure overview after unlocking',
-            default: true,
-          },
-        },
         additionalProperties: false,
       },
     },
@@ -209,17 +178,13 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'archive_document',
-      description: 'Archive a document (move to archive folder for safety)',
+      description: 'Archive a document or folder (move to archive folder for safety)',
       inputSchema: {
         type: 'object',
         properties: {
           path: {
             type: 'string',
-            description: 'Document path to archive',
-          },
-          reason: {
-            type: 'string',
-            description: 'Optional reason for archiving (for audit trail)',
+            description: 'Document or folder path to archive (with or without .md extension)',
           },
         },
         required: ['path'],
@@ -297,11 +262,8 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
   ];
 
-  // Always show browse/search tools and workflow starter
-  const baseTools = [...alwaysAvailableTools, ...workflowGatewayTool];
-  
-  // Add document management tools if workflow has been started
-  return state.hasStartedWorkflow ? [...baseTools, ...documentManagementTools] : baseTools;
+  // Return all tools
+  return [...tools, ...documentManagementTools];
 }
 
 /**
@@ -323,23 +285,13 @@ export interface PromptDefinition {
 export function getVisiblePrompts(_state: SessionState): PromptDefinition[] {
   return [
     {
-      name: 'architect-specification-document',
-      description: 'Advanced technical documentation architecture for complex systems and APIs',
+      name: 'activate-specification-documentation',
+      description: 'Create comprehensive technical specifications for tools, APIs, and systems',
       arguments: [],
     },
     {
-      name: 'construct-professional-guide',
-      description: 'Systematic professional document construction with enterprise-grade quality',
-      arguments: [],
-    },
-    {
-      name: 'investigate-and-validate',
-      description: 'Advanced intelligence gathering and source validation for technical accuracy',
-      arguments: [],
-    },
-    {
-      name: 'standardize-content-format',
-      description: 'Enterprise-grade content standardization and professional formatting engine',
+      name: 'activate-guide-documentation',
+      description: 'Create clear, actionable guides and tutorials for processes and workflows',
       arguments: [],
     },
   ];
@@ -352,10 +304,8 @@ export async function getPromptTemplate(name: string): Promise<string | null> {
   try {
     // Map prompt names to template types
     const templateMap: Record<string, string> = {
-      'architect-specification-document': 'architect-specification-document',
-      'construct-professional-guide': 'construct-professional-guide',
-      'investigate-and-validate': 'investigate-and-validate',
-      'standardize-content-format': 'standardize-content-format',
+      'activate-specification-documentation': 'activate-specification-documentation',
+      'activate-guide-documentation': 'activate-guide-documentation',
     };
 
     const templateType = templateMap[name];
@@ -368,7 +318,7 @@ export async function getPromptTemplate(name: string): Promise<string | null> {
     const loader = getTemplateLoader();
     await loader.initialize();
     
-    const template = await loader.loadTemplate(templateType as 'architect-specification-document' | 'construct-professional-guide' | 'investigate-and-validate' | 'standardize-content-format');
+    const template = await loader.loadTemplate(templateType as 'activate-specification-documentation' | 'activate-guide-documentation');
     return template.content;
   } catch {
     // Fallback for any errors
@@ -380,19 +330,15 @@ export async function getPromptTemplate(name: string): Promise<string | null> {
  * Fallback prompt content if template loading fails
  */
 function getDefaultPromptContent(name: string): string | null {
-  if (name === 'architect-specification-document') {
-    return `# architect-specification-document
+  if (name === 'activate-specification-documentation') {
+    return `# Activate Specification Documentation Protocol
 
-**Function:** Advanced technical documentation architecture for complex systems and APIs
+Create comprehensive technical specifications for tools, APIs, and systems with authoritative accuracy.`;
+  }
+  if (name === 'activate-guide-documentation') {
+    return `# Activate Guide Documentation Protocol
 
-**Status:** Ready for activation | **Complexity:** Advanced | **Output:** Production-grade technical specifications
-
-## Activation Instructions
-1. Execute 'unlock_document_tools' to initialize this architectural function
-2. Begin systematic specification construction
-3. Apply enterprise-grade documentation protocols
-
-Activate this module to gain sophisticated document building capabilities! 🚀`;
+Create clear, actionable guides and tutorials for processes and workflows.`;
   }
   return null;
 }
@@ -434,91 +380,11 @@ async function getDocumentManager(): Promise<DocumentManager> {
 export async function executeTool(
   toolName: string,
   args: Record<string, unknown>,
-  state: SessionState,
-  onListChanged?: () => void
+  _state: SessionState,
+  _onListChanged?: () => void
 ): Promise<unknown> {
   switch (toolName) {
-    case 'unlock_document_tools': {
-      const firstTime = !state.hasStartedWorkflow;
-      const showOverview = Boolean(args['show_overview'] ?? true);
-      
-      state.hasStartedWorkflow = true;
-      state.workflowStartedAt = new Date();
-      
-      // Trigger list changed notifications if this is the first time
-      if (firstTime && onListChanged) {
-        onListChanged();
-      }
-
-      // Get document structure overview if requested
-      let documentStructure = {};
-      if (showOverview) {
-        try {
-          const manager = await getDocumentManager();
-          const documents = await manager.listDocuments();
-          
-          documentStructure = {
-            totalDocuments: documents.length,
-            documentsByPath: documents.reduce((acc, doc) => {
-              const pathParts = doc.path.split('/').filter(Boolean);
-              const category = pathParts[0] ?? 'root';
-              acc[category] ??= [];
-              acc[category].push({
-                path: doc.path,
-                title: doc.title,
-                headings: doc.headingCount,
-                words: doc.wordCount,
-                lastModified: doc.lastModified
-              });
-              return acc;
-            }, {} as Record<string, Array<{path: string, title: string, headings: number, words: number, lastModified: Date}>>)
-          };
-        } catch {
-          // Don't fail if we can't get structure
-        }
-      }
-      
-      return {
-        success: true,
-        message: firstTime 
-          ? 'Document management tools unlocked! You now have access to comprehensive document operations.'
-          : 'Document tools already active. All tools remain available.',
-        workflowActive: true,
-        startedAt: state.workflowStartedAt.toISOString(),
-        unlockedTools: [
-          'create_document - Create new documents with templates and TOC',
-          'update_document_section - Modify specific document sections',
-          'insert_section - Add new sections at precise locations', 
-          'move_section - Reorganize document structure',
-          'archive_document - Safely archive documents (recommended over deletion)',
-          'browse_documents - Explore existing document organization',
-          'search_documents - Find content across all documents'
-        ],
-        documentStructure: showOverview ? documentStructure : undefined,
-        nextSteps: [
-          'Use browse_documents to explore existing content',
-          'Use search_documents to find specific topics',
-          'Use create_document to add new documentation',
-          'Remember: always research thoroughly before writing'
-        ]
-      };
-    }
-
     case 'create_document': {
-      // Check if workflow has been started
-      if (!state.hasStartedWorkflow) {
-        throw new Error(
-          JSON.stringify({
-            code: -32002,
-            message: 'Document management not available',
-            data: {
-              reason: 'WORKFLOW_NOT_STARTED',
-              details: "Please run 'start_document_workflow' first to unlock document management tools.",
-            },
-          })
-        );
-      }
-      
       const docPath = (args['path'] as string) ?? '/untitled.md';
       const title = (args['title'] as string) ?? 'New Document';
       const template = (args['template'] as string) ?? 'blank';
@@ -695,20 +561,6 @@ export async function executeTool(
     }
 
     case 'update_document_section': {
-      // Check if workflow has been started
-      if (!state.hasStartedWorkflow) {
-        throw new Error(
-          JSON.stringify({
-            code: -32002,
-            message: 'Document management not available',
-            data: {
-              reason: 'WORKFLOW_NOT_STARTED',
-              details: "Please run 'start_document_workflow' first to unlock document management tools.",
-            },
-          })
-        );
-      }
-      
       try {
         const manager = await getDocumentManager();
         const docPath = (args['path'] as string) ?? '';
@@ -785,49 +637,26 @@ export async function executeTool(
     }
 
     case 'archive_document': {
-      // Check if workflow has been started
-      if (!state.hasStartedWorkflow) {
-        throw new Error(
-          JSON.stringify({
-            code: -32002,
-            message: 'Document management not available',
-            data: {
-              reason: 'WORKFLOW_NOT_STARTED',
-              details: "Please run 'unlock_document_tools' first to unlock document management tools.",
-            },
-          })
-        );
-      }
-      
       try {
         const manager = await getDocumentManager();
-        const docPath = (args['path'] as string) ?? '';
-        const reason = (args['reason'] as string) ?? '';
-        const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
+        const userPath = (args['path'] as string) ?? '';
         
-        // Check if document exists before archiving
-        const document = await manager.getDocument(normalizedPath);
-        if (!document) {
-          throw new Error(`Document not found: ${normalizedPath}`);
+        if (userPath === '') {
+          throw new Error('Path is required');
         }
         
-        await manager.archiveDocument(normalizedPath, reason);
+        const result = await manager.archiveDocument(userPath);
         
         return {
           success: true,
-          message: `Document archived successfully: ${normalizedPath}`,
+          message: `${result.wasFolder ? 'Folder' : 'Document'} archived successfully: ${result.originalPath}`,
           archived: {
-            originalPath: normalizedPath,
-            archivePath: `/archived${normalizedPath}`,
-            title: document.metadata.title,
-            archivedAt: new Date().toISOString(),
-            reason: reason || 'No reason provided',
-            stats: {
-              headings: document.headings.length,
-              words: document.metadata.wordCount
-            }
+            originalPath: result.originalPath,
+            archivePath: result.archivePath,
+            type: result.wasFolder ? 'folder' : 'file',
+            archivedAt: new Date().toISOString()
           },
-          note: 'Archived documents can be restored by moving them back from the archive folder.',
+          note: 'Archived items can be restored by moving them back from the archive folder. Duplicate handling ensures no data loss.',
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -846,20 +675,6 @@ export async function executeTool(
     }
 
     case 'insert_section': {
-      // Check if workflow has been started
-      if (!state.hasStartedWorkflow) {
-        throw new Error(
-          JSON.stringify({
-            code: -32002,
-            message: 'Document management not available',
-            data: {
-              reason: 'WORKFLOW_NOT_STARTED',
-              details: "Please run 'unlock_document_tools' first to unlock document management tools.",
-            },
-          })
-        );
-      }
-      
       try {
         const manager = await getDocumentManager();
         const docPath = (args['path'] as string) ?? '';
@@ -923,20 +738,6 @@ export async function executeTool(
     }
 
     case 'move_section': {
-      // Check if workflow has been started
-      if (!state.hasStartedWorkflow) {
-        throw new Error(
-          JSON.stringify({
-            code: -32002,
-            message: 'Document management not available',
-            data: {
-              reason: 'WORKFLOW_NOT_STARTED',
-              details: "Please run 'unlock_document_tools' first to unlock document management tools.",
-            },
-          })
-        );
-      }
-      
       try {
         const manager = await getDocumentManager();
         const docPath = (args['path'] as string) ?? '';

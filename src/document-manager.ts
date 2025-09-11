@@ -7,8 +7,9 @@ import path from 'node:path';
 import { getGlobalCache } from './document-cache.js';
 import { replaceSectionBody, insertRelative, renameHeading, deleteSection } from './sections.js';
 import { listHeadings, buildToc } from './parse.js';
-import { ensureDirectoryExists, writeFileIfUnchanged, readFileSnapshot } from './fsio.js';
+import { ensureDirectoryExists, writeFileIfUnchanged, readFileSnapshot, fileExists } from './fsio.js';
 import { getGlobalLogger } from './utils/logger.js';
+import { PathHandler } from './utils/path-handler.js';
 import type { TocNode, HeadingDepth, InsertMode } from './types/index.js';
 import type { CachedDocument } from './document-cache.js';
 
@@ -61,9 +62,11 @@ export interface SearchResult {
 export class DocumentManager {
   private readonly docsRoot: string;
   private readonly cache = getGlobalCache();
+  private readonly pathHandler: PathHandler;
 
   constructor(docsRoot: string) {
     this.docsRoot = path.resolve(docsRoot);
+    this.pathHandler = new PathHandler(this.docsRoot);
   }
 
   /**
@@ -271,35 +274,79 @@ export class DocumentManager {
   }
 
   /**
-   * Archive document (move to archive folder)
+   * Archive document or folder (move to archive folder with duplicate handling)
    */
-  async archiveDocument(docPath: string, reason?: string): Promise<void> {
-    const absolutePath = this.getAbsolutePath(docPath);
-    const archiveDir = path.join(this.docsRoot, 'archived');
-    const archivePath = path.join(archiveDir, docPath.startsWith('/') ? docPath.slice(1) : docPath);
+  async archiveDocument(userPath: string): Promise<{ originalPath: string; archivePath: string; wasFolder: boolean }> {
+    // Normalize and validate the path
+    const normalizedPath = this.pathHandler.processUserPath(userPath);
+    const absolutePath = this.pathHandler.getAbsolutePath(normalizedPath);
     
-    // Ensure archive directory exists
-    await ensureDirectoryExists(path.dirname(archivePath));
-    
-    // Move file to archive
-    await fs.rename(absolutePath, archivePath);
-    
-    // Create audit trail file
-    if (reason != null && reason !== '') {
-      const auditPath = `${archivePath}.audit`;
-      const auditInfo = {
-        originalPath: docPath,
-        archivedAt: new Date().toISOString(),
-        reason,
-        archivedBy: 'MCP Document Manager'
-      };
-      await fs.writeFile(auditPath, JSON.stringify(auditInfo, null, 2), 'utf8');
+    // Check if source exists
+    if (!(await fileExists(absolutePath))) {
+      throw new Error(`Path not found: ${normalizedPath}`);
     }
     
-    // Invalidate cache
-    this.cache.invalidateDocument(docPath);
+    // Determine if it's a folder or file
+    const stats = await fs.stat(absolutePath);
+    const isFolder = stats.isDirectory();
     
-    logger.info('Archived document', { path: docPath, reason });
+    // Generate unique archive path (handles duplicates automatically)
+    const uniqueArchivePath = await this.pathHandler.generateUniqueArchivePath(normalizedPath);
+    
+    // Ensure archive directory structure exists
+    await ensureDirectoryExists(path.dirname(uniqueArchivePath));
+    
+    // Move file/folder to archive
+    await fs.rename(absolutePath, uniqueArchivePath);
+    
+    // Create audit trail file
+    const auditPath = `${uniqueArchivePath}.audit`;
+    const auditInfo = {
+      originalPath: normalizedPath,
+      archivedAt: new Date().toISOString(),
+      archivedBy: 'MCP Document Manager',
+      type: isFolder ? 'folder' : 'file',
+      note: 'Archived via MCP server'
+    };
+    await fs.writeFile(auditPath, JSON.stringify(auditInfo, null, 2), 'utf8');
+    
+    // Invalidate cache for the archived item
+    this.cache.invalidateDocument(normalizedPath);
+    
+    // If it was a folder, invalidate all documents within it
+    if (isFolder) {
+      // Get relative archive path for return value
+      const relativeArchivePath = path.relative(this.docsRoot, uniqueArchivePath);
+      
+      // Invalidate all cached documents that were in this folder
+      // We'll use cache internals temporarily - this should be refactored to use a proper method
+      const cacheInternal = this.cache as { cache?: Map<string, unknown> };
+      if (cacheInternal.cache != null) {
+        for (const cachedPath of cacheInternal.cache.keys()) {
+          if (typeof cachedPath === 'string' && cachedPath.startsWith(normalizedPath)) {
+            this.cache.invalidateDocument(cachedPath);
+          }
+        }
+      }
+      
+      logger.info('Archived folder', { originalPath: normalizedPath, archivePath: relativeArchivePath });
+      
+      return {
+        originalPath: normalizedPath,
+        archivePath: `/${relativeArchivePath}`,
+        wasFolder: true
+      };
+    } else {
+      const relativeArchivePath = path.relative(this.docsRoot, uniqueArchivePath);
+      
+      logger.info('Archived document', { originalPath: normalizedPath, archivePath: relativeArchivePath });
+      
+      return {
+        originalPath: normalizedPath,
+        archivePath: `/${relativeArchivePath}`,
+        wasFolder: false
+      };
+    }
   }
 
   /**

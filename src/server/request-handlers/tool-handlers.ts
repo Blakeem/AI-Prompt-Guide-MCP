@@ -44,7 +44,6 @@ export function registerToolHandlers(
     
     logger.debug('Returning visible tools', { 
       sessionId, 
-      hasStartedWorkflow: sessionState.hasStartedWorkflow,
       toolCount: tools.length 
     });
     
