@@ -73,7 +73,7 @@ export interface ToolDefinition {
 export function getVisibleTools(_state: SessionState): ToolDefinition[] {
   const tools: ToolDefinition[] = [
     {
-      name: 'browse_documents',
+      name: 'list_documents',
       description: 'Browse and list existing documents in the knowledge base',
       inputSchema: {
         type: 'object',
@@ -149,7 +149,7 @@ export function getVisibleTools(_state: SessionState): ToolDefinition[] {
       },
     },
     {
-      name: 'update_document_section',
+      name: 'edit_section',
       description: 'Update or add a specific section within an existing document',
       inputSchema: {
         type: 'object',
@@ -232,31 +232,98 @@ export function getVisibleTools(_state: SessionState): ToolDefinition[] {
       },
     },
     {
-      name: 'move_section',
-      description: 'Move a section to a different location',
+      name: 'add_task',
+      description: 'Add tasks with links to specifications',
       inputSchema: {
         type: 'object',
         properties: {
-          path: {
+          document: {
+            type: 'string',
+            description: 'Document path (e.g., "/specs/search-api.md")',
+          },
+          title: {
+            type: 'string',
+            description: 'Task title',
+          },
+          criteria: {
+            type: 'string',
+            description: 'Measurable completion criteria',
+          },
+          links: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'References to specification documents',
+          },
+        },
+        required: ['document', 'title'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'complete_task',
+      description: 'Mark tasks as completed with notes',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          task_id: {
+            type: 'string',
+            description: 'Task identifier (e.g., "search-api.md#tasks[3]")',
+          },
+          note: {
+            type: 'string',
+            description: 'Completion notes or implementation details',
+          },
+        },
+        required: ['task_id'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'reopen_task',
+      description: 'Revert task completion',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          task_id: {
+            type: 'string',
+            description: 'Task identifier (e.g., "api.md#tasks[0]")',
+          },
+        },
+        required: ['task_id'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'view_document',
+      description: 'Inspect document structure and content',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          document: {
+            type: 'string',
+            description: 'Document path (e.g., "/specs/search-api.md")',
+          },
+        },
+        required: ['document'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'remove_section',
+      description: 'Delete sections (with safety check)',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          document: {
             type: 'string',
             description: 'Document path',
           },
-          section_slug: {
+          section: {
             type: 'string',
-            description: 'Section to move',
-          },
-          target_section: {
-            type: 'string',
-            description: 'Target section to move relative to',
-          },
-          position: {
-            type: 'string',
-            enum: ['before', 'after', 'child'],
-            description: 'Where to move relative to target',
-            default: 'after',
+            description: 'Section slug to remove (e.g., "#deprecated")',
           },
         },
-        required: ['path', 'section_slug', 'target_section'],
+        required: ['document', 'section'],
         additionalProperties: false,
       },
     },
@@ -266,82 +333,6 @@ export function getVisibleTools(_state: SessionState): ToolDefinition[] {
   return [...tools, ...documentManagementTools];
 }
 
-/**
- * Prompt definitions
- */
-export interface PromptDefinition {
-  name: string;
-  description: string;
-  arguments?: Array<{
-    name: string;
-    description: string;
-    required: boolean;
-  }>;
-}
-
-/**
- * Get available prompts
- */
-export function getVisiblePrompts(_state: SessionState): PromptDefinition[] {
-  return [
-    {
-      name: 'activate-specification-documentation',
-      description: 'Create comprehensive technical specifications for tools, APIs, and systems',
-      arguments: [],
-    },
-    {
-      name: 'activate-guide-documentation',
-      description: 'Create clear, actionable guides and tutorials for processes and workflows',
-      arguments: [],
-    },
-  ];
-}
-
-/**
- * Get prompt template content using the template loader
- */
-export async function getPromptTemplate(name: string): Promise<string | null> {
-  try {
-    // Map prompt names to template types
-    const templateMap: Record<string, string> = {
-      'activate-specification-documentation': 'activate-specification-documentation',
-      'activate-guide-documentation': 'activate-guide-documentation',
-    };
-
-    const templateType = templateMap[name];
-    if (templateType == null) {
-      return null;
-    }
-
-    // Import the template loader here to avoid circular dependencies
-    const { getTemplateLoader } = await import('./template-loader.js');
-    const loader = getTemplateLoader();
-    await loader.initialize();
-    
-    const template = await loader.loadTemplate(templateType as 'activate-specification-documentation' | 'activate-guide-documentation');
-    return template.content;
-  } catch {
-    // Fallback for any errors
-    return getDefaultPromptContent(name);
-  }
-}
-
-/**
- * Fallback prompt content if template loading fails
- */
-function getDefaultPromptContent(name: string): string | null {
-  if (name === 'activate-specification-documentation') {
-    return `# Activate Specification Documentation Protocol
-
-Create comprehensive technical specifications for tools, APIs, and systems with authoritative accuracy.`;
-  }
-  if (name === 'activate-guide-documentation') {
-    return `# Activate Guide Documentation Protocol
-
-Create clear, actionable guides and tutorials for processes and workflows.`;
-  }
-  return null;
-}
 
 /**
  * Get document manager instance (lazy initialization)
@@ -445,7 +436,7 @@ export async function executeTool(
       }
     }
 
-    case 'browse_documents': {
+    case 'list_documents': {
       try {
         const manager = await getDocumentManager();
         const path = (args['path'] as string) ?? '/';
@@ -560,7 +551,7 @@ export async function executeTool(
       }
     }
 
-    case 'update_document_section': {
+    case 'edit_section': {
       try {
         const manager = await getDocumentManager();
         const docPath = (args['path'] as string) ?? '';
@@ -737,52 +728,89 @@ export async function executeTool(
       }
     }
 
-    case 'move_section': {
-      try {
-        const manager = await getDocumentManager();
-        const docPath = (args['path'] as string) ?? '';
-        const sectionSlug = (args['section_slug'] as string) ?? '';
-        const targetSection = (args['target_section'] as string) ?? '';
-        const position = (args['position'] as string) ?? 'after';
-        
-        if (!docPath || !sectionSlug || !targetSection) {
-          throw new Error('Missing required parameters: path, section_slug, and target_section');
-        }
-        
-        const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
-        
-        await manager.moveSection(normalizedPath, sectionSlug, targetSection, position);
-        
-        return {
-          success: true,
-          message: `Section "${sectionSlug}" moved successfully`,
-          moved: {
-            path: normalizedPath,
-            section: sectionSlug,
-            newPosition: `${position} ${targetSection}`,
-            movedAt: new Date().toISOString()
-          },
-          nextSteps: [
-            'Use browse_documents to verify the new structure',
-            'Check that all internal links still work',
-            'Update any cross-references if needed'
-          ]
-        };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new Error(
-          JSON.stringify({
-            code: -32603,
-            message: 'Failed to move section',
-            data: {
-              reason: 'MOVE_ERROR',
-              details: message,
-              path: args['path'],
-              section: args['section_slug'],
-            },
-          })
-        );
-      }
+    case 'add_task': {
+      throw new Error(
+        JSON.stringify({
+          code: -32601,
+          message: 'add_task tool not yet implemented',
+          data: {
+            reason: 'NOT_IMPLEMENTED',
+            planned_parameters: ['document', 'title', 'criteria', 'links'],
+            example: {
+              document: '/specs/search-api.md',
+              title: 'Implement caching layer',
+              criteria: 'Redis-based, 100ms response time',
+              links: ['/architecture/caching.md', '/specs/search-api.md#performance']
+            }
+          }
+        })
+      );
+    }
+
+    case 'complete_task': {
+      throw new Error(
+        JSON.stringify({
+          code: -32601,
+          message: 'complete_task tool not yet implemented',
+          data: {
+            reason: 'NOT_IMPLEMENTED',
+            planned_parameters: ['task_id', 'note'],
+            example: {
+              task_id: 'search-api.md#tasks[3]',
+              note: 'Implemented with Redis Cluster, achieving 87ms p99'
+            }
+          }
+        })
+      );
+    }
+
+    case 'reopen_task': {
+      throw new Error(
+        JSON.stringify({
+          code: -32601,
+          message: 'reopen_task tool not yet implemented',
+          data: {
+            reason: 'NOT_IMPLEMENTED',
+            planned_parameters: ['task_id'],
+            example: {
+              task_id: 'api.md#tasks[0]'
+            }
+          }
+        })
+      );
+    }
+
+    case 'view_document': {
+      throw new Error(
+        JSON.stringify({
+          code: -32601,
+          message: 'view_document tool not yet implemented',
+          data: {
+            reason: 'NOT_IMPLEMENTED',
+            planned_parameters: ['document'],
+            example: {
+              document: '/specs/search-api.md'
+            }
+          }
+        })
+      );
+    }
+
+    case 'remove_section': {
+      throw new Error(
+        JSON.stringify({
+          code: -32601,
+          message: 'remove_section tool not yet implemented',
+          data: {
+            reason: 'NOT_IMPLEMENTED',
+            planned_parameters: ['document', 'section'],
+            example: {
+              document: '/specs/api.md',
+              section: '#deprecated'
+            }
+          }
+        })
+      );
     }
 
     default: {

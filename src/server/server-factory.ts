@@ -9,7 +9,7 @@ import { createLogger, setGlobalLogger } from '../utils/logger.js';
 import { formatLogError } from '../utils/error-formatter.js';
 import { ensureDirectoryExists } from '../fsio.js';
 import { SessionStore } from '../welcome-gate.js';
-import { registerToolHandlers, registerPromptHandlers } from './request-handlers/index.js';
+import { registerToolHandlers } from './request-handlers/index.js';
 import type { ServerConfig } from '../types/index.js';
 
 /**
@@ -50,9 +50,6 @@ export async function createMCPServer(): Promise<{
         tools: {
           listChanged: true,  // We support dynamic tool list changes
         },
-        prompts: {
-          listChanged: true,  // We support dynamic prompt list changes
-        },
       },
     }
   );
@@ -62,7 +59,6 @@ export async function createMCPServer(): Promise<{
 
   // Register all handlers
   registerToolHandlers(server, sessionStore, serverConfig);
-  registerPromptHandlers(server, sessionStore);
 
   // Create transport
   const transport = new StdioServerTransport();

@@ -118,10 +118,6 @@ export function registerToolHandlers(
               method: 'notifications/tools/list_changed',
               params: {},
             });
-            void server.notification({
-              method: 'notifications/prompts/list_changed',
-              params: {},
-            });
           }
         );
         

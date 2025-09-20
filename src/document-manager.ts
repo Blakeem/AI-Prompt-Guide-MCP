@@ -320,7 +320,7 @@ export class DocumentManager {
       
       // Invalidate all cached documents that were in this folder
       // We'll use cache internals temporarily - this should be refactored to use a proper method
-      const cacheInternal = this.cache as { cache?: Map<string, unknown> };
+      const cacheInternal = this.cache as unknown as { cache?: Map<string, unknown> };
       if (cacheInternal.cache != null) {
         for (const cachedPath of cacheInternal.cache.keys()) {
           if (typeof cachedPath === 'string' && cachedPath.startsWith(normalizedPath)) {
