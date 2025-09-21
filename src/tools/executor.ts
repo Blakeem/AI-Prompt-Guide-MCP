@@ -9,7 +9,6 @@ import {
   searchDocuments,
   editSection,
   archiveDocument,
-  insertSection,
   addTask,
   completeTask,
   reopenTask,
@@ -41,9 +40,6 @@ export async function executeTool(
 
     case 'archive_document':
       return await archiveDocument(args, state);
-
-    case 'insert_section':
-      return await insertSection(args, state);
 
     case 'add_task':
       return await addTask(args, state);

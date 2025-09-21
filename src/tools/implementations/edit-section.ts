@@ -22,13 +22,14 @@ export async function editSection(
         section: string;
         content: string;
         operation?: string;
+        title?: string;
       }>;
 
       if (operations.length === 0) {
         throw new Error('Batch operations array cannot be empty');
       }
 
-      const batchResults: Array<{success: boolean; section: string; error?: string}> = [];
+      const batchResults: Array<{success: boolean; section: string; action?: 'edited' | 'created'; depth?: number; error?: string}> = [];
       let sectionsModified = 0;
       const documentsModified = new Set<string>();
 
@@ -39,6 +40,7 @@ export async function editSection(
           const sectionSlug = op.section ?? '';
           const content = op.content ?? '';
           const operation = op.operation ?? 'replace';
+          const title = op.title;
 
           if (!docPath || !sectionSlug || !content) {
             throw new Error('Missing required parameters: document, section, and content');
@@ -47,12 +49,14 @@ export async function editSection(
           const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
           documentsModified.add(normalizedPath);
 
-          // Perform the same validation and operation as single mode
-          await performSectionEdit(manager, normalizedPath, sectionSlug, content, operation);
+          // Perform the enhanced operation
+          const result = await performSectionEdit(manager, normalizedPath, sectionSlug, content, operation, title);
 
           batchResults.push({
             success: true,
-            section: sectionSlug
+            section: result.section,
+            action: result.action,
+            ...(result.depth !== undefined && { depth: result.depth })
           });
           sectionsModified++;
 
@@ -81,12 +85,14 @@ export async function editSection(
         section: string;
         content: string;
         operation?: string;
+        title?: string;
       };
 
       const docPath = singleOp.document ?? '';
       const sectionSlug = singleOp.section ?? '';
       const content = singleOp.content ?? '';
       const operation = singleOp.operation ?? 'replace';
+      const title = singleOp.title;
 
       if (!docPath || !sectionSlug || !content) {
         throw new Error('Missing required parameters: document, section, and content');
@@ -94,15 +100,27 @@ export async function editSection(
 
       const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
 
-      await performSectionEdit(manager, normalizedPath, sectionSlug, content, operation);
+      const result = await performSectionEdit(manager, normalizedPath, sectionSlug, content, operation, title);
 
-      return {
-        updated: true,
-        document: normalizedPath,
-        section: sectionSlug,
-        operation,
-        timestamp: new Date().toISOString()
-      };
+      // Return different response based on action
+      if (result.action === 'created') {
+        return {
+          created: true,
+          document: normalizedPath,
+          new_section: result.section,
+          ...(result.depth !== undefined && { depth: result.depth }),
+          operation,
+          timestamp: new Date().toISOString()
+        };
+      } else {
+        return {
+          updated: true,
+          document: normalizedPath,
+          section: result.section,
+          operation,
+          timestamp: new Date().toISOString()
+        };
+      }
     }
 
   } catch (error) {

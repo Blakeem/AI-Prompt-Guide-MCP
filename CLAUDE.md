@@ -250,6 +250,15 @@ pnpm check:all          # Runs all checks: lint + typecheck + dead-code
 - Clean up old implementations after consolidation
 - Verify all imports are actually used in the file
 
+## RECENT MAJOR CHANGES
+
+### Tool Consolidation (2025-09-21)
+- **`insert_section` removed**: Functionality merged into enhanced `edit_section` tool
+- **Enhanced `edit_section`**: Now supports both editing existing sections AND creating new sections with automatic depth calculation
+- **Operations supported**: `replace`, `append`, `prepend` (edit existing) + `insert_before`, `insert_after`, `append_child` (create new)
+- **Automatic depth**: No manual depth tracking needed - tool calculates optimal depth based on operation and reference section
+- **Unified approach**: Single tool for all section manipulation, reducing MCP complexity
+
 ## MCP ARCHITECTURE & TOOL DEVELOPMENT
 
 ### File Structure Organization

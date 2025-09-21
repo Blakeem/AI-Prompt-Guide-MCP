@@ -72,7 +72,7 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'edit_section',
-      description: 'Update or add a specific section within an existing document',
+      description: 'Edit existing sections or create new sections with automatic depth calculation',
       inputSchema: {
         type: 'object',
         properties: {
@@ -82,17 +82,21 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
           },
           section: {
             type: 'string',
-            description: 'Section slug to update (e.g., "#endpoints", "#authentication")',
+            description: 'Section slug to edit or reference section for new section placement (e.g., "#endpoints", "#authentication")',
           },
           content: {
             type: 'string',
-            description: 'New content for the section',
+            description: 'Content for the section',
           },
           operation: {
             type: 'string',
-            enum: ['replace', 'append', 'prepend'],
+            enum: ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child'],
             default: 'replace',
-            description: 'How to apply the content: replace (overwrite), append (add to end), prepend (add to beginning)',
+            description: 'Edit existing: replace/append/prepend. Create new: insert_before/insert_after/append_child (auto-depth)',
+          },
+          title: {
+            type: 'string',
+            description: 'Title for new section (required for create operations: insert_before, insert_after, append_child)',
           },
         },
         required: ['document', 'section', 'content'],
@@ -111,46 +115,6 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
           },
         },
         required: ['path'],
-        additionalProperties: false,
-      },
-    },
-    {
-      name: 'insert_section',
-      description: 'Insert a new section at a specific location',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          path: {
-            type: 'string',
-            description: 'Document path',
-          },
-          reference_section: {
-            type: 'string',
-            description: 'Reference section slug to insert relative to',
-          },
-          position: {
-            type: 'string',
-            enum: ['before', 'after', 'child'],
-            description: 'Where to insert relative to reference section',
-            default: 'after',
-          },
-          title: {
-            type: 'string',
-            description: 'New section title',
-          },
-          content: {
-            type: 'string',
-            description: 'Initial section content',
-            default: '',
-          },
-          depth: {
-            type: 'number',
-            minimum: 1,
-            maximum: 6,
-            description: 'Heading depth (1-6). If not specified, determined from position',
-          },
-        },
-        required: ['path', 'reference_section', 'title'],
         additionalProperties: false,
       },
     },

@@ -3,6 +3,7 @@
  */
 
 import type { DocumentManager } from '../document-manager.js';
+import type { InsertMode } from '../types/index.js';
 import { initializeGlobalCache } from '../document-cache.js';
 
 /**
@@ -13,45 +14,96 @@ export async function performSectionEdit(
   normalizedPath: string,
   sectionSlug: string,
   content: string,
-  operation: string
-): Promise<void> {
+  operation: string,
+  title?: string
+): Promise<{ action: 'edited' | 'created'; section: string; depth?: number }> {
   // Check if document exists
   const document = await manager.getDocument(normalizedPath);
   if (!document) {
     throw new Error(`Document not found: ${normalizedPath}`);
   }
 
-  // For replace operations, check if section exists
-  // For append/prepend, we can create the section if it doesn't exist
-  if (operation === 'replace') {
-    const section = document.headings.find(h => h.slug === sectionSlug);
-    if (!section) {
-      throw new Error(`Section not found: ${sectionSlug}. Available sections: ${document.headings.map(h => h.slug).join(', ')}`);
+  const creationOperations = ['insert_before', 'insert_after', 'append_child'];
+  const editOperations = ['replace', 'append', 'prepend'];
+
+  if (creationOperations.includes(operation)) {
+    // Creation operations - create new section
+    if (title == null || title === '') {
+      throw new Error(`Title is required for creation operation: ${operation}`);
     }
-  }
 
-  if (operation === 'replace') {
-    await manager.updateSection(normalizedPath, sectionSlug, content, {
-      updateToc: true,
-      validateLinks: true
-    });
-  } else {
-    // For append/prepend, get current content and modify it
-    const currentContent = await manager.getSectionContent(normalizedPath, sectionSlug) ?? '';
+    // Map operation to InsertMode
+    const insertMode = operation === 'insert_before' ? 'insert_before'
+      : operation === 'insert_after' ? 'insert_after'
+      : 'append_child';
 
-    let newContent: string;
-    if (operation === 'append') {
-      newContent = currentContent.trim() !== '' ? `${currentContent}\n\n${content}` : content;
-    } else if (operation === 'prepend') {
-      newContent = currentContent.trim() !== '' ? `${content}\n\n${currentContent}` : content;
+
+    // Insert the section with automatic depth calculation
+    await manager.insertSection(
+      normalizedPath,
+      sectionSlug,
+      insertMode as InsertMode,
+      undefined, // Let it auto-calculate depth
+      title,
+      content,
+      { updateToc: true }
+    );
+
+    // Get the created section's slug and depth
+    const updatedDocument = await manager.getDocument(normalizedPath);
+    if (!updatedDocument) {
+      throw new Error('Failed to retrieve updated document');
+    }
+
+    // Find the newly created section
+    const { titleToSlug } = await import('../slug.js');
+    const newSlug = titleToSlug(title);
+    const newSection = updatedDocument.headings.find(h => h.slug === newSlug);
+
+    return {
+      action: 'created',
+      section: newSlug,
+      ...(newSection?.depth !== undefined && { depth: newSection.depth })
+    };
+
+  } else if (editOperations.includes(operation)) {
+    // Edit operations - modify existing section
+    if (operation === 'replace') {
+      const section = document.headings.find(h => h.slug === sectionSlug);
+      if (!section) {
+        throw new Error(`Section not found: ${sectionSlug}. Available sections: ${document.headings.map(h => h.slug).join(', ')}`);
+      }
+
+      await manager.updateSection(normalizedPath, sectionSlug, content, {
+        updateToc: true,
+        validateLinks: true
+      });
     } else {
-      throw new Error(`Invalid operation: ${operation}. Must be 'replace', 'append', or 'prepend'`);
+      // For append/prepend, get current content and modify it
+      const currentContent = await manager.getSectionContent(normalizedPath, sectionSlug) ?? '';
+
+      let newContent: string;
+      if (operation === 'append') {
+        newContent = currentContent.trim() !== '' ? `${currentContent}\n\n${content}` : content;
+      } else if (operation === 'prepend') {
+        newContent = currentContent.trim() !== '' ? `${content}\n\n${currentContent}` : content;
+      } else {
+        throw new Error(`Invalid operation: ${operation}. Must be 'replace', 'append', or 'prepend'`);
+      }
+
+      await manager.updateSection(normalizedPath, sectionSlug, newContent, {
+        updateToc: true,
+        validateLinks: true
+      });
     }
 
-    await manager.updateSection(normalizedPath, sectionSlug, newContent, {
-      updateToc: true,
-      validateLinks: true
-    });
+    return {
+      action: 'edited',
+      section: sectionSlug
+    };
+
+  } else {
+    throw new Error(`Invalid operation: ${operation}. Must be one of: ${[...editOperations, ...creationOperations].join(', ')}`);
   }
 }
 

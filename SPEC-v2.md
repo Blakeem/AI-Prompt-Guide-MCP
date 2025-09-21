@@ -131,9 +131,9 @@ Output: {
 ```
 
 ### 2. edit_section
-Modify sections using AST-safe operations:
+Unified tool for both editing existing sections and creating new sections with automatic depth calculation:
 
-**Single operation**:
+**Edit existing section**:
 ```json
 Input: {
   "document": "/specs/search-api.md",
@@ -144,11 +144,34 @@ Input: {
 Output: {
   "updated": true,
   "document": "/specs/search-api.md",
-  "section": "#endpoints"
+  "section": "#endpoints",
+  "operation": "append"
 }
 ```
 
-**Batch operations**:
+**Create new section with automatic depth**:
+```json
+Input: {
+  "document": "/specs/search-api.md",
+  "section": "#endpoints",
+  "operation": "append_child",
+  "title": "Authentication",
+  "content": "JWT-based authentication system..."
+}
+Output: {
+  "created": true,
+  "document": "/specs/search-api.md",
+  "new_section": "#authentication",
+  "depth": 3,
+  "operation": "append_child"
+}
+```
+
+**Operations**:
+- **Edit existing**: `replace`, `append`, `prepend`
+- **Create new**: `insert_before`, `insert_after`, `append_child` (with auto-depth)
+
+**Batch operations** (mix editing and creation):
 ```json
 Input: [
   {
@@ -159,15 +182,16 @@ Input: [
   },
   {
     "document": "/specs/api.md",
-    "section": "#schemas",
-    "operation": "replace",
-    "content": "## Schemas\n\nUpdated schema definitions..."
+    "section": "#endpoints",
+    "operation": "append_child",
+    "title": "Error Handling",
+    "content": "Standard HTTP error responses..."
   }
 ]
 Output: {
   "batch_results": [
-    {"success": true, "section": "#endpoints"},
-    {"success": true, "section": "#schemas"}
+    {"success": true, "section": "#endpoints", "action": "edited"},
+    {"success": true, "section": "#error-handling", "action": "created", "depth": 3}
   ],
   "document": "/specs/api.md",
   "sections_modified": 2
@@ -369,6 +393,8 @@ Output: {
   "section": "#deprecated"
 }
 ```
+
+**Note**: Section creation is now handled by the enhanced `edit_section` tool using creation operations (`insert_before`, `insert_after`, `append_child`) with automatic depth calculation. No separate `insert_section` tool needed.
 
 ## Implementation Architecture
 
