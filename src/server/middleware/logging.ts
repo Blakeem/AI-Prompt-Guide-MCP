@@ -52,19 +52,4 @@ export class RequestLogger {
     logger.debug('Listing available prompts');
   }
 
-  /**
-   * Log connection test
-   */
-  static logConnectionTest(includeServerInfo: boolean, includeSystemInfo: boolean): void {
-    const logger = getGlobalLogger();
-    logger.info('Testing connection', { includeServerInfo, includeSystemInfo });
-  }
-
-  /**
-   * Log connection test success
-   */
-  static logConnectionSuccess(): void {
-    const logger = getGlobalLogger();
-    logger.info('Connection test successful');
-  }
 }

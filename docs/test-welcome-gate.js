@@ -75,14 +75,9 @@ server.stdout.on('data', (data) => {
   }
 });
 
-// Capture stderr (logs)
+// Capture stderr (logs) - no special handling needed anymore
 server.stderr.on('data', (data) => {
-  const lines = data.toString().split('\n');
-  for (const line of lines) {
-    if (line.includes('list_changed')) {
-      console.log(`🔔 Server: ${line}`);
-    }
-  }
+  // Logs are for debugging if needed
 });
 
 // Run the test sequence

@@ -2,9 +2,9 @@
  * Session management middleware
  */
 
-import { SessionStore } from '../../welcome-gate.js';
-import type { SessionState } from '../../welcome-gate.js';
-import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { getGlobalSessionStore } from '../../session/session-store.js';
+import type { SessionStore } from '../../session/session-store.js';
+import type { SessionState } from '../../session/types.js';
 import { getGlobalLogger } from '../../utils/logger.js';
 
 /**
@@ -14,7 +14,7 @@ export class SessionManager {
   private readonly sessionStore: SessionStore;
 
   constructor() {
-    this.sessionStore = new SessionStore();
+    this.sessionStore = getGlobalSessionStore();
   }
 
   /**
@@ -49,23 +49,6 @@ export class SessionManager {
     logger.debug('Session management initialized');
   }
 
-  /**
-   * Send list changed notifications
-   */
-  sendListChangedNotifications(server: Server): void {
-    const logger = getGlobalLogger();
-    logger.info('Sending list_changed notifications');
-    
-    void server.notification({
-      method: 'notifications/tools/list_changed',
-      params: {},
-    });
-    
-    void server.notification({
-      method: 'notifications/prompts/list_changed',
-      params: {},
-    });
-  }
 }
 
 /**

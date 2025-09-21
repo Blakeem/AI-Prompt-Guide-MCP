@@ -152,7 +152,7 @@ async function runAlphaTest() {
       addTest('Initial tool listing', false, null, initialTools.error);
     } else {
       const toolNames = initialTools.tools?.map(t => t.name) || [];
-      const expectedTools = ['test_connection', 'browse_documents', 'search_documents', 'unlock_document_tools'];
+      const expectedTools = ['browse_documents', 'search_documents', 'unlock_document_tools'];
       const hasExpectedTools = expectedTools.every(tool => toolNames.includes(tool));
       const hasNoManagementTools = !toolNames.some(name => 
         ['create_document', 'update_document_section', 'archive_document'].includes(name)
@@ -165,29 +165,8 @@ async function runAlphaTest() {
       );
     }
 
-    // Test 2: Test connection tool
-    client.log('🔍 TEST 2: Test connection functionality');
-    const connectionTest = await client.callTool('test_connection', { 
-      includeServerInfo: true, 
-      includeSystemInfo: false 
-    });
-    
-    if (connectionTest.error) {
-      addTest('Test connection tool', false, null, connectionTest.error);
-    } else {
-      const result = JSON.parse(connectionTest.content[0].text);
-      const hasConnection = result.connection?.status === 'connected';
-      const hasDocsPath = typeof result.docsPath?.path === 'string';
-      
-      addTest(
-        'Test connection shows server status', 
-        hasConnection && hasDocsPath,
-        `Status: ${result.connection?.status}, Docs: ${result.docsPath?.path}`
-      );
-    }
-
-    // Test 3: Try document management tool before unlocking (should fail)
-    client.log('🔍 TEST 3: Document management before unlock (should fail)');
+    // Test 2: Try document management tool before unlocking (should fail)
+    client.log('🔍 TEST 2: Document management before unlock (should fail)');
     const prematureCreate = await client.callTool('create_document', {
       path: '/test/document',
       title: 'Test Document'
@@ -204,7 +183,7 @@ async function runAlphaTest() {
     );
 
     // Test 4: Unlock document tools with overview
-    client.log('🔍 TEST 4: Unlock document tools with structure overview');
+    client.log('🔍 TEST 3: Unlock document tools with structure overview');
     const unlockResult = await client.callTool('unlock_document_tools', { 
       show_overview: true 
     });
@@ -226,7 +205,7 @@ async function runAlphaTest() {
     }
 
     // Test 5: Verify expanded tool list after unlock
-    client.log('🔍 TEST 5: Verify expanded tool list after unlock');
+    client.log('🔍 TEST 4: Verify expanded tool list after unlock');
     const expandedTools = await client.listTools();
     if (expandedTools.error) {
       addTest('Expanded tool list after unlock', false, null, expandedTools.error);
@@ -243,7 +222,7 @@ async function runAlphaTest() {
     }
 
     // Test 6: Create a test document
-    client.log('🔍 TEST 6: Create document with API reference template');
+    client.log('🔍 TEST 5: Create document with API reference template');
     const createResult = await client.callTool('create_document', {
       path: '/api/test-endpoint',
       title: 'Test API Endpoint',
@@ -266,7 +245,7 @@ async function runAlphaTest() {
     }
 
     // Test 7: Browse documents to see new document
-    client.log('🔍 TEST 7: Browse documents to verify creation');
+    client.log('🔍 TEST 6: Browse documents to verify creation');
     const browseResult = await client.callTool('browse_documents', { path: '/api' });
     
     if (browseResult.error) {
@@ -284,7 +263,7 @@ async function runAlphaTest() {
     }
 
     // Test 8: Search functionality
-    client.log('🔍 TEST 8: Search documents functionality');
+    client.log('🔍 TEST 7: Search documents functionality');
     const searchResult = await client.callTool('search_documents', { 
       query: 'test endpoint',
       limit: 5
@@ -305,7 +284,7 @@ async function runAlphaTest() {
     }
 
     // Test 9: Insert section functionality
-    client.log('🔍 TEST 9: Insert new section functionality');
+    client.log('🔍 TEST 8: Insert new section functionality');
     const insertResult = await client.callTool('insert_section', {
       path: '/api/test-endpoint',
       reference_section: 'overview',

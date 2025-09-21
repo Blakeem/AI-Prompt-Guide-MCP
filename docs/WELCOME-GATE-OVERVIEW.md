@@ -8,18 +8,15 @@ The "Welcome Gate" pattern has been successfully implemented in your Spec-Docs M
 
 ### 1. Initial State (Not Acknowledged)
 When you first connect to the server, you'll see:
-- **Tools Available**: 
-  - `test_connection` - Always available
+- **Tools Available**:
   - `acknowledge_setup` - The gateway tool
 - **Prompts Available**:
   - `welcome` - The onboarding message
 
 ### 2. The Flow
 1. **Read Welcome**: Call the `welcome` prompt to see instructions
-2. **Acknowledge**: Call the `acknowledge_setup` tool 
-3. **Lists Change**: Server sends `list_changed` notifications
-4. **Refresh Lists**: Client re-fetches tool/prompt lists
-5. **New Tools Appear**: `test_tool` is now available
+2. **Acknowledge**: Call the `acknowledge_setup` tool
+3. **New Tools Appear**: `test_tool` is now available (client must refresh lists)
 
 ### 3. After Acknowledgment
 - All original tools remain available
@@ -40,7 +37,6 @@ pnpm build && node dist/index.js
 ### Step 2: Initial Tool Check
 1. Click "Tools" tab → Reload
 2. You should see only:
-   - `test_connection`
    - `acknowledge_setup`
 
 ### Step 3: Read Welcome Prompt
@@ -54,17 +50,10 @@ pnpm build && node dist/index.js
 3. Click "Run" (no parameters needed)
 4. You'll see a success message with timestamp
 
-### Step 5: Check Notifications
-Look in the console/logs for:
-```
-Sending list_changed notifications
-```
-
-### Step 6: Refresh Tool List
+### Step 5: Refresh Tool List
 1. **Important**: Click "Reload" in the Tools tab
-2. You should now see THREE tools:
-   - `test_connection`
-   - `acknowledge_setup` 
+2. You should now see TWO tools:
+   - `acknowledge_setup`
    - `test_tool` ← NEW!
 
 ### Step 7: Test the Gated Tool
@@ -98,12 +87,8 @@ echo '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"test_tool"
 - In production, would derive from transport/connection ID
 - Each session tracks its own acknowledgment state
 
-### Notifications
-The server sends two notifications when acknowledgment happens:
-```json
-{"jsonrpc":"2.0","method":"notifications/tools/list_changed","params":{}}
-{"jsonrpc":"2.0","method":"notifications/prompts/list_changed","params":{}}
-```
+### Tool Refresh
+After acknowledgment, clients need to manually refresh their tool lists to see newly available tools.
 
 ### Error Handling
 If you try to call `test_tool` before acknowledging:
@@ -120,7 +105,7 @@ If you try to call `test_tool` before acknowledging:
 
 ## Browser Limitation
 
-**Note**: The MCP Inspector in the browser doesn't automatically refresh tool lists when it receives `list_changed` notifications. You must manually click "Reload" after acknowledging. Production MCP clients (like Claude Desktop) should handle this automatically.
+**Note**: The MCP Inspector in the browser requires manual refresh of tool lists after acknowledgment. Click "Reload" in the Tools tab to see newly available tools.
 
 ## Code Structure
 
@@ -133,9 +118,7 @@ src/welcome-gate.ts
 └── executeTool()        - Executes dynamic tools
 
 src/index.ts
-├── Capabilities: listChanged: true for tools & prompts
 ├── Dynamic tool listing based on session state
-├── Notification sending on acknowledgment
 └── Prompt handlers for welcome message
 ```
 
@@ -151,7 +134,7 @@ This pattern can be extended to:
 ## Summary
 
 ✅ **Working**: The welcome gate pattern is fully functional
-✅ **Notifications**: Server correctly sends list_changed events  
+✅ **Dynamic Tools**: Server correctly changes available tools based on session state  
 ✅ **Session State**: Per-session tracking implemented
 ✅ **Error Handling**: Graceful handling of pre-gate tool calls
 ⚠️ **Browser Note**: Manual refresh needed in MCP Inspector

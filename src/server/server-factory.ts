@@ -8,7 +8,7 @@ import { loadConfig } from '../config.js';
 import { createLogger, setGlobalLogger } from '../utils/logger.js';
 import { formatLogError } from '../utils/error-formatter.js';
 import { ensureDirectoryExists } from '../fsio.js';
-import { SessionStore } from '../welcome-gate.js';
+import { getGlobalSessionStore } from '../session/session-store.js';
 import { registerToolHandlers } from './request-handlers/index.js';
 import type { ServerConfig } from '../types/index.js';
 
@@ -47,15 +47,13 @@ export async function createMCPServer(): Promise<{
     },
     {
       capabilities: {
-        tools: {
-          listChanged: true,  // We support dynamic tool list changes
-        },
+        tools: {},
       },
     }
   );
 
   // Create session store
-  const sessionStore = new SessionStore();
+  const sessionStore = getGlobalSessionStore();
 
   // Register all handlers
   registerToolHandlers(server, sessionStore, serverConfig);

@@ -60,7 +60,6 @@ export const LOG_LEVELS = {
 } as const;
 
 export const MCP_TOOL_NAMES = {
-  TEST_CONNECTION: 'test_connection',
   LIST_HEADINGS: 'list_headings',
   READ_SECTION: 'read_section',
   CREATE_SECTION: 'create_section',

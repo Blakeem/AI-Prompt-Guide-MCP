@@ -8,28 +8,25 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { getGlobalLogger } from '../../utils/logger.js';
-import { MCP_TOOL_NAMES } from '../../constants/defaults.js';
-import type { SessionStore } from '../../welcome-gate.js';
+import type { SessionStore } from '../../session/session-store.js';
 import type { ServerConfig } from '../../types/index.js';
-import { 
-  getVisibleTools, 
-  executeTool 
-} from '../../welcome-gate.js';
+import {
+  getVisibleTools,
+  executeTool
+} from '../../tools-manager.js';
 import {
   createErrorResponse,
   formatLogError,
 } from '../../utils/error-formatter.js';
 
-// Import connection handler
-import { handleTestConnection as handleConnectionTest } from './connection-handler.js';
 
 /**
  * Registers tool-related request handlers
  */
 export function registerToolHandlers(
-  server: Server, 
-  sessionStore: SessionStore, 
-  serverConfig: ServerConfig
+  server: Server,
+  sessionStore: SessionStore,
+  _serverConfig: ServerConfig
 ): void {
   const logger = getGlobalLogger();
 
@@ -47,30 +44,7 @@ export function registerToolHandlers(
       toolCount: tools.length 
     });
     
-    // Add the static test_connection tool
-    const allTools = [
-      {
-        name: MCP_TOOL_NAMES.TEST_CONNECTION,
-        description: 'Test server connection and validate configuration',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            includeServerInfo: {
-              type: 'boolean',
-              description: 'Include detailed server configuration information',
-              default: false,
-            },
-            includeSystemInfo: {
-              type: 'boolean',
-              description: 'Include system information (Node.js, platform, etc.)',
-              default: false,
-            },
-          },
-          additionalProperties: false,
-        },
-      },
-      ...tools,
-    ];
+    const allTools = [...tools];
     
     return { tools: allTools };
   });
@@ -82,23 +56,7 @@ export function registerToolHandlers(
     logger.debug('Handling tool call', { toolName: name, args });
 
     try {
-      // Handle static tools first
-      if (name === MCP_TOOL_NAMES.TEST_CONNECTION) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                await handleConnectionTest(args ?? {}, serverConfig),
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      }
-
-      // Handle dynamic tools from welcome-gate
+      // Handle dynamic tools from tools-manager
       const sessionId = 'default';
       const sessionState = sessionStore.getSession(sessionId);
       
@@ -108,12 +66,11 @@ export function registerToolHandlers(
       
       if (toolExists) {
         const result = await executeTool(
-          name, 
-          args ?? {}, 
+          name,
+          args ?? {},
           sessionState,
           () => {
-            // Send list_changed notifications
-            logger.info('Sending list_changed notifications');
+            // Send list_changed notifications for tool list updates
             void server.notification({
               method: 'notifications/tools/list_changed',
               params: {},

@@ -82,13 +82,6 @@ async function debugSession() {
   try {
     await debug.start();
     
-    console.log('\n=== TESTING TEST_CONNECTION ===');
-    const connectionResponse = await debug.sendRequest('tools/call', { 
-      name: 'test_connection', 
-      arguments: { includeServerInfo: true } 
-    });
-    console.log('Connection Response:', JSON.stringify(connectionResponse, null, 2));
-    
     console.log('\n=== TESTING UNLOCK_DOCUMENT_TOOLS ===');
     const unlockResponse = await debug.sendRequest('tools/call', { 
       name: 'unlock_document_tools', 
