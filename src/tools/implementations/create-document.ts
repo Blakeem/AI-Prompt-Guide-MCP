@@ -4,7 +4,11 @@
 
 import type { SessionState } from '../../session/types.js';
 import { getDocumentManager } from '../../shared/utilities.js';
-import { determineCreateDocumentStage, getNextCreateDocumentStage } from '../schemas/create-document-schemas.js';
+import {
+  determineCreateDocumentStage,
+  getNextCreateDocumentStage,
+  getDocumentTypes
+} from '../schemas/create-document-schemas.js';
 import { getGlobalSessionStore } from '../../session/session-store.js';
 
 export async function createDocument(
@@ -45,28 +49,7 @@ export async function createDocument(
 
     return {
       stage: 'discovery',
-      types: [
-        {
-          id: 'api_spec',
-          name: 'API Specification',
-          description: 'Document REST APIs with endpoints, schemas, and examples'
-        },
-        {
-          id: 'implementation_guide',
-          name: 'Implementation Guide',
-          description: 'Step-by-step implementation instructions with code examples'
-        },
-        {
-          id: 'architecture_doc',
-          name: 'Architecture Document',
-          description: 'System design, components, and architectural decisions'
-        },
-        {
-          id: 'troubleshooting',
-          name: 'Troubleshooting Guide',
-          description: 'Problem diagnosis, solutions, and debugging workflows'
-        }
-      ],
+      types: getDocumentTypes(),
       next_step: "Call again with 'type' parameter to get specific instructions",
       example: { type: "api_spec" }
     };

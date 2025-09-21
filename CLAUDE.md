@@ -218,6 +218,201 @@ const manager = new DocumentManager(docsRoot);
 4. **Verify Archive System** → Create, then archive test documents
 5. **Check Templates** → Verify `.spec-docs-mcp/templates/` accessibility
 
+## MCP ARCHITECTURE & TOOL DEVELOPMENT
+
+### File Structure Organization
+
+MCP tools follow a modular architecture with clear separation of concerns:
+
+```
+src/
+├── session/                    # Session state management
+│   ├── types.ts               # SessionState interface definitions
+│   ├── session-store.ts       # Singleton SessionStore implementation
+│   └── index.ts               # Re-exports
+├── tools/
+│   ├── types.ts               # ToolDefinition interface
+│   ├── registry.ts            # Dynamic tool registration & visibility
+│   ├── executor.ts            # Tool execution dispatcher
+│   ├── schemas/               # Centralized schema definitions
+│   │   └── [tool-name]-schemas.ts
+│   └── implementations/       # Tool implementation logic
+│       ├── [tool-name].ts    # Individual tool implementations
+│       └── index.ts           # Re-exports
+├── server/
+│   ├── request-handlers/      # MCP request handling
+│   │   └── tool-handlers.ts   # Tool list & execution handlers
+│   └── server-factory.ts      # Server initialization
+└── shared/
+    └── utilities.ts           # Shared helper functions
+```
+
+### Progressive Discovery Pattern
+
+The progressive discovery pattern allows tools to reveal parameters gradually, conserving context and guiding users through complex flows.
+
+#### Key Concepts
+
+1. **Staged Schema Evolution**: Tool schemas change based on session state
+2. **Response-Driven Guidance**: Each response teaches the next valid parameters
+3. **Context Conservation**: Minimal schemas reduce token usage
+4. **Graceful Error Handling**: Errors provide helpful guidance, not exceptions
+
+#### Implementation Pattern
+
+For any tool implementing progressive discovery:
+
+1. **Define Schema Stages** (`src/tools/schemas/[tool]-schemas.ts`):
+```typescript
+export const TOOL_SCHEMAS: Record<number, SchemaStage> = {
+  0: { /* minimal schema */ },
+  1: { /* intermediate schema */ },
+  2: { /* full schema */ }
+};
+```
+
+2. **Track Session State** (`src/session/types.ts`):
+```typescript
+export interface SessionState {
+  sessionId: string;
+  toolNameStage: number;  // Add stage tracking for your tool
+}
+```
+
+3. **Implement Stage Logic** (`src/tools/implementations/[tool].ts`):
+```typescript
+export async function executeTool(
+  args: Record<string, unknown>,
+  state: SessionState,
+  onStageChange?: () => void
+): Promise<unknown> {
+  // Determine current stage from args
+  // Update session state if stage changes
+  // Return stage-appropriate response
+}
+```
+
+4. **Update Tool Registry** (`src/tools/registry.ts`):
+```typescript
+const toolSchema = getToolSchema(state.toolNameStage);
+// Return dynamic schema based on session state
+```
+
+### Session State Management
+
+#### Singleton Pattern
+Always use the global SessionStore singleton for state persistence:
+
+```typescript
+import { getGlobalSessionStore } from '../session/session-store.js';
+
+const sessionStore = getGlobalSessionStore();
+sessionStore.updateSession(sessionId, { toolStage: newStage });
+```
+
+#### State Persistence Rules
+- State persists within a session across multiple tool calls
+- Each session maintains independent state
+- Never create new SessionStore instances - always use the singleton
+- State resets when session ends
+
+### Tool Implementation Best Practices
+
+1. **Centralize Schemas**: All schemas, examples, and constants in `src/tools/schemas/`
+2. **Single Responsibility**: Each tool implementation in its own file
+3. **Explicit Typing**: Always define return types and interfaces
+4. **Error Recovery**: Return helpful guidance instead of throwing errors
+5. **State Updates**: Update session state before triggering notifications
+
+### MCP Inspector Testing
+
+#### Testing Progressive Discovery
+
+1. **Manual Refresh Required**: MCP Inspector doesn't auto-refresh on `tools/list_changed`
+2. **Test Flow**:
+   - Call tool with minimal params
+   - Manually refresh tool list (pull down or click refresh)
+   - Observe schema changes
+   - Call with next stage params
+   - Repeat until complete
+
+3. **Programmatic Testing**:
+```javascript
+// Create test script as .cjs file for CommonJS
+const commands = [
+  { name: 'Initial tools/list', request: '{"method":"tools/list"}' },
+  { name: 'Call tool', request: '{"method":"tools/call","params":{...}}' },
+  { name: 'Verify schema update', request: '{"method":"tools/list"}' }
+];
+```
+
+### Tool List Update Notifications
+
+#### How It Works
+When tool schemas need updating:
+```typescript
+void server.notification({
+  method: 'notifications/tools/list_changed',
+  params: {}
+});
+```
+
+#### Important Limitations
+- **Not universally supported**: Many MCP clients ignore these notifications
+- **Manual intervention often required**: Users must refresh manually
+- **Transport-level only**: LLMs don't see these notifications in context
+- **Still useful**: Some clients DO respect them, so always send
+
+### Adding New Tools Checklist
+
+When implementing a new MCP tool:
+
+- [ ] Create schema definitions in `src/tools/schemas/[tool]-schemas.ts`
+- [ ] Add implementation in `src/tools/implementations/[tool].ts`
+- [ ] Update SessionState interface if using progressive discovery
+- [ ] Add tool to registry in `src/tools/registry.ts`
+- [ ] Update executor switch statement in `src/tools/executor.ts`
+- [ ] Export from `src/tools/implementations/index.ts`
+- [ ] Write unit tests for the implementation
+- [ ] Test with MCP Inspector including all stages
+- [ ] Document any special behavior or limitations
+
+### Common Patterns to Follow
+
+#### Pattern: Centralized Constants
+```typescript
+// src/tools/schemas/tool-schemas.ts
+export const TOOL_CONSTANTS = {
+  TYPES: { /* ... */ },
+  LIMITS: { /* ... */ },
+  DEFAULTS: { /* ... */ }
+};
+```
+
+#### Pattern: Response Consistency
+```typescript
+// Always return structured responses
+return {
+  stage: 'current_stage',
+  data: { /* relevant data */ },
+  next_step: 'Clear instruction',
+  example: { /* valid example */ }
+};
+```
+
+#### Pattern: Error Fallbacks
+```typescript
+// Instead of throwing errors
+if (invalid) {
+  return {
+    stage: 'error_fallback',
+    error: 'What went wrong',
+    help: 'How to fix it',
+    example: { /* correct usage */ }
+  };
+}
+```
+
 ## DEBUGGING PRINCIPLES
 
 ### **Never Mask Issues - Always Find Root Cause**

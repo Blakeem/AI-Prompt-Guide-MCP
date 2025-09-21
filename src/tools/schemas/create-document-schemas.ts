@@ -11,6 +11,7 @@ export interface CreateDocumentSchemaStage {
     required?: string[];
     additionalProperties: boolean;
   };
+  responseExample?: Record<string, unknown>;
 }
 
 /**
@@ -27,6 +28,19 @@ export const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> 
       type: 'object',
       properties: {},
       additionalProperties: true
+    },
+    responseExample: {
+      stage: 'discovery',
+      types: [
+        {
+          id: 'api_spec',
+          name: 'API Specification',
+          description: 'Document REST APIs with endpoints, schemas, and examples'
+        }
+        // ... other types
+      ],
+      next_step: 'Call again with \'type\' parameter to get specific instructions',
+      example: { type: 'api_spec' }
     }
   },
 
@@ -44,6 +58,21 @@ export const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> 
       },
       required: ['type'],
       additionalProperties: true
+    },
+    responseExample: {
+      stage: 'instructions',
+      type: 'api_spec',
+      instructions: [
+        'Research current API patterns and industry standards for your domain',
+        'Define clear request/response schemas using JSON Schema or OpenAPI',
+        // ... other instructions
+      ],
+      next_step: 'Call again with type, title, and overview to create the document',
+      example: {
+        type: 'api_spec',
+        title: 'Search API',
+        overview: 'Full-text search with ranking capabilities'
+      }
     }
   },
 
@@ -69,6 +98,22 @@ export const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> 
       },
       required: ['type', 'title', 'overview'],
       additionalProperties: true
+    },
+    responseExample: {
+      stage: 'creation',
+      success: true,
+      created: '/specs/search-api.md',
+      document: {
+        path: '/specs/search-api.md',
+        title: 'Search API',
+        type: 'api_spec',
+        created: '2025-01-20T12:00:00Z'
+      },
+      sections: ['#overview', '#authentication', '#endpoints', '#error-handling'],
+      next_actions: [
+        'Use edit_section to add detailed content to each section',
+        'Use add_task to populate the tasks section with specific items'
+      ]
     }
   }
 };
@@ -116,4 +161,37 @@ export function determineCreateDocumentStage(args: Record<string, unknown>): num
  */
 export function getNextCreateDocumentStage(currentStage: number): number {
   return Math.min(currentStage + 1, 2);
+}
+
+/**
+ * Available document types for create_document tool
+ */
+export const DOCUMENT_TYPES = {
+  api_spec: {
+    id: 'api_spec',
+    name: 'API Specification',
+    description: 'Document REST APIs with endpoints, schemas, and examples'
+  },
+  implementation_guide: {
+    id: 'implementation_guide',
+    name: 'Implementation Guide',
+    description: 'Step-by-step implementation instructions with code examples'
+  },
+  architecture_doc: {
+    id: 'architecture_doc',
+    name: 'Architecture Document',
+    description: 'System design, components, and architectural decisions'
+  },
+  troubleshooting: {
+    id: 'troubleshooting',
+    name: 'Troubleshooting Guide',
+    description: 'Problem diagnosis, solutions, and debugging workflows'
+  }
+};
+
+/**
+ * Get all document types as array
+ */
+export function getDocumentTypes(): Array<{ id: string; name: string; description: string }> {
+  return Object.values(DOCUMENT_TYPES);
 }
