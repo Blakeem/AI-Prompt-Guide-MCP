@@ -84,22 +84,3 @@ export async function viewDocument(
   );
 }
 
-export async function removeSection(
-  _args: Record<string, unknown>,
-  _state: SessionState
-): Promise<never> {
-  throw new Error(
-    JSON.stringify({
-      code: -32601,
-      message: 'remove_section tool not yet implemented',
-      data: {
-        reason: 'NOT_IMPLEMENTED',
-        planned_parameters: ['document', 'section'],
-        example: {
-          document: '/specs/api.md',
-          section: '#deprecated'
-        }
-      }
-    })
-  );
-}

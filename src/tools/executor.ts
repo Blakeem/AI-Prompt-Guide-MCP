@@ -7,13 +7,13 @@ import {
   createDocument,
   listDocuments,
   searchDocuments,
-  editSection,
+  section,
+  manageDocument,
   archiveDocument,
   addTask,
   completeTask,
   reopenTask,
-  viewDocument,
-  removeSection
+  viewDocument
 } from './implementations/index.js';
 
 /**
@@ -35,8 +35,11 @@ export async function executeTool(
     case 'search_documents':
       return await searchDocuments(args, state);
 
-    case 'edit_section':
-      return await editSection(args, state);
+    case 'section':
+      return await section(args, state);
+
+    case 'manage_document':
+      return await manageDocument(args, state);
 
     case 'archive_document':
       return await archiveDocument(args, state);
@@ -52,9 +55,6 @@ export async function executeTool(
 
     case 'view_document':
       return await viewDocument(args, state);
-
-    case 'remove_section':
-      return await removeSection(args, state);
 
     default:
       throw new Error(

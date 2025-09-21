@@ -1,12 +1,12 @@
 /**
- * Implementation for the edit_section tool
+ * Implementation for the section tool
  */
 
 import type { SessionState } from '../../session/types.js';
 import { getDocumentManager, performSectionEdit } from '../../shared/utilities.js';
 
-export async function editSection(
-  args: Record<string, unknown>,
+export async function section(
+  args: Record<string, unknown> | Array<Record<string, unknown>>,
   _state: SessionState
 ): Promise<unknown> {
   try {
@@ -29,7 +29,7 @@ export async function editSection(
         throw new Error('Batch operations array cannot be empty');
       }
 
-      const batchResults: Array<{success: boolean; section: string; action?: 'edited' | 'created'; depth?: number; error?: string}> = [];
+      const batchResults: Array<{success: boolean; section: string; action?: 'edited' | 'created' | 'removed'; depth?: number; error?: string; removed_content?: string}> = [];
       let sectionsModified = 0;
       const documentsModified = new Set<string>();
 
@@ -42,8 +42,13 @@ export async function editSection(
           const operation = op.operation ?? 'replace';
           const title = op.title;
 
-          if (!docPath || !sectionSlug || !content) {
-            throw new Error('Missing required parameters: document, section, and content');
+          if (!docPath || !sectionSlug) {
+            throw new Error('Missing required parameters: document and section');
+          }
+
+          // Content is not required for remove operations
+          if (operation !== 'remove' && !content) {
+            throw new Error('Content is required for all operations except remove');
           }
 
           const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
@@ -56,7 +61,8 @@ export async function editSection(
             success: true,
             section: result.section,
             action: result.action,
-            ...(result.depth !== undefined && { depth: result.depth })
+            ...(result.depth !== undefined && { depth: result.depth }),
+            ...(result.removedContent !== undefined && { removed_content: result.removedContent })
           });
           sectionsModified++;
 
@@ -94,8 +100,13 @@ export async function editSection(
       const operation = singleOp.operation ?? 'replace';
       const title = singleOp.title;
 
-      if (!docPath || !sectionSlug || !content) {
-        throw new Error('Missing required parameters: document, section, and content');
+      if (!docPath || !sectionSlug) {
+        throw new Error('Missing required parameters: document and section');
+      }
+
+      // Content is not required for remove operations
+      if (operation !== 'remove' && !content) {
+        throw new Error('Content is required for all operations except remove');
       }
 
       const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
@@ -109,6 +120,15 @@ export async function editSection(
           document: normalizedPath,
           new_section: result.section,
           ...(result.depth !== undefined && { depth: result.depth }),
+          operation,
+          timestamp: new Date().toISOString()
+        };
+      } else if (result.action === 'removed') {
+        return {
+          removed: true,
+          document: normalizedPath,
+          section: result.section,
+          removed_content: result.removedContent,
           operation,
           timestamp: new Date().toISOString()
         };

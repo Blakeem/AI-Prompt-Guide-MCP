@@ -5,7 +5,7 @@
 import { describe, test, expect, beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
-import { editSection } from './edit-section.js';
+import { section } from './section.js';
 import { DocumentManager } from '../../document-manager.js';
 import { initializeGlobalCache } from '../../document-cache.js';
 import { ensureDirectoryExists } from '../../fsio.js';
@@ -27,7 +27,8 @@ const FULL_TEST_PATH = path.join(TEST_DOCS_DIR, 'integration-test.md');
 
 // Mock session state
 const mockSessionState: SessionState = {
-  sessionId: 'integration-test-session'
+  sessionId: 'integration-test-session',
+  createDocumentStage: 0
 };
 
 // Sample markdown document for testing
@@ -126,7 +127,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       };
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toEqual({
@@ -153,7 +154,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       };
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toEqual({
@@ -182,7 +183,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       };
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toEqual({
@@ -219,7 +220,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       };
 
       // Act
-      await editSection(args, mockSessionState);
+      await section(args, mockSessionState);
 
       // Verify the actual markdown content
       const updatedContent = await fs.readFile(FULL_TEST_PATH, 'utf8');
@@ -239,7 +240,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       };
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toEqual({
@@ -279,7 +280,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       };
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toMatchObject({
@@ -319,7 +320,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       };
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toMatchObject({
@@ -359,7 +360,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       };
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toMatchObject({
@@ -401,7 +402,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       };
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toMatchObject({
@@ -452,7 +453,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       ];
 
       // Act
-      const result = await editSection(operations, mockSessionState);
+      const result = await section(operations, mockSessionState);
 
       // Assert
       expect(result).toMatchObject({
@@ -518,7 +519,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       ];
 
       // Act
-      const result = await editSection(operations, mockSessionState);
+      const result = await section(operations, mockSessionState);
 
       // Assert
       expect(result).toEqual({
@@ -555,7 +556,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       };
 
       // Act & Assert
-      await expect(editSection(args, mockSessionState))
+      await expect(section(args, mockSessionState))
         .rejects
         .toThrow();
     });
@@ -570,7 +571,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       };
 
       // Act & Assert
-      await expect(editSection(args, mockSessionState))
+      await expect(section(args, mockSessionState))
         .rejects
         .toThrow();
     });
@@ -586,7 +587,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       };
 
       // Act & Assert
-      await expect(editSection(args, mockSessionState))
+      await expect(section(args, mockSessionState))
         .rejects
         .toThrow();
     });
@@ -631,7 +632,7 @@ Advanced data processing capabilities.
       };
 
       // Act
-      await editSection(args, mockSessionState);
+      await section(args, mockSessionState);
 
       // Verify the TOC was updated
       const updatedContent = await fs.readFile(FULL_TEST_PATH, 'utf8');
@@ -652,7 +653,7 @@ Advanced data processing capabilities.
       };
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toMatchObject({

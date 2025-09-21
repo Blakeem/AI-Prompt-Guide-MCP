@@ -71,8 +71,8 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
       inputSchema: createDocumentSchema.inputSchema,
     },
     {
-      name: 'edit_section',
-      description: 'Edit existing sections or create new sections with automatic depth calculation',
+      name: 'section',
+      description: 'Unified tool for ALL section operations: create, edit, and remove sections with automatic depth calculation',
       inputSchema: {
         type: 'object',
         properties: {
@@ -90,9 +90,9 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
           },
           operation: {
             type: 'string',
-            enum: ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child'],
+            enum: ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child', 'remove'],
             default: 'replace',
-            description: 'Edit existing: replace/append/prepend. Create new: insert_before/insert_after/append_child (auto-depth)',
+            description: 'Edit: replace/append/prepend. Create: insert_before/insert_after/append_child (auto-depth). Delete: remove',
           },
           title: {
             type: 'string',
@@ -100,6 +100,38 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
           },
         },
         required: ['document', 'section', 'content'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'manage_document',
+      description: 'Unified tool for ALL document operations: archive, delete, rename, move with batch support',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          operation: {
+            type: 'string',
+            enum: ['archive', 'delete', 'rename', 'move'],
+            description: 'Operation to perform: archive (with audit), delete (permanent), rename (title), move (relocate)',
+          },
+          document: {
+            type: 'string',
+            description: 'Document path (e.g., "/specs/api.md")',
+          },
+          new_path: {
+            type: 'string',
+            description: 'New path for move operation',
+          },
+          new_title: {
+            type: 'string',
+            description: 'New title for rename operation',
+          },
+          confirm: {
+            type: 'boolean',
+            description: 'Required confirmation for delete operation',
+          },
+        },
+        required: ['operation', 'document'],
         additionalProperties: false,
       },
     },
@@ -192,25 +224,6 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
           },
         },
         required: ['document'],
-        additionalProperties: false,
-      },
-    },
-    {
-      name: 'remove_section',
-      description: 'Delete sections (with safety check)',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          document: {
-            type: 'string',
-            description: 'Document path',
-          },
-          section: {
-            type: 'string',
-            description: 'Section slug to remove (e.g., "#deprecated")',
-          },
-        },
-        required: ['document', 'section'],
         additionalProperties: false,
       },
     },

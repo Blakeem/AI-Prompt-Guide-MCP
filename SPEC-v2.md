@@ -84,6 +84,33 @@ Tasks use GitHub-style checkboxes with essential metadata:
 **Deferred for Later**:
 - Tags, assignments, due dates, complex dependencies
 
+## Tool Architecture Philosophy
+
+### Design Principles
+1. **Separation of Creation vs Management**: Creation tools provide guided experiences; management tools handle operations
+2. **Unified Operations**: Each tool handles ALL operations for its scope (document or section level)
+3. **Consistent Naming**: `create_` for creation, `manage_` for operations, simple names for unified tools
+4. **Batch Power**: All management tools support mixed batch operations
+
+### Tool Categories
+
+**Document Level:**
+- `create_document`: Progressive discovery for guided document creation
+- `manage_document`: All document operations (rename, move, archive, delete)
+
+**Section Level:**
+- `section`: All section operations (create, edit, remove) with auto-depth
+
+**Task Management:**
+- `add_task`: Create tasks with links
+- `complete_task`: Mark tasks as done
+- `reopen_task`: Revert completion
+
+**Discovery:**
+- `list_documents`: Browse document tree
+- `search_documents`: Find content
+- `view_document`: Inspect structure
+
 ## Essential Tool Set (MVP)
 
 ### 1. create_document
@@ -130,8 +157,8 @@ Output: {
 }
 ```
 
-### 2. edit_section
-Unified tool for both editing existing sections and creating new sections with automatic depth calculation:
+### 2. section
+Unified tool for ALL section operations - create, edit, and remove sections with automatic depth calculation:
 
 **Edit existing section**:
 ```json
@@ -167,38 +194,142 @@ Output: {
 }
 ```
 
+**Remove section**:
+```json
+Input: {
+  "document": "/specs/search-api.md",
+  "section": "#deprecated",
+  "operation": "remove"
+}
+Output: {
+  "removed": true,
+  "document": "/specs/search-api.md",
+  "section": "#deprecated",
+  "removed_content": "Previous content for recovery..."
+}
+```
+
 **Operations**:
 - **Edit existing**: `replace`, `append`, `prepend`
 - **Create new**: `insert_before`, `insert_after`, `append_child` (with auto-depth)
+- **Delete**: `remove`
 
-**Batch operations** (mix editing and creation):
+**Powerful batch operations** (mix all operation types):
 ```json
 Input: [
+  {
+    "document": "/specs/api.md",
+    "section": "#old-intro",
+    "operation": "remove"
+  },
+  {
+    "document": "/specs/api.md",
+    "section": "#overview",
+    "operation": "insert_before",
+    "title": "Introduction",
+    "content": "New introduction..."
+  },
   {
     "document": "/specs/api.md",
     "section": "#endpoints",
     "operation": "append",
     "content": "### GET /users"
-  },
-  {
-    "document": "/specs/api.md",
-    "section": "#endpoints",
-    "operation": "append_child",
-    "title": "Error Handling",
-    "content": "Standard HTTP error responses..."
   }
 ]
 Output: {
   "batch_results": [
-    {"success": true, "section": "#endpoints", "action": "edited"},
-    {"success": true, "section": "#error-handling", "action": "created", "depth": 3}
+    {"success": true, "section": "#old-intro", "action": "removed"},
+    {"success": true, "section": "#introduction", "action": "created", "depth": 2},
+    {"success": true, "section": "#endpoints", "action": "edited"}
   ],
   "document": "/specs/api.md",
-  "sections_modified": 2
+  "sections_modified": 3
 }
 ```
 
-### 3. add_task
+### 3. manage_document
+Unified tool for ALL document-level operations (except creation):
+
+**Archive document**:
+```json
+Input: {
+  "operation": "archive",
+  "document": "/specs/old-api.md"
+}
+Output: {
+  "archived": true,
+  "from": "/specs/old-api.md",
+  "to": "/archived/specs/old-api.md",
+  "audit_file": "/archived/specs/old-api.audit.json"
+}
+```
+
+**Delete document permanently**:
+```json
+Input: {
+  "operation": "delete",
+  "document": "/drafts/temp.md",
+  "confirm": true
+}
+Output: {
+  "deleted": true,
+  "document": "/drafts/temp.md"
+}
+```
+
+**Rename document**:
+```json
+Input: {
+  "operation": "rename",
+  "document": "/specs/api.md",
+  "new_title": "API Specification v2"
+}
+Output: {
+  "renamed": true,
+  "document": "/specs/api.md",
+  "old_title": "API Specification",
+  "new_title": "API Specification v2"
+}
+```
+
+**Move document**:
+```json
+Input: {
+  "operation": "move",
+  "document": "/drafts/api.md",
+  "new_path": "/specs/api.md"
+}
+Output: {
+  "moved": true,
+  "from": "/drafts/api.md",
+  "to": "/specs/api.md"
+}
+```
+
+**Operations**:
+- `archive`: Move to archive folder with audit trail
+- `delete`: Permanent removal (requires confirm: true)
+- `rename`: Change document title
+- `move`: Relocate to different path
+
+**Batch operations**:
+```json
+Input: [
+  {"operation": "archive", "document": "/old/v1-api.md"},
+  {"operation": "move", "document": "/drafts/v2-api.md", "new_path": "/specs/api.md"},
+  {"operation": "rename", "document": "/specs/api.md", "new_title": "API v2 Specification"}
+]
+Output: {
+  "batch_results": [
+    {"success": true, "action": "archived", "document": "/old/v1-api.md"},
+    {"success": true, "action": "moved", "to": "/specs/api.md"},
+    {"success": true, "action": "renamed", "document": "/specs/api.md"}
+  ],
+  "operations_completed": 3
+}
+```
+
+### 4. add_task
 Add tasks with links to specifications:
 
 **Single task**:
@@ -240,7 +371,7 @@ Output: {
 }
 ```
 
-### 4. complete_task
+### 5. complete_task
 Mark tasks as completed with notes:
 
 **Single completion**:
@@ -271,7 +402,7 @@ Output: {
 }
 ```
 
-### 5. list_documents
+### 6. list_documents
 Browse the document tree:
 ```json
 Input: {"path": "/specs", "include_tasks": true}
@@ -291,7 +422,7 @@ Output: {
 }
 ```
 
-### 6. search_documents
+### 7. search_documents
 Find content across documents:
 ```json
 Input: {
@@ -322,7 +453,7 @@ Output: {
 }
 ```
 
-### 7. view_document
+### 8. view_document
 Inspect document structure and content:
 ```json
 Input: {"document": "/specs/search-api.md"}
@@ -371,7 +502,7 @@ Output: {
 }
 ```
 
-## Additional Tools (Quick Wins - 2 tools)
+## Additional Tool (Quick Win)
 
 ### reopen_task
 Revert task completion:
@@ -380,21 +511,7 @@ Input: {"task_id": "api.md#tasks[0]"}
 Output: {"reopened": true, "task_id": "api.md#tasks[0]"}
 ```
 
-### remove_section
-Delete sections (with safety check):
-```json
-Input: {
-  "document": "/specs/api.md",
-  "section": "#deprecated"
-}
-Output: {
-  "removed": true,
-  "document": "/specs/api.md",
-  "section": "#deprecated"
-}
-```
-
-**Note**: Section creation is now handled by the enhanced `edit_section` tool using creation operations (`insert_before`, `insert_after`, `append_child`) with automatic depth calculation. No separate `insert_section` tool needed.
+**Note**: Section removal is now handled by the `section` tool using the `remove` operation. Document operations (archive, delete, rename, move) are handled by the `manage_document` tool.
 
 ## Implementation Architecture
 

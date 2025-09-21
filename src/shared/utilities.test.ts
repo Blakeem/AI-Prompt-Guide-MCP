@@ -22,40 +22,24 @@ const createMockDocumentManager = (): MockedDocumentManager => ({
 });
 
 type MockedDocumentManager = {
-  [K in keyof DocumentManager]: MockedFunction<DocumentManager[K]>;
+  getDocument: MockedFunction<DocumentManager['getDocument']>;
+  updateSection: MockedFunction<DocumentManager['updateSection']>;
+  insertSection: MockedFunction<DocumentManager['insertSection']>;
+  getSectionContent: MockedFunction<DocumentManager['getSectionContent']>;
 };
 
 // Sample document structure for testing
 const createSampleDocument = (): CachedDocument => ({
-  path: '/test-doc.md',
-  content: `# Test Document
-
-## Overview
-
-This is the overview section.
-
-### Quick Start
-
-Getting started guide.
-
-## Features
-
-### Feature A
-
-Description of feature A.
-
-### Feature B
-
-Description of feature B.
-
-## API Reference
-
-Documentation for the API.
-
-### Authentication
-
-API authentication details.
-`,
+  metadata: {
+    path: '/test-doc.md',
+    title: 'Test Document',
+    lastModified: new Date(),
+    contentHash: 'abc123',
+    wordCount: 100,
+    linkCount: 0,
+    codeBlockCount: 0,
+    lastAccessed: new Date()
+  },
   headings: [
     { index: 0, depth: 1, title: 'Test Document', slug: 'test-document', parentIndex: null },
     { index: 1, depth: 2, title: 'Overview', slug: 'overview', parentIndex: 0 },
@@ -66,8 +50,9 @@ API authentication details.
     { index: 6, depth: 2, title: 'API Reference', slug: 'api-reference', parentIndex: 0 },
     { index: 7, depth: 3, title: 'Authentication', slug: 'authentication', parentIndex: 6 }
   ],
-  mtimeMs: Date.now(),
-  lastAccessed: Date.now()
+  toc: [],
+  slugIndex: new Map(),
+  sections: new Map()
 });
 
 describe('performSectionEdit Utility Function', () => {

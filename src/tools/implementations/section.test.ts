@@ -3,7 +3,7 @@
  */
 
 import { describe, test, expect, beforeEach, vi, type MockedFunction } from 'vitest';
-import { editSection } from './edit-section.js';
+import { section } from './section.js';
 import { performSectionEdit, getDocumentManager } from '../../shared/utilities.js';
 import type { DocumentManager } from '../../document-manager.js';
 import type { SessionState } from '../../session/types.js';
@@ -27,7 +27,8 @@ const createMockDocumentManager = (): Partial<DocumentManager> => ({
 
 // Mock session state
 const mockSessionState: SessionState = {
-  sessionId: 'test-session-123'
+  sessionId: 'test-session-123',
+  createDocumentStage: 0
 };
 
 // Sample document structure for testing - currently unused but kept for potential future use
@@ -90,7 +91,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       });
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(mockPerformSectionEdit).toHaveBeenCalledWith(
@@ -126,7 +127,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       });
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(mockPerformSectionEdit).toHaveBeenCalledWith(
@@ -162,7 +163,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       });
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toEqual({
@@ -188,7 +189,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       });
 
       // Act
-      await editSection(args, mockSessionState);
+      await section(args, mockSessionState);
 
       // Assert
       expect(mockPerformSectionEdit).toHaveBeenCalledWith(
@@ -220,7 +221,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       });
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(mockPerformSectionEdit).toHaveBeenCalledWith(
@@ -259,7 +260,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       });
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toEqual({
@@ -289,7 +290,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       });
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toEqual({
@@ -319,7 +320,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       });
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).toEqual({
@@ -365,7 +366,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         .mockResolvedValueOnce({ action: 'edited', section: 'api-reference' });
 
       // Act
-      const result = await editSection(operations, mockSessionState);
+      const result = await section(operations, mockSessionState);
 
       // Assert
       expect(mockPerformSectionEdit).toHaveBeenCalledTimes(3);
@@ -405,7 +406,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         .mockResolvedValueOnce({ action: 'edited', section: 'section2' });
 
       // Act
-      const result = await editSection(operations, mockSessionState);
+      const result = await section(operations, mockSessionState);
 
       // Assert
       expect(result).toEqual({
@@ -449,7 +450,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         .mockResolvedValueOnce({ action: 'edited', section: 'features' });
 
       // Act
-      const result = await editSection(operations, mockSessionState);
+      const result = await section(operations, mockSessionState);
 
       // Assert
       expect(result).toEqual({
@@ -467,10 +468,10 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
 
     test('should handle empty batch operations array', async () => {
       // Arrange
-      const operations: unknown[] = [];
+      const operations: Record<string, unknown>[] = [];
 
       // Act & Assert
-      await expect(editSection(operations, mockSessionState))
+      await expect(section(operations, mockSessionState))
         .rejects
         .toThrow('Batch operations array cannot be empty');
     });
@@ -496,7 +497,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         .mockResolvedValueOnce({ action: 'edited', section: 'overview' });
 
       // Act
-      const result = await editSection(operations, mockSessionState);
+      const result = await section(operations, mockSessionState);
 
       // Assert
       expect(result).toEqual({
@@ -526,7 +527,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       };
 
       // Act & Assert
-      await expect(editSection(args, mockSessionState))
+      await expect(section(args, mockSessionState))
         .rejects
         .toThrow();
     });
@@ -540,7 +541,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       };
 
       // Act & Assert
-      await expect(editSection(args, mockSessionState))
+      await expect(section(args, mockSessionState))
         .rejects
         .toThrow();
     });
@@ -554,7 +555,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       };
 
       // Act & Assert
-      await expect(editSection(args, mockSessionState))
+      await expect(section(args, mockSessionState))
         .rejects
         .toThrow();
     });
@@ -571,13 +572,13 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       mockPerformSectionEdit.mockRejectedValue(new Error('Document not found'));
 
       // Act & Assert
-      await expect(editSection(args, mockSessionState))
+      await expect(section(args, mockSessionState))
         .rejects
         .toThrow();
 
       // Verify the error format includes JSON with error details
       try {
-        await editSection(args, mockSessionState);
+        await section(args, mockSessionState);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         const parsedError = JSON.parse(errorMessage);
@@ -605,7 +606,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       mockPerformSectionEdit.mockRejectedValue('String error message');
 
       // Act & Assert
-      await expect(editSection(args, mockSessionState))
+      await expect(section(args, mockSessionState))
         .rejects
         .toThrow();
     });
@@ -626,7 +627,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       });
 
       // Act
-      await editSection(args, mockSessionState);
+      await section(args, mockSessionState);
 
       // Assert
       expect(mockPerformSectionEdit).toHaveBeenCalledWith(
@@ -653,7 +654,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       });
 
       // Act
-      await editSection(args, mockSessionState);
+      await section(args, mockSessionState);
 
       // Assert
       expect(mockPerformSectionEdit).toHaveBeenCalledWith(
@@ -675,7 +676,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       };
 
       // Act & Assert
-      await expect(editSection(args, mockSessionState))
+      await expect(section(args, mockSessionState))
         .rejects
         .toThrow();
     });
@@ -689,7 +690,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       };
 
       // Act & Assert
-      await expect(editSection(args, mockSessionState))
+      await expect(section(args, mockSessionState))
         .rejects
         .toThrow();
     });
@@ -710,7 +711,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       });
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       const timestamp = (result as { timestamp: string }).timestamp;
@@ -735,7 +736,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       });
 
       // Act
-      const result = await editSection(args, mockSessionState);
+      const result = await section(args, mockSessionState);
 
       // Assert
       expect(result).not.toHaveProperty('depth');
@@ -777,7 +778,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         .mockResolvedValueOnce({ action: 'edited', section: 'success2' });
 
       // Act
-      const result = await editSection(operations, mockSessionState);
+      const result = await section(operations, mockSessionState);
 
       // Assert
       expect(result).toEqual({

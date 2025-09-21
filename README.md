@@ -22,7 +22,7 @@ Think of it as a more powerful replacement for manual markdown management, where
 
 ## Status
 
-🚧 **Active Development** - Core MCP infrastructure complete with progressive discovery patterns implemented.
+✅ **Production Ready** - Core MCP infrastructure complete with unified tool architecture and progressive discovery patterns implemented.
 
 ## Key Features
 
@@ -46,19 +46,31 @@ Think of it as a more powerful replacement for manual markdown management, where
 
 ### 🛠 **Available MCP Tools**
 
-**Document Management:**
+**Core Document Management:**
 - `create_document` - Progressive document creation with guided workflows ✅
 - `list_documents` - Browse and discover existing documentation ✅
 - `search_documents` - Find relevant content across the entire knowledge base ✅
-- `edit_section` - Update specific sections while preserving document structure ✅
-- `insert_section` - Add new sections with automatic hierarchy management ✅
-- `archive_document` - Safely archive outdated documentation ✅
+
+**Unified Section Operations:**
+- `section` - Complete section management (create/edit/remove) with automatic depth calculation ✅
+  - Edit operations: `replace`, `append`, `prepend`
+  - Create operations: `insert_before`, `insert_after`, `append_child`
+  - Remove operations: `remove` with content recovery
+  - Batch support for multiple operations
+
+**Unified Document Operations:**
+- `manage_document` - Complete document management with batch support ✅
+  - `archive` - Safe archival with audit trails
+  - `delete` - Permanent deletion (requires confirmation)
+  - `rename` - Update document titles
+  - `move` - Relocate documents with path management
+- `archive_document` - Legacy archive tool (use `manage_document` instead) ✅
 
 **Task & Reference Management:**
 - `add_task` - Link implementation tasks to specification sections 🚧
 - `complete_task` - Mark tasks complete with implementation notes 🚧
+- `reopen_task` - Revert task completion status 🚧
 - `view_document` - Inspect document structure and metadata 🚧
-- `remove_section` - Delete sections with safety checks 🚧
 
 ## Use Cases
 
@@ -81,22 +93,55 @@ Think of it as a more powerful replacement for manual markdown management, where
 
 ```mermaid
 graph TD
-    A[Create API Spec] --> B[Loads API Template]
-    B --> C[Guides Through Endpoints]
-    C --> D[Links to Auth Guide]
-    D --> E[References Error Handling]
-    E --> F[Creates Implementation Tasks]
-    F --> G[Links to Testing Guide]
-    G --> H[Complete Interconnected Docs]
+    A[Create API Spec] --> B[Progressive Discovery Guide]
+    B --> C[Section Tool: Add Endpoints]
+    C --> D[Section Tool: Batch Operations]
+    D --> E[Manage Document: Archive Old Version]
+    E --> F[Create Implementation Tasks]
+    F --> G[Section Tool: Link References]
+    G --> H[Complete Unified Documentation]
+```
+
+### Unified Tool Examples
+
+```javascript
+// Section tool - All operations in one
+await section({
+  document: "/api/user-service.md",
+  section: "#authentication",
+  content: "Updated auth flow...",
+  operation: "replace"
+});
+
+// Batch section operations
+await section([
+  { document: "/api/spec.md", section: "#endpoints", content: "...", operation: "append" },
+  { document: "/api/spec.md", section: "#new-feature", content: "...", operation: "insert_after", title: "New Feature" },
+  { document: "/api/spec.md", section: "#deprecated", operation: "remove" }
+]);
+
+// Document management - All operations unified
+await manage_document({
+  operation: "archive",
+  document: "/old-spec.md"
+});
 ```
 
 ## Architecture
 
-### Progressive Discovery Pattern
+### Unified Tool Architecture
+The server follows a "one tool, one purpose" philosophy with powerful, consolidated operations:
+
+**Progressive Discovery Pattern:**
 Tools reveal parameters gradually, guiding users through complex workflows:
 - **Stage 0**: Discovery - Show available options
 - **Stage 1**: Configuration - Gather specific requirements
 - **Stage 2**: Creation - Execute with full context
+
+**Unified Operations:**
+- **`section` tool** - All section operations (create/edit/remove) with automatic depth calculation
+- **`manage_document` tool** - All document operations (archive/delete/rename/move) with batch support
+- **Batch Processing** - Multiple operations in a single call for efficiency
 
 ### Modular MCP Design
 ```
@@ -155,15 +200,17 @@ pnpm test:run && pnpm lint && pnpm typecheck
 ## Roadmap
 
 **Near Term:**
-- Complete remaining MCP tool implementations
-- Enhanced document linking and validation
-- Template system for common document types
+- Complete task management tool implementations (`add_task`, `complete_task`, `view_document`)
+- Enhanced document linking and validation system
+- Template system expansion for common document types
+- Comprehensive test coverage for all unified tools
 
 **Future Vision:**
 - **Smart Context Loading** - AI-driven relevant document discovery
 - **Workflow Automation** - Complete development process guidance
 - **Integration Ecosystem** - Connect with popular development tools
 - **Team Collaboration** - Multi-user document coordination
+- **Advanced Batch Operations** - Cross-document operations and bulk management
 
 ## Contributing
 
