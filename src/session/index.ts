@@ -2,5 +2,5 @@
  * Session management module exports
  */
 
-export type { SessionState } from './types.js';
-export { SessionStore } from './session-store.js';
+// Note: All session imports are done directly from specific files
+// No re-exports needed as they are not used via this index

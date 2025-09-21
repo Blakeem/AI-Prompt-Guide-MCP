@@ -94,43 +94,7 @@ export async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-/**
- * Gets file size in bytes
- */
-export async function getFileSize(path: string): Promise<number> {
-  try {
-    const stat = await fs.stat(path);
-    return stat.size;
-  } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      throw createError(
-        `File not found: ${path}`,
-        ERROR_CODES.FILE_NOT_FOUND,
-        { path }
-      );
-    }
-    throw error;
-  }
-}
 
-/**
- * Validates file size against maximum limit
- */
-export async function validateFileSize(path: string, maxSize: number): Promise<void> {
-  const size = await getFileSize(path);
-  
-  if (size > maxSize) {
-    throw createError(
-      `File too large: ${size} bytes (max: ${maxSize} bytes)`,
-      ERROR_CODES.FILE_TOO_LARGE,
-      {
-        path,
-        size,
-        maxSize,
-      }
-    );
-  }
-}
 
 /**
  * Creates directory if it doesn't exist

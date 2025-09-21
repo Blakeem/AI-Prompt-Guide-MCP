@@ -46,17 +46,22 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'error',
       '@typescript-eslint/strict-boolean-expressions': 'error',
       '@typescript-eslint/prefer-nullish-coalescing': 'error',
-      
+
+      // Dead code detection
+      '@typescript-eslint/no-unused-expressions': 'error',
+      'no-unreachable': 'error',
+      'no-constant-condition': 'error',
+
       // Async safety (critical for file I/O operations)
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': 'error',
       '@typescript-eslint/await-thenable': 'error',
-      
+
       // Additional strictness
       '@typescript-eslint/explicit-module-boundary-types': 'error',
       '@typescript-eslint/prefer-readonly': 'error',
       '@typescript-eslint/prefer-optional-chain': 'error',
-      
+
       // Error handling
       'no-throw-literal': 'error',
       

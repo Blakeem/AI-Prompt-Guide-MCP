@@ -22,14 +22,27 @@ This is a Markdown CRUD toolkit for building an MCP server that allows full Crea
 ### Quality Gates (ALL must pass)
 **AFTER EVERY CODE CHANGE:**
 1. Run `pnpm test:run` - ALL tests must pass (runs once, exits)
-2. Run `pnpm lint` - ZERO errors and warnings allowed  
+2. Run `pnpm lint` - ZERO errors and warnings allowed
 3. Run `pnpm typecheck` - ZERO type errors allowed
-4. **Unit Testing**: ALL new features must include unit tests following `docs/UNIT-TEST-STRATEGY.md`
+4. Run `pnpm check:dead-code` - ZERO unused exports allowed
+5. Run `pnpm check:all` - Combined quality validation (recommended)
+
+### Dead Code Detection (MANDATORY)
+```bash
+# Individual checks
+pnpm check:dead-code     # Must show "0 modules with unused exports"
+
+# Comprehensive check (runs all quality gates)
+pnpm check:all           # Lint + TypeCheck + Dead Code
+```
 
 ### Test Commands
 - `pnpm test:run` - Run tests once and exit (for CI/validation)
 - `pnpm test` - Watch mode for development (stays running)
 - `pnpm test:coverage` - Run with coverage report
+- `pnpm test:ci` - CI-friendly test command (with environment flags)
+- `pnpm test:all` - Run tests and all quality gates
+- **Unit Testing**: ALL new features must include unit tests following `docs/UNIT-TEST-STRATEGY.md`
 
 ## COMMON ESLINT ISSUES & SOLUTIONS
 
@@ -213,10 +226,29 @@ const manager = new DocumentManager(docsRoot);
 
 ### Integration Testing Workflow
 1. **Start Inspector** → `pnpm inspector:dev`
-2. **Run Quality Gates** → `pnpm test:run && pnpm lint && pnpm typecheck`
+2. **Run Quality Gates** → `pnpm check:all` (includes lint + typecheck + dead-code)
 3. **Test CRUD Operations** → Use inspector interface
 4. **Verify Archive System** → Create, then archive test documents
 5. **Check Templates** → Verify `.spec-docs-mcp/templates/` accessibility
+
+## Dead Code Prevention (MANDATORY)
+
+**Quality Gate Requirements:**
+```bash
+# MUST pass before completion
+pnpm check:dead-code     # Expected: "0 modules with unused exports"
+pnpm check:all          # Runs all checks: lint + typecheck + dead-code
+```
+
+**Automated Detection:**
+- Always run `pnpm check:all` before considering work complete
+- Dead code detection enforced by strict ESLint rules and ts-unused-exports
+
+**Prevention Guidelines:**
+- Remove unused exports IMMEDIATELY after refactoring
+- Delete helper functions when no longer needed
+- Clean up old implementations after consolidation
+- Verify all imports are actually used in the file
 
 ## MCP ARCHITECTURE & TOOL DEVELOPMENT
 
@@ -413,10 +445,20 @@ if (invalid) {
 }
 ```
 
+## Key Principles
+
+1. **Follow Established Patterns** - The codebase has mature patterns, use them
+2. **Schema Reuse** - Import from `src/tools/schemas/` instead of duplicating
+3. **Test Everything** - See `docs/UNIT-TEST-STRATEGY.md` for testing requirements
+4. **Quality Gates** - `pnpm check:all` MUST show zero issues
+5. **No Dead Code** - Zero unused exports allowed (enforced by CI)
+6. **MCP Compliance** - Use proper MCP patterns and error handling
+7. **Production Ready** - Every change must pass ALL quality gates
+
 ## DEBUGGING PRINCIPLES
 
 ### **Never Mask Issues - Always Find Root Cause**
 When encountering warnings or errors:
 
-❌ **DON'T:** Hide warnings with grep, redirects, or suppression  
+❌ **DON'T:** Hide warnings with grep, redirects, or suppression
 ✅ **DO:** Trace to the actual source and resolve properly

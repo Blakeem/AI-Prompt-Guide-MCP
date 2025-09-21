@@ -15,7 +15,7 @@ import type { CachedDocument } from './document-cache.js';
 
 const logger = getGlobalLogger();
 
-export interface CreateDocumentOptions {
+interface CreateDocumentOptions {
   title: string;
   template?: string;
   features?: {
@@ -27,13 +27,13 @@ export interface CreateDocumentOptions {
   };
 }
 
-export interface UpdateSectionOptions {
+interface UpdateSectionOptions {
   preserveAnchors?: boolean;
   updateToc?: boolean;
   validateLinks?: boolean;
 }
 
-export interface SearchOptions {
+interface SearchOptions {
   searchIn?: ('title' | 'headings' | 'content' | 'code')[];
   fuzzy?: boolean;
   boost?: {
@@ -45,7 +45,7 @@ export interface SearchOptions {
   groupByDocument?: boolean;
 }
 
-export interface SearchResult {
+interface SearchResult {
   documentPath: string;
   documentTitle: string;
   matches: Array<{

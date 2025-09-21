@@ -33,13 +33,6 @@ export interface TocNode {
   readonly children: readonly TocNode[];
 }
 
-/** Result of a section operation */
-export interface SectionOperationResult {
-  readonly success: boolean;
-  readonly updatedContent: string;
-  readonly message?: string;
-}
-
 /** Error with additional context */
 export interface SpecDocsError extends Error {
   readonly code: string;
@@ -68,25 +61,3 @@ export interface Logger {
   debug(message: string, context?: Record<string, unknown>): void;
 }
 
-/** MCP tool parameter validation schema */
-export interface ToolParameter {
-  readonly type: 'string' | 'number' | 'boolean' | 'object' | 'array';
-  readonly description: string;
-  readonly required?: boolean;
-  readonly default?: unknown;
-}
-
-/** MCP tool definition */
-export interface ToolDefinition {
-  readonly name: string;
-  readonly description: string;
-  readonly parameters: Record<string, ToolParameter>;
-}
-
-/** Result of MCP tool execution */
-export interface ToolResult {
-  readonly success: boolean;
-  readonly data?: unknown;
-  readonly error?: string;
-  readonly metadata?: Record<string, unknown>;
-}

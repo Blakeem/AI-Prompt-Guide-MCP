@@ -8,11 +8,7 @@ export type {
   FileSnapshot,
   Heading,
   TocNode,
-  SectionOperationResult,
   SpecDocsError,
   ServerConfig,
   Logger,
-  ToolParameter,
-  ToolDefinition,
-  ToolResult,
 } from './core.js';

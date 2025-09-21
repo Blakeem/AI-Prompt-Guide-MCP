@@ -232,80 +232,8 @@ export function loadConfig(): ServerConfig {
   }
 }
 
-/**
- * Validates a partial configuration object
- */
-export function validatePartialConfig(config: Partial<ServerConfig>): void {
-  try {
-    const result = ServerConfigSchema.partial().safeParse(config);
-    
-    if (!result.success) {
-      const errors = result.error.issues.map((err: z.ZodIssue) => 
-        `${err.path.join('.')}: ${err.message}`
-      ).join(', ');
-      
-      throw createError(
-        `Configuration validation failed: ${errors}`,
-        ERROR_CODES.CONFIG_VALIDATION_ERROR,
-        { errors: result.error.issues, receivedData: config }
-      );
-    }
-  } catch (error) {
-    if (error instanceof Error && 'code' in error) {
-      throw error; // Re-throw our custom errors
-    }
 
-    throw createError(
-      'Configuration validation failed',
-      ERROR_CODES.CONFIG_VALIDATION_ERROR,
-      { error: error instanceof Error ? error.message : String(error) }
-    );
-  }
-}
 
-/**
- * Creates a default configuration for testing
- */
-export function createTestConfig(): ServerConfig {
-  const packageInfo = getPackageInfo();
-  return ServerConfigSchema.parse({
-    serverName: `${packageInfo.name}-test`,
-    serverVersion: packageInfo.version,
-    logLevel: 'error',
-    docsBasePath: './.spec-docs-mcp/docs',
-    maxFileSize: 1048576, // 1MB for tests
-    maxFilesPerOperation: 10,
-    rateLimitRequestsPerMinute: 10000,
-    rateLimitBurstSize: 1000,
-    enableFileSafetyChecks: true,
-    enableMtimePrecondition: true,
-  });
-}
 
-/**
- * Gets the current environment name
- */
-export function getEnvironment(): string {
-  return process.env['NODE_ENV'] ?? 'development';
-}
 
-/**
- * Checks if running in development mode
- */
-export function isDevelopment(): boolean {
-  return getEnvironment() === 'development';
-}
 
-/**
- * Checks if running in production mode
- */
-export function isProduction(): boolean {
-  return getEnvironment() === 'production';
-}
-
-/**
- * Checks if running in test mode
- */
-export function isTest(): boolean {
-  return getEnvironment() === 'test';
-}

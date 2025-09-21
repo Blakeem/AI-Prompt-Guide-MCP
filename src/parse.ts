@@ -30,7 +30,7 @@ function normalizeHeadingDepth(depth: number): HeadingDepth {
 /**
  * Parses markdown text into an AST
  */
-export function parseMarkdown(markdown: string): Root {
+function parseMarkdown(markdown: string): Root {
   if (typeof markdown !== 'string') {
     throw createError(
       'Markdown content must be a string',
@@ -153,12 +153,6 @@ export function buildToc(markdown: string): readonly TocNode[] {
   return nodes;
 }
 
-/**
- * Finds a heading by slug in the parsed headings
- */
-export function findHeadingBySlug(headings: readonly Heading[], slug: string): Heading | null {
-  return headings.find(h => h.slug === slug) ?? null;
-}
 
 /**
  * Validates that a markdown document structure is well-formed
@@ -199,24 +193,3 @@ export function validateMarkdownStructure(markdown: string): void {
   }
 }
 
-/**
- * Gets the hierarchical path of a heading (all parent titles)
- */
-export function getHeadingPath(headings: readonly Heading[], targetSlug: string): string[] {
-  const target = findHeadingBySlug(headings, targetSlug);
-  if (!target) {
-    return [];
-  }
-
-  const path: string[] = [];
-  let current: Heading | null = target;
-
-  while (current) {
-    path.unshift(current.title);
-    current = current.parentIndex !== null 
-      ? headings[current.parentIndex] ?? null 
-      : null;
-  }
-
-  return path;
-}

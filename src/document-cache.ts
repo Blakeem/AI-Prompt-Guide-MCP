@@ -13,7 +13,7 @@ import { getGlobalLogger } from './utils/logger.js';
 
 const logger = getGlobalLogger();
 
-export interface DocumentMetadata {
+interface DocumentMetadata {
   path: string;
   title: string;
   lastModified: Date;
@@ -32,7 +32,7 @@ export interface CachedDocument {
   sections?: Map<string, string>; // Lazy-loaded content
 }
 
-export interface CacheOptions {
+interface CacheOptions {
   maxCacheSize: number;
   enableWatching: boolean;
   watchIgnorePatterns: string[];
@@ -49,7 +49,7 @@ const DEFAULT_OPTIONS: CacheOptions = {
 /**
  * Document cache with file watching and intelligent invalidation
  */
-export class DocumentCache extends EventEmitter {
+class DocumentCache extends EventEmitter {
   private readonly cache = new Map<string, CachedDocument>();
   private readonly accessOrder = new Map<string, number>();
   private readonly options: CacheOptions;
@@ -386,12 +386,3 @@ export function getGlobalCache(): DocumentCache {
   return globalCache;
 }
 
-/**
- * Cleanup global cache
- */
-export async function destroyGlobalCache(): Promise<void> {
-  if (globalCache) {
-    await globalCache.destroy();
-    globalCache = undefined;
-  }
-}

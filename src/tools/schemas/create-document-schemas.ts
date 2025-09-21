@@ -2,7 +2,7 @@
  * Central schema repository for create_document tool progressive discovery
  */
 
-export interface CreateDocumentSchemaStage {
+interface CreateDocumentSchemaStage {
   stage: number;
   description: string;
   inputSchema: {
@@ -20,7 +20,7 @@ export interface CreateDocumentSchemaStage {
  * Stage 1: Instructions - type parameter (show guidance for selected type)
  * Stage 2: Creation - type + title + overview (create the document)
  */
-export const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
+const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
   0: {
     stage: 0,
     description: 'Discovery stage - call with no parameters to see available document types',
@@ -166,7 +166,7 @@ export function getNextCreateDocumentStage(currentStage: number): number {
 /**
  * Available document types for create_document tool
  */
-export const DOCUMENT_TYPES = {
+const DOCUMENT_TYPES = {
   api_spec: {
     id: 'api_spec',
     name: 'API Specification',

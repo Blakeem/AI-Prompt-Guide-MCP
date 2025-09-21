@@ -22,14 +22,6 @@ export const DEFAULT_LIMITS = {
   MAX_HEADINGS_PER_DOCUMENT: 1000,
 } as const;
 
-export const DEFAULT_PATHS = {
-  /** Default base path for documents */
-  DOCS_BASE_PATH: './.spec-docs-mcp/docs',
-  
-  /** Default test documents path */
-  TEST_DOCS_PATH: './.spec-docs-mcp/docs/test',
-} as const;
-
 export const ERROR_CODES = {
   /** File operation errors */
   PRECONDITION_FAILED: 'PRECONDITION_FAILED',
@@ -57,16 +49,6 @@ export const LOG_LEVELS = {
   WARN: 'warn',
   INFO: 'info',
   DEBUG: 'debug',
-} as const;
-
-export const MCP_TOOL_NAMES = {
-  LIST_HEADINGS: 'list_headings',
-  READ_SECTION: 'read_section',
-  CREATE_SECTION: 'create_section',
-  UPDATE_SECTION: 'update_section',
-  RENAME_HEADING: 'rename_heading',
-  DELETE_SECTION: 'delete_section',
-  BUILD_TOC: 'build_toc',
 } as const;
 
 export const HEADING_DEPTHS = [1, 2, 3, 4, 5, 6] as const;

@@ -2,28 +2,27 @@
  * Consistent error formatting utilities
  */
 
-import { ERROR_CODES } from '../constants/defaults.js';
 import type { SpecDocsError } from '../types/index.js';
 
 /**
  * Formats an error for MCP tool responses
  */
-export function formatMCPError(error: unknown): { error: string; code?: string | undefined; context?: Record<string, unknown> | undefined } {
+function formatMCPError(error: unknown): { error: string; code?: string | undefined; context?: Record<string, unknown> | undefined } {
   if (error instanceof Error) {
     const specError = error as SpecDocsError;
-    
+
     const result: { error: string; code?: string | undefined; context?: Record<string, unknown> | undefined } = {
       error: error.message,
     };
-    
+
     if ('code' in specError) {
       result.code = specError.code;
     }
-    
+
     if ('context' in specError && specError.context != null) {
       result.context = specError.context;
     }
-    
+
     return result;
   }
 
@@ -93,26 +92,6 @@ export function createErrorResponse(error: unknown, operation?: string): {
 }
 
 /**
- * Creates a success response for MCP tools
- */
-export function createSuccessResponse<T>(data: T, metadata?: Record<string, unknown>): {
-  success: true;
-  data: T;
-  metadata?: Record<string, unknown>;
-} {
-  const response: { success: true; data: T; metadata?: Record<string, unknown> } = {
-    success: true,
-    data,
-  };
-
-  if (metadata != null) {
-    response.metadata = metadata;
-  }
-
-  return response;
-}
-
-/**
  * Wraps an async operation with standardized error handling
  */
 export async function withErrorHandling<T>(
@@ -127,60 +106,3 @@ export async function withErrorHandling<T>(
   }
 }
 
-/**
- * Wraps a sync operation with standardized error handling
- */
-export function withSyncErrorHandling<T>(
-  operation: () => T,
-  operationName?: string
-): { success: true; data: T } | { success: false; error: string; code?: string | undefined; context?: Record<string, unknown> | undefined } {
-  try {
-    const data = operation();
-    return { success: true, data };
-  } catch (error) {
-    return createErrorResponse(error, operationName);
-  }
-}
-
-/**
- * Checks if an error has a specific error code
- */
-export function hasErrorCode(error: unknown, code: string): boolean {
-  if (error instanceof Error) {
-    const specError = error as SpecDocsError;
-    return 'code' in specError && specError.code === code;
-  }
-  return false;
-}
-
-/**
- * Extracts error context if available
- */
-export function getErrorContext(error: unknown): Record<string, unknown> | undefined {
-  if (error instanceof Error) {
-    const specError = error as SpecDocsError;
-    return 'context' in specError ? specError.context : undefined;
-  }
-  return undefined;
-}
-
-/**
- * Checks if error is a known application error
- */
-export function isSpecDocsError(error: unknown): error is SpecDocsError {
-  return error instanceof Error && 'code' in error && typeof (error as SpecDocsError).code === 'string';
-}
-
-/**
- * Gets all known error codes
- */
-export function getAllErrorCodes(): readonly string[] {
-  return Object.values(ERROR_CODES);
-}
-
-/**
- * Validates that an error code is known
- */
-export function isKnownErrorCode(code: string): boolean {
-  return getAllErrorCodes().includes(code);
-}

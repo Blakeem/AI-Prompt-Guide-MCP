@@ -3,6 +3,7 @@
  */
 
 import type { DocumentManager } from '../document-manager.js';
+import { initializeGlobalCache } from '../document-cache.js';
 
 /**
  * Helper function to perform a single section edit operation
@@ -64,7 +65,6 @@ export async function getDocumentManager(): Promise<DocumentManager> {
     // Import dynamically to avoid circular dependencies
     const { DocumentManager } = await import('../document-manager.js');
     const { loadConfig } = await import('../config.js');
-    const { initializeGlobalCache } = await import('../document-cache.js');
 
     const config = loadConfig();
 

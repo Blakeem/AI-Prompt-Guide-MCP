@@ -151,13 +151,6 @@ export function createLogger(config: ServerConfig): Logger {
 }
 
 /**
- * Creates a logger with specified level (for testing)
- */
-export function createLoggerWithLevel(level: string): Logger {
-  return new ConsoleLogger(level);
-}
-
-/**
  * Creates a silent logger (for testing)
  */
 export function createSilentLogger(): Logger {
