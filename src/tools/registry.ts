@@ -12,8 +12,53 @@ import { getCreateDocumentSchema } from './schemas/create-document-schemas.js';
 export function getVisibleTools(state: SessionState): ToolDefinition[] {
   const tools: ToolDefinition[] = [
     {
+      name: 'browse_documents',
+      description: 'Unified browsing and searching of documents with namespace awareness and cross-namespace linking. Browse mode (no query) shows folder/file structure. Search mode (with query) performs content search.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Directory to browse or limit search scope (e.g., "/api", "/guides")',
+            default: '/',
+          },
+          query: {
+            type: 'string',
+            description: 'Search terms (if empty, browse mode). When provided, performs content search across documents.',
+          },
+          depth: {
+            type: 'number',
+            description: 'Maximum traversal depth for browsing (1-5)',
+            minimum: 1,
+            maximum: 5,
+            default: 2,
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum results for search mode',
+            minimum: 1,
+            maximum: 50,
+            default: 10,
+          },
+          include_related: {
+            type: 'boolean',
+            description: 'Whether to include related document analysis (forward/backward links, content similarity, dependency chains)',
+            default: false,
+          },
+          link_depth: {
+            type: 'number',
+            description: 'Maximum depth for link traversal analysis (1-3)',
+            minimum: 1,
+            maximum: 3,
+            default: 2,
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+    {
       name: 'list_documents',
-      description: 'Browse and list existing documents in the knowledge base',
+      description: '[LEGACY] Browse and list existing documents in the knowledge base - use browse_documents instead',
       inputSchema: {
         type: 'object',
         properties: {
@@ -35,7 +80,7 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'search_documents',
-      description: 'Search through existing documents by content, title, or path',
+      description: '[LEGACY] Search through existing documents by content, title, or path - use browse_documents instead',
       inputSchema: {
         type: 'object',
         properties: {

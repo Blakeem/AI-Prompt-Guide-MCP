@@ -7,6 +7,7 @@ import {
   createDocument,
   listDocuments,
   searchDocuments,
+  browseDocuments,
   section,
   manageDocument,
   archiveDocument,
@@ -28,6 +29,9 @@ export async function executeTool(
   switch (toolName) {
     case 'create_document':
       return await createDocument(args, state, onListChanged);
+
+    case 'browse_documents':
+      return await browseDocuments(args, state);
 
     case 'list_documents':
       return await listDocuments(args, state);

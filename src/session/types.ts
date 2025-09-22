@@ -7,5 +7,5 @@
  */
 export interface SessionState {
   sessionId: string;
-  createDocumentStage: number;
+  createDocumentStage: number; // Supports 0, 1, 2.5, 3 for create_document progressive discovery
 }

@@ -13,15 +13,32 @@ A task-aware documentation system that combines specification management with ac
 - **Structural Integrity**: Operations preserve document structure and hierarchy
 - **Safe Transformations**: Validated operations that can't corrupt documents
 
-### 2. Progressive Discovery Pattern
+### 2. Namespace-Based Organization
+Documents are organized using flexible namespaces that map directly to folder structure:
+```
+namespace: "api/specs"     → folder: "/api/specs"     → file: "/api/specs/search-api.md"
+namespace: "guides/setup"  → folder: "/guides/setup"  → file: "/guides/setup/oauth.md"
+namespace: "docs/admin"    → folder: "/docs/admin"    → file: "/docs/admin/deployment.md"
+```
+- **Flexible Structure**: Namespaces adapt to any organization pattern
+- **Direct Mapping**: Clear relationship between namespace and filesystem
+- **Extensible**: Easy to add new namespaces without code changes
+
+### 3. Consistent Slug and Path Handling
+- **File Names**: Always use slugified versions (`search-api.md`)
+- **Document Titles**: Full, human-readable titles in document content
+- **Return Values**: Always expose both slug (for references) and title (for display)
+- **Cross-Tool Consistency**: Same naming patterns across all tools
+
+### 4. Progressive Discovery Pattern
 Tools reveal capabilities through exploration:
 ```json
-→ create_document {}                    // Lists available doc types
-→ create_document {type: "api_spec"}    // Returns instructions & best practices
-→ create_document {type: "api_spec", title: "Search API", content: "..."}  // Creates document
+→ create_document {}                              // Lists available namespaces
+→ create_document {namespace: "api/specs"}        // Returns instructions & best practices
+→ create_document {namespace: "api/specs", title: "Search API", overview: "..."}  // Creates document
 ```
 
-### 3. Batch and Single Operations
+### 5. Batch and Single Operations
 All modification tools support both single and batch operations through input type detection:
 ```json
 // Single operation
@@ -34,7 +51,7 @@ Input: [
 ]
 ```
 
-### 4. Error Recovery Pattern
+### 6. Error Recovery Pattern
 Errors return full specifications to guide correction:
 ```json
 {
@@ -50,7 +67,7 @@ Errors return full specifications to guide correction:
 }
 ```
 
-### 5. Slug Stability Through Anchors
+### 7. Slug Stability Through Anchors
 Sections maintain stable slugs even when renamed:
 ```markdown
 ## Updated Title {#original-slug}
@@ -107,52 +124,78 @@ Tasks use GitHub-style checkboxes with essential metadata:
 - `reopen_task`: Revert completion
 
 **Discovery:**
-- `list_documents`: Browse document tree
-- `search_documents`: Find content
+- `browse_documents`: Unified browsing and search (replaces list_documents + search_documents)
 - `view_document`: Inspect structure
 
 ## Essential Tool Set (MVP)
 
 ### 1. create_document
-Progressive creation with type-specific guidance:
+Progressive creation with namespace-specific guidance:
 
 **Stage 1 - Discovery**:
 ```json
 Input: {}
 Output: {
-  "types": ["api_spec", "implementation_guide", "architecture_doc", "troubleshooting"],
-  "next_step": "Call with 'type' parameter for instructions"
+  "namespaces": {
+    "api/specs": {
+      "description": "REST API specifications with endpoints and schemas",
+      "examples": ["search-api", "user-api", "payments-api"]
+    },
+    "api/guides": {
+      "description": "API implementation and integration guides",
+      "examples": ["oauth-setup", "rate-limiting", "error-handling"]
+    },
+    "frontend/components": {
+      "description": "UI component documentation and examples",
+      "examples": ["button", "modal", "data-table"]
+    },
+    "backend/services": {
+      "description": "Backend service architecture and implementation",
+      "examples": ["auth-service", "search-service", "notification-service"]
+    },
+    "docs/troubleshooting": {
+      "description": "Problem diagnosis and solution guides",
+      "examples": ["deployment-issues", "performance-problems", "debugging-guide"]
+    }
+  },
+  "next_step": "Call with 'namespace' parameter for instructions"
 }
 ```
 
 **Stage 2 - Instructions with Starter Structure**:
 ```json
-Input: {"type": "api_spec"}
+Input: {"namespace": "api/specs"}
 Output: {
+  "namespace": "api/specs",
   "instructions": [
     "Research current API patterns and standards",
-    "Define clear request/response schemas",
-    "Include realistic examples",
-    "Document error conditions"
+    "Define clear request/response schemas with OpenAPI",
+    "Include realistic examples with actual data",
+    "Document all error conditions with HTTP status codes",
+    "Specify authentication and authorization requirements"
   ],
-  "starter_structure": "# Title\n## Overview\n## Endpoints\n## Schemas\n## Examples\n## Tasks",
-  "next_step": "Provide type, title, and initial_content"
+  "starter_structure": "# {{title}}\n\n## Overview\n{{overview}}\n\n## Authentication\n\n## Endpoints\n\n## Schemas\n\n## Examples\n\n## Tasks",
+  "next_step": "Provide namespace, title, and overview to create document"
 }
 ```
 
 **Stage 3 - Creation**:
 ```json
 Input: {
-  "type": "api_spec",
-  "title": "Search API",
-  "initial_content": "Full-text search with ranking"
+  "namespace": "api/specs",
+  "title": "Search API Specification",
+  "overview": "Full-text search with ranking and filtering capabilities"
 }
 Output: {
-  "created": "/specs/search-api.md",
-  "sections": ["#overview", "#endpoints", "#schemas", "#examples", "#tasks"],
+  "created": "/api/specs/search-api-specification.md",
+  "slug": "search-api-specification",
+  "title": "Search API Specification",
+  "namespace": "api/specs",
+  "sections": ["#overview", "#authentication", "#endpoints", "#schemas", "#examples", "#tasks"],
   "next_actions": [
     "Use add_task to populate the tasks section",
-    "Use edit_section to add endpoint details"
+    "Use section tool to add endpoint details",
+    "Use section tool to define request/response schemas"
   ]
 }
 ```
@@ -402,88 +445,171 @@ Output: {
 }
 ```
 
-### 6. list_documents
-Browse the document tree:
+### 6. browse_documents
+Unified browsing and search across documents, folders, and sections:
+
+**Browse Mode (empty query)**:
 ```json
-Input: {"path": "/specs", "include_tasks": true}
+Input: {"path": "/api"}
 Output: {
-  "documents": [
-    {
-      "path": "/specs/search-api.md",
-      "title": "Search API Specification",
-      "sections": ["#overview", "#endpoints", "#schemas", "#examples", "#tasks"],
-      "tasks": {
-        "total": 5,
-        "completed": 2
+  "path": "/api",
+  "structure": {
+    "folders": [
+      {
+        "name": "specs",
+        "path": "/api/specs",
+        "namespace": "api/specs",
+        "documentCount": 3,
+        "hasSubfolders": false
+      },
+      {
+        "name": "guides",
+        "path": "/api/guides",
+        "namespace": "api/guides",
+        "documentCount": 5,
+        "hasSubfolders": true
       }
-    }
-  ],
-  "total_documents": 1
+    ],
+    "documents": [
+      {
+        "path": "/api/overview.md",
+        "slug": "overview",
+        "title": "API Overview",
+        "namespace": "api",
+        "sections": [
+          {"slug": "#introduction", "title": "Introduction", "depth": 2, "hasContent": true},
+          {"slug": "#architecture", "title": "Architecture", "depth": 2, "hasContent": true}
+        ],
+        "tasks": {"total": 2, "completed": 1, "pending": ["tasks[1]"]},
+        "lastModified": "2025-09-20T14:30:00Z"
+      }
+    ]
+  },
+  "breadcrumb": ["api"],
+  "parentPath": "/",
+  "totalItems": 9
 }
 ```
 
-### 7. search_documents
-Find content across documents:
+**Search Mode (with query)**:
 ```json
 Input: {
   "query": "caching performance",
-  "include_tasks": true
+  "path": "/api"
 }
 Output: {
-  "results": [
+  "path": "/api",
+  "query": "caching performance",
+  "structure": {
+    "folders": [],
+    "documents": [
+      {
+        "path": "/api/specs/search-api.md",
+        "slug": "search-api",
+        "title": "Search API Specification",
+        "namespace": "api/specs",
+        "sections": [
+          {"slug": "#caching", "title": "Caching Strategy", "depth": 2, "hasContent": true},
+          {"slug": "#performance", "title": "Performance", "depth": 2, "hasContent": true}
+        ],
+        "relevance": 0.95,
+        "lastModified": "2025-09-19T10:15:00Z"
+      }
+    ]
+  },
+  "matches": [
     {
-      "document": "/architecture/caching.md",
-      "matches": [
-        {
-          "type": "content",
-          "section": "#overview",
-          "snippet": "...caching strategies for optimal performance..."
-        }
-      ],
+      "document": "/api/specs/search-api.md",
+      "section": "#caching",
+      "snippet": "Redis-based caching strategies for optimal performance...",
       "relevance": 0.95
     }
   ],
-  "related_tasks": [
+  "relatedTasks": [
     {
-      "task_id": "api.md#tasks[3]",
+      "taskId": "search-api.md#tasks[3]",
       "title": "Implement caching layer",
       "status": "completed"
     }
-  ]
+  ],
+  "totalItems": 1
 }
 ```
 
-### 8. view_document
+**Global Search (no path)**:
+```json
+Input: {"query": "authentication"}
+Output: {
+  "query": "authentication",
+  "structure": {
+    "folders": [
+      {
+        "name": "auth",
+        "path": "/backend/auth",
+        "namespace": "backend/auth",
+        "documentCount": 4,
+        "hasSubfolders": false
+      }
+    ],
+    "documents": [
+      {
+        "path": "/api/specs/auth-api.md",
+        "slug": "auth-api",
+        "title": "Authentication API",
+        "namespace": "api/specs",
+        "relevance": 0.98,
+        "sections": [
+          {"slug": "#jwt-tokens", "title": "JWT Tokens", "depth": 2, "hasContent": true},
+          {"slug": "#oauth2", "title": "OAuth2 Flow", "depth": 2, "hasContent": true}
+        ]
+      }
+    ]
+  },
+  "matches": [
+    {
+      "document": "/api/specs/auth-api.md",
+      "section": "#jwt-tokens",
+      "snippet": "JWT-based authentication with refresh tokens...",
+      "relevance": 0.98
+    }
+  ],
+  "totalItems": 12
+}
+```
+
+### 7. view_document
 Inspect document structure and content:
 ```json
-Input: {"document": "/specs/search-api.md"}
+Input: {"document": "/api/specs/search-api.md"}
 Output: {
-  "path": "/specs/search-api.md",
+  "path": "/api/specs/search-api.md",
+  "slug": "search-api",
   "title": "Search API Specification",
+  "namespace": "api/specs",
   "sections": [
     {
       "slug": "#overview",
       "title": "Overview",
       "depth": 2,
-      "has_content": true,
+      "hasContent": true,
       "links": []
     },
     {
       "slug": "#endpoints",
       "title": "Endpoints",
       "depth": 2,
-      "has_content": true,
-      "links": ["/guides/api-design.md"]
+      "hasContent": true,
+      "links": ["/api/guides/api-design.md"]
     },
     {
       "slug": "#tasks",
       "title": "Tasks",
       "depth": 2,
-      "task_count": 5,
+      "taskCount": 5,
       "links": [
-        "/specs/search-api.md#endpoints",
-        "/guides/optimization.md",
-        "/architecture/caching.md"
+        "/api/specs/search-api.md#endpoints",
+        "/api/guides/optimization.md",
+        "/backend/services/caching.md"
       ]
     }
   ],
@@ -492,13 +618,16 @@ Output: {
     "completed": 2,
     "pending": ["tasks[2]", "tasks[3]", "tasks[4]"]
   },
-  "document_links": {
+  "documentLinks": {
     "total": 4,
     "internal": 3,
     "external": 1,
     "broken": [],
-    "sections_without_links": ["#schemas", "#examples"]
-  }
+    "sectionsWithoutLinks": ["#schemas", "#examples"]
+  },
+  "lastModified": "2025-09-20T14:30:00Z",
+  "wordCount": 1250,
+  "headingCount": 8
 }
 ```
 
@@ -511,7 +640,12 @@ Input: {"task_id": "api.md#tasks[0]"}
 Output: {"reopened": true, "task_id": "api.md#tasks[0]"}
 ```
 
-**Note**: Section removal is now handled by the `section` tool using the `remove` operation. Document operations (archive, delete, rename, move) are handled by the `manage_document` tool.
+**Note**: This specification reflects the unified tool architecture where:
+- `section` tool handles ALL section operations (create/edit/remove)
+- `manage_document` tool handles ALL document operations (archive/delete/rename/move)
+- `browse_documents` tool unifies browsing and search (replaces `list_documents` + `search_documents`)
+- Namespace-based organization replaces rigid document types
+- Consistent slug and path handling across all tools
 
 ## Implementation Architecture
 
@@ -540,39 +674,292 @@ src/
 
 ### Implementation Phases
 
-#### Phase 1: Core Foundation (Week 1)
-1. AST-based markdown parser with GitHub slugger
-2. Basic CRUD for documents and sections
-3. Task parser for checkboxes with metadata
-4. Progressive discovery for `create_document`
-5. Batch operation support
+#### Phase 1: Namespace Foundation
+1. Update `create_document` schemas to use namespaces instead of types
+2. Create namespace configuration system with predefined namespaces
+3. Add namespace validation and suggestions
+4. Update slug generation to handle longer, descriptive titles
 
-#### Phase 2: Linking & Discovery (Week 2)
-1. Manual link creation in tasks
-2. Link validation (verify targets exist)
-3. Search with task inclusion
-4. Error recovery patterns
+#### Phase 2: Unified Browse Tool
+1. Create new `browse_documents` tool replacing `list_documents` + `search_documents`
+2. Implement hierarchical folder/file/section structure
+3. Add search integration with path filtering
+4. Support both browse mode (empty query) and search mode (with query)
 
-#### Phase 3: Polish & Optimization (Week 3)
-1. Task completion validation
-2. Section anchor stability
-3. Performance optimization
-4. Comprehensive testing
+#### Phase 3: Consistent Integration
+1. Update all tools to use consistent path/namespace terminology
+2. Ensure all tools expose both slug and title information
+3. Add namespace awareness to `section` and `manage_document` tools
+4. Update error messages and examples to use new patterns
+
+#### Phase 4: Advanced Features
+
+##### 1. Section-Level Browsing ✅ (Completed)
+Section-level browsing allows deep navigation into document structure:
+```json
+// Browse document sections
+Input: {"path": "/api/specs/search-api.md"}
+Output: { "sections": [...], "document_context": {...} }
+
+// Browse specific section
+Input: {"path": "/api/specs/search-api.md#endpoints"}
+Output: { "sections": [...subsections...], "document_context": {...} }
+```
+
+##### 2. Cross-Namespace Linking and References
+
+**Problem Statement**: When working on a feature, developers need to see ALL related documents (specs, guides, components, services) without getting lost in recursive link chains.
+
+**Smart Link Discovery System**:
+- **Forward Links**: Documents this document references
+- **Backward Links**: Documents that reference this document
+- **Related Documents**: Documents with similar content/tasks
+- **Dependency Chain**: Logical implementation sequence
+- **Anti-Recursion**: Smart depth limiting and cycle detection
+
+**Enhanced browse_documents with Link Context**:
+```json
+Input: {
+  "path": "/api/specs/search-api.md",
+  "include_related": true,
+  "link_depth": 2
+}
+Output: {
+  "document_context": {...},
+  "sections": [...],
+  "related_documents": {
+    "forward_links": [
+      {
+        "path": "/api/guides/search-implementation.md",
+        "title": "Search Implementation Guide",
+        "namespace": "api/guides",
+        "relationship": "implementation_guide",
+        "sections_linked": ["#setup", "#examples"],
+        "tasks_linked": 3
+      }
+    ],
+    "backward_links": [
+      {
+        "path": "/backend/services/search-service.md",
+        "title": "Search Service Architecture",
+        "namespace": "backend/services",
+        "relationship": "implements_spec",
+        "sections_linking": ["#api-integration"],
+        "completion_status": "75%"
+      }
+    ],
+    "related_by_content": [
+      {
+        "path": "/frontend/components/search-box.md",
+        "title": "Search Box Component",
+        "namespace": "frontend/components",
+        "relationship": "consumes_api",
+        "relevance": 0.85,
+        "shared_concepts": ["search queries", "filters", "pagination"]
+      }
+    ],
+    "dependency_chain": [
+      {
+        "sequence": 1,
+        "path": "/api/specs/search-api.md",
+        "title": "Search API Specification",
+        "status": "completed",
+        "blocks": ["/api/guides/search-implementation.md"]
+      },
+      {
+        "sequence": 2,
+        "path": "/api/guides/search-implementation.md",
+        "title": "Search Implementation Guide",
+        "status": "in_progress",
+        "blocks": ["/backend/services/search-service.md", "/frontend/components/search-box.md"]
+      },
+      {
+        "sequence": 3,
+        "path": "/backend/services/search-service.md",
+        "title": "Search Service Architecture",
+        "status": "pending",
+        "depends_on": ["/api/guides/search-implementation.md"]
+      }
+    ]
+  },
+  "implementation_readiness": {
+    "specs_ready": true,
+    "guides_available": true,
+    "components_needed": 2,
+    "services_needed": 1,
+    "estimated_completion": "85%"
+  }
+}
+```
+
+**Anti-Recursion Strategy**:
+- **Depth Limiting**: Max 3 levels of related documents
+- **Cycle Detection**: Track visited documents, break cycles
+- **Relevance Filtering**: Only show links above relevance threshold
+- **Relationship Types**: Categorize links to avoid noise
+- **Smart Pruning**: Prefer direct dependencies over distant relations
+
+**Link Relationship Types**:
+- `implements_spec`: Implementation follows this specification
+- `implementation_guide`: Guide for implementing this spec
+- `consumes_api`: Frontend/client that uses this API
+- `depends_on`: Requires this to be completed first
+- `references`: General reference or citation
+- `similar_content`: Related by topic/tags/content similarity
+
+##### 3. Smart Namespace Suggestions
+
+**Problem Statement**: When creating new documents, developers should see intelligent suggestions for related documents, similar implementations, and logical next steps.
+
+**Intelligent Suggestion Engine**:
+- **Content Analysis**: Analyze title/overview for topic detection
+- **Pattern Recognition**: Find similar documents in other namespaces
+- **Completion Gaps**: Identify missing pieces in implementation chains
+- **Template Matching**: Suggest proven patterns from existing docs
+
+**Enhanced create_document with Smart Suggestions**:
+
+**Stage 2.5 - Smart Suggestions** (between instructions and creation):
+```json
+Input: {
+  "namespace": "backend/services",
+  "title": "User Authentication Service",
+  "overview": "JWT-based authentication with refresh tokens"
+}
+Output: {
+  "suggestions": {
+    "related_documents": [
+      {
+        "path": "/api/specs/auth-api.md",
+        "title": "Authentication API Specification",
+        "namespace": "api/specs",
+        "reason": "Your service should implement this API spec",
+        "relevance": 0.95,
+        "sections_to_reference": ["#jwt-tokens", "#refresh-flow"]
+      },
+      {
+        "path": "/frontend/components/login-form.md",
+        "title": "Login Form Component",
+        "namespace": "frontend/components",
+        "reason": "Frontend component that will consume your service",
+        "relevance": 0.80,
+        "implementation_gap": "needs_api_integration"
+      }
+    ],
+    "similar_implementations": [
+      {
+        "path": "/backend/services/authorization-service.md",
+        "title": "Authorization Service",
+        "namespace": "backend/services",
+        "reason": "Similar service architecture you can reference",
+        "relevance": 0.75,
+        "reusable_patterns": ["JWT handling", "token validation", "error responses"]
+      }
+    ],
+    "missing_pieces": [
+      {
+        "type": "guide",
+        "suggested_path": "/api/guides/auth-integration.md",
+        "title": "Authentication Integration Guide",
+        "reason": "Implementation guide missing for this auth spec",
+        "priority": "high"
+      },
+      {
+        "type": "troubleshooting",
+        "suggested_path": "/docs/troubleshooting/auth-issues.md",
+        "title": "Authentication Troubleshooting",
+        "reason": "Common auth problems documentation needed",
+        "priority": "medium"
+      }
+    ],
+    "implementation_sequence": [
+      {
+        "order": 1,
+        "action": "Review API specification",
+        "document": "/api/specs/auth-api.md",
+        "sections": ["#jwt-tokens", "#endpoints"]
+      },
+      {
+        "order": 2,
+        "action": "Create your service document",
+        "document": "/backend/services/user-authentication-service.md",
+        "focus": "architecture and implementation details"
+      },
+      {
+        "order": 3,
+        "action": "Link frontend integration",
+        "document": "/frontend/components/login-form.md",
+        "focus": "update API endpoints and error handling"
+      }
+    ]
+  },
+  "namespace_patterns": {
+    "common_sections": ["#architecture", "#endpoints", "#security", "#deployment"],
+    "frequent_links": ["/api/specs/", "/docs/troubleshooting/"],
+    "typical_tasks": ["Implement core logic", "Add error handling", "Create deployment guide"]
+  },
+  "next_step": "Review suggestions, then call again with 'create: true' to proceed"
+}
+```
+
+**Suggestion Algorithm**:
+1. **Content Fingerprinting**: Extract keywords, concepts, technology stack
+2. **Cross-Namespace Analysis**: Find related docs in other namespaces
+3. **Pattern Matching**: Compare against successful doc patterns
+4. **Gap Analysis**: Identify missing implementation pieces
+5. **Sequence Planning**: Suggest logical implementation order
+
+**Suggestion Categories**:
+- **Must Reference**: Direct dependencies (API specs this implements)
+- **Should Integrate**: Related components (frontend that consumes this API)
+- **Could Reference**: Similar implementations for patterns
+- **Missing Pieces**: Gaps in documentation chain
+- **Next Steps**: Logical follow-up documents to create
+
+##### 4. Template Customization per Namespace (Future)
+Allow customizing templates based on namespace patterns and team preferences.
 
 ## Configuration
 
-Simple configuration for document organization:
+### Namespace Configuration
 ```yaml
 # .specdocs.config.yaml
-paths:
-  specs: /specs
-  guides: /guides
-  architecture: /architecture
+namespaces:
+  "api/specs":
+    description: "REST API specifications with endpoints and schemas"
+    template: "api_spec_template"
+    examples: ["search-api", "user-api", "payments-api"]
+
+  "api/guides":
+    description: "API implementation and integration guides"
+    template: "implementation_guide_template"
+    examples: ["oauth-setup", "rate-limiting", "error-handling"]
+
+  "frontend/components":
+    description: "UI component documentation and examples"
+    template: "component_template"
+    examples: ["button", "modal", "data-table"]
+
+  "backend/services":
+    description: "Backend service architecture and implementation"
+    template: "service_template"
+    examples: ["auth-service", "search-service", "notification-service"]
+
+  "docs/troubleshooting":
+    description: "Problem diagnosis and solution guides"
+    template: "troubleshooting_template"
+    examples: ["deployment-issues", "performance-problems", "debugging-guide"]
 
 defaults:
   auto_toc: true
   auto_anchors: true
   task_section: "Tasks"
+  slug_max_length: 50
+
+paths:
+  docs_root: ".spec-docs-mcp/docs"
+  templates: ".spec-docs-mcp/templates"
+  archived: ".spec-docs-mcp/archived"
 ```
 
 ## Success Metrics
@@ -593,10 +980,22 @@ Track these to validate the approach:
 
 ## Next Steps
 
-1. Implement the 7 essential tools
-2. Add batch operation support to all modification tools
-3. Ensure error recovery patterns guide users
-4. Test with real specification documents
-5. Iterate based on usage patterns
+### Immediate Implementation (Phase 1)
+1. **Update create_document tool**: Replace types with namespace system
+2. **Add namespace configuration**: Define predefined namespaces with templates
+3. **Implement slug consistency**: Ensure all tools expose both slug and title
+4. **Test namespace validation**: Verify namespace-to-folder mapping works correctly
 
-This MVP provides a solid foundation for spec-driven development while keeping complexity manageable. The focus on tasks linked to specifications creates immediate value for development workflows.
+### Short-term Goals (Phase 2)
+1. **Implement browse_documents tool**: Replace list_documents + search_documents
+2. **Add hierarchical browsing**: Support folder/file/section navigation
+3. **Integrate search functionality**: Unified search with path filtering
+4. **Test mixed-media responses**: Ensure folders, files, and sections work together
+
+### Integration Phase (Phase 3)
+1. **Update existing tools**: Add namespace awareness to section and manage_document
+2. **Standardize responses**: Consistent slug/title/namespace patterns across all tools
+3. **Enhance error handling**: Updated error messages with namespace examples
+4. **Comprehensive testing**: End-to-end workflows with new architecture
+
+This unified architecture provides a flexible foundation for spec-driven development while maintaining the progressive discovery patterns that make the system approachable. The namespace-based organization scales naturally as teams grow and documentation becomes more complex.

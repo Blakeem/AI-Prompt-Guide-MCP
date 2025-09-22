@@ -3,7 +3,7 @@
  */
 
 import type { SessionState } from '../../session/types.js';
-import { getDocumentManager, performSectionEdit } from '../../shared/utilities.js';
+import { getDocumentManager, performSectionEdit, pathToNamespace, pathToSlug } from '../../shared/utilities.js';
 
 export async function section(
   args: Record<string, unknown> | Array<Record<string, unknown>>,
@@ -76,12 +76,34 @@ export async function section(
         }
       }
 
+      // Get document info for single document batches
+      let documentInfo;
+      if (Array.from(documentsModified).length === 1) {
+        const singleDocPath = Array.from(documentsModified)[0] as string;
+        const doc = await manager.getDocument(singleDocPath);
+        if (doc != null) {
+          documentInfo = {
+            path: singleDocPath,
+            slug: pathToSlug(singleDocPath),
+            title: doc.metadata.title,
+            namespace: pathToNamespace(singleDocPath)
+          };
+        }
+      }
+
       return {
         batch_results: batchResults,
         document: Array.from(documentsModified).length === 1 ? Array.from(documentsModified)[0] : undefined,
         sections_modified: sectionsModified,
         total_operations: operations.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        ...(documentInfo && {
+          document_info: {
+            slug: documentInfo.slug,
+            title: documentInfo.title,
+            namespace: documentInfo.namespace
+          }
+        })
       };
 
     } else {
@@ -113,6 +135,15 @@ export async function section(
 
       const result = await performSectionEdit(manager, normalizedPath, sectionSlug, content, operation, title);
 
+      // Get document information for response
+      const document = await manager.getDocument(normalizedPath);
+      const documentInfo = document != null ? {
+        path: normalizedPath,
+        slug: pathToSlug(normalizedPath),
+        title: document.metadata.title,
+        namespace: pathToNamespace(normalizedPath)
+      } : undefined;
+
       // Return different response based on action
       if (result.action === 'created') {
         return {
@@ -121,7 +152,14 @@ export async function section(
           new_section: result.section,
           ...(result.depth !== undefined && { depth: result.depth }),
           operation,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          ...(documentInfo && {
+            document_info: {
+              slug: documentInfo.slug,
+              title: documentInfo.title,
+              namespace: documentInfo.namespace
+            }
+          })
         };
       } else if (result.action === 'removed') {
         return {
@@ -130,7 +168,14 @@ export async function section(
           section: result.section,
           removed_content: result.removedContent,
           operation,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          ...(documentInfo && {
+            document_info: {
+              slug: documentInfo.slug,
+              title: documentInfo.title,
+              namespace: documentInfo.namespace
+            }
+          })
         };
       } else {
         return {
@@ -138,7 +183,14 @@ export async function section(
           document: normalizedPath,
           section: result.section,
           operation,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          ...(documentInfo && {
+            document_info: {
+              slug: documentInfo.slug,
+              title: documentInfo.title,
+              namespace: documentInfo.namespace
+            }
+          })
         };
       }
     }

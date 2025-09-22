@@ -3,11 +3,12 @@
  */
 
 import type { SessionState } from '../../session/types.js';
-import { getDocumentManager } from '../../shared/utilities.js';
+import { getDocumentManager, analyzeDocumentSuggestions, analyzeNamespacePatterns } from '../../shared/utilities.js';
 import {
   determineCreateDocumentStage,
   getNextCreateDocumentStage,
-  getDocumentTypes
+  getDocumentNamespaces,
+  getNamespaceConfig
 } from '../schemas/create-document-schemas.js';
 import { getGlobalSessionStore } from '../../session/session-store.js';
 
@@ -16,10 +17,11 @@ export async function createDocument(
   state: SessionState,
   onStageChange?: () => void
 ): Promise<unknown> {
-  // Progressive Discovery Pattern - 3 Stages
-  const documentType = args['type'] as string | undefined;
+  // Progressive Discovery Pattern - 4 Stages (0, 1, 2.5, 3)
+  const namespace = args['namespace'] as string | undefined;
   const title = args['title'] as string | undefined;
   const overview = args['overview'] as string | undefined;
+  const create = args['create'] as boolean | undefined;
 
   // Get the global session store singleton
   const sessionStore = getGlobalSessionStore();
@@ -35,8 +37,8 @@ export async function createDocument(
     }
   }
 
-  // STAGE 0: Discovery - Return available document types
-  if (documentType == null) {
+  // STAGE 0: Discovery - Return available document namespaces
+  if (namespace == null) {
     // Update to next stage for tool list
     const nextStage = getNextCreateDocumentStage(currentStage);
     if (nextStage !== currentStage) {
@@ -49,13 +51,13 @@ export async function createDocument(
 
     return {
       stage: 'discovery',
-      types: getDocumentTypes(),
-      next_step: "Call again with 'type' parameter to get specific instructions",
-      example: { type: "api_spec" }
+      namespaces: getDocumentNamespaces(),
+      next_step: "Call again with 'namespace' parameter to get specific instructions",
+      example: { namespace: "api/specs" }
     };
   }
 
-  // STAGE 1: Instructions - Return type-specific guidance
+  // STAGE 1: Instructions - Return namespace-specific guidance
   if (title == null || overview == null) {
     // Update to next stage for tool list
     const nextStage = getNextCreateDocumentStage(1);
@@ -66,8 +68,8 @@ export async function createDocument(
         onStageChange();
       }
     }
-    const typeInstructions: Record<string, {instructions: string[], starterStructure: string}> = {
-      api_spec: {
+    const namespaceInstructions: Record<string, {instructions: string[], starterStructure: string}> = {
+      'api/specs': {
         instructions: [
           'Research current API patterns and industry standards for your domain',
           'Define clear request/response schemas using JSON Schema or OpenAPI',
@@ -120,7 +122,7 @@ Rate limiting policies and headers.
 - [ ] Add comprehensive error handling
 - [ ] Set up rate limiting`
       },
-      implementation_guide: {
+      'api/guides': {
         instructions: [
           'Break down the implementation into clear, sequential steps',
           'Include all prerequisite setup and dependencies',
@@ -167,7 +169,54 @@ What to implement next and additional resources.
 - [ ] Implement core functionality
 - [ ] Add comprehensive tests`
       },
-      architecture_doc: {
+      'frontend/components': {
+        instructions: [
+          'Define component purpose, props interface, and usage patterns',
+          'Include interactive examples with different prop combinations',
+          'Document accessibility features and ARIA patterns',
+          'Provide styling guidelines and theme integration',
+          'Add testing strategies for component behavior',
+          'Include performance considerations and optimization tips'
+        ],
+        starterStructure: `# {{title}}
+
+## Overview
+Component purpose and main functionality.
+
+## Props Interface
+\`\`\`typescript
+interface ComponentProps {
+  // Define prop types here
+}
+\`\`\`
+
+## Usage Examples
+
+### Basic Usage
+\`\`\`jsx
+<Component />
+\`\`\`
+
+### Advanced Usage
+\`\`\`jsx
+<Component prop="value" />
+\`\`\`
+
+## Styling
+Styling approaches and theme integration.
+
+## Accessibility
+Accessibility features and ARIA patterns.
+
+## Testing
+Testing strategies and examples.
+
+## Tasks
+- [ ] Implement basic component structure
+- [ ] Add comprehensive prop types
+- [ ] Create usage examples`
+      },
+      'backend/services': {
         instructions: [
           'Start with a high-level system overview and context',
           'Define clear component boundaries and responsibilities',
@@ -220,7 +269,7 @@ Performance characteristics and optimization strategies.
 - [ ] Document data schemas
 - [ ] Create deployment guide`
       },
-      troubleshooting: {
+      'docs/troubleshooting': {
         instructions: [
           'Organize problems by categories (e.g., setup, runtime, performance)',
           'Provide step-by-step diagnostic procedures',
@@ -276,60 +325,99 @@ When and how to escalate unresolved issues.
       }
     };
 
-    const typeInfo = typeInstructions[documentType];
-    if (typeInfo == null) {
+    const namespaceInfo = namespaceInstructions[namespace];
+    if (namespaceInfo == null) {
       // Instead of throwing error, provide helpful fallback with discovery info
       return {
         stage: 'error_fallback',
-        error: 'Invalid document type',
-        provided_type: documentType,
-        valid_types: Object.keys(typeInstructions),
-        help: 'Please choose from the available document types below',
-        types: [
-          {
-            id: 'api_spec',
-            name: 'API Specification',
-            description: 'Document REST APIs with endpoints, schemas, and examples'
-          },
-          {
-            id: 'implementation_guide',
-            name: 'Implementation Guide',
-            description: 'Step-by-step implementation instructions with code examples'
-          },
-          {
-            id: 'architecture_doc',
-            name: 'Architecture Document',
-            description: 'System design, components, and architectural decisions'
-          },
-          {
-            id: 'troubleshooting',
-            name: 'Troubleshooting Guide',
-            description: 'Problem diagnosis, solutions, and debugging workflows'
-          }
-        ],
-        next_step: "Call again with a valid 'type' parameter",
-        example: { type: "api_spec" }
+        error: 'Invalid document namespace',
+        provided_namespace: namespace,
+        valid_namespaces: Object.keys(namespaceInstructions),
+        help: 'Please choose from the available document namespaces below',
+        namespaces: getDocumentNamespaces(),
+        next_step: "Call again with a valid 'namespace' parameter",
+        example: { namespace: "api/specs" }
       };
     }
 
     return {
       stage: 'instructions',
-      type: documentType,
-      instructions: typeInfo.instructions,
-      starter_structure: typeInfo.starterStructure,
-      next_step: "Call again with type, title, and overview to create the document",
+      namespace,
+      instructions: namespaceInfo.instructions,
+      starter_structure: namespaceInfo.starterStructure,
+      next_step: "Call again with namespace, title, and overview to create the document",
       example: {
-        type: documentType,
-        title: documentType === 'api_spec' ? 'Search API' :
-               documentType === 'implementation_guide' ? 'React Component Setup' :
-               documentType === 'architecture_doc' ? 'Microservices Architecture' :
+        namespace,
+        title: namespace === 'api/specs' ? 'Search API' :
+               namespace === 'api/guides' ? 'React Component Setup' :
+               namespace === 'frontend/components' ? 'Button Component' :
+               namespace === 'backend/services' ? 'User Service Architecture' :
                'Common Deployment Issues',
-        overview: documentType === 'api_spec' ? 'Full-text search with ranking capabilities' :
-                  documentType === 'implementation_guide' ? 'Guide to setting up reusable React components' :
-                  documentType === 'architecture_doc' ? 'Design for scalable microservices system' :
+        overview: namespace === 'api/specs' ? 'Full-text search with ranking capabilities' :
+                  namespace === 'api/guides' ? 'Guide to setting up reusable React components' :
+                  namespace === 'frontend/components' ? 'Reusable button component with multiple variants' :
+                  namespace === 'backend/services' ? 'Design for scalable user management service' :
                   'Solutions for frequent deployment problems'
-      }
+      },
+      smart_suggestions_note: "After providing title and overview, you'll receive intelligent suggestions about related documents, similar implementations, and logical next steps before creating the document."
     };
+  }
+
+  // STAGE 2.5: Smart Suggestions - Analyze and suggest related documents
+  if (create !== true) {
+    // We have namespace, title, and overview but no create flag - provide suggestions
+    try {
+      const manager = await getDocumentManager();
+
+      // Analyze suggestions in parallel with namespace patterns
+      const [suggestions, namespacePatterns] = await Promise.all([
+        analyzeDocumentSuggestions(manager, namespace, title, overview),
+        analyzeNamespacePatterns(manager, namespace)
+      ]);
+
+      // Update to next stage for tool list
+      const nextStage = getNextCreateDocumentStage(2.5);
+      if (nextStage !== state.createDocumentStage) {
+        sessionStore.updateSession(state.sessionId, { createDocumentStage: nextStage });
+
+        if (onStageChange != null) {
+          onStageChange();
+        }
+      }
+
+      return {
+        stage: 'smart_suggestions',
+        suggestions,
+        namespace_patterns: namespacePatterns,
+        next_step: "Review suggestions, then call again with 'create: true' to proceed with document creation",
+        example: {
+          namespace,
+          title,
+          overview,
+          create: true
+        }
+      };
+
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        stage: 'error_fallback',
+        error: 'Failed to analyze suggestions',
+        details: message,
+        provided_parameters: {
+          namespace,
+          title,
+          overview
+        },
+        help: 'Suggestion analysis failed. You can still proceed with document creation.',
+        recovery_steps: [
+          "Call again with 'create: true' to skip suggestions and create the document",
+          'Check that the namespace, title, and overview are valid',
+          'Try with a simpler title or overview if the analysis is having issues'
+        ],
+        example: { namespace, title, overview, create: true }
+      };
+    }
   }
 
   // STAGE 3: Creation - Create the actual document
@@ -339,21 +427,27 @@ When and how to escalate unresolved issues.
     // Import slug utilities
     const { titleToSlug } = await import('../../slug.js');
 
-    // Generate path from title and type
+    // Generate path from title and namespace
     const slug = titleToSlug(title);
-    const typeToDir: Record<string, string> = {
-      api_spec: '/specs',
-      implementation_guide: '/guides',
-      architecture_doc: '/architecture',
-      troubleshooting: '/troubleshooting'
-    };
+    const namespaceConfig = getNamespaceConfig(namespace);
 
-    const baseDir = typeToDir[documentType] ?? '/docs';
-    const docPath = `${baseDir}/${slug}.md`;
+    if (namespaceConfig == null) {
+      return {
+        stage: 'error_fallback',
+        error: 'Invalid namespace configuration',
+        provided_namespace: namespace,
+        help: 'Please use a valid document namespace. Here are the available options:',
+        namespaces: getDocumentNamespaces(),
+        next_step: "Call again with a valid 'namespace' parameter",
+        example: { namespace: "api/specs", title: "Your Title", overview: "Your overview" }
+      };
+    }
+
+    const docPath = `${namespaceConfig.folder}/${slug}.md`;
 
     // Get the starter structure and replace title placeholder
-    const typeInstructions: Record<string, {starterStructure: string}> = {
-      api_spec: {
+    const namespaceTemplates: Record<string, {starterStructure: string}> = {
+      'api/specs': {
         starterStructure: `# {{title}}
 
 ## Overview
@@ -398,7 +492,7 @@ Rate limiting policies and headers.
 - [ ] Add comprehensive error handling
 - [ ] Set up rate limiting`
       },
-      implementation_guide: {
+      'api/guides': {
         starterStructure: `# {{title}}
 
 ## Overview
@@ -437,7 +531,46 @@ What to implement next and additional resources.
 - [ ] Implement core functionality
 - [ ] Add comprehensive tests`
       },
-      architecture_doc: {
+      'frontend/components': {
+        starterStructure: `# {{title}}
+
+## Overview
+Component purpose and main functionality.
+
+## Props Interface
+\`\`\`typescript
+interface ComponentProps {
+  // Define prop types here
+}
+\`\`\`
+
+## Usage Examples
+
+### Basic Usage
+\`\`\`jsx
+<Component />
+\`\`\`
+
+### Advanced Usage
+\`\`\`jsx
+<Component prop="value" />
+\`\`\`
+
+## Styling
+Styling approaches and theme integration.
+
+## Accessibility
+Accessibility features and ARIA patterns.
+
+## Testing
+Testing strategies and examples.
+
+## Tasks
+- [ ] Implement basic component structure
+- [ ] Add comprehensive prop types
+- [ ] Create usage examples`
+      },
+      'backend/services': {
         starterStructure: `# {{title}}
 
 ## Overview
@@ -482,7 +615,7 @@ Performance characteristics and optimization strategies.
 - [ ] Document data schemas
 - [ ] Create deployment guide`
       },
-      troubleshooting: {
+      'docs/troubleshooting': {
         starterStructure: `# {{title}}
 
 ## Overview
@@ -530,38 +663,17 @@ When and how to escalate unresolved issues.
       }
     };
 
-    const typeInfo = typeInstructions[documentType];
-    if (typeInfo == null) {
-      // Provide fallback response for unsupported type in creation stage
+    const templateInfo = namespaceTemplates[namespace];
+    if (templateInfo == null) {
+      // Provide fallback response for unsupported namespace in creation stage
       return {
         stage: 'error_fallback',
-        error: 'Unsupported document type in creation stage',
-        provided_type: documentType,
-        help: 'Please use a valid document type. Here are the available options:',
-        types: [
-          {
-            id: 'api_spec',
-            name: 'API Specification',
-            description: 'Document REST APIs with endpoints, schemas, and examples'
-          },
-          {
-            id: 'implementation_guide',
-            name: 'Implementation Guide',
-            description: 'Step-by-step implementation instructions with code examples'
-          },
-          {
-            id: 'architecture_doc',
-            name: 'Architecture Document',
-            description: 'System design, components, and architectural decisions'
-          },
-          {
-            id: 'troubleshooting',
-            name: 'Troubleshooting Guide',
-            description: 'Problem diagnosis, solutions, and debugging workflows'
-          }
-        ],
-        next_step: "Call again with a valid 'type' parameter",
-        example: { type: "api_spec", title: "Your Title", overview: "Your overview" }
+        error: 'Unsupported document namespace in creation stage',
+        provided_namespace: namespace,
+        help: 'Please use a valid document namespace. Here are the available options:',
+        namespaces: getDocumentNamespaces(),
+        next_step: "Call again with a valid 'namespace' parameter",
+        example: { namespace: "api/specs", title: "Your Title", overview: "Your overview" }
       };
     }
 
@@ -579,7 +691,7 @@ When and how to escalate unresolved issues.
     });
 
     // Now read the created document and replace its content with our structured template
-    let content = typeInfo.starterStructure.replace(/\{\{title\}\}/g, title);
+    let content = templateInfo.starterStructure.replace(/\{\{title\}\}/g, title);
 
     // Replace overview section with provided content if available
     if (overview.trim() !== '') {
@@ -612,8 +724,9 @@ When and how to escalate unresolved issues.
       created: docPath,
       document: {
         path: docPath,
+        slug,
         title,
-        type: documentType,
+        namespace,
         created: new Date().toISOString()
       },
       sections: headings.map(h => `#${h.slug}`),
@@ -632,18 +745,18 @@ When and how to escalate unresolved issues.
       error: 'Failed to create document',
       details: message,
       provided_parameters: {
-        type: documentType,
+        namespace,
         title,
         overview
       },
       help: 'Document creation failed. Please check your parameters and try again.',
       suggestion: 'Start over with the discovery flow for guidance',
       recovery_steps: [
-        'Call create_document with no parameters to see available types',
-        'Call create_document with just { "type": "your_type" } for instructions',
-        'Call create_document with all required parameters: type, title, and overview'
+        'Call create_document with no parameters to see available namespaces',
+        'Call create_document with just { "namespace": "your_namespace" } for instructions',
+        'Call create_document with all required parameters: namespace, title, and overview'
       ],
-      example: { type: "api_spec", title: "Search API", overview: "Full-text search capabilities" }
+      example: { namespace: "api/specs", title: "Search API", overview: "Full-text search capabilities" }
     };
   }
 }

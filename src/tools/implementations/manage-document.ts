@@ -3,7 +3,7 @@
  */
 
 import type { SessionState } from '../../session/types.js';
-import { getDocumentManager } from '../../shared/utilities.js';
+import { getDocumentManager, pathToNamespace, pathToSlug } from '../../shared/utilities.js';
 
 export async function manageDocument(
   args: Record<string, unknown> | Array<Record<string, unknown>>,
@@ -121,7 +121,16 @@ async function performDocumentOperation(
     new_title?: string;
     confirm?: boolean;
   }
-): Promise<{ action: string; document?: string; from?: string; to?: string; old_title?: string; new_title?: string; audit_file?: string }> {
+): Promise<{
+  action: string;
+  document?: string;
+  from?: string;
+  to?: string;
+  old_title?: string;
+  new_title?: string;
+  audit_file?: string;
+  document_info?: { path: string; slug: string; title: string; namespace: string };
+}> {
 
   const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
 
@@ -130,6 +139,17 @@ async function performDocumentOperation(
   if (document === null) {
     throw new Error(`Document not found: ${normalizedPath}`);
   }
+
+  // Helper function to create document info object
+  const createDocumentInfo = (docPath: string, doc?: Awaited<ReturnType<typeof manager.getDocument>>): { path: string; slug: string; title: string; namespace: string } => {
+    const currentDoc = doc ?? document;
+    return {
+      path: docPath,
+      slug: pathToSlug(docPath),
+      title: currentDoc?.metadata.title ?? 'Untitled',
+      namespace: pathToNamespace(docPath)
+    };
+  };
 
   switch (operation) {
     case 'archive': {
@@ -142,9 +162,11 @@ async function performDocumentOperation(
 
       return {
         action: 'archived',
+        document: normalizedPath,
         from: normalizedPath,
         to: archiveBasePath,
-        audit_file: auditPath
+        audit_file: auditPath,
+        document_info: createDocumentInfo(normalizedPath)
       };
     }
 
@@ -164,7 +186,8 @@ async function performDocumentOperation(
 
       return {
         action: 'deleted',
-        document: normalizedPath
+        document: normalizedPath,
+        document_info: createDocumentInfo(normalizedPath)
       };
     }
 
@@ -201,7 +224,8 @@ async function performDocumentOperation(
         action: 'renamed',
         document: normalizedPath,
         old_title: oldTitle,
-        new_title: options.new_title as string
+        new_title: options.new_title as string,
+        document_info: createDocumentInfo(normalizedPath)
       };
     }
 
@@ -232,10 +256,15 @@ async function performDocumentOperation(
       // Move the file
       await moveFs.rename(oldAbsolutePath, newAbsolutePath);
 
+      // Get the document from the new location
+      const movedDocument = await manager.getDocument(finalNewPath);
+
       return {
         action: 'moved',
+        document: finalNewPath,
         from: normalizedPath,
-        to: finalNewPath
+        to: finalNewPath,
+        document_info: createDocumentInfo(finalNewPath, movedDocument)
       };
     }
 
