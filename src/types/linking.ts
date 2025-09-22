@@ -55,53 +55,13 @@ export interface LinkContext {
   /** Current section being modified */
   currentSection?: string;
   /** Linked documents with relevant content */
-  linkedDocuments: LinkedDocumentContext[];
+  linkedDocuments: unknown[];
   /** Suggested related documents */
-  suggestions: LinkSuggestion[];
+  suggestions: unknown[];
 }
 
-/**
- * Context for a linked document
- */
-export interface LinkedDocumentContext {
-  /** Path to the linked document */
-  path: string;
-  /** Document title */
-  title: string;
-  /** Namespace of the document */
-  namespace: string;
-  /** Linked section (if specific section referenced) */
-  section?: string;
-  /** Relevant content snippet */
-  snippet?: string;
-  /** Type of relationship to current document */
-  relationship: LinkRelationshipType;
-}
 
-/**
- * Link suggestion for enhanced editing experience
- */
-export interface LinkSuggestion {
-  /** Suggested link path */
-  path: string;
-  /** Reason for the suggestion */
-  reason: string;
-  /** Confidence level of the suggestion */
-  confidence: 'high' | 'medium' | 'low';
-  /** Category of suggestion */
-  category: 'should_reference' | 'could_reference' | 'related_content';
-}
 
-/**
- * Types of relationships between linked documents
- */
-export type LinkRelationshipType =
-  | 'implements_spec'      // Implementation follows this specification
-  | 'implementation_guide' // Guide for implementing this spec
-  | 'consumes_api'        // Frontend/client that uses this API
-  | 'depends_on'          // Requires this to be completed first
-  | 'references'          // General reference or citation
-  | 'similar_content';    // Related by topic/tags/content similarity
 
 /**
  * Options for link resolution and validation

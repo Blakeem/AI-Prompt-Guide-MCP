@@ -9,7 +9,7 @@ import { pathToNamespace } from './utilities.js';
 /**
  * Result of validating a single link
  */
-export interface LinkValidationResult {
+interface LinkValidationResult {
   link_text: string;
   is_valid: boolean;
   target_document?: string;
@@ -22,7 +22,7 @@ export interface LinkValidationResult {
 /**
  * Result of validating all links in a document
  */
-export interface DocumentLinkReport {
+interface DocumentLinkReport {
   document_path: string;
   document_title: string;
   namespace: string;
@@ -39,7 +39,7 @@ export interface DocumentLinkReport {
 /**
  * Result of validating links across multiple documents
  */
-export interface SystemLinkReport {
+interface SystemLinkReport {
   total_documents: number;
   total_links: number;
   overall_health_score: number;

@@ -283,7 +283,7 @@ async function analyzeSectionLinks(
   };
 }> {
   // Import link utilities
-  const { resolveLinkWithContext } = await import('../../shared/utilities.js');
+  const { resolveLinkWithContext } = await import('../../shared/link-utils.js');
 
   const linksFound: Array<{
     link_text: string;

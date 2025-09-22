@@ -1,0 +1,273 @@
+/**
+ * Link context loading functionality
+ */
+
+import type { DocumentManager } from '../document-manager.js';
+
+/**
+ * Load linked document context for enhanced view_document responses
+ *
+ * @param manager - DocumentManager instance
+ * @param documentPath - Path to the source document
+ * @param sectionSlug - Optional section slug to limit scope
+ * @param linkDepth - Maximum depth for recursive context loading (1-3)
+ * @returns Array of linked context objects
+ */
+export async function loadLinkedDocumentContext(
+  manager: DocumentManager,
+  documentPath: string,
+  sectionSlug?: string,
+  linkDepth: number = 2
+): Promise<Array<{
+  source_link: string;
+  document_path: string;
+  section_slug?: string;
+  content: string;
+  namespace: string;
+  title: string;
+  relevance: 'primary' | 'secondary' | 'tertiary';
+}>> {
+  // Input validation
+  if (linkDepth < 1 || linkDepth > 3) {
+    linkDepth = 2;
+  }
+
+  const linkedContext: Array<{
+    source_link: string;
+    document_path: string;
+    section_slug?: string;
+    content: string;
+    namespace: string;
+    title: string;
+    relevance: 'primary' | 'secondary' | 'tertiary';
+  }> = [];
+
+  // Track visited links to prevent cycles
+  const visited = new Set<string>();
+
+  // Queue for breadth-first context loading
+  const queue: Array<{
+    docPath: string;
+    sectionSlug?: string;
+    depth: number;
+    relevance: 'primary' | 'secondary' | 'tertiary';
+  }> = [];
+
+  // Get the source document
+  const sourceDocument = await manager.getDocument(documentPath);
+  if (!sourceDocument) {
+    return linkedContext;
+  }
+
+  // Determine content to scan for links
+  let contentToScan = '';
+  if (sectionSlug != null && sectionSlug !== '') {
+    // Scan only the specified section
+    const sectionContent = await manager.getSectionContent(documentPath, sectionSlug);
+    contentToScan = sectionContent ?? '';
+  } else {
+    // Scan entire document
+    const { readFile } = await import('node:fs/promises');
+    const { loadConfig } = await import('../config.js');
+    const path = await import('node:path');
+    const config = loadConfig();
+    const absolutePath = path.join(config.docsBasePath, documentPath);
+
+    try {
+      contentToScan = await readFile(absolutePath, 'utf-8');
+    } catch {
+      return linkedContext;
+    }
+  }
+
+  // Extract all @ links from content
+  const linkPattern = /@(?:\/[^\s\]]+(?:#[^\s\]]*)?|#[^\s\]]*)/g;
+  const matches = contentToScan.match(linkPattern) ?? [];
+
+  // Process each unique link
+  const uniqueLinks = [...new Set(matches)];
+
+  for (const linkText of uniqueLinks) {
+    const { parseLink: parseLinkFn } = await import('./link-utils.js');
+    const parsedLink = parseLinkFn(linkText, documentPath);
+
+    if (parsedLink.type === 'external') {
+      continue;
+    }
+
+    // Create a unique identifier for this link
+    const linkId = parsedLink.type === 'within-doc'
+      ? `${documentPath}#${parsedLink.section ?? ''}`
+      : `${parsedLink.document ?? ''}#${parsedLink.section ?? ''}`;
+
+    if (visited.has(linkId)) {
+      continue;
+    }
+    visited.add(linkId);
+
+    // Resolve the link
+    const { resolveLinkWithContext } = await import('./link-utils.js');
+    const resolved = await resolveLinkWithContext(linkText, documentPath, manager);
+    if (resolved.validation.valid !== true || resolved.resolvedPath == null) {
+      continue;
+    }
+
+    // Extract document path and section from resolved path
+    const hashIndex = resolved.resolvedPath.indexOf('#');
+    const docPath = hashIndex === -1 ? resolved.resolvedPath : resolved.resolvedPath.slice(0, hashIndex);
+    const sectionSlug = hashIndex === -1 ? undefined : resolved.resolvedPath.slice(hashIndex + 1);
+
+    // Add to processing queue
+    const queueItem: {
+      docPath: string;
+      sectionSlug?: string;
+      depth: number;
+      relevance: 'primary' | 'secondary' | 'tertiary';
+    } = {
+      docPath,
+      depth: 1,
+      relevance: 'primary'
+    };
+
+    if (sectionSlug != null && sectionSlug !== '') {
+      queueItem.sectionSlug = sectionSlug;
+    }
+
+    queue.push(queueItem);
+  }
+
+  // Process queue with depth limiting
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || current.depth > linkDepth) {
+      continue;
+    }
+
+    const currentId = `${current.docPath}#${current.sectionSlug ?? ''}`;
+    if (visited.has(currentId)) {
+      continue;
+    }
+    visited.add(currentId);
+
+    // Load the linked document
+    const linkedDoc = await manager.getDocument(current.docPath);
+    if (!linkedDoc) {
+      continue;
+    }
+
+    // Get content and metadata
+    let content = '';
+    let title = linkedDoc.metadata.title;
+
+    if (current.sectionSlug != null && current.sectionSlug !== '') {
+      // Load specific section
+      const sectionContent = await manager.getSectionContent(current.docPath, current.sectionSlug);
+      content = sectionContent ?? '';
+
+      // Find section title
+      const section = linkedDoc.headings.find(h => h.slug === current.sectionSlug);
+      if (section != null) {
+        title = section.title;
+      }
+    } else {
+      // Load entire document
+      const { readFile } = await import('node:fs/promises');
+      const { loadConfig } = await import('../config.js');
+      const path = await import('node:path');
+      const config = loadConfig();
+      const absolutePath = path.join(config.docsBasePath, current.docPath);
+
+      try {
+        content = await readFile(absolutePath, 'utf-8');
+      } catch {
+        continue;
+      }
+    }
+
+    // Extract namespace from document path
+    const namespace = current.docPath.includes('/')
+      ? current.docPath.substring(1, current.docPath.lastIndexOf('/'))
+      : '';
+
+    // Create source link reference
+    const sourceLink = current.sectionSlug != null && current.sectionSlug !== ''
+      ? `@${current.docPath}#${current.sectionSlug}`
+      : `@${current.docPath}`;
+
+    // Add to context
+    const contextItem: {
+      source_link: string;
+      document_path: string;
+      section_slug?: string;
+      content: string;
+      namespace: string;
+      title: string;
+      relevance: 'primary' | 'secondary' | 'tertiary';
+    } = {
+      source_link: sourceLink,
+      document_path: current.docPath,
+      content,
+      namespace,
+      title,
+      relevance: current.relevance
+    };
+
+    if (current.sectionSlug != null && current.sectionSlug !== '') {
+      contextItem.section_slug = current.sectionSlug;
+    }
+
+    linkedContext.push(contextItem);
+
+    // If we haven't reached max depth, scan this content for more links
+    if (current.depth < linkDepth) {
+      const nestedLinks = content.match(linkPattern) ?? [];
+      const uniqueNestedLinks = [...new Set(nestedLinks)];
+
+      for (const nestedLinkText of uniqueNestedLinks) {
+        const { parseLink: parseLinkNestedFn } = await import('./link-utils.js');
+        const nestedParsed = parseLinkNestedFn(nestedLinkText, current.docPath);
+
+        if (nestedParsed.type === 'external') {
+          continue;
+        }
+
+        const { resolveLinkWithContext: resolveLinkNestedFn } = await import('./link-utils.js');
+        const nestedResolved = await resolveLinkNestedFn(nestedLinkText, current.docPath, manager);
+        if (nestedResolved.validation.valid !== true || nestedResolved.resolvedPath == null) {
+          continue;
+        }
+
+        // Extract document path and section from resolved path
+        const nestedHashIndex = nestedResolved.resolvedPath.indexOf('#');
+        const nestedDocPath = nestedHashIndex === -1 ? nestedResolved.resolvedPath : nestedResolved.resolvedPath.slice(0, nestedHashIndex);
+        const nestedSectionSlug = nestedHashIndex === -1 ? undefined : nestedResolved.resolvedPath.slice(nestedHashIndex + 1);
+
+        const nestedId = `${nestedDocPath}#${nestedSectionSlug ?? ''}`;
+        if (visited.has(nestedId)) {
+          continue;
+        }
+
+        // Add to queue with incremented depth and reduced relevance
+        const nextRelevance = current.relevance === 'primary' ? 'secondary' : 'tertiary';
+        const nestedQueueItem: {
+          docPath: string;
+          sectionSlug?: string;
+          depth: number;
+          relevance: 'primary' | 'secondary' | 'tertiary';
+        } = {
+          docPath: nestedDocPath,
+          depth: current.depth + 1,
+          relevance: nextRelevance
+        };
+
+        if (nestedSectionSlug != null && nestedSectionSlug !== '') {
+          nestedQueueItem.sectionSlug = nestedSectionSlug;
+        }
+
+        queue.push(nestedQueueItem);
+      }
+    }
+  }
+
+  return linkedContext;
+}

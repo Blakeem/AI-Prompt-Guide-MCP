@@ -56,54 +56,6 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
         additionalProperties: false,
       },
     },
-    {
-      name: 'list_documents',
-      description: '[LEGACY] Browse and list existing documents in the knowledge base - use browse_documents instead',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          path: {
-            type: 'string',
-            description: 'Document path to browse (e.g., "/api", "/guides")',
-            default: '/',
-          },
-          depth: {
-            type: 'number',
-            description: 'Maximum depth to traverse (1-5)',
-            minimum: 1,
-            maximum: 5,
-            default: 2,
-          },
-        },
-        additionalProperties: false,
-      },
-    },
-    {
-      name: 'search_documents',
-      description: '[LEGACY] Search through existing documents by content, title, or path - use browse_documents instead',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'Search query (supports text, keywords, or path patterns)',
-          },
-          path_filter: {
-            type: 'string',
-            description: 'Optional path prefix to limit search scope',
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results',
-            minimum: 1,
-            maximum: 50,
-            default: 10,
-          },
-        },
-        required: ['query'],
-        additionalProperties: false,
-      },
-    },
   ];
 
   // Get dynamic schema for create_document based on session state
@@ -177,21 +129,6 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
           },
         },
         required: ['operation', 'document'],
-        additionalProperties: false,
-      },
-    },
-    {
-      name: 'archive_document',
-      description: 'Archive a document or folder (move to archive folder for safety)',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          path: {
-            type: 'string',
-            description: 'Document or folder path to archive (with or without .md extension)',
-          },
-        },
-        required: ['path'],
         additionalProperties: false,
       },
     },

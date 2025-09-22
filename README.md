@@ -22,7 +22,7 @@ Think of it as a more powerful replacement for manual markdown management, where
 
 ## Status
 
-✅ **Production Ready** - Core MCP infrastructure complete with unified tool architecture and progressive discovery patterns implemented.
+🚧 **Alpha Development** - Core MCP infrastructure and linking system implemented with comprehensive test coverage. **Not production ready yet** - currently undergoing code review, refactoring, and real-world testing phases before production release.
 
 ## Key Features
 

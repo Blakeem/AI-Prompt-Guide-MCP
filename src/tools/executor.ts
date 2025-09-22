@@ -5,12 +5,9 @@
 import type { SessionState } from '../session/types.js';
 import {
   createDocument,
-  listDocuments,
-  searchDocuments,
   browseDocuments,
   section,
   manageDocument,
-  archiveDocument,
   addTask,
   completeTask,
   reopenTask,
@@ -33,20 +30,11 @@ export async function executeTool(
     case 'browse_documents':
       return await browseDocuments(args, state);
 
-    case 'list_documents':
-      return await listDocuments(args, state);
-
-    case 'search_documents':
-      return await searchDocuments(args, state);
-
     case 'section':
       return await section(args, state);
 
     case 'manage_document':
       return await manageDocument(args, state);
-
-    case 'archive_document':
-      return await archiveDocument(args, state);
 
     case 'add_task':
       return await addTask(args, state);
