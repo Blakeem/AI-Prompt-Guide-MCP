@@ -9,9 +9,9 @@ export { browseDocuments } from './browse-documents.js';
 export { section } from './section.js';
 export { manageDocument } from './manage-document.js';
 export { archiveDocument } from './archive-document.js';
+export { viewDocument } from './view-document.js';
 export {
   addTask,
   completeTask,
-  reopenTask,
-  viewDocument
+  reopenTask
 } from './unimplemented-tools.js';

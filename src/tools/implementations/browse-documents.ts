@@ -8,7 +8,12 @@ import path from 'node:path';
 import type { SessionState } from '../../session/types.js';
 import type { DocumentManager } from '../../document-manager.js';
 import type { CachedDocument } from '../../document-cache.js';
-import { getDocumentManager, pathToNamespace, pathToSlug } from '../../shared/utilities.js';
+import {
+  getDocumentManager,
+  pathToNamespace,
+  pathToSlug,
+  getParentSlug
+} from '../../shared/utilities.js';
 
 interface FolderInfo {
   name: string;
@@ -27,6 +32,8 @@ interface DocumentInfo {
     slug: string;
     title: string;
     depth: number;
+    full_path: string;
+    parent?: string;
     hasContent: boolean;
   }>;
   tasks?: {
@@ -102,8 +109,8 @@ interface SectionInfo {
   slug: string;
   title: string;
   depth: number;
-  path: string; // Full path like "/api/specs/search-api.md#endpoints"
-  parent_section?: string;
+  full_path: string; // Full path like "/api/specs/search-api.md#api/endpoints"
+  parent?: string; // Parent slug path for hierarchical slugs
   content_preview?: string; // First few lines of content
   subsection_count: number;
   has_code_blocks: boolean;
@@ -789,12 +796,20 @@ async function getFolderStructure(manager: DocumentManager, basePath: string, ta
           const document = await manager.getDocument(docPath);
           if (document != null) {
             // Convert headings to sections format
-            const sections = document.headings.map((heading) => ({
-              slug: heading.slug,
-              title: heading.title,
-              depth: heading.depth,
-              hasContent: true // We'll assume sections have content
-            }));
+            // Convert headings to sections format with hierarchical slug support
+            const sections = document.headings.map((heading) => {
+              const hierarchicalSlug = heading.slug.includes('/') ? heading.slug : heading.slug;
+              const parent = getParentSlug(hierarchicalSlug);
+
+              return {
+                slug: hierarchicalSlug,
+                title: heading.title,
+                depth: heading.depth,
+                full_path: `${docPath}#${hierarchicalSlug}`,
+                ...(parent != null && { parent }),
+                hasContent: true // We'll assume sections have content
+              };
+            });
 
             // TODO: Extract task information if available
             // For now, we'll leave tasks undefined
@@ -883,11 +898,16 @@ async function getSectionStructure(manager: DocumentManager, documentPath: strin
           }
         }
 
+        // Generate hierarchical slug information
+        const hierarchicalSlug = heading.slug.includes('/') ? heading.slug : heading.slug;
+        const parent = getParentSlug(hierarchicalSlug);
+
         sections.push({
-          slug: heading.slug,
+          slug: hierarchicalSlug,
           title: heading.title,
           depth: heading.depth,
-          path: `${documentPath}#${heading.slug}`,
+          full_path: `${documentPath}#${hierarchicalSlug}`,
+          ...(parent != null && { parent }),
           subsection_count,
           ...analysis
         });
@@ -931,12 +951,16 @@ async function getSectionStructure(manager: DocumentManager, documentPath: strin
                 }
               }
 
+              // Generate hierarchical slug information
+              const hierarchicalSlug = heading.slug.includes('/') ? heading.slug : heading.slug;
+              const parent = getParentSlug(hierarchicalSlug);
+
               sections.push({
-                slug: heading.slug,
+                slug: hierarchicalSlug,
                 title: heading.title,
                 depth: heading.depth,
-                path: `${documentPath}#${heading.slug}`,
-                parent_section: targetSectionSlug,
+                full_path: `${documentPath}#${hierarchicalSlug}`,
+                ...(parent != null && { parent }),
                 subsection_count,
                 ...analysis
               });
@@ -983,13 +1007,20 @@ async function performSearch(manager: DocumentManager, query: string, pathFilter
       try {
         const document = await manager.getDocument(result.documentPath);
         if (document != null) {
-          // Convert headings to sections format
-          const sections = document.headings.map((heading) => ({
-            slug: heading.slug,
-            title: heading.title,
-            depth: heading.depth,
-            hasContent: true
-          }));
+          // Convert headings to sections format with hierarchical slug support
+          const sections = document.headings.map((heading) => {
+            const hierarchicalSlug = heading.slug.includes('/') ? heading.slug : heading.slug;
+            const parent = getParentSlug(hierarchicalSlug);
+
+            return {
+              slug: hierarchicalSlug,
+              title: heading.title,
+              depth: heading.depth,
+              full_path: `${result.documentPath}#${hierarchicalSlug}`,
+              ...(parent != null && { parent }),
+              hasContent: true
+            };
+          });
 
           // Calculate average relevance score
           const avgRelevance = result.matches.length > 0

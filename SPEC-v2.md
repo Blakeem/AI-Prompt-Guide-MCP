@@ -919,6 +919,279 @@ Output: {
 ##### 4. Template Customization per Namespace (Future)
 Allow customizing templates based on namespace patterns and team preferences.
 
+## Document Linking System
+
+### Overview
+A comprehensive linking system that enables documents to reference each other with automatic context loading, hierarchical slug management, and seamless navigation across the documentation ecosystem.
+
+### Link Reference Formats
+
+#### Cross-Document Links
+Reference documents and sections across the ecosystem:
+```markdown
+@/api/specs/auth-api.md                        # Link to entire document
+@/api/specs/auth-api.md#overview               # Link to top-level section
+@/api/specs/auth-api.md#api/authentication     # Link to nested section
+@/api/specs/auth-api.md#api/endpoints/users    # Link to deeply nested section
+```
+
+#### Within-Document Links
+Reference sections within the current document:
+```markdown
+@#overview                                      # Link to top-level section in current doc
+@#api/authentication                            # Link to nested section in current doc
+@#implementation/testing/unit-tests             # Link to deeply nested section
+```
+
+#### External Links
+Standard markdown links for external resources:
+```markdown
+[External Resource](https://example.com)        # Regular external link (no @ prefix)
+```
+
+### Hierarchical Slug System
+
+#### Structure
+Slugs use forward slashes to create hierarchy, preventing naming conflicts:
+```
+#overview                                       # Top-level section
+#api                                           # API parent section
+#api/authentication                            # Nested under API
+#api/authentication/jwt-tokens                 # Further nested
+#api/endpoints                                 # Parallel to authentication
+#api/endpoints/users                           # Specific endpoint
+#api/endpoints/users/create                    # Specific operation
+```
+
+#### Benefits
+- **Prevents Conflicts**: Same slug names can exist in different hierarchies
+- **Provides Context**: Slug path shows section relationship
+- **Enables Navigation**: Natural parent-child traversal
+- **Scales Infinitely**: Supports any depth of nesting
+
+### Enhanced Tool Behaviors
+
+#### browse_documents
+Shows document path and slug path separately to avoid repetition:
+```json
+{
+  "document_context": {
+    "path": "/api/specs/auth-api.md",          // Document path shown once
+    "title": "Authentication API",
+    "namespace": "api/specs"
+  },
+  "sections": [
+    {
+      "slug": "api/authentication",            // Relative slug path only
+      "title": "Authentication",
+      "full_path": "/api/specs/auth-api.md#api/authentication",  // Full path for reference
+      "depth": 2,
+      "parent": "api"
+    }
+  ]
+}
+```
+
+#### view_document
+Enhanced to support namespace-aware viewing with section specificity:
+```json
+// View entire document
+Input: {"path": "/api/specs/auth-api.md"}
+
+// View specific section
+Input: {"path": "/api/specs/auth-api.md#api/authentication"}
+
+// View with linked document context
+Input: {
+  "path": "/api/specs/auth-api.md#api/authentication",
+  "include_linked": true,
+  "link_depth": 2
+}
+```
+
+#### section (editing)
+Supports hierarchical slugs and provides link assistance:
+```json
+Input: {
+  "document": "/api/specs/auth-api.md",
+  "section": "api/endpoints/users",           // Hierarchical slug
+  "operation": "append",
+  "content": "See [@/api/guides/auth-setup.md#implementation] for details."
+}
+Output: {
+  "updated": true,
+  "section": "api/endpoints/users",
+  "links_detected": ["/api/guides/auth-setup.md#implementation"],
+  "linked_context": [...]                     // Automatic context loading
+}
+```
+
+### Context Loading
+
+#### Automatic Link Detection
+When editing sections, the system automatically:
+1. Detects all `@` references in content
+2. Validates referenced documents/sections exist
+3. Loads linked content into context
+4. Provides relevant snippets for reference
+
+#### Context Hierarchy
+```
+Primary Context (Current Document)
+├── Current Section Content
+├── Parent Section Headers
+└── Sibling Section Summaries
+
+Secondary Context (Linked Documents)
+├── Linked Document Metadata
+├── Linked Section Content
+└── Related Sections (1 level up/down)
+
+Tertiary Context (Suggested)
+├── Similar Documents (by content)
+└── Related by Namespace
+```
+
+### Link Guidance in Tools
+
+#### create_document
+Provides linking instructions during document creation:
+```json
+{
+  "linking_guide": {
+    "cross_document": "Use @/namespace/path/doc.md#section for cross-doc links",
+    "within_document": "Use @#section for within-doc links",
+    "examples": [
+      "@/api/specs/search-api.md#endpoints",
+      "@#implementation/setup",
+      "@/backend/services/search.md#architecture"
+    ],
+    "best_practices": [
+      "Link to specifications when implementing",
+      "Reference guides from troubleshooting docs",
+      "Connect frontend components to their APIs"
+    ]
+  }
+}
+```
+
+#### section (editing)
+Provides real-time link suggestions while editing:
+```json
+{
+  "link_suggestions": {
+    "should_reference": [
+      {
+        "path": "@/api/specs/auth-api.md#jwt-tokens",
+        "reason": "This implementation should reference the spec"
+      }
+    ],
+    "could_reference": [
+      {
+        "path": "@/api/guides/best-practices.md#error-handling",
+        "reason": "Similar error handling patterns"
+      }
+    ]
+  }
+}
+```
+
+### Edge Cases and Solutions
+
+#### 1. Circular References
+**Problem**: Document A links to B, B links to A
+**Solution**: Depth limiting (max 3) and cycle detection in context loading
+
+#### 2. Broken Links
+**Problem**: Referenced document/section deleted or moved
+**Solution**: Link validation on save, migration tools for bulk updates
+
+#### 3. Ambiguous Slugs
+**Problem**: Legacy flat slugs like `#overview` everywhere
+**Solution**: Migration path to hierarchical, backwards compatibility layer
+
+#### 4. Large Context
+**Problem**: Many links could overwhelm context window
+**Solution**: Smart summarization, relevance filtering, configurable depth
+
+#### 5. Relative vs Absolute Paths
+**Problem**: How to handle `../guides/setup.md` style references
+**Solution**: Always resolve to absolute paths internally, support relative in UI
+
+### Implementation Phases
+
+#### Phase 1: Link Reference Infrastructure
+- Link parsing utilities (`parseLink()`, `resolveLink()`)
+- Hierarchical slug generation (`generateHierarchicalSlug()`)
+- Slug path utilities (`splitSlugPath()`, `joinSlugPath()`)
+- Link validation (`validateLink()`, `linkExists()`)
+
+#### Phase 2: Tool Updates for Hierarchical Slugs
+- Update browse_documents to show slug hierarchy
+- Enhance section tool for hierarchical operations
+- Update manage_document for slug-aware moves
+- Ensure all tools handle hierarchical paths
+
+#### Phase 3: view_document Enhancement
+- Add namespace-aware path resolution
+- Implement section-specific viewing
+- Add linked document context loading
+- Provide navigation helpers
+
+#### Phase 4: Link Guidance and Assistance
+- Add linking instructions to create_document
+- Implement link suggestions in section editing
+- Create link validation on save
+- Add migration tools for existing documents
+
+### Usage Examples
+
+#### Creating Linked Documentation
+```markdown
+# User Authentication Service
+
+## Overview
+This service implements [@/api/specs/auth-api.md#jwt-tokens](JWT authentication)
+following our [@/api/guides/security-best-practices.md](security guidelines).
+
+## Architecture
+
+### Database Schema
+See [@#implementation/database] for schema details.
+
+### API Integration
+Connects to [@/frontend/components/login-form.md#api-calls](Login Component).
+
+## Implementation
+
+### Database
+PostgreSQL schema for user management...
+
+### JWT Handling
+Based on [@/api/specs/auth-api.md#jwt-tokens/refresh-flow](refresh token spec)...
+```
+
+#### Automatic Context Loading
+When editing the JWT Handling section above, the system loads:
+```
+Primary: /backend/services/auth-service.md#implementation/jwt-handling
+Linked:
+  - /api/specs/auth-api.md#jwt-tokens (full section)
+  - /api/specs/auth-api.md#jwt-tokens/refresh-flow (specific subsection)
+  - /api/guides/security-best-practices.md (document summary)
+  - /frontend/components/login-form.md#api-calls (relevant section)
+```
+
+### Benefits
+
+1. **Seamless Navigation**: Click any `@` link to navigate directly
+2. **Contextual Editing**: Linked documents automatically loaded
+3. **Prevents Duplication**: Reference instead of copy-paste
+4. **Maintains Consistency**: Single source of truth
+5. **Discovers Relationships**: See what links to current document
+6. **Hierarchical Organization**: No more slug conflicts
+7. **Intuitive References**: Natural path-like structure
+
 ## Configuration
 
 ### Namespace Configuration

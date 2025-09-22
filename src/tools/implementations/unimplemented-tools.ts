@@ -65,22 +65,4 @@ export async function reopenTask(
   );
 }
 
-export async function viewDocument(
-  _args: Record<string, unknown>,
-  _state: SessionState
-): Promise<never> {
-  throw new Error(
-    JSON.stringify({
-      code: -32601,
-      message: 'view_document tool not yet implemented',
-      data: {
-        reason: 'NOT_IMPLEMENTED',
-        planned_parameters: ['document'],
-        example: {
-          document: '/specs/search-api.md'
-        }
-      }
-    })
-  );
-}
 

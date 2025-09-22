@@ -259,16 +259,28 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'view_document',
-      description: 'Inspect document structure and content',
+      description: 'Inspect document structure and content with namespace awareness, section-specific viewing, and linked document context loading',
       inputSchema: {
         type: 'object',
         properties: {
-          document: {
+          path: {
             type: 'string',
-            description: 'Document path (e.g., "/specs/search-api.md")',
+            description: 'Document path or document#section for section-specific viewing (e.g., "/api/specs/auth-api.md", "/api/specs/auth-api.md#api/authentication")',
+          },
+          include_linked: {
+            type: 'boolean',
+            description: 'Whether to load context from linked documents referenced via @ syntax',
+            default: false,
+          },
+          link_depth: {
+            type: 'number',
+            description: 'Maximum depth for recursive context loading from linked documents (1-3)',
+            minimum: 1,
+            maximum: 3,
+            default: 2,
           },
         },
-        required: ['document'],
+        required: ['path'],
         additionalProperties: false,
       },
     },
