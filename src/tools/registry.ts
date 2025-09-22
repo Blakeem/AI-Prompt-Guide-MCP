@@ -47,9 +47,9 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
           },
           link_depth: {
             type: 'number',
-            description: 'Maximum depth for link traversal analysis (1-3)',
+            description: 'Maximum depth for link traversal analysis (1-6)',
             minimum: 1,
-            maximum: 3,
+            maximum: 6,
             default: 2,
           },
         },
@@ -274,9 +274,9 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
           },
           link_depth: {
             type: 'number',
-            description: 'Maximum depth for recursive context loading from linked documents (1-3)',
+            description: 'Maximum depth for recursive context loading from linked documents (1-6)',
             minimum: 1,
-            maximum: 3,
+            maximum: 6,
             default: 2,
           },
         },

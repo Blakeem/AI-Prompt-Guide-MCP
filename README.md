@@ -26,11 +26,14 @@ Think of it as a more powerful replacement for manual markdown management, where
 
 ## Key Features
 
-### 🔗 **Linked Document Management**
-- **Automatic Context Loading** - Referenced documents load automatically when needed
-- **Cross-Document Linking** - Specifications connect to implementation guides, troubleshooting docs, and related specs
-- **Dependency Tracking** - Documents understand their relationships and load prerequisites
-- **Smart Navigation** - Follow document chains without manual file hunting
+### 🔗 **Advanced Document Linking System**
+- **Cross-Document References** - Use `@/path/doc.md` to link between documents
+- **Section-Specific Links** - Link directly to sections with `@/guides/setup.md#configuration`
+- **Within-Document Links** - Reference local sections with `@#section-name`
+- **Hierarchical Slugs** - Prevent naming conflicts with nested slug paths like `#api/authentication/jwt-tokens`
+- **Automatic Context Loading** - Referenced documents load automatically with cycle detection
+- **Smart Link Suggestions** - AI-powered recommendations based on content analysis
+- **Link Validation & Health** - Comprehensive validation with health scoring and auto-fix suggestions
 
 ### 🎯 **Progressive Discovery Workflows**
 - **Guided Creation** - Step-by-step document creation with best practices built-in
@@ -47,15 +50,17 @@ Think of it as a more powerful replacement for manual markdown management, where
 ### 🛠 **Available MCP Tools**
 
 **Core Document Management:**
-- `create_document` - Progressive document creation with guided workflows ✅
+- `create_document` - Progressive document creation with smart link guidance ✅
+- `browse_documents` - Unified browsing and searching with namespace awareness ✅
 - `list_documents` - Browse and discover existing documentation ✅
 - `search_documents` - Find relevant content across the entire knowledge base ✅
 
 **Unified Section Operations:**
-- `section` - Complete section management (create/edit/remove) with automatic depth calculation ✅
-  - Edit operations: `replace`, `append`, `prepend`
-  - Create operations: `insert_before`, `insert_after`, `append_child`
+- `section` - Complete section management with intelligent link assistance ✅
+  - Edit operations: `replace`, `append`, `prepend` with link validation
+  - Create operations: `insert_before`, `insert_after`, `append_child` with automatic depth
   - Remove operations: `remove` with content recovery
+  - Smart link suggestions based on content analysis
   - Batch support for multiple operations
 
 **Unified Document Operations:**
@@ -66,11 +71,17 @@ Think of it as a more powerful replacement for manual markdown management, where
   - `move` - Relocate documents with path management
 - `archive_document` - Legacy archive tool (use `manage_document` instead) ✅
 
-**Task & Reference Management:**
+**Enhanced Document Analysis:**
+- `view_document` - Enhanced document inspection with namespace awareness and linked context loading ✅
+  - Section-specific viewing with `document#section` syntax
+  - Automatic linked document context loading with configurable depth (1-6)
+  - Comprehensive document health metrics and link analysis
+  - Hierarchical section navigation and metadata
+
+**Task Management (Placeholder Tools):**
 - `add_task` - Link implementation tasks to specification sections 🚧
 - `complete_task` - Mark tasks complete with implementation notes 🚧
 - `reopen_task` - Revert task completion status 🚧
-- `view_document` - Inspect document structure and metadata 🚧
 
 ## Use Cases
 
@@ -199,11 +210,17 @@ pnpm test:run && pnpm lint && pnpm typecheck
 
 ## Roadmap
 
+**Completed Major Features:**
+- ✅ **Comprehensive Document Linking System** - Full `@` syntax support with cross-document and section links
+- ✅ **Hierarchical Slug Architecture** - Prevents naming conflicts with nested paths
+- ✅ **Smart Link Guidance** - AI-powered suggestions in document creation and editing
+- ✅ **Link Validation & Health** - System-wide link health monitoring with auto-fix suggestions
+- ✅ **Enhanced Tool Integration** - All core tools support the linking system
+
 **Near Term:**
-- Complete task management tool implementations (`add_task`, `complete_task`, `view_document`)
-- Enhanced document linking and validation system
+- Complete task management tool implementations (`add_task`, `complete_task`)
 - Template system expansion for common document types
-- Comprehensive test coverage for all unified tools
+- Advanced batch operations across multiple documents
 
 **Future Vision:**
 - **Smart Context Loading** - AI-driven relevant document discovery

@@ -11,7 +11,13 @@ import type { SessionState } from '../../session/types.js';
 // Mock dependencies
 vi.mock('../../shared/utilities.js', () => ({
   getDocumentManager: vi.fn(),
-  performSectionEdit: vi.fn()
+  performSectionEdit: vi.fn(),
+  pathToNamespace: vi.fn(),
+  pathToSlug: vi.fn(),
+  getSlugDepth: vi.fn(),
+  getParentSlug: vi.fn(),
+  validateSlugPath: vi.fn(() => ({ success: true, result: 'valid-slug' })),
+  resolveLinkWithContext: vi.fn()
 }));
 
 const mockGetDocumentManager = getDocumentManager as MockedFunction<typeof getDocumentManager>;

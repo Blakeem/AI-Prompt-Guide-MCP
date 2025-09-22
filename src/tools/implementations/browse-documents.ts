@@ -1077,7 +1077,7 @@ export async function browseDocuments(
     const requestedPath = (args['path'] as string) ?? '/';
     const query = args['query'] as string | undefined;
     const includeRelated = (args['include_related'] as boolean) ?? false;
-    const linkDepth = Math.max(1, Math.min(3, Number(args['link_depth']) || 2));
+    const linkDepth = Math.max(1, Math.min(6, Number(args['link_depth']) || 2));
     const limit = Math.max(1, Math.min(50, Number(args['limit']) || 10));
 
     // Normalize path

@@ -578,9 +578,9 @@ Output: {
 ```
 
 ### 7. view_document
-Inspect document structure and content:
+Inspect document structure and content with enhanced linking support:
 ```json
-Input: {"document": "/api/specs/search-api.md"}
+Input: {"path": "/api/specs/search-api.md"}
 Output: {
   "path": "/api/specs/search-api.md",
   "slug": "search-api",
@@ -588,48 +588,58 @@ Output: {
   "namespace": "api/specs",
   "sections": [
     {
-      "slug": "#overview",
+      "slug": "overview",
       "title": "Overview",
       "depth": 2,
+      "full_path": "overview",
       "hasContent": true,
       "links": []
     },
     {
-      "slug": "#endpoints",
+      "slug": "endpoints",
       "title": "Endpoints",
       "depth": 2,
+      "full_path": "endpoints",
       "hasContent": true,
-      "links": ["/api/guides/api-design.md"]
+      "links": ["@/api/guides/api-design.md"]
     },
     {
-      "slug": "#tasks",
+      "slug": "tasks",
       "title": "Tasks",
       "depth": 2,
-      "taskCount": 5,
+      "full_path": "tasks",
+      "hasContent": true,
       "links": [
-        "/api/specs/search-api.md#endpoints",
-        "/api/guides/optimization.md",
-        "/backend/services/caching.md"
+        "@/api/specs/search-api.md#endpoints",
+        "@/api/guides/optimization.md",
+        "@/backend/services/caching.md"
       ]
     }
   ],
   "tasks": {
     "total": 5,
     "completed": 2,
-    "pending": ["tasks[2]", "tasks[3]", "tasks[4]"]
+    "pending": 3,
+    "sections_with_tasks": ["tasks"]
   },
   "documentLinks": {
     "total": 4,
     "internal": 3,
     "external": 1,
-    "broken": [],
-    "sectionsWithoutLinks": ["#schemas", "#examples"]
+    "broken": 0,
+    "sectionsWithoutLinks": ["schemas", "examples"]
   },
   "lastModified": "2025-09-20T14:30:00Z",
   "wordCount": 1250,
   "headingCount": 8
 }
 ```
+
+**Enhanced features:**
+- Section-specific viewing: `{"path": "/api/specs/search-api.md#endpoints"}`
+- Linked context loading: `{"path": "/api/specs/search-api.md", "include_linked": true, "link_depth": 6}`
+- Hierarchical slug support with full_path information
+- Enhanced link analysis with @ syntax detection
 
 ## Additional Tool (Quick Win)
 
@@ -653,23 +663,30 @@ Output: {"reopened": true, "task_id": "api.md#tasks[0]"}
 
 ```
 src/
-├── markdown-tools/          # AST-based markdown manipulation
-│   ├── parse.ts            # Heading extraction, TOC building
-│   ├── sections.ts         # CRUD operations on sections
-│   └── slug.ts             # Deterministic slug generation
+├── shared/                  # Common utilities and linking system
+│   ├── utilities.ts         # Central exports for all utilities
+│   ├── link-utils.ts        # Link parsing and resolution
+│   ├── slug-utils.ts        # Hierarchical slug management
+│   └── link-validation.ts   # Comprehensive link validation
 │
-├── task-engine/            # Task management system
-│   ├── task-parser.ts      # Extract tasks from markdown
-│   └── task-tracker.ts     # Simple status management
+├── tools/                   # MCP tool implementations
+│   ├── implementations/     # Individual tool logic with linking features
+│   ├── schemas/            # Progressive discovery schemas
+│   ├── registry.ts         # Dynamic tool registration
+│   └── executor.ts         # Tool execution dispatcher
 │
 ├── document-manager/       # High-level document operations
 │   ├── document-cache.ts   # LRU cache with file watching
 │   ├── document-manager.ts # Document CRUD facade
-│   └── link-validator.ts   # Check link targets exist
+│   └── document.ts         # Document structure definitions
 │
-└── mcp-server/            # MCP protocol implementation
-    ├── tool-handlers.ts    # Tool request processing
-    └── progressive-discovery.ts  # Staged tool responses
+├── session/                # Session state management
+│   ├── types.ts            # SessionState interface
+│   └── session-store.ts    # Singleton session store
+│
+└── server/                 # MCP protocol implementation
+    ├── request-handlers/    # Tool list & execution handlers
+    └── server-factory.ts    # Server initialization
 ```
 
 ### Implementation Phases
@@ -692,9 +709,18 @@ src/
 3. Add namespace awareness to `section` and `manage_document` tools
 4. Update error messages and examples to use new patterns
 
-#### Phase 4: Advanced Features
+#### Phase 4: Advanced Features ✅ (Completed)
 
-##### 1. Section-Level Browsing ✅ (Completed)
+##### 1. Document Linking System ✅ (Completed)
+Comprehensive `@` syntax linking system with hierarchical slugs and automatic context loading:
+```json
+// Link formats implemented
+"@/namespace/path/doc.md#section"     // Cross-document links
+"@#section"                          // Within-document links
+"#api/authentication/jwt-tokens"      // Hierarchical slugs
+```
+
+##### 2. Section-Level Browsing ✅ (Completed)
 Section-level browsing allows deep navigation into document structure:
 ```json
 // Browse document sections
@@ -722,7 +748,7 @@ Output: { "sections": [...subsections...], "document_context": {...} }
 Input: {
   "path": "/api/specs/search-api.md",
   "include_related": true,
-  "link_depth": 2
+  "link_depth": 6
 }
 Output: {
   "document_context": {...},
@@ -793,7 +819,7 @@ Output: {
 ```
 
 **Anti-Recursion Strategy**:
-- **Depth Limiting**: Max 3 levels of related documents
+- **Depth Limiting**: Max 6 levels of related documents
 - **Cycle Detection**: Track visited documents, break cycles
 - **Relevance Filtering**: Only show links above relevance threshold
 - **Relationship Types**: Categorize links to avoid noise
@@ -993,36 +1019,39 @@ Shows document path and slug path separately to avoid repetition:
 ```
 
 #### view_document
-Enhanced to support namespace-aware viewing with section specificity:
+Enhanced to support namespace-aware viewing with section specificity and linked context loading:
 ```json
 // View entire document
 Input: {"path": "/api/specs/auth-api.md"}
 
-// View specific section
+// View specific section with document#section syntax
 Input: {"path": "/api/specs/auth-api.md#api/authentication"}
 
-// View with linked document context
+// View with automatic linked document context loading
 Input: {
   "path": "/api/specs/auth-api.md#api/authentication",
   "include_linked": true,
-  "link_depth": 2
+  "link_depth": 6
 }
 ```
 
 #### section (editing)
-Supports hierarchical slugs and provides link assistance:
+Supports hierarchical slugs and provides automatic link assistance:
 ```json
 Input: {
   "document": "/api/specs/auth-api.md",
-  "section": "api/endpoints/users",           // Hierarchical slug
+  "section": "#api/endpoints/users",          // Hierarchical slug with #
   "operation": "append",
-  "content": "See [@/api/guides/auth-setup.md#implementation] for details."
+  "content": "See @/api/guides/auth-setup.md#implementation for details."
 }
 Output: {
   "updated": true,
-  "section": "api/endpoints/users",
-  "links_detected": ["/api/guides/auth-setup.md#implementation"],
-  "linked_context": [...]                     // Automatic context loading
+  "section": "#api/endpoints/users",
+  "link_assistance": {
+    "links_found": ["@/api/guides/auth-setup.md#implementation"],
+    "link_suggestions": [...],
+    "syntax_help": "Use @/path/doc.md#section for cross-document links"
+  }
 }
 ```
 
@@ -1052,46 +1081,42 @@ Tertiary Context (Suggested)
 └── Related by Namespace
 ```
 
-### Link Guidance in Tools
+### Link Guidance in Tools ✅ (Implemented)
 
 #### create_document
-Provides linking instructions during document creation:
+Provides comprehensive linking guidance during Stage 2.5 "Smart Suggestions":
 ```json
 {
-  "linking_guide": {
-    "cross_document": "Use @/namespace/path/doc.md#section for cross-doc links",
-    "within_document": "Use @#section for within-doc links",
-    "examples": [
-      "@/api/specs/search-api.md#endpoints",
-      "@#implementation/setup",
-      "@/backend/services/search.md#architecture"
-    ],
-    "best_practices": [
-      "Link to specifications when implementing",
-      "Reference guides from troubleshooting docs",
-      "Connect frontend components to their APIs"
-    ]
+  "link_guidance": {
+    "syntax_guide": {
+      "cross_document": "@/namespace/path/doc.md#section",
+      "within_document": "@#section",
+      "examples": [
+        "@/api/specs/search-api.md#endpoints",
+        "@#implementation/setup",
+        "@/backend/services/search.md#architecture"
+      ]
+    },
+    "recommended_links": [...],
+    "placement_recommendations": [...]
   }
 }
 ```
 
 #### section (editing)
-Provides real-time link suggestions while editing:
+Provides automatic link assistance based on content analysis:
 ```json
 {
-  "link_suggestions": {
-    "should_reference": [
+  "link_assistance": {
+    "links_found": ["@/api/specs/auth-api.md#jwt-tokens"],
+    "link_suggestions": [
       {
-        "path": "@/api/specs/auth-api.md#jwt-tokens",
-        "reason": "This implementation should reference the spec"
+        "link": "@/api/guides/security.md#jwt-best-practices",
+        "reason": "Related JWT implementation guidance",
+        "confidence": 0.85
       }
     ],
-    "could_reference": [
-      {
-        "path": "@/api/guides/best-practices.md#error-handling",
-        "reason": "Similar error handling patterns"
-      }
-    ]
+    "syntax_help": "Use @/path/doc.md#section for cross-document links"
   }
 }
 ```
@@ -1112,37 +1137,38 @@ Provides real-time link suggestions while editing:
 
 #### 4. Large Context
 **Problem**: Many links could overwhelm context window
-**Solution**: Smart summarization, relevance filtering, configurable depth
+**Solution**: Smart summarization, relevance filtering, configurable depth (1-6 levels)
 
 #### 5. Relative vs Absolute Paths
 **Problem**: How to handle `../guides/setup.md` style references
 **Solution**: Always resolve to absolute paths internally, support relative in UI
 
-### Implementation Phases
+### Implementation Phases ✅ (All Completed)
 
-#### Phase 1: Link Reference Infrastructure
-- Link parsing utilities (`parseLink()`, `resolveLink()`)
-- Hierarchical slug generation (`generateHierarchicalSlug()`)
-- Slug path utilities (`splitSlugPath()`, `joinSlugPath()`)
-- Link validation (`validateLink()`, `linkExists()`)
+#### Phase 1: Link Reference Infrastructure ✅ (Completed)
+- ✅ Link parsing utilities (`parseLink()`, `resolveLink()`, `resolveLinkWithContext()`)
+- ✅ Hierarchical slug generation (`generateHierarchicalSlug()`, `splitSlugPath()`, `getParentSlug()`)
+- ✅ Link validation system (`validateSingleLink()`, `validateDocumentLinks()`, `autoFixLinks()`)
+- ✅ Complete utility exports in `src/shared/utilities.ts`
 
-#### Phase 2: Tool Updates for Hierarchical Slugs
-- Update browse_documents to show slug hierarchy
-- Enhance section tool for hierarchical operations
-- Update manage_document for slug-aware moves
-- Ensure all tools handle hierarchical paths
+#### Phase 2: Tool Updates for Hierarchical Slugs ✅ (Completed)
+- ✅ Enhanced browse_documents with slug hierarchy support and link analysis
+- ✅ Updated section tool for hierarchical operations with link assistance
+- ✅ All tools handle hierarchical slug paths correctly
+- ✅ Link depth limits increased from 3 to 6 across all tools
 
-#### Phase 3: view_document Enhancement
-- Add namespace-aware path resolution
-- Implement section-specific viewing
-- Add linked document context loading
-- Provide navigation helpers
+#### Phase 3: view_document Enhancement ✅ (Completed)
+- ✅ Complete rewrite with namespace-aware path resolution
+- ✅ Section-specific viewing with `document#section` syntax
+- ✅ Linked document context loading with configurable depth (1-6)
+- ✅ Enhanced document analysis with link health metrics
 
-#### Phase 4: Link Guidance and Assistance
-- Add linking instructions to create_document
-- Implement link suggestions in section editing
-- Create link validation on save
-- Add migration tools for existing documents
+#### Phase 4: Link Guidance and Assistance ✅ (Completed)
+- ✅ Smart link guidance in create_document Stage 2.5
+- ✅ Automatic link assistance in section editing
+- ✅ Comprehensive link validation and health scoring
+- ✅ Content-based link suggestions using keyword analysis
+- ✅ Unit test coverage (174 tests) for all linking functionality
 
 ### Usage Examples
 

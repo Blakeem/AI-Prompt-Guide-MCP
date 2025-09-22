@@ -96,7 +96,7 @@ export async function viewDocument(
   let linkDepth = args['link_depth'] as number ?? 2;
 
   // Validate link depth
-  if (linkDepth < 1 || linkDepth > 3) {
+  if (linkDepth < 1 || linkDepth > 6) {
     linkDepth = 2;
   }
 
