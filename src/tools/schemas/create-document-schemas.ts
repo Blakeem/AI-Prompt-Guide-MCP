@@ -103,8 +103,7 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
       properties: {
         namespace: {
           type: 'string',
-          description: 'Document namespace (choose from available namespaces shown in stage 0)',
-          enum: ['api/specs', 'api/guides', 'frontend/components', 'backend/services', 'docs/troubleshooting']
+          description: 'Document namespace (choose from available namespaces shown in stage 0, or provide custom namespace like "custom/my-namespace")'
         }
       },
       required: ['namespace'],
@@ -135,8 +134,7 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
       properties: {
         namespace: {
           type: 'string',
-          description: 'Document namespace (from stage 0)',
-          enum: ['api/specs', 'api/guides', 'frontend/components', 'backend/services', 'docs/troubleshooting']
+          description: 'Document namespace (from stage 0, or custom namespace)'
         },
         title: {
           type: 'string',
@@ -215,8 +213,7 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
       properties: {
         namespace: {
           type: 'string',
-          description: 'Document namespace (from stage 0)',
-          enum: ['api/specs', 'api/guides', 'frontend/components', 'backend/services', 'docs/troubleshooting']
+          description: 'Document namespace (from stage 0, or custom namespace)'
         },
         title: {
           type: 'string',

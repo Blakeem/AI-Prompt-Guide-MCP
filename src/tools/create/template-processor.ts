@@ -249,16 +249,6 @@ export async function processTemplate(
   title: string,
   overview: string
 ): Promise<TemplateProcessingResult | TemplateProcessingError> {
-  // Get template for namespace
-  const templateInfo = NAMESPACE_TEMPLATES[namespace];
-  if (templateInfo == null) {
-    return {
-      error: 'Unsupported document namespace in creation stage',
-      details: 'Template not found for the specified namespace',
-      provided_namespace: namespace
-    };
-  }
-
   try {
     // Import slug utilities
     const { titleToSlug } = await import('../../slug.js');
@@ -266,27 +256,53 @@ export async function processTemplate(
 
     // Generate path from title and namespace
     const slug = titleToSlug(title);
-    const namespaceConfig = getNamespaceConfig(namespace);
 
-    if (namespaceConfig == null) {
-      return {
-        error: 'Invalid namespace configuration',
-        details: 'Namespace configuration not found',
-        provided_namespace: namespace
-      };
-    }
+    // Get template for namespace - check predefined first, then fallback to custom
+    const templateInfo = NAMESPACE_TEMPLATES[namespace];
+    let content: string;
+    let docPath: string;
 
-    const docPath = `${namespaceConfig.folder}/${slug}.md`;
+    if (templateInfo != null) {
+      // Predefined namespace - use rich template and configured path
+      const namespaceConfig = getNamespaceConfig(namespace);
 
-    // Process template with variable substitution
-    let content = templateInfo.starterStructure.replace(/\{\{title\}\}/g, title);
+      if (namespaceConfig == null) {
+        return {
+          error: 'Invalid predefined namespace configuration',
+          details: 'Namespace configuration not found',
+          provided_namespace: namespace
+        };
+      }
 
-    // Replace overview section with provided content if available
-    if (overview.trim() !== '') {
-      content = content.replace(
-        /## Overview\n[^\n#]*/,
-        `## Overview\n${overview}`
-      );
+      docPath = `${namespaceConfig.folder}/${slug}.md`;
+
+      // Process rich template with variable substitution
+      content = templateInfo.starterStructure.replace(/\{\{title\}\}/g, title);
+
+      // Replace overview section with provided content if available
+      if (overview.trim() !== '') {
+        content = content.replace(
+          /## Overview\n[^\n#]*/,
+          `## Overview\n${overview}`
+        );
+      }
+    } else {
+      // Custom namespace - use simple template and generate path
+      docPath = `/${namespace}/${slug}.md`;
+
+      // Simple template for custom namespaces
+      content = `# ${title}
+
+## Overview
+${overview}
+
+## Additional Content
+Add sections relevant to your specific use case.
+
+## Tasks
+- [ ] Review and expand content
+- [ ] Add specific examples
+- [ ] Include relevant details`;
     }
 
     return {

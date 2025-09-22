@@ -6,6 +6,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { DocumentManager } from '../../document-manager.js';
 import { pathToNamespace, pathToSlug, getParentSlug } from '../../shared/utilities.js';
+import type { DocumentInfo } from './search-engine.js';
 
 export interface FolderInfo {
   name: string;
@@ -15,27 +16,7 @@ export interface FolderInfo {
   hasSubfolders: boolean;
 }
 
-export interface DocumentInfo {
-  path: string;
-  slug: string;
-  title: string;
-  namespace: string;
-  sections: Array<{
-    slug: string;
-    title: string;
-    depth: number;
-    full_path: string;
-    parent?: string;
-    hasContent: boolean;
-  }>;
-  tasks?: {
-    total: number;
-    completed: number;
-    pending: string[];
-  };
-  lastModified: string;
-  relevance?: number;
-}
+// DocumentInfo interface is defined in search-engine.ts and re-exported through index.ts
 
 /**
  * Parse section path into document path and section slug

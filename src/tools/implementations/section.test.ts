@@ -12,12 +12,20 @@ import type { SessionState } from '../../session/types.js';
 vi.mock('../../shared/utilities.js', () => ({
   getDocumentManager: vi.fn(),
   performSectionEdit: vi.fn(),
-  pathToNamespace: vi.fn(),
-  pathToSlug: vi.fn(),
-  getSlugDepth: vi.fn(),
-  getParentSlug: vi.fn(),
+  pathToNamespace: vi.fn(() => 'test-namespace'),
+  pathToSlug: vi.fn(() => 'test-slug'),
+  getSlugDepth: vi.fn(() => 2),
+  getParentSlug: vi.fn(() => 'parent-slug'),
   validateSlugPath: vi.fn(() => ({ success: true, result: 'valid-slug' })),
   resolveLinkWithContext: vi.fn()
+}));
+
+// Mock link-utils module
+vi.mock('../../shared/link-utils.js', () => ({
+  resolveLinkWithContext: vi.fn(() => Promise.resolve({
+    validation: { valid: true },
+    resolvedPath: null
+  }))
 }));
 
 const mockGetDocumentManager = getDocumentManager as MockedFunction<typeof getDocumentManager>;
@@ -25,10 +33,25 @@ const mockPerformSectionEdit = performSectionEdit as MockedFunction<typeof perfo
 
 // Mock DocumentManager
 const createMockDocumentManager = (): Partial<DocumentManager> => ({
-  getDocument: vi.fn(),
+  getDocument: vi.fn(() => Promise.resolve({
+    metadata: {
+      path: '/test-doc.md',
+      title: 'Test Document',
+      lastModified: new Date(),
+      contentHash: 'mock-hash',
+      wordCount: 100,
+      linkCount: 5,
+      codeBlockCount: 2,
+      lastAccessed: new Date()
+    },
+    headings: [],
+    toc: [],
+    slugIndex: new Map()
+  })),
   updateSection: vi.fn(),
   insertSection: vi.fn(),
-  getSectionContent: vi.fn()
+  getSectionContent: vi.fn(),
+  searchDocuments: vi.fn(() => Promise.resolve([]))
 });
 
 // Mock session state
@@ -114,7 +137,25 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         document: '/test-doc.md',
         section: 'overview',
         operation: 'replace',
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        hierarchical_info: {
+          slug_depth: expect.any(Number),
+          parent_slug: expect.anything()
+        },
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.any(Array),
+            common_mistakes: expect.any(Array)
+          }
+        },
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
     });
 
@@ -150,7 +191,25 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         document: '/test-doc.md',
         section: 'overview',
         operation: 'append',
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        hierarchical_info: {
+          slug_depth: expect.any(Number),
+          parent_slug: expect.anything()
+        },
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.any(Array),
+            common_mistakes: expect.any(Array)
+          }
+        },
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
     });
 
@@ -177,7 +236,25 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         document: '/test-doc.md',
         section: 'features',
         operation: 'prepend',
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        hierarchical_info: {
+          slug_depth: expect.any(Number),
+          parent_slug: expect.anything()
+        },
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.any(Array),
+            common_mistakes: expect.any(Array)
+          }
+        },
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
     });
 
@@ -245,7 +322,25 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         new_section: 'new-section',
         depth: 2,
         operation: 'insert_before',
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        hierarchical_info: {
+          slug_depth: expect.any(Number),
+          parent_slug: expect.anything()
+        },
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.any(Array),
+            common_mistakes: expect.any(Array)
+          }
+        },
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
     });
 
@@ -275,7 +370,25 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         new_section: 'another-section',
         depth: 2,
         operation: 'insert_after',
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        hierarchical_info: {
+          slug_depth: expect.any(Number),
+          parent_slug: expect.anything()
+        },
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.any(Array),
+            common_mistakes: expect.any(Array)
+          }
+        },
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
     });
 
@@ -305,7 +418,25 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         new_section: 'feature-c',
         depth: 3,
         operation: 'append_child',
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        hierarchical_info: {
+          slug_depth: expect.any(Number),
+          parent_slug: expect.anything()
+        },
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.any(Array),
+            common_mistakes: expect.any(Array)
+          }
+        },
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
     });
 
@@ -334,7 +465,25 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         document: '/test-doc.md',
         new_section: 'no-depth-section',
         operation: 'insert_after',
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        hierarchical_info: {
+          slug_depth: expect.any(Number),
+          parent_slug: expect.anything()
+        },
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.any(Array),
+            common_mistakes: expect.any(Array)
+          }
+        },
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
         // No depth property should be included
       });
     });
@@ -386,7 +535,12 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         document: '/test-doc.md', // Single document
         sections_modified: 3,
         total_operations: 3,
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
     });
 
@@ -468,7 +622,12 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         document: '/test-doc.md',
         sections_modified: 2, // Only successful operations count
         total_operations: 3,
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
     });
 
@@ -512,13 +671,18 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
           {
             success: false,
             section: 'features',
-            error: 'Missing required parameters: document, section, and content'
+            error: 'Missing required parameters: document and section'
           }
         ],
         document: '/test-doc.md',
         sections_modified: 1,
         total_operations: 2,
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
     });
   });
@@ -751,7 +915,25 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         document: '/test-doc.md',
         new_section: 'new-section',
         operation: 'insert_after',
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        hierarchical_info: {
+          slug_depth: expect.any(Number),
+          parent_slug: expect.anything()
+        },
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.any(Array),
+            common_mistakes: expect.any(Array)
+          }
+        },
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
     });
 
@@ -796,8 +978,157 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         document: '/test-doc.md',
         sections_modified: 2,
         total_operations: 3,
+        timestamp: expect.any(String),
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
+      });
+    });
+  });
+
+  describe('Link Assistance Feature', () => {
+    test('should include link assistance in response for content with links', async () => {
+      // Arrange
+      const args = {
+        document: '/test-doc.md',
+        section: 'overview',
+        content: 'This section references @/api/users.md#get-user and @#authentication.',
+        operation: 'replace'
+      };
+
+      mockPerformSectionEdit.mockResolvedValue({
+        action: 'edited',
+        section: 'overview'
+      });
+
+      // Act
+      const result = await section(args, mockSessionState);
+
+      // Assert
+      expect(result).toMatchObject({
+        updated: true,
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.arrayContaining([
+              expect.stringContaining('@/'),
+              expect.stringContaining('@#')
+            ]),
+            common_mistakes: expect.any(Array)
+          }
+        }
+      });
+
+      // Verify link assistance structure
+      const linkAssistance = (result as Record<string, unknown>)['link_assistance'] as Record<string, unknown>;
+      expect(linkAssistance['links_found']).toBeInstanceOf(Array);
+      expect(linkAssistance['link_suggestions']).toBeInstanceOf(Array);
+      expect((linkAssistance['syntax_help'] as Record<string, unknown>)['correct_examples']).toContain('@/api/specs/user-api.md - Link to entire document');
+    });
+
+    test('should include hierarchical info for all operations', async () => {
+      // Arrange
+      const args = {
+        document: '/test-doc.md',
+        section: 'new-section',
+        content: 'New section content.',
+        operation: 'insert_after',
+        title: 'New Section'
+      };
+
+      mockPerformSectionEdit.mockResolvedValue({
+        action: 'created',
+        section: 'new-section',
+        depth: 3
+      });
+
+      // Act
+      const result = await section(args, mockSessionState);
+
+      // Assert
+      expect(result).toMatchObject({
+        created: true,
+        hierarchical_info: {
+          slug_depth: expect.any(Number),
+          parent_slug: expect.anything()
+        }
+      });
+
+      // Verify hierarchical info is present
+      const hierarchicalInfo = (result as Record<string, unknown>)['hierarchical_info'] as Record<string, unknown>;
+      expect(hierarchicalInfo).toHaveProperty('slug_depth');
+      expect(hierarchicalInfo).toHaveProperty('parent_slug');
+    });
+
+    test('should include document info when document is found', async () => {
+      // Arrange
+      const args = {
+        document: '/test-doc.md',
+        section: 'overview',
+        content: 'Updated content.',
+        operation: 'replace'
+      };
+
+      mockPerformSectionEdit.mockResolvedValue({
+        action: 'edited',
+        section: 'overview'
+      });
+
+      // Act
+      const result = await section(args, mockSessionState);
+
+      // Assert
+      expect(result).toMatchObject({
+        updated: true,
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
+      });
+
+      // Verify document info values
+      const documentInfo = (result as Record<string, unknown>)['document_info'] as Record<string, unknown>;
+      expect(documentInfo['slug']).toBe('test-slug');
+      expect(documentInfo['title']).toBe('Test Document');
+      expect(documentInfo['namespace']).toBe('test-namespace');
+    });
+
+    test('should not include link assistance for remove operations', async () => {
+      // Arrange
+      const args = {
+        document: '/test-doc.md',
+        section: 'overview',
+        content: '', // Content not required for remove
+        operation: 'remove'
+      };
+
+      mockPerformSectionEdit.mockResolvedValue({
+        action: 'removed',
+        section: 'overview',
+        removedContent: 'Original content'
+      });
+
+      // Act
+      const result = await section(args, mockSessionState);
+
+      // Assert
+      expect(result).toMatchObject({
+        removed: true,
+        document: '/test-doc.md',
+        section: 'overview',
+        removed_content: 'Original content',
+        operation: 'remove',
         timestamp: expect.any(String)
       });
+
+      // Verify link assistance is NOT included for remove operations
+      expect(result).not.toHaveProperty('link_assistance');
+      expect(result).not.toHaveProperty('hierarchical_info');
     });
   });
 });

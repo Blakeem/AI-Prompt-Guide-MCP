@@ -4,8 +4,7 @@
  */
 
 import {
-  getDocumentNamespaces,
-  getNamespaceConfig
+  getDocumentNamespaces
 } from '../schemas/create-document-schemas.js';
 
 /**
@@ -327,34 +326,66 @@ export function processDiscovery(): DiscoveryResult {
  * Process Stage 1: Instructions - Return namespace-specific guidance
  */
 export function processInstructions(namespace: string): ValidationResult {
-  // Validate namespace exists
+  // Validate namespace is safe for file system
+  const pathValidation = validateCustomNamespacePath(namespace);
+  if (pathValidation != null) {
+    return pathValidation;
+  }
+
+  // Check if it's a predefined namespace
   const namespaceInfo = NAMESPACE_INSTRUCTIONS[namespace];
-  if (namespaceInfo == null) {
+  if (namespaceInfo != null) {
+    // Use rich template for predefined namespaces
+    const exampleData = generateNamespaceExample(namespace);
+
     return {
-      stage: 'error_fallback',
-      error: 'Invalid document namespace',
-      provided_namespace: namespace,
-      valid_namespaces: Object.keys(NAMESPACE_INSTRUCTIONS),
-      help: 'Please choose from the available document namespaces below',
-      namespaces: getDocumentNamespaces(),
-      next_step: "Call again with a valid 'namespace' parameter",
-      example: { namespace: "api/specs" }
+      stage: 'instructions',
+      namespace,
+      instructions: namespaceInfo.instructions,
+      starter_structure: namespaceInfo.starterStructure,
+      next_step: "Call again with namespace, title, and overview to create the document",
+      example: {
+        namespace,
+        title: exampleData.title,
+        overview: exampleData.overview
+      },
+      smart_suggestions_note: "After providing title and overview, you'll receive intelligent suggestions about related documents, similar implementations, and logical next steps before creating the document."
     };
   }
 
-  // Generate example based on namespace
-  const exampleData = generateNamespaceExample(namespace);
+  // Handle custom namespace with simple template
+  const customExampleData = generateCustomNamespaceExample(namespace);
 
   return {
     stage: 'instructions',
     namespace,
-    instructions: namespaceInfo.instructions,
-    starter_structure: namespaceInfo.starterStructure,
+    instructions: [
+      'Create clear, concise documentation for your custom namespace',
+      'Focus on the essential information needed by users',
+      'Use simple, straightforward language and structure',
+      'Add specific sections relevant to your use case',
+      'Include practical examples and real-world scenarios',
+      'Keep the content focused and avoid unnecessary complexity'
+    ],
+    starter_structure: `# {{title}}
+
+## Overview
+Brief description of the purpose and key points.
+
+{{overview}}
+
+## Additional Content
+Add sections relevant to your specific use case.
+
+## Tasks
+- [ ] Review and expand content
+- [ ] Add specific examples
+- [ ] Include relevant details`,
     next_step: "Call again with namespace, title, and overview to create the document",
     example: {
       namespace,
-      title: exampleData.title,
-      overview: exampleData.overview
+      title: customExampleData.title,
+      overview: customExampleData.overview
     },
     smart_suggestions_note: "After providing title and overview, you'll receive intelligent suggestions about related documents, similar implementations, and logical next steps before creating the document."
   };
@@ -364,20 +395,8 @@ export function processInstructions(namespace: string): ValidationResult {
  * Validate namespace for creation stage
  */
 export function validateNamespaceForCreation(namespace: string): ValidationErrorResult | null {
-  const namespaceConfig = getNamespaceConfig(namespace);
-  if (namespaceConfig == null) {
-    return {
-      stage: 'error_fallback',
-      error: 'Invalid namespace configuration',
-      provided_namespace: namespace,
-      help: 'Please use a valid document namespace. Here are the available options:',
-      namespaces: getDocumentNamespaces(),
-      next_step: "Call again with a valid 'namespace' parameter",
-      example: { namespace: "api/specs", title: "Your Title", overview: "Your overview" }
-    };
-  }
-
-  return null; // No validation error
+  // Use the same path validation as stage 1
+  return validateCustomNamespacePath(namespace);
 }
 
 /**
@@ -423,4 +442,114 @@ function generateNamespaceExample(namespace: string): {title: string, overview: 
         overview: 'Example overview for this document'
       };
   }
+}
+
+/**
+ * Generate example data for custom namespaces
+ */
+function generateCustomNamespaceExample(namespace: string): {title: string, overview: string} {
+  // Generate contextual examples based on namespace pattern
+  const namespaceParts = namespace.split('/');
+  const lastPart = namespaceParts[namespaceParts.length - 1] ?? 'document';
+
+  // Create contextual examples
+  if (namespace.includes('spec') || namespace.includes('api')) {
+    return {
+      title: `${lastPart.charAt(0).toUpperCase() + lastPart.slice(1)} Specification`,
+      overview: `Specification document for ${lastPart} functionality and requirements`
+    };
+  }
+
+  if (namespace.includes('guide') || namespace.includes('tutorial')) {
+    return {
+      title: `${lastPart.charAt(0).toUpperCase() + lastPart.slice(1)} Guide`,
+      overview: `Step-by-step guide for implementing ${lastPart}`
+    };
+  }
+
+  if (namespace.includes('design') || namespace.includes('architecture')) {
+    return {
+      title: `${lastPart.charAt(0).toUpperCase() + lastPart.slice(1)} Design`,
+      overview: `Design document for ${lastPart} architecture and implementation`
+    };
+  }
+
+  // Default example
+  return {
+    title: `${lastPart.charAt(0).toUpperCase() + lastPart.slice(1)} Documentation`,
+    overview: `Documentation for ${lastPart} functionality and usage`
+  };
+}
+
+/**
+ * Validate custom namespace path for security and structure
+ */
+function validateCustomNamespacePath(namespace: string): ValidationErrorResult | null {
+  // Check for empty namespace
+  if (namespace.trim() === '') {
+    return {
+      stage: 'error_fallback',
+      error: 'Empty namespace not allowed',
+      help: 'Please provide a valid namespace. Use predefined namespaces or create custom ones like "myproject/docs"',
+      namespaces: getDocumentNamespaces(),
+      next_step: "Call again with a valid 'namespace' parameter",
+      example: { namespace: "custom/my-namespace" }
+    };
+  }
+
+  // Check for path traversal attempts
+  if (namespace.includes('..') || namespace.includes('\\')) {
+    return {
+      stage: 'error_fallback',
+      error: 'Invalid namespace path',
+      provided_namespace: namespace,
+      help: 'Namespace cannot contain ".." or "\\" characters for security reasons',
+      namespaces: getDocumentNamespaces(),
+      next_step: "Call again with a safe namespace path",
+      example: { namespace: "custom/safe-namespace" }
+    };
+  }
+
+  // Check for absolute paths
+  if (namespace.startsWith('/') || namespace.includes(':')) {
+    return {
+      stage: 'error_fallback',
+      error: 'Absolute paths not allowed in namespace',
+      provided_namespace: namespace,
+      help: 'Use relative namespace paths only, such as "custom/my-namespace"',
+      namespaces: getDocumentNamespaces(),
+      next_step: "Call again with a relative namespace path",
+      example: { namespace: "custom/my-namespace" }
+    };
+  }
+
+  // Check for invalid characters
+  const invalidChars = /[<>"|*?:]/;
+  if (invalidChars.test(namespace)) {
+    return {
+      stage: 'error_fallback',
+      error: 'Invalid characters in namespace',
+      provided_namespace: namespace,
+      help: 'Namespace can only contain letters, numbers, hyphens, underscores, and forward slashes',
+      namespaces: getDocumentNamespaces(),
+      next_step: "Call again with a valid namespace using only allowed characters",
+      example: { namespace: "custom/my-namespace" }
+    };
+  }
+
+  // Validate length and structure
+  if (namespace.length > 100) {
+    return {
+      stage: 'error_fallback',
+      error: 'Namespace too long',
+      provided_namespace: namespace,
+      help: 'Namespace must be 100 characters or less',
+      namespaces: getDocumentNamespaces(),
+      next_step: "Call again with a shorter namespace",
+      example: { namespace: "custom/shorter-name" }
+    };
+  }
+
+  // No validation errors
+  return null;
 }

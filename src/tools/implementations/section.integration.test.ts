@@ -130,12 +130,29 @@ describe('Edit Section Tool - Integration Tests', () => {
       const result = await section(args, mockSessionState);
 
       // Assert
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         updated: true,
         document: TEST_DOC_PATH,
         section: 'overview',
         operation: 'replace',
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        hierarchical_info: {
+          slug_depth: expect.any(Number)
+        },
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.any(Array),
+            common_mistakes: expect.any(Array)
+          }
+        },
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
 
       // Verify the actual markdown content
@@ -157,12 +174,29 @@ describe('Edit Section Tool - Integration Tests', () => {
       const result = await section(args, mockSessionState);
 
       // Assert
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         updated: true,
         document: TEST_DOC_PATH,
         section: 'authentication',
         operation: 'replace',
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        hierarchical_info: {
+          slug_depth: expect.any(Number)
+        },
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.any(Array),
+            common_mistakes: expect.any(Array)
+          }
+        },
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
 
       // Verify the actual markdown content
@@ -186,12 +220,29 @@ describe('Edit Section Tool - Integration Tests', () => {
       const result = await section(args, mockSessionState);
 
       // Assert
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         updated: true,
         document: TEST_DOC_PATH,
         section: 'overview',
         operation: 'append',
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        hierarchical_info: {
+          slug_depth: expect.any(Number)
+        },
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.any(Array),
+            common_mistakes: expect.any(Array)
+          }
+        },
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
 
       // Verify the actual markdown content
@@ -243,12 +294,29 @@ describe('Edit Section Tool - Integration Tests', () => {
       const result = await section(args, mockSessionState);
 
       // Assert
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         updated: true,
         document: TEST_DOC_PATH,
         section: 'overview',
         operation: 'prepend',
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        hierarchical_info: {
+          slug_depth: expect.any(Number)
+        },
+        link_assistance: {
+          links_found: expect.any(Array),
+          link_suggestions: expect.any(Array),
+          syntax_help: {
+            detected_patterns: expect.any(Array),
+            correct_examples: expect.any(Array),
+            common_mistakes: expect.any(Array)
+          }
+        },
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
 
       // Verify the actual markdown content
@@ -522,7 +590,7 @@ describe('Edit Section Tool - Integration Tests', () => {
       const result = await section(operations, mockSessionState);
 
       // Assert
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         batch_results: [
           { success: true, section: 'overview', action: 'edited' },
           {
@@ -535,7 +603,12 @@ describe('Edit Section Tool - Integration Tests', () => {
         document: TEST_DOC_PATH,
         sections_modified: 2, // Only successful operations
         total_operations: 3,
-        timestamp: expect.any(String)
+        timestamp: expect.any(String),
+        document_info: {
+          slug: expect.any(String),
+          title: expect.any(String),
+          namespace: expect.any(String)
+        }
       });
 
       // Verify successful operations were applied
