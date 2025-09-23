@@ -87,7 +87,7 @@ export async function createDocumentFile(
       sections: headings.map(h => `#${h.slug}`),
       next_actions: [
         'Use edit_section to add detailed content to each section',
-        'Use add_task to populate the tasks section with specific items',
+        'Use task tool to populate the tasks section with specific items',
         'Use insert_section to add additional sections as needed',
         'Use search_documents to research related content and add references'
       ]

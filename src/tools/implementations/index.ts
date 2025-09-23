@@ -7,8 +7,4 @@ export { browseDocuments } from './browse-documents.js';
 export { section } from './section.js';
 export { manageDocument } from './manage-document.js';
 export { viewDocument } from './view-document.js';
-export {
-  addTask,
-  completeTask,
-  reopenTask
-} from './unimplemented-tools.js';
+export { task } from './task.js';

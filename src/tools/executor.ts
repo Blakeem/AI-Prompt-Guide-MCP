@@ -8,10 +8,8 @@ import {
   browseDocuments,
   section,
   manageDocument,
-  addTask,
-  completeTask,
-  reopenTask,
-  viewDocument
+  viewDocument,
+  task
 } from './implementations/index.js';
 
 /**
@@ -36,17 +34,12 @@ export async function executeTool(
     case 'manage_document':
       return await manageDocument(args, state);
 
-    case 'add_task':
-      return await addTask(args, state);
-
-    case 'complete_task':
-      return await completeTask(args, state);
-
-    case 'reopen_task':
-      return await reopenTask(args, state);
 
     case 'view_document':
       return await viewDocument(args, state);
+
+    case 'task':
+      return await task(args, state);
 
     default:
       throw new Error(

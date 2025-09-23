@@ -246,7 +246,7 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
       sections: ['#overview', '#authentication', '#endpoints', '#error-handling'],
       next_actions: [
         'Use edit_section to add detailed content to each section',
-        'Use add_task to populate the tasks section with specific items'
+        'Use task tool to populate the tasks section with specific items'
       ]
     }
   }
