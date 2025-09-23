@@ -8,3 +8,4 @@ export { section } from './section.js';
 export { manageDocument } from './manage-document.js';
 export { viewDocument } from './view-document.js';
 export { task } from './task.js';
+export { completeTask } from './complete-task.js';

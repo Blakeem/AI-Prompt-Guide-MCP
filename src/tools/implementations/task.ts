@@ -33,11 +33,6 @@ interface TaskResult {
     slug: string;
     title: string;
   };
-  task_completed?: {
-    slug: string;
-    title: string;
-    note?: string;
-  };
   document_info?: {
     slug: string;
     title: string;
@@ -58,7 +53,6 @@ export async function task(
     const content = args['content'] as string;
     const operation = (args['operation'] as string) ?? 'list';
     const title = args['title'] as string;
-    const note = args['note'] as string;
     const statusFilter = args['status'] as string;
     const priorityFilter = args['priority'] as string;
 
@@ -93,14 +87,8 @@ export async function task(
         }
         return await editTask(manager, normalizedPath, taskSlug, content, documentInfo);
 
-      case 'complete':
-        if (!taskSlug) {
-          throw new Error('Missing required parameter for complete: task');
-        }
-        return await completeTask(manager, normalizedPath, taskSlug, note, documentInfo);
-
       default:
-        throw new Error(`Invalid operation: ${operation}. Must be one of: list, create, edit, complete`);
+        throw new Error(`Invalid operation: ${operation}. Must be one of: list, create, edit`);
     }
 
   } catch (error) {
@@ -112,22 +100,22 @@ export async function task(
  * List tasks from Tasks section with optional filtering
  */
 async function listTasks(
-  manager: any,
+  manager: unknown,
   docPath: string,
   statusFilter?: string,
   priorityFilter?: string,
-  documentInfo?: any
+  documentInfo?: unknown
 ): Promise<TaskResult> {
   try {
     // Try to read the Tasks section
     const tasksContent = readSection(await getDocumentContent(manager, docPath), 'tasks');
 
-    if (!tasksContent) {
+    if (tasksContent == null || tasksContent === '') {
       return {
         operation: 'list',
         document: docPath,
         tasks: [],
-        document_info: documentInfo,
+        ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
         timestamp: new Date().toISOString()
       };
     }
@@ -137,10 +125,10 @@ async function listTasks(
 
     // Apply filters
     let filteredTasks = tasks;
-    if (statusFilter) {
+    if (statusFilter != null && statusFilter !== '') {
       filteredTasks = filteredTasks.filter(task => task.status === statusFilter);
     }
-    if (priorityFilter) {
+    if (priorityFilter != null && priorityFilter !== '') {
       filteredTasks = filteredTasks.filter(task => task.priority === priorityFilter);
     }
 
@@ -151,8 +139,8 @@ async function listTasks(
       operation: 'list',
       document: docPath,
       tasks: filteredTasks,
-      ...(nextTask && { next_task: nextTask }),
-      document_info: documentInfo,
+      ...(nextTask != null && { next_task: nextTask }),
+      ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
       timestamp: new Date().toISOString()
     };
 
@@ -165,12 +153,12 @@ async function listTasks(
  * Create a new task in the Tasks section
  */
 async function createTask(
-  manager: any,
+  manager: unknown,
   docPath: string,
   title: string,
   content: string,
   referenceSlug?: string,
-  documentInfo?: any
+  documentInfo?: unknown
 ): Promise<TaskResult> {
   try {
     const taskSlug = titleToSlug(title);
@@ -181,23 +169,23 @@ ${content}`;
 
     // Use section tool logic to insert the task
     // If referenceSlug provided, insert after it, otherwise append to Tasks section
-    const operation = referenceSlug ? 'insert_after' : 'append_child';
-    const targetSection = referenceSlug || 'tasks';
+    const operation = referenceSlug != null && referenceSlug !== '' ? 'insert_after' : 'append_child';
+    const targetSection = referenceSlug ?? 'tasks';
 
     // Create or update the Tasks section
     await ensureTasksSection(manager, docPath);
 
     // Insert the new task
-    await manager.editSection(docPath, targetSection, taskContent, operation, title);
+    await (manager as { editSection: (path: string, slug: string, content: string, op: string, title: string) => Promise<void> }).editSection(docPath, targetSection, taskContent, operation, title);
 
     return {
       operation: 'create',
       document: docPath,
       task_created: {
         slug: taskSlug,
-        title: title
+        title
       },
-      document_info: documentInfo,
+      ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
       timestamp: new Date().toISOString()
     };
 
@@ -210,20 +198,20 @@ ${content}`;
  * Edit an existing task
  */
 async function editTask(
-  manager: any,
+  manager: unknown,
   docPath: string,
   taskSlug: string,
   content: string,
-  documentInfo?: any
+  documentInfo?: unknown
 ): Promise<TaskResult> {
   try {
     // Update the task section with new content
-    await manager.editSection(docPath, taskSlug, content, 'replace');
+    await (manager as { editSection: (path: string, slug: string, content: string, op: string) => Promise<void> }).editSection(docPath, taskSlug, content, 'replace');
 
     return {
       operation: 'edit',
       document: docPath,
-      document_info: documentInfo,
+      ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
       timestamp: new Date().toISOString()
     };
 
@@ -232,77 +220,26 @@ async function editTask(
   }
 }
 
-/**
- * Complete a task and show next task
- */
-async function completeTask(
-  manager: any,
-  docPath: string,
-  taskSlug: string,
-  note?: string,
-  documentInfo?: any
-): Promise<TaskResult> {
-  try {
-    // Get current task content
-    const currentContent = await manager.getSectionContent(docPath, taskSlug);
-    if (!currentContent) {
-      throw new Error(`Task not found: ${taskSlug}`);
-    }
-
-    // Update task status to completed and add completion note
-    const updatedContent = updateTaskStatus(currentContent, 'completed', note);
-    await manager.editSection(docPath, taskSlug, updatedContent, 'replace');
-
-    // Get task title for response
-    const taskTitle = extractTaskTitle(currentContent);
-
-    // Get next available task
-    const tasksContent = readSection(await getDocumentContent(manager, docPath), 'tasks');
-    const tasks = tasksContent ? parseTasksFromContent(tasksContent) : [];
-    const nextTask = findNextTask(tasks.filter(task => task.slug !== taskSlug));
-
-    return {
-      operation: 'complete',
-      document: docPath,
-      task_completed: {
-        slug: taskSlug,
-        title: taskTitle,
-        ...(note && { note })
-      },
-      ...(nextTask && { next_task: nextTask }),
-      document_info: documentInfo,
-      timestamp: new Date().toISOString()
-    };
-
-  } catch (error) {
-    throw new Error(`Failed to complete task: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
 
 /**
  * Helper functions
  */
 
-async function getDocumentContent(manager: any, docPath: string): Promise<string> {
-  const doc = await manager.getDocument(docPath);
-  if (!doc) {
+async function getDocumentContent(manager: unknown, docPath: string): Promise<string> {
+  const doc = await (manager as { getDocument: (path: string) => Promise<{ content: string } | null> }).getDocument(docPath);
+  if (doc == null) {
     throw new Error(`Document not found: ${docPath}`);
   }
   return doc.content;
 }
 
-async function ensureTasksSection(manager: any, docPath: string): Promise<void> {
-  try {
-    const content = await getDocumentContent(manager, docPath);
-    const tasksContent = readSection(content, 'tasks');
+async function ensureTasksSection(manager: unknown, docPath: string): Promise<void> {
+  const content = await getDocumentContent(manager, docPath);
+  const tasksContent = readSection(content, 'tasks');
 
-    if (!tasksContent) {
-      // Create Tasks section if it doesn't exist
-      await manager.editSection(docPath, 'tasks', '## Tasks\n\n_No tasks yet._', 'append_child', 'Tasks');
-    }
-  } catch (error) {
-    // If document doesn't exist, let the error bubble up
-    throw error;
+  if (tasksContent == null || tasksContent === '') {
+    // Create Tasks section if it doesn't exist
+    await (manager as { editSection: (path: string, slug: string, content: string, op: string, title: string) => Promise<void> }).editSection(docPath, 'tasks', '## Tasks\n\n_No tasks yet._', 'append_child', 'Tasks');
   }
 }
 
@@ -334,10 +271,10 @@ function parseTasksFromContent(tasksContent: string): Array<{
 
     // Extract task content after the heading
     const taskContent = readSection(tasksContent, slug);
-    if (!taskContent) continue;
+    if (taskContent == null || taskContent === '') continue;
 
     // Parse task metadata from content
-    const status = extractMetadata(taskContent, 'Status') || 'pending';
+    const status = extractMetadata(taskContent, 'Status') ?? 'pending';
     const priority = extractMetadata(taskContent, 'Priority');
     const link = extractLinkFromContent(taskContent);
     const dependencies = extractDependencies(taskContent);
@@ -346,8 +283,8 @@ function parseTasksFromContent(tasksContent: string): Array<{
       slug,
       title,
       status,
-      ...(priority && { priority }),
-      ...(link && { link }),
+      ...(priority != null && priority !== '' && { priority }),
+      ...(link != null && link !== '' && { link }),
       ...(dependencies.length > 0 && { dependencies })
     });
   }
@@ -367,7 +304,7 @@ function extractLinkFromContent(content: string): string | undefined {
 
 function extractDependencies(content: string): string[] {
   const match = extractMetadata(content, 'Dependencies');
-  if (!match || match === 'none') return [];
+  if (match == null || match === '' || match === 'none') return [];
   return match.split(',').map(dep => dep.trim());
 }
 
@@ -397,23 +334,7 @@ function findNextTask(tasks: Array<{ status: string; priority?: string; slug: st
   return {
     slug: nextTask.slug,
     title: nextTask.title,
-    ...(nextTask.link && { link: nextTask.link })
+    ...(nextTask.link != null && nextTask.link !== '' && { link: nextTask.link })
   };
 }
 
-function updateTaskStatus(content: string, newStatus: string, note?: string): string {
-  // Update status line
-  let updated = content.replace(/^- Status:\s*.+$/m, `- Status: ${newStatus}`);
-
-  // Add completion note if provided
-  if (note && newStatus === 'completed') {
-    updated += `\n- Completed: ${new Date().toISOString().split('T')[0]}\n- Note: ${note}`;
-  }
-
-  return updated;
-}
-
-function extractTaskTitle(content: string): string {
-  const match = content.match(/^### (.+)$/m);
-  return match?.[1]?.trim() || 'Unknown Task';
-}

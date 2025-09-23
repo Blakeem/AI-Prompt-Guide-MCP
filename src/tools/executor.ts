@@ -9,7 +9,8 @@ import {
   section,
   manageDocument,
   viewDocument,
-  task
+  task,
+  completeTask
 } from './implementations/index.js';
 
 /**
@@ -40,6 +41,9 @@ export async function executeTool(
 
     case 'task':
       return await task(args, state);
+
+    case 'complete_task':
+      return await completeTask(args, state);
 
     default:
       throw new Error(

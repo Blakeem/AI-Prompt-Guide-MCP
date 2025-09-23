@@ -19,17 +19,13 @@ export interface TaskInputSchema {
     };
     operation: {
       type: 'string';
-      enum: ['create', 'edit', 'complete', 'list'];
+      enum: ['create', 'edit', 'list'];
       default: 'list';
-      description: 'create: new task, edit: modify task, complete: mark done with notes, list: show tasks';
+      description: 'create: new task, edit: modify task, list: show tasks';
     };
     title: {
       type: 'string';
       description: 'Title for new task (required for create operation)';
-    };
-    note: {
-      type: 'string';
-      description: 'Completion notes when operation is "complete"';
     };
     status: {
       type: 'string';
@@ -53,7 +49,6 @@ export const TASK_CONSTANTS = {
   OPERATIONS: {
     CREATE: 'create',
     EDIT: 'edit',
-    COMPLETE: 'complete',
     LIST: 'list',
   },
   STATUSES: {
@@ -76,15 +71,15 @@ export const TASK_CONSTANTS = {
  * Helper functions for task validation
  */
 export function isValidTaskOperation(operation: string): boolean {
-  return Object.values(TASK_CONSTANTS.OPERATIONS).includes(operation as any);
+  return Object.values(TASK_CONSTANTS.OPERATIONS).includes(operation as 'list' | 'create' | 'edit');
 }
 
 export function isValidTaskStatus(status: string): boolean {
-  return Object.values(TASK_CONSTANTS.STATUSES).includes(status as any);
+  return Object.values(TASK_CONSTANTS.STATUSES).includes(status as 'pending' | 'in_progress' | 'completed' | 'blocked');
 }
 
 export function isValidTaskPriority(priority: string): boolean {
-  return Object.values(TASK_CONSTANTS.PRIORITIES).includes(priority as any);
+  return Object.values(TASK_CONSTANTS.PRIORITIES).includes(priority as 'high' | 'medium' | 'low');
 }
 
 /**
@@ -108,17 +103,13 @@ export function getTaskSchema(): TaskInputSchema {
       },
       operation: {
         type: 'string',
-        enum: ['create', 'edit', 'complete', 'list'],
+        enum: ['create', 'edit', 'list'],
         default: 'list',
-        description: 'create: new task, edit: modify task, complete: mark done with notes, list: show tasks',
+        description: 'create: new task, edit: modify task, list: show tasks',
       },
       title: {
         type: 'string',
         description: 'Title for new task (required for create operation)',
-      },
-      note: {
-        type: 'string',
-        description: 'Completion notes when operation is "complete"',
       },
       status: {
         type: 'string',

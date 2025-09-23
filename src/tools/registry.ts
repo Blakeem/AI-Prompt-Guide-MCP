@@ -10,6 +10,7 @@ import { getSectionSchema } from './schemas/section-schemas.js';
 import { getViewDocumentSchema } from './schemas/view-document-schemas.js';
 import { getManageDocumentSchema } from './schemas/manage-document-schemas.js';
 import { getTaskSchema } from './schemas/task-schemas.js';
+import { getCompleteTaskSchema } from './schemas/complete-task-schemas.js';
 
 /**
  * Get all available tools based on session state
@@ -44,8 +45,13 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'task',
-      description: 'Unified tool for ALL task operations: create, edit, complete, and list tasks with slug-based addressing',
+      description: 'Unified tool for task operations: create, edit, and list tasks with slug-based addressing',
       inputSchema: getTaskSchema(),
+    },
+    {
+      name: 'complete_task',
+      description: 'Mark tasks as completed with notes and get next available task with linked documents',
+      inputSchema: getCompleteTaskSchema(),
     },
     {
       name: 'view_document',
