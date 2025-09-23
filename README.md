@@ -22,7 +22,7 @@ Think of it as a more powerful replacement for manual markdown management, where
 
 ## Status
 
-🚧 **Alpha Development** - Core MCP infrastructure and linking system implemented with comprehensive test coverage. **Not production ready yet** - currently undergoing code review, refactoring, and real-world testing phases before production release.
+🧪 **Alpha Testing** - Core MCP infrastructure, linking system, and view tools are implemented with comprehensive test coverage. Currently in alpha testing phase with real-world workflows. **Ready for testing** - feedback welcome from early adopters!
 
 ## Key Features
 
@@ -52,10 +52,8 @@ Think of it as a more powerful replacement for manual markdown management, where
 **Core Document Management:**
 - `create_document` - Progressive document creation with smart link guidance ✅
 - `browse_documents` - Unified browsing and searching with namespace awareness ✅
-- `list_documents` - Browse and discover existing documentation ✅
-- `search_documents` - Find relevant content across the entire knowledge base ✅
 
-**Unified Section Operations:**
+**Unified Content Operations:**
 - `section` - Complete section management with intelligent link assistance ✅
   - Edit operations: `replace`, `append`, `prepend` with link validation
   - Create operations: `insert_before`, `insert_after`, `append_child` with automatic depth
@@ -69,19 +67,24 @@ Think of it as a more powerful replacement for manual markdown management, where
   - `delete` - Permanent deletion (requires confirmation)
   - `rename` - Update document titles
   - `move` - Relocate documents with path management
-- `archive_document` - Legacy archive tool (use `manage_document` instead) ✅
 
-**Enhanced Document Analysis:**
-- `view_document` - Enhanced document inspection with namespace awareness and linked context loading ✅
-  - Section-specific viewing with `document#section` syntax
-  - Automatic linked document context loading with configurable depth (1-6)
-  - Comprehensive document health metrics and link analysis
-  - Hierarchical section navigation and metadata
+**View & Inspection Tools:**
+- `view_document` - Enhanced document inspection with comprehensive stats and metadata ✅
+  - Multiple document support: view single or multiple documents
+  - Document health metrics: word count, links, tasks, last modified
+  - Comprehensive link analysis and section navigation
+- `view_section` - Clean section content viewer ✅
+  - Single or multiple section viewing
+  - Section hierarchy and content analysis
+  - No stats overhead - focused on content
+- `view_task` - Clean task data viewer ✅
+  - Single or multiple task viewing
+  - Task metadata: status, priority, dependencies, linked documents
+  - Summary statistics by status and priority
 
-**Task Management (Placeholder Tools):**
-- `add_task` - Link implementation tasks to specification sections 🚧
-- `complete_task` - Mark tasks complete with implementation notes 🚧
-- `reopen_task` - Revert task completion status 🚧
+**Task Management:**
+- `task` - Unified task operations: create, edit, and list tasks ✅
+- `complete_task` - Mark tasks completed with notes and get next available task ✅
 
 ## Use Cases
 
@@ -172,10 +175,41 @@ src/
 - **Cross-Reference Validation** - Ensure linked documents exist and are current
 - **Progressive Enhancement** - Start simple, add complexity as needed
 
-## Installation & Development
+## Installation & Setup
+
+### For Claude Desktop Users
+
+Add this to your `mcp.json` file to use the published package:
+
+```json
+{
+  "$schema": "https://schemas.modelcontextprotocol.io/0.1.0/mcp.json",
+  "mcpServers": {
+    "spec-docs-mcp": {
+      "command": "npx",
+      "args": ["-y", "@blakeem/spec-docs-mcp"],
+      "env": {
+        "DOCS_BASE_PATH": "./.spec-docs-mcp/docs"
+      }
+    }
+  }
+}
+```
+
+**Required Configuration:**
+- `DOCS_BASE_PATH` - Path to your documents directory (only required setting)
+
+**Optional Configuration:**
+- `LOG_LEVEL` - Set to `debug` for verbose logging (defaults to `info`)
+
+The server uses sensible defaults for all other settings. Advanced users can override additional settings if needed, but for most users, only `DOCS_BASE_PATH` is required.
+
+### For Development
 
 ```bash
-# Install and build
+# Clone and install
+git clone https://github.com/Blakeem/Spec-Docs-MCP.git
+cd Spec-Docs-MCP
 pnpm install && pnpm build
 
 # Start MCP inspector for testing
@@ -210,24 +244,27 @@ pnpm test:run && pnpm lint && pnpm typecheck
 
 ## Roadmap
 
-**Completed Major Features:**
-- ✅ **Comprehensive Document Linking System** - Full `@` syntax support with cross-document and section links
-- ✅ **Hierarchical Slug Architecture** - Prevents naming conflicts with nested paths
-- ✅ **Smart Link Guidance** - AI-powered suggestions in document creation and editing
-- ✅ **Link Validation & Health** - System-wide link health monitoring with auto-fix suggestions
-- ✅ **Enhanced Tool Integration** - All core tools support the linking system
+**✅ Alpha Testing Phase Complete:**
+- **Comprehensive Document Linking System** - Full `@` syntax support with cross-document and section links
+- **Hierarchical Slug Architecture** - Prevents naming conflicts with nested paths
+- **Smart Link Guidance** - AI-powered suggestions in document creation and editing
+- **Link Validation & Health** - System-wide link health monitoring with auto-fix suggestions
+- **Complete Tool Suite** - All MCP tools implemented and tested
+- **Task Management System** - Full task lifecycle with priority and dependency tracking
+- **Enhanced View Tools** - Clean, focused viewing for documents, sections, and tasks
 
-**Near Term:**
-- Complete task management tool implementations (`add_task`, `complete_task`)
-- Template system expansion for common document types
-- Advanced batch operations across multiple documents
+**🎯 Beta Preparation:**
+- Real-world testing feedback integration
+- Performance optimization for large document sets
+- Enhanced error messages and user guidance
+- Documentation improvements based on alpha testing
 
-**Future Vision:**
+**🚀 Future Vision:**
 - **Smart Context Loading** - AI-driven relevant document discovery
 - **Workflow Automation** - Complete development process guidance
 - **Integration Ecosystem** - Connect with popular development tools
 - **Team Collaboration** - Multi-user document coordination
-- **Advanced Batch Operations** - Cross-document operations and bulk management
+- **Template Library** - Comprehensive collection of document templates
 
 ## Contributing
 

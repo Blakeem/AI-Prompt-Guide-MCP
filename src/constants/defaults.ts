@@ -54,3 +54,26 @@ export const LOG_LEVELS = {
 export const HEADING_DEPTHS = [1, 2, 3, 4, 5, 6] as const;
 
 export const INSERT_MODES = ['insert_before', 'insert_after', 'append_child'] as const;
+
+/**
+ * Default MCP server configuration values
+ * These are reasonable defaults for most users and don't need to be user-configurable
+ */
+export const DEFAULT_CONFIG = {
+  /** Default log level for MCP server */
+  LOG_LEVEL: LOG_LEVELS.INFO,
+
+  /** Maximum file size in bytes (10MB) - not currently enforced but defined for future use */
+  MAX_FILE_SIZE: DEFAULT_LIMITS.MAX_FILE_SIZE,
+
+  /** Maximum files per operation - not currently enforced but defined for future use */
+  MAX_FILES_PER_OPERATION: DEFAULT_LIMITS.MAX_FILES_PER_OPERATION,
+
+  /** Rate limiting - not currently implemented, reasonable defaults for future use */
+  RATE_LIMIT_REQUESTS_PER_MINUTE: 1000,
+  RATE_LIMIT_BURST_SIZE: 100,
+
+  /** Safety features - not currently implemented, defaults for future use */
+  ENABLE_FILE_SAFETY_CHECKS: true,
+  ENABLE_MTIME_PRECONDITION: true,
+} as const;

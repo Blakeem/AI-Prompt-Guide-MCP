@@ -6,7 +6,8 @@ import type { SessionState } from '../../session/types.js';
 import type { CachedDocument } from '../../document-cache.js';
 import {
   loadLinkedDocumentContext,
-  getDocumentManager
+  getDocumentManager,
+  parseLink
 } from '../../shared/utilities.js';
 
 /**
@@ -280,7 +281,6 @@ async function processDocument(
   const headingCount = document.headings.length;
 
   // Analyze document links
-  const { parseLink } = await import('../../shared/utilities.js');
   const allLinks = fullContent.match(/@(?:\/[^\s\]]+(?:#[^\s\]]*)?|#[^\s\]]*)/g) ?? [];
   const externalLinks = fullContent.match(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g) ?? [];
 

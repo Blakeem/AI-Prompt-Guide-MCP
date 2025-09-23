@@ -7,7 +7,7 @@ import { config as dotenvConfig } from 'dotenv';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { ERROR_CODES } from './constants/defaults.js';
+import { ERROR_CODES, DEFAULT_CONFIG } from './constants/defaults.js';
 import type { ServerConfig, SpecDocsError } from './types/index.js';
 
 /**
@@ -64,6 +64,7 @@ const ServerConfigSchema = z.object({
 
 /**
  * Loads and validates environment variables
+ * Only loads essential user-configurable settings, others use defaults
  */
 function loadEnvironmentVariables(): Record<string, string | undefined> {
   // Load .env file if it exists
@@ -74,21 +75,20 @@ function loadEnvironmentVariables(): Record<string, string | undefined> {
   }
 
   return {
+    // Optional: Allow override of server name for different instances
     MCP_SERVER_NAME: process.env['MCP_SERVER_NAME'],
+
+    // Optional: Allow override of log level for debugging
     LOG_LEVEL: process.env['LOG_LEVEL'],
+
+    // Required: The only setting users must configure
     DOCS_BASE_PATH: process.env['DOCS_BASE_PATH'],
-    MAX_FILE_SIZE: process.env['MAX_FILE_SIZE'],
-    MAX_FILES_PER_OPERATION: process.env['MAX_FILES_PER_OPERATION'],
-    RATE_LIMIT_REQUESTS_PER_MINUTE: process.env['RATE_LIMIT_REQUESTS_PER_MINUTE'],
-    RATE_LIMIT_BURST_SIZE: process.env['RATE_LIMIT_BURST_SIZE'],
-    ENABLE_FILE_SAFETY_CHECKS: process.env['ENABLE_FILE_SAFETY_CHECKS'],
-    ENABLE_MTIME_PRECONDITION: process.env['ENABLE_MTIME_PRECONDITION'],
   };
 }
 
 /**
  * Converts environment variables to typed configuration object
- * All values are REQUIRED - no defaults or fallbacks
+ * Uses sensible defaults for most settings, only requires DOCS_BASE_PATH from user
  */
 function parseEnvironmentVariables(env: Record<string, string | undefined>): Record<string, unknown> {
   const config: Record<string, unknown> = {};
@@ -96,95 +96,32 @@ function parseEnvironmentVariables(env: Record<string, string | undefined>): Rec
 
   // Get package info for name and version
   const packageInfo = getPackageInfo();
-  
+
   // Use package.json name unless MCP_SERVER_NAME is explicitly set (allows override for different instances)
   config['serverName'] = env['MCP_SERVER_NAME'] ?? packageInfo.name;
   config['serverVersion'] = packageInfo.version; // Always use package.json version
 
-  // Required string fields
-  if (env['LOG_LEVEL'] == null || env['LOG_LEVEL'].length === 0) {
-    errors.push('LOG_LEVEL is required');
-  } else {
-    config['logLevel'] = env['LOG_LEVEL'];
-  }
+  // Optional: Log level with default
+  config['logLevel'] = env['LOG_LEVEL'] ?? DEFAULT_CONFIG.LOG_LEVEL;
 
+  // Required: DOCS_BASE_PATH is the only setting users must provide
   if (env['DOCS_BASE_PATH'] == null || env['DOCS_BASE_PATH'].length === 0) {
-    errors.push('DOCS_BASE_PATH is required');
+    errors.push('DOCS_BASE_PATH is required - specify the path to your documents directory');
   } else {
     config['docsBasePath'] = env['DOCS_BASE_PATH'];
   }
 
-  // Required number fields
-  if (env['MAX_FILE_SIZE'] == null || env['MAX_FILE_SIZE'].length === 0) {
-    errors.push('MAX_FILE_SIZE is required');
-  } else {
-    const parsed = parseInt(env['MAX_FILE_SIZE'], 10);
-    if (isNaN(parsed)) {
-      errors.push('MAX_FILE_SIZE must be a valid number');
-    } else {
-      config['maxFileSize'] = parsed;
-    }
-  }
-
-  if (env['MAX_FILES_PER_OPERATION'] == null || env['MAX_FILES_PER_OPERATION'].length === 0) {
-    errors.push('MAX_FILES_PER_OPERATION is required');
-  } else {
-    const parsed = parseInt(env['MAX_FILES_PER_OPERATION'], 10);
-    if (isNaN(parsed)) {
-      errors.push('MAX_FILES_PER_OPERATION must be a valid number');
-    } else {
-      config['maxFilesPerOperation'] = parsed;
-    }
-  }
-
-  if (env['RATE_LIMIT_REQUESTS_PER_MINUTE'] == null || env['RATE_LIMIT_REQUESTS_PER_MINUTE'].length === 0) {
-    errors.push('RATE_LIMIT_REQUESTS_PER_MINUTE is required');
-  } else {
-    const parsed = parseInt(env['RATE_LIMIT_REQUESTS_PER_MINUTE'], 10);
-    if (isNaN(parsed)) {
-      errors.push('RATE_LIMIT_REQUESTS_PER_MINUTE must be a valid number');
-    } else {
-      config['rateLimitRequestsPerMinute'] = parsed;
-    }
-  }
-
-  if (env['RATE_LIMIT_BURST_SIZE'] == null || env['RATE_LIMIT_BURST_SIZE'].length === 0) {
-    errors.push('RATE_LIMIT_BURST_SIZE is required');
-  } else {
-    const parsed = parseInt(env['RATE_LIMIT_BURST_SIZE'], 10);
-    if (isNaN(parsed)) {
-      errors.push('RATE_LIMIT_BURST_SIZE must be a valid number');
-    } else {
-      config['rateLimitBurstSize'] = parsed;
-    }
-  }
-
-  // Required boolean fields
-  if (env['ENABLE_FILE_SAFETY_CHECKS'] == null || env['ENABLE_FILE_SAFETY_CHECKS'].length === 0) {
-    errors.push('ENABLE_FILE_SAFETY_CHECKS is required');
-  } else {
-    const value = env['ENABLE_FILE_SAFETY_CHECKS'].toLowerCase();
-    if (value !== 'true' && value !== 'false') {
-      errors.push('ENABLE_FILE_SAFETY_CHECKS must be "true" or "false"');
-    } else {
-      config['enableFileSafetyChecks'] = value === 'true';
-    }
-  }
-
-  if (env['ENABLE_MTIME_PRECONDITION'] == null || env['ENABLE_MTIME_PRECONDITION'].length === 0) {
-    errors.push('ENABLE_MTIME_PRECONDITION is required');
-  } else {
-    const value = env['ENABLE_MTIME_PRECONDITION'].toLowerCase();
-    if (value !== 'true' && value !== 'false') {
-      errors.push('ENABLE_MTIME_PRECONDITION must be "true" or "false"');
-    } else {
-      config['enableMtimePrecondition'] = value === 'true';
-    }
-  }
+  // All other settings use sensible defaults (these are not currently enforced anyway)
+  config['maxFileSize'] = DEFAULT_CONFIG.MAX_FILE_SIZE;
+  config['maxFilesPerOperation'] = DEFAULT_CONFIG.MAX_FILES_PER_OPERATION;
+  config['rateLimitRequestsPerMinute'] = DEFAULT_CONFIG.RATE_LIMIT_REQUESTS_PER_MINUTE;
+  config['rateLimitBurstSize'] = DEFAULT_CONFIG.RATE_LIMIT_BURST_SIZE;
+  config['enableFileSafetyChecks'] = DEFAULT_CONFIG.ENABLE_FILE_SAFETY_CHECKS;
+  config['enableMtimePrecondition'] = DEFAULT_CONFIG.ENABLE_MTIME_PRECONDITION;
 
   if (errors.length > 0) {
     throw createError(
-      `Missing or invalid environment variables: ${errors.join(', ')}`,
+      `Missing required configuration: ${errors.join(', ')}`,
       ERROR_CODES.ENVIRONMENT_ERROR,
       { errors, receivedEnv: env }
     );

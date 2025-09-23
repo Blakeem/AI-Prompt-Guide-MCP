@@ -2,16 +2,20 @@
 
 ## Project Overview
 
-This is a Markdown CRUD toolkit for building an MCP server that allows full Create, Read, Update, and Delete operations on Markdown files. The toolkit uses deterministic slug-based addressing for sections and enforces strict duplicate heading prevention.
+This is a comprehensive MCP server for intelligent specification document management. The server provides full Create, Read, Update, and Delete operations on interconnected Markdown documents with advanced linking, task management, and view capabilities.
 
-**Purpose:** Enable LLMs to manage specification documents programmatically without direct markdown manipulation, providing a clean interface for document CRUD operations through MCP tools.
+**Purpose:** Enable LLMs to manage specification documents programmatically through progressive discovery workflows, with automatic context loading from linked documents and comprehensive document analysis tools.
+
+**Current Status:** 🧪 **Alpha Testing Complete** - All core tools implemented and tested, ready for real-world usage and feedback.
 
 **Key Features:**
-- Slug-based section addressing (e.g., `#get-users-id`, `#api-limits-quotas`) 
-- Hierarchical TOC generation and navigation
-- Duplicate heading prevention among siblings
-- File safety with precondition checks
-- Comprehensive markdown parsing and serialization 
+- **Advanced Document Linking** - Cross-document references with `@/path/doc.md#section` syntax
+- **Slug-based Section Addressing** - Hierarchical addressing (e.g., `#api/authentication/jwt-tokens`)
+- **Progressive Discovery Workflows** - Step-by-step document creation with intelligent guidance
+- **Task Management System** - Complete task lifecycle with priority, dependencies, and completion tracking
+- **View Tools Suite** - Clean, focused viewing for documents, sections, and tasks
+- **Unified Operations** - Single tools for related operations (section, manage_document, task)
+- **Batch Processing** - Multiple operations in single calls for efficiency
 
 **Package Manager**: pnpm (NOT npm or yarn)
 **Language**: TypeScript with strict mode enabled
@@ -27,17 +31,16 @@ This is a Markdown CRUD toolkit for building an MCP server that allows full Crea
 4. Run `pnpm check:dead-code` - ZERO unused exports allowed
 5. Run `pnpm check:all` - Combined quality validation (recommended)
 
-### Dead Code Detection (TEMPORARILY DISABLED)
+### Dead Code Detection (ENABLED)
 ```bash
 # Individual checks
-# pnpm check:dead-code     # Must show "0 modules with unused exports" - DISABLED during linking system development
+pnpm check:dead-code     # Must show "0 modules with unused exports"
 
-# Comprehensive check (runs lint + typecheck only during development)
-pnpm lint && pnpm typecheck   # Lint + TypeCheck only (dead code disabled)
-# pnpm check:all           # Lint + TypeCheck + Dead Code - DISABLED during linking system development
+# Comprehensive check (recommended)
+pnpm check:all          # Runs all checks: lint + typecheck + dead-code
 ```
 
-**Note**: Dead code detection is temporarily disabled during linking system development to allow infrastructure code that will be used in future phases. Will be re-enabled once all 4 phases are complete.
+**Note**: Dead code detection is fully enabled. All unused exports must be cleaned up to maintain code quality.
 
 ### Test Commands
 - `pnpm test:run` - Run tests once and exit (for CI/validation)
@@ -253,14 +256,45 @@ pnpm check:all          # Runs all checks: lint + typecheck + dead-code
 - Clean up old implementations after consolidation
 - Verify all imports are actually used in the file
 
-## RECENT MAJOR CHANGES
+## CURRENT TOOL ARCHITECTURE
 
-### Tool Consolidation (2025-09-21)
-- **`insert_section` removed**: Functionality merged into enhanced `edit_section` tool
-- **Enhanced `edit_section`**: Now supports both editing existing sections AND creating new sections with automatic depth calculation
-- **Operations supported**: `replace`, `append`, `prepend` (edit existing) + `insert_before`, `insert_after`, `append_child` (create new)
-- **Automatic depth**: No manual depth tracking needed - tool calculates optimal depth based on operation and reference section
-- **Unified approach**: Single tool for all section manipulation, reducing MCP complexity
+The server provides a comprehensive suite of MCP tools organized by function:
+
+### **Core Document Management:**
+- `create_document` - Progressive document creation with smart link guidance
+- `browse_documents` - Unified browsing and searching with namespace awareness
+
+### **Unified Content Operations:**
+- `section` - Complete section management with operations:
+  - Edit: `replace`, `append`, `prepend`
+  - Create: `insert_before`, `insert_after`, `append_child` (auto-depth)
+  - Delete: `remove`
+  - Batch support for multiple operations
+
+### **Unified Document Operations:**
+- `manage_document` - Complete document lifecycle management:
+  - `archive` - Safe archival with audit trails
+  - `delete` - Permanent deletion
+  - `rename` - Update document titles
+  - `move` - Relocate documents
+
+### **View & Inspection Tools:**
+- `view_document` - Enhanced document inspection with comprehensive stats
+- `view_section` - Clean section content viewer (no stats overhead)
+- `view_task` - Clean task data viewer with status/priority info
+
+### **Task Management:**
+- `task` - Unified task operations: create, edit, list
+- `complete_task` - Mark completed, get next task with linked documents
+
+### **Key Tool Design Principles:**
+
+1. **Consistent Field Names**: All tools use `document` field (not `path`) for consistency
+2. **Multi-Item Support**: View tools support single or multiple items (arrays)
+3. **Clean Separation**: View tools focus on content without stats overhead (except `view_document`)
+4. **Progressive Discovery**: `create_document` uses staged parameter revelation
+5. **Batch Operations**: Section and document management support batch operations
+6. **Unified Operations**: Single tools handle related operations (create/edit/list for tasks)
 
 ## MCP ARCHITECTURE & TOOL DEVELOPMENT
 

@@ -1,18 +1,11 @@
 {
+  "$schema": "https://schemas.modelcontextprotocol.io/0.1.0/mcp.json",
   "mcpServers": {
     "spec-docs-mcp": {
       "command": "npx",
-      "args": ["tsx", "src/index.ts"],
+      "args": ["-y", "@blakeem/spec-docs-mcp"],
       "env": {
-        "MCP_SERVER_NAME": "spec-docs-mcp",
-        "LOG_LEVEL": "info",
-        "DOCS_BASE_PATH": "./.spec-docs-mcp/docs",
-        "MAX_FILE_SIZE": "10485760",
-        "MAX_FILES_PER_OPERATION": "100",
-        "RATE_LIMIT_REQUESTS_PER_MINUTE": "1000",
-        "RATE_LIMIT_BURST_SIZE": "100",
-        "ENABLE_FILE_SAFETY_CHECKS": "true",
-        "ENABLE_MTIME_PRECONDITION": "true"
+        "DOCS_BASE_PATH": "./.spec-docs-mcp/docs"
       }
     }
   }
