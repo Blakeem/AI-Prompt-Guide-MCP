@@ -8,6 +8,8 @@ import { getCreateDocumentSchema } from './schemas/create-document-schemas.js';
 import { getBrowseDocumentsSchema } from './schemas/browse-documents-schemas.js';
 import { getSectionSchema } from './schemas/section-schemas.js';
 import { getViewDocumentSchema } from './schemas/view-document-schemas.js';
+import { getViewSectionSchema } from './schemas/view-section-schemas.js';
+import { getViewTaskSchema } from './schemas/view-task-schemas.js';
 import { getManageDocumentSchema } from './schemas/manage-document-schemas.js';
 import { getTaskSchema } from './schemas/task-schemas.js';
 import { getCompleteTaskSchema } from './schemas/complete-task-schemas.js';
@@ -55,8 +57,18 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'view_document',
-      description: 'Inspect document structure and content with namespace awareness, section-specific viewing, and linked document context loading',
+      description: 'Inspect document structure and content with comprehensive stats and metadata (like browse_documents). Supports multiple documents.',
       inputSchema: getViewDocumentSchema(),
+    },
+    {
+      name: 'view_section',
+      description: 'View specific sections with clean content data. Supports single or multiple sections without stats overhead.',
+      inputSchema: getViewSectionSchema(),
+    },
+    {
+      name: 'view_task',
+      description: 'View specific tasks with clean task data including status, priority, and dependencies. Supports single or multiple tasks.',
+      inputSchema: getViewTaskSchema(),
     },
   ];
 

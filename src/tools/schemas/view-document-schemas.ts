@@ -5,9 +5,13 @@
 export interface ViewDocumentInputSchema {
   type: 'object';
   properties: {
-    path: {
+    document: {
+      type: 'string' | 'array';
+      description: 'Document path(s) to view (e.g., "/specs/auth-api.md" or ["/specs/auth-api.md", "/specs/user-api.md"] for multiple)';
+    };
+    section: {
       type: 'string';
-      description: 'Document path or document#section for section-specific viewing (e.g., "/api/specs/auth-api.md", "/api/specs/auth-api.md#api/authentication")';
+      description: 'Optional section slug for section-specific viewing (e.g., "#authentication", "#endpoints")';
     };
     include_linked: {
       type: 'boolean';
@@ -22,7 +26,7 @@ export interface ViewDocumentInputSchema {
       default: 2;
     };
   };
-  required: ['path'];
+  required: ['document'];
   additionalProperties: false;
 }
 
@@ -38,21 +42,30 @@ export const VIEW_DOCUMENT_CONSTANTS = {
   DEFAULTS: {
     INCLUDE_LINKED: false,
   },
-  PATH_SEPARATOR: '#',
+  MAX_DOCUMENTS: 5,  // Limit for multiple document viewing
 } as const;
 
 /**
- * Helper functions for path parsing
+ * Helper functions for document parsing
  */
-export function parseDocumentPath(path: string): { documentPath: string; sectionSlug?: string } {
-  const parts = path.split(VIEW_DOCUMENT_CONSTANTS.PATH_SEPARATOR);
-  const documentPath = parts[0] ?? '';
-
-  if (parts.length > 1 && parts[1] != null) {
-    return { documentPath, sectionSlug: `#${parts[1]}` };
+export function parseDocuments(document: string | string[]): string[] {
+  if (Array.isArray(document)) {
+    return document.map(normalizePath);
   }
+  return [normalizePath(document)];
+}
 
-  return { documentPath };
+export function normalizePath(path: string): string {
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
+export function normalizeSection(section?: string): string | undefined {
+  if (section == null || section === '') return undefined;
+  return section.startsWith('#') ? section : `#${section}`;
+}
+
+export function validateDocumentCount(documents: string[]): boolean {
+  return documents.length > 0 && documents.length <= VIEW_DOCUMENT_CONSTANTS.MAX_DOCUMENTS;
 }
 
 export function isValidLinkDepth(depth: number): boolean {
@@ -67,9 +80,13 @@ export function getViewDocumentSchema(): ViewDocumentInputSchema {
   return {
     type: 'object',
     properties: {
-      path: {
+      document: {
         type: 'string',
-        description: 'Document path or document#section for section-specific viewing (e.g., "/api/specs/auth-api.md", "/api/specs/auth-api.md#api/authentication")',
+        description: 'Document path(s) to view (e.g., "/specs/auth-api.md" or ["/specs/auth-api.md", "/specs/user-api.md"] for multiple)',
+      },
+      section: {
+        type: 'string',
+        description: 'Optional section slug for section-specific viewing (e.g., "#authentication", "#endpoints")',
       },
       include_linked: {
         type: 'boolean',
@@ -84,7 +101,7 @@ export function getViewDocumentSchema(): ViewDocumentInputSchema {
         default: VIEW_DOCUMENT_CONSTANTS.LINK_DEPTH.DEFAULT,
       },
     },
-    required: ['path'],
+    required: ['document'],
     additionalProperties: false,
   };
 }

@@ -9,6 +9,8 @@ import {
   section,
   manageDocument,
   viewDocument,
+  viewSection,
+  viewTask,
   task,
   completeTask
 } from './implementations/index.js';
@@ -38,6 +40,12 @@ export async function executeTool(
 
     case 'view_document':
       return await viewDocument(args, state);
+
+    case 'view_section':
+      return await viewSection(args, state);
+
+    case 'view_task':
+      return await viewTask(args, state);
 
     case 'task':
       return await task(args, state);
