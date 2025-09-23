@@ -4,10 +4,12 @@
  */
 
 import type { SessionState } from '../../session/types.js';
+import type { DocumentManager } from '../../document-manager.js';
 import {
   getDocumentManager,
   pathToNamespace,
-  pathToSlug
+  pathToSlug,
+  performSectionEdit
 } from '../../shared/utilities.js';
 import { titleToSlug } from '../../slug.js';
 import { listHeadings } from '../../parse.js';
@@ -46,7 +48,7 @@ export async function task(
   _state: SessionState
 ): Promise<TaskResult> {
   try {
-    const manager = await getDocumentManager();
+    const manager: DocumentManager = await getDocumentManager();
 
     const docPath = args['document'] as string;
     const taskSlug = args['task'] as string;
@@ -100,7 +102,7 @@ export async function task(
  * List tasks from Tasks section with optional filtering
  */
 async function listTasks(
-  manager: unknown,
+  manager: DocumentManager,
   docPath: string,
   statusFilter?: string,
   priorityFilter?: string,
@@ -153,7 +155,7 @@ async function listTasks(
  * Create a new task in the Tasks section
  */
 async function createTask(
-  manager: unknown,
+  manager: DocumentManager,
   docPath: string,
   title: string,
   content: string,
@@ -176,7 +178,7 @@ ${content}`;
     await ensureTasksSection(manager, docPath);
 
     // Insert the new task
-    await (manager as { editSection: (path: string, slug: string, content: string, op: string, title: string) => Promise<void> }).editSection(docPath, targetSection, taskContent, operation, title);
+    await performSectionEdit(manager, docPath, targetSection, taskContent, operation, title);
 
     return {
       operation: 'create',
@@ -198,7 +200,7 @@ ${content}`;
  * Edit an existing task
  */
 async function editTask(
-  manager: unknown,
+  manager: DocumentManager,
   docPath: string,
   taskSlug: string,
   content: string,
@@ -206,7 +208,7 @@ async function editTask(
 ): Promise<TaskResult> {
   try {
     // Update the task section with new content
-    await (manager as { editSection: (path: string, slug: string, content: string, op: string) => Promise<void> }).editSection(docPath, taskSlug, content, 'replace');
+    await performSectionEdit(manager, docPath, taskSlug, content, 'replace');
 
     return {
       operation: 'edit',
@@ -225,7 +227,7 @@ async function editTask(
  * Helper functions
  */
 
-async function getDocumentContent(manager: unknown, docPath: string): Promise<string> {
+async function getDocumentContent(manager: DocumentManager, docPath: string): Promise<string> {
   const doc = await (manager as { getDocument: (path: string) => Promise<{ content: string } | null> }).getDocument(docPath);
   if (doc == null) {
     throw new Error(`Document not found: ${docPath}`);
@@ -233,13 +235,13 @@ async function getDocumentContent(manager: unknown, docPath: string): Promise<st
   return doc.content;
 }
 
-async function ensureTasksSection(manager: unknown, docPath: string): Promise<void> {
+async function ensureTasksSection(manager: DocumentManager, docPath: string): Promise<void> {
   const content = await getDocumentContent(manager, docPath);
   const tasksContent = readSection(content, 'tasks');
 
   if (tasksContent == null || tasksContent === '') {
     // Create Tasks section if it doesn't exist
-    await (manager as { editSection: (path: string, slug: string, content: string, op: string, title: string) => Promise<void> }).editSection(docPath, 'tasks', '## Tasks\n\n_No tasks yet._', 'append_child', 'Tasks');
+    await performSectionEdit(manager, docPath, 'tasks', '## Tasks\n\n_No tasks yet._', 'append_child', 'Tasks');
   }
 }
 

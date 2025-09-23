@@ -4,10 +4,10 @@
  */
 
 import type { SessionState } from '../../session/types.js';
-import { initializeGlobalCache } from '../../document-cache.js';
 import {
   splitSlugPath,
-  getParentSlug
+  getParentSlug,
+  getDocumentManager
 } from '../../shared/utilities.js';
 
 /**
@@ -40,13 +40,7 @@ export async function viewSection(
   _state: SessionState
 ): Promise<ViewSectionResponse> {
   // Initialize document manager
-  const { loadConfig } = await import('../../config.js');
-  const config = loadConfig();
-  const docsBasePath = config.docsBasePath;
-  initializeGlobalCache(docsBasePath);
-
-  const { DocumentManager } = await import('../../document-manager.js');
-  const manager = new DocumentManager(docsBasePath);
+  const manager = await getDocumentManager();
 
   // Import helper functions
   const {

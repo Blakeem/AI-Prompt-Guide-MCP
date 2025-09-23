@@ -220,12 +220,18 @@ async function performDocumentOperation(
         }
       }
 
+      // Refresh cache and get updated document info
+      const { getGlobalCache } = await import('../../document-cache.js');
+      const cache = getGlobalCache();
+      cache.invalidateDocument(normalizedPath);
+      const updatedDocument = await manager.getDocument(normalizedPath);
+
       return {
         action: 'renamed',
         document: normalizedPath,
         old_title: oldTitle,
         new_title: options.new_title as string,
-        document_info: createDocumentInfo(normalizedPath)
+        document_info: createDocumentInfo(normalizedPath, updatedDocument)
       };
     }
 

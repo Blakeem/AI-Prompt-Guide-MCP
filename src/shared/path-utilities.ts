@@ -9,7 +9,7 @@ export function pathToNamespace(docPath: string): string {
   // Convert document path to namespace (e.g., "/api/specs/auth.md" → "api/specs")
   const parts = docPath.split('/').filter(part => part !== '' && part !== '.');
   if (parts.length === 0) {
-    return '';
+    return 'root';
   }
 
   // Remove .md extension from the last part if it's a file
@@ -19,7 +19,9 @@ export function pathToNamespace(docPath: string): string {
     parts.pop(); // Remove the file part to get folder namespace
   }
 
-  return parts.join('/');
+  // Return 'root' for root-level documents instead of empty string
+  const namespace = parts.join('/');
+  return namespace === '' ? 'root' : namespace;
 }
 
 /**

@@ -13,6 +13,13 @@ import {
   validateSlugPath
 } from '../../shared/utilities.js';
 
+/**
+ * Normalize section slug by removing # prefix to allow both "section" and "#section" formats
+ */
+function normalizeSectionSlug(sectionSlug: string): string {
+  return sectionSlug.startsWith('#') ? sectionSlug.substring(1) : sectionSlug;
+}
+
 export async function section(
   args: Record<string, unknown> | Array<Record<string, unknown>>,
   _state: SessionState
@@ -62,8 +69,9 @@ export async function section(
           const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
           documentsModified.add(normalizedPath);
 
-          // Validate hierarchical slug path if provided
-          const slugValidation = validateSlugPath(sectionSlug);
+          // Normalize and validate hierarchical slug path if provided
+          const normalizedSlug = normalizeSectionSlug(sectionSlug);
+          const slugValidation = validateSlugPath(normalizedSlug);
           if (slugValidation.success === false) {
             throw new Error(`Invalid hierarchical slug "${sectionSlug}": ${slugValidation.error}`);
           }
@@ -147,8 +155,9 @@ export async function section(
 
       const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
 
-      // Validate hierarchical slug path if provided
-      const slugValidation = validateSlugPath(sectionSlug);
+      // Normalize and validate hierarchical slug path if provided
+      const normalizedSlug = normalizeSectionSlug(sectionSlug);
+      const slugValidation = validateSlugPath(normalizedSlug);
       if (slugValidation.success === false) {
         throw new Error(`Invalid hierarchical slug "${sectionSlug}": ${slugValidation.error}`);
       }
