@@ -89,6 +89,7 @@ export function getParentPath(docPath: string): string | undefined {
 /**
  * Check if a directory exists
  */
+// ts-unused-exports:disable-next-line
 export async function directoryExists(dirPath: string): Promise<boolean> {
   try {
     const stat = await fs.stat(dirPath);

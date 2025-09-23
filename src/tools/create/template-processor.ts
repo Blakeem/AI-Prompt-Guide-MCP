@@ -321,16 +321,3 @@ Add sections relevant to your specific use case.
   }
 }
 
-/**
- * Get available template namespaces
- */
-export function getAvailableTemplates(): string[] {
-  return Object.keys(NAMESPACE_TEMPLATES);
-}
-
-/**
- * Check if namespace has template support
- */
-export function hasTemplateSupport(namespace: string): boolean {
-  return namespace in NAMESPACE_TEMPLATES;
-}

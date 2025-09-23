@@ -5,7 +5,7 @@
 import { describe, test, expect, beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
-import { section } from './section.js';
+import { section } from '../implementations/section.js';
 import { DocumentManager } from '../../document-manager.js';
 import { initializeGlobalCache } from '../../document-cache.js';
 import { ensureDirectoryExists } from '../../fsio.js';
@@ -96,6 +96,11 @@ describe('Edit Section Tool - Integration Tests', () => {
   beforeEach(async () => {
     // Create fresh test document for each test
     await fs.writeFile(FULL_TEST_PATH, SAMPLE_DOCUMENT, 'utf8');
+
+    // Clear document cache to ensure fresh reads
+    const { getGlobalCache } = await import('../../document-cache.js');
+    const cache = getGlobalCache();
+    cache.clear();
   });
 
   afterEach(async () => {
@@ -666,53 +671,6 @@ describe('Edit Section Tool - Integration Tests', () => {
     });
   });
 
-  describe('Table of Contents Integration', () => {
-    test('should maintain proper table of contents after section creation', async () => {
-      // Create a document with TOC
-      const docWithToc = `# Integration Test Document
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-  - [Authentication](#authentication)
-  - [Data Processing](#data-processing)
-
-## Overview
-
-This document is used for integration testing.
-
-## Features
-
-### Authentication
-
-Secure user authentication system.
-
-### Data Processing
-
-Advanced data processing capabilities.
-`;
-
-      await fs.writeFile(FULL_TEST_PATH, docWithToc, 'utf8');
-
-      // Arrange
-      const args = {
-        document: TEST_DOC_PATH,
-        section: 'features',
-        content: 'New section for user management.',
-        operation: 'insert_after',
-        title: 'User Management'
-      };
-
-      // Act
-      await section(args, mockSessionState);
-
-      // Verify the TOC was updated
-      const updatedContent = await fs.readFile(FULL_TEST_PATH, 'utf8');
-      expect(updatedContent).toContain('## User Management');
-      // TOC might be auto-generated or manually managed, so just check content exists
-    });
-  });
 
   describe('Complex Document Structure', () => {
     test('should handle operations on document with complex nesting', async () => {

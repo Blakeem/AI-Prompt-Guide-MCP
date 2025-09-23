@@ -6,7 +6,7 @@ import type { DocumentManager } from '../../document-manager.js';
 import type { CachedDocument } from '../../document-cache.js';
 import { pathToNamespace } from '../../shared/utilities.js';
 import type { RelatedDocument, CycleDetectionContext } from './dependency-analyzer.js';
-import { detectCycles } from './dependency-analyzer.js';
+import { detectCycles, determineCompletionStatus } from './dependency-analyzer.js';
 import { classifyRelationship } from './relationship-classifier.js';
 
 export interface ImplementationReadiness {
@@ -128,6 +128,7 @@ export async function findRelatedByContent(
 /**
  * Extract keywords from text for content similarity analysis
  */
+// ts-unused-exports:disable-next-line
 export function extractKeywords(text: string): string[] {
   if (text == null || text === '') {
     return [];
@@ -155,6 +156,7 @@ export function extractKeywords(text: string): string[] {
 /**
  * Check if a word is a stop word (common words to ignore)
  */
+// ts-unused-exports:disable-next-line
 export function isStopWord(word: string): boolean {
   const stopWords = new Set([
     'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
@@ -194,24 +196,6 @@ export function assessImplementationReadiness(relatedDocs: RelatedDocument[]): I
   const components = relatedDocs.filter(doc => doc.namespace.includes('frontend') || doc.namespace.includes('component'));
   const services = relatedDocs.filter(doc => doc.namespace.includes('backend') || doc.namespace.includes('service'));
 
-  // Helper function to determine completion status
-  const determineCompletionStatus = (doc: RelatedDocument): 'completed' | 'in_progress' | 'pending' => {
-    // Use completion status if available
-    if (doc.completion_status != null && doc.completion_status !== '') {
-      const percentage = parseInt(doc.completion_status.replace('%', ''), 10);
-      if (percentage >= 100) return 'completed';
-      if (percentage > 0) return 'in_progress';
-      return 'pending';
-    }
-
-    // Use task information if available
-    if (doc.tasks_linked != null && doc.tasks_linked > 0) {
-      return 'in_progress';
-    }
-
-    // Default to pending for unknown status
-    return 'pending';
-  };
 
   const specs_ready = specs.length > 0 && specs.every(spec => determineCompletionStatus(spec) === 'completed');
   const guides_available = guides.length > 0;

@@ -72,6 +72,7 @@ export function detectCycles(context: CycleDetectionContext, targetPath: string)
 /**
  * Find forward links - documents that this document references
  */
+// ts-unused-exports:disable-next-line
 export async function findForwardLinks(
   manager: DocumentManager,
   docPath: string,
@@ -157,6 +158,7 @@ export async function findForwardLinks(
 /**
  * Find backward links - documents that reference this document
  */
+// ts-unused-exports:disable-next-line
 export async function findBackwardLinks(
   manager: DocumentManager,
   docPath: string,
@@ -221,6 +223,7 @@ export async function findBackwardLinks(
 /**
  * Build dependency chain from related documents
  */
+// ts-unused-exports:disable-next-line
 export function buildDependencyChain(relatedDocs: RelatedDocument[]): DependencyNode[] {
   const dependencyChain: DependencyNode[] = [];
   const processed = new Set<string>();
@@ -287,6 +290,7 @@ export function buildDependencyChain(relatedDocs: RelatedDocument[]): Dependency
 /**
  * Determine completion status of a document based on available information
  */
+// ts-unused-exports:disable-next-line
 export function determineCompletionStatus(doc: RelatedDocument): 'completed' | 'in_progress' | 'pending' {
   // Use completion status if available
   if (doc.completion_status != null && doc.completion_status !== '') {

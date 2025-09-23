@@ -4,7 +4,7 @@
  */
 
 import type { SessionState } from '../../session/types.js';
-import { executeCreateDocumentPipeline } from '../create/pipeline.js';
+import { executeCreateDocumentPipeline } from '../create/index.js';
 
 /**
  * Create document using the stage-based pipeline

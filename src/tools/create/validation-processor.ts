@@ -399,12 +399,6 @@ export function validateNamespaceForCreation(namespace: string): ValidationError
   return validateCustomNamespacePath(namespace);
 }
 
-/**
- * Get template structure for namespace
- */
-export function getNamespaceTemplate(namespace: string): {starterStructure: string} | null {
-  return NAMESPACE_INSTRUCTIONS[namespace] ?? null;
-}
 
 /**
  * Generate example data based on namespace

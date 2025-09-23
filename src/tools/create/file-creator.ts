@@ -161,39 +161,3 @@ export async function validateCreationPrerequisites(
   }
 }
 
-/**
- * Check if document already exists
- */
-export async function checkDocumentExists(docPath: string): Promise<boolean> {
-  try {
-    const manager = await getDocumentManager();
-    const document = await manager.getDocument(docPath);
-    return document != null;
-  } catch {
-    return false; // Assume doesn't exist if we can't check
-  }
-}
-
-/**
- * Generate creation metadata
- */
-export function generateCreationMetadata(
-  namespace: string,
-  title: string,
-  slug: string,
-  docPath: string
-): {
-  path: string;
-  slug: string;
-  title: string;
-  namespace: string;
-  created: string;
-} {
-  return {
-    path: docPath,
-    slug,
-    title,
-    namespace,
-    created: new Date().toISOString()
-  };
-}

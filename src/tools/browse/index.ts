@@ -2,26 +2,18 @@
  * Browse modules - re-exports for clean imports
  */
 
-// Dependency analyzer exports
+// Dependency analyzer exports - only export what browse-documents.ts actually uses
 export {
-  detectCycles,
-  findForwardLinks,
-  findBackwardLinks,
-  buildDependencyChain,
-  determineCompletionStatus,
   analyzeDocumentLinks,
-  type CycleDetectionContext,
-  type RelatedDocument,
-  type RelationshipType,
-  type DependencyNode,
   type RelatedDocuments
 } from './dependency-analyzer.js';
 
-// Content analyzer exports
+// ts-unused-exports:disable-next-line
+export type { RelatedDocument, RelationshipType } from './dependency-analyzer.js';
+
+// Content analyzer exports - only export what browse-documents.ts actually uses
 export {
   findRelatedByContent,
-  extractKeywords,
-  isStopWord,
   analyzeSectionContent,
   assessImplementationReadiness,
   type ImplementationReadiness
@@ -36,12 +28,11 @@ export {
   type SectionInfo
 } from './search-engine.js';
 
-// Folder navigator exports
+// Folder navigator exports - only export what browse-documents.ts actually uses
 export {
   parseSectionPath,
   generateBreadcrumb,
   getParentPath,
-  directoryExists,
   getFolderStructure,
   type FolderInfo
 } from './folder-navigator.js';
