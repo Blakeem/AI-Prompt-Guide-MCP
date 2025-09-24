@@ -491,6 +491,138 @@ if (invalid) {
 }
 ```
 
+## CENTRAL ADDRESSING SYSTEM
+
+### **Unified Addressing for Documents, Sections, and Tasks**
+
+To prevent inconsistencies and bugs, all addressing throughout the system follows these standardized patterns:
+
+#### **Document Addressing**
+```typescript
+// ALWAYS use absolute paths starting with /
+const document = parseDocumentAddress('/api/specs/auth.md');
+
+// Structure:
+interface DocumentAddress {
+  path: string;        // '/api/specs/auth.md'
+  slug: string;        // 'auth'
+  namespace: string;   // 'api/specs' (or 'root' for root-level)
+  normalizedPath: string; // '/api/specs/auth.md'
+}
+```
+
+#### **Section Addressing**
+```typescript
+// FLEXIBLE formats - all supported:
+parseSectionAddress('overview', '/api/specs/auth.md');     // Context document
+parseSectionAddress('#overview', '/api/specs/auth.md');   // With # prefix
+parseSectionAddress('/api/specs/auth.md#overview');       // Full path
+
+// NEVER assume # prefix presence/absence - always normalize:
+const normalizedSlug = slug.startsWith('#') ? slug.substring(1) : slug;
+```
+
+#### **Task Addressing**
+```typescript
+// Tasks are special sections under "Tasks" parent section
+const task = parseTaskAddress('initialize-project', '/project/setup.md');
+
+// Task identification by document structure, NOT slug prefix:
+const isTask = await isTaskSection(slug, document);
+```
+
+### **Addressing Best Practices**
+
+#### **1. Use Centralized Parsers**
+```typescript
+import {
+  parseDocumentAddress,
+  parseSectionAddress,
+  parseTaskAddress,
+  standardizeToolParams
+} from '../shared/addressing-system.js';
+
+// DON'T manually parse paths
+// DO use centralized parsers
+const { document, section } = standardizeToolParams({
+  document: docPath,
+  section: sectionSlug
+});
+```
+
+#### **2. Consistent Tool Parameter Handling**
+```typescript
+// PATTERN: All tools should standardize parameters first
+export async function myTool(params: Record<string, unknown>) {
+  const { document, section } = standardizeToolParams({
+    document: params.document as string,
+    section: params.section as string
+  });
+
+  // Now use normalized addresses throughout
+  const result = await manager.getSectionContent(document.path, section.slug);
+}
+```
+
+#### **3. Namespace Consistency**
+```typescript
+// ROOT-LEVEL documents: namespace = 'root' (not '/' or '')
+// NESTED documents: namespace = 'folder/subfolder'
+
+// ALWAYS use pathToNamespace() - never calculate manually:
+import { pathToNamespace } from '../shared/path-utilities.js';
+const namespace = pathToNamespace(docPath); // Handles 'root' case correctly
+```
+
+#### **4. Section Format Flexibility**
+```typescript
+// SUPPORT both formats in user-facing APIs:
+function normalizeSectionSlug(slug: string): string {
+  return slug.startsWith('#') ? slug.substring(1) : slug;
+}
+
+// USE normalized version for all internal operations:
+const normalizedSlug = normalizeSectionSlug(userInput);
+const section = document.headings.find(h => h.slug === normalizedSlug);
+```
+
+### **Common Addressing Patterns**
+
+#### **Document Management**
+```typescript
+// Standard document info structure
+const documentInfo = {
+  path: document.path,
+  slug: document.slug,
+  title: documentMetadata.title,
+  namespace: document.namespace
+};
+```
+
+#### **Section Operations**
+```typescript
+// Always validate and normalize section references
+const sectionAddr = parseSectionAddress(sectionRef, contextDoc);
+await performSectionEdit(manager, sectionAddr.document.path, sectionAddr.slug, content);
+```
+
+#### **Task Management**
+```typescript
+// Identify tasks by structure, not naming conventions
+const taskHeadings = getTaskHeadings(document.headings, tasksSection);
+// NOT by slug prefix like 'tasks/task-name'
+```
+
+### **Migration Guidelines**
+
+When updating existing code to use the addressing system:
+
+1. **Replace manual path parsing** with `parseDocumentAddress()`
+2. **Replace manual slug handling** with `parseSectionAddress()`
+3. **Use normalized slugs** for all internal operations
+4. **Support flexible input formats** in user-facing APIs
+5. **Validate addresses** using `AddressValidator` utilities
+
 ## Key Principles
 
 1. **Follow Established Patterns** - The codebase has mature patterns, use them

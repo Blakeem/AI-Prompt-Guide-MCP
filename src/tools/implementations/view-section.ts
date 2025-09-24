@@ -73,9 +73,10 @@ export async function viewSection(
     throw new Error(`Document not found: ${documentPath}`);
   }
 
-  // Validate all sections exist
+  // Validate all sections exist (strip # prefix for comparison)
   for (const sectionSlug of sections) {
-    const sectionExists = document.headings.some(h => h.slug === sectionSlug);
+    const normalizedSlug = sectionSlug.startsWith('#') ? sectionSlug.substring(1) : sectionSlug;
+    const sectionExists = document.headings.some(h => h.slug === normalizedSlug);
     if (!sectionExists) {
       const availableSections = document.headings.map(h => h.slug).join(', ');
       throw new Error(`Section not found: ${sectionSlug}. Available sections: ${availableSections}`);
@@ -84,13 +85,14 @@ export async function viewSection(
 
   // Process each section
   const processedSections = await Promise.all(sections.map(async sectionSlug => {
-    const heading = document.headings.find(h => h.slug === sectionSlug);
+    const normalizedSlug = sectionSlug.startsWith('#') ? sectionSlug.substring(1) : sectionSlug;
+    const heading = document.headings.find(h => h.slug === normalizedSlug);
     if (heading == null) {
       throw new Error(`Section not found: ${sectionSlug}`);
     }
 
-    // Get section content
-    const content = await manager.getSectionContent(documentPath, sectionSlug) ?? '';
+    // Get section content (use normalized slug without #)
+    const content = await manager.getSectionContent(documentPath, normalizedSlug) ?? '';
 
     // Analyze section for links
     const links: string[] = [];

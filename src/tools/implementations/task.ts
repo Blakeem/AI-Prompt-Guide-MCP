@@ -12,8 +12,6 @@ import {
   performSectionEdit
 } from '../../shared/utilities.js';
 import { titleToSlug } from '../../slug.js';
-import { listHeadings } from '../../parse.js';
-import { readSection } from '../../sections.js';
 
 interface TaskResult {
   operation: string;
@@ -109,10 +107,19 @@ async function listTasks(
   documentInfo?: unknown
 ): Promise<TaskResult> {
   try {
-    // Try to read the Tasks section
-    const tasksContent = readSection(await getDocumentContent(manager, docPath), 'tasks');
+    // Get the document to access its heading structure
+    const document = await manager.getDocument(docPath);
+    if (document == null) {
+      throw new Error(`Document not found: ${docPath}`);
+    }
 
-    if (tasksContent == null || tasksContent === '') {
+    // Find the Tasks section heading
+    const tasksSection = document.headings.find(h =>
+      h.slug === 'tasks' ||
+      h.title.toLowerCase() === 'tasks'
+    );
+
+    if (tasksSection == null) {
       return {
         operation: 'list',
         document: docPath,
@@ -122,8 +129,29 @@ async function listTasks(
       };
     }
 
-    // Parse tasks from the Tasks section
-    const tasks = parseTasksFromContent(tasksContent);
+    // Find all task headings (children of the Tasks section)
+    const taskHeadings = getTaskHeadings(document.headings, tasksSection);
+
+    // Parse task details from each task heading
+    const tasks = await Promise.all(taskHeadings.map(async heading => {
+      // Get the task content
+      const taskContent = await manager.getSectionContent(docPath, heading.slug) ?? '';
+
+      // Parse task metadata from content
+      const status = extractMetadata(taskContent, 'Status') ?? 'pending';
+      const priority = extractMetadata(taskContent, 'Priority');
+      const link = extractLinkFromContent(taskContent);
+      const dependencies = extractDependencies(taskContent);
+
+      return {
+        slug: heading.slug,
+        title: heading.title,
+        status,
+        ...(priority != null && priority !== '' && { priority }),
+        ...(link != null && link !== '' && { link }),
+        ...(dependencies.length > 0 && { dependencies })
+      };
+    }));
 
     // Apply filters
     let filteredTasks = tasks;
@@ -164,6 +192,8 @@ async function createTask(
 ): Promise<TaskResult> {
   try {
     const taskSlug = titleToSlug(title);
+    // Task slugs are just the title slug, not prefixed with "tasks/"
+    // The hierarchical relationship is maintained by document structure, not slug naming
 
     // Build task content in our standard format
     const taskContent = `### ${title}
@@ -184,7 +214,7 @@ ${content}`;
       operation: 'create',
       document: docPath,
       task_created: {
-        slug: taskSlug,
+        slug: taskSlug,  // Return the actual task slug without prefix
         title
       },
       ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
@@ -227,76 +257,70 @@ async function editTask(
  * Helper functions
  */
 
-async function getDocumentContent(manager: DocumentManager, docPath: string): Promise<string> {
-  const doc = await (manager as { getDocument: (path: string) => Promise<{ content: string } | null> }).getDocument(docPath);
-  if (doc == null) {
-    throw new Error(`Document not found: ${docPath}`);
-  }
-  return doc.content;
-}
 
 async function ensureTasksSection(manager: DocumentManager, docPath: string): Promise<void> {
-  const content = await getDocumentContent(manager, docPath);
-  const tasksContent = readSection(content, 'tasks');
-
-  if (tasksContent == null || tasksContent === '') {
-    // Create Tasks section if it doesn't exist
-    await performSectionEdit(manager, docPath, 'tasks', '## Tasks\n\n_No tasks yet._', 'append_child', 'Tasks');
+  const document = await manager.getDocument(docPath);
+  if (document == null) {
+    throw new Error(`Document not found: ${docPath}`);
   }
+
+  // Check if Tasks section already exists
+  const tasksSection = document.headings.find(h =>
+    h.slug === 'tasks' ||
+    h.title.toLowerCase() === 'tasks'
+  );
+
+  if (tasksSection == null) {
+    // No Tasks section exists, we need to create one
+    // This should be done by adding it to the document, not via performSectionEdit
+    throw new Error('No Tasks section found in document. Please add a "## Tasks" section to the document first.');
+  }
+  // Tasks section exists, nothing to do
 }
 
-function parseTasksFromContent(tasksContent: string): Array<{
-  slug: string;
-  title: string;
-  status: string;
-  priority?: string;
-  link?: string;
-  dependencies?: string[];
-}> {
-  const tasks: Array<{
-    slug: string;
-    title: string;
-    status: string;
-    priority?: string;
-    link?: string;
-    dependencies?: string[];
-  }> = [];
+/**
+ * Find all task headings that are children of the Tasks section
+ * by checking their structural position and depth in the document
+ */
+function getTaskHeadings(
+  headings: readonly { slug: string; title: string; depth: number }[],
+  tasksSection: { slug: string; title: string; depth: number }
+): Array<{ slug: string; title: string; depth: number }> {
+  const taskHeadings: Array<{ slug: string; title: string; depth: number }> = [];
+  const tasksIndex = headings.findIndex(h => h.slug === tasksSection.slug);
 
-  // Parse headings (tasks) from the content
-  const headings = listHeadings(tasksContent);
+  if (tasksIndex === -1) return taskHeadings;
 
-  for (const heading of headings) {
-    if (heading.depth <= 2) continue; // Skip the "Tasks" heading itself
+  const targetDepth = tasksSection.depth + 1;
 
-    const slug = heading.slug;
-    const title = heading.title;
+  // Look at headings after the Tasks section
+  for (let i = tasksIndex + 1; i < headings.length; i++) {
+    const heading = headings[i];
+    if (heading == null) continue;
 
-    // Extract task content after the heading
-    const taskContent = readSection(tasksContent, slug);
-    if (taskContent == null || taskContent === '') continue;
+    // If we hit a heading at the same or shallower depth as Tasks, we're done
+    if (heading.depth <= tasksSection.depth) {
+      break;
+    }
 
-    // Parse task metadata from content
-    const status = extractMetadata(taskContent, 'Status') ?? 'pending';
-    const priority = extractMetadata(taskContent, 'Priority');
-    const link = extractLinkFromContent(taskContent);
-    const dependencies = extractDependencies(taskContent);
+    // If this is a direct child of Tasks section (depth = Tasks.depth + 1), it's a task
+    if (heading.depth === targetDepth) {
+      taskHeadings.push(heading);
+    }
 
-    tasks.push({
-      slug,
-      title,
-      status,
-      ...(priority != null && priority !== '' && { priority }),
-      ...(link != null && link !== '' && { link }),
-      ...(dependencies.length > 0 && { dependencies })
-    });
+    // Skip deeper nested headings (they are children of tasks, not tasks themselves)
   }
 
-  return tasks;
+  return taskHeadings;
 }
 
 function extractMetadata(content: string, key: string): string | undefined {
-  const match = content.match(new RegExp(`^- ${key}:\\s*(.+)$`, 'm'));
-  return match?.[1]?.trim();
+  // Support both "* Key: value" and "- Key: value" formats
+  const starMatch = content.match(new RegExp(`^\\* ${key}:\\s*(.+)$`, 'm'));
+  if (starMatch != null) return starMatch[1]?.trim();
+
+  const dashMatch = content.match(new RegExp(`^- ${key}:\\s*(.+)$`, 'm'));
+  return dashMatch?.[1]?.trim();
 }
 
 function extractLinkFromContent(content: string): string | undefined {

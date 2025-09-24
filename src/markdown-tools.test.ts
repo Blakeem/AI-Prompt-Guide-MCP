@@ -167,10 +167,51 @@ describe('Section Modification', () => {
 
   test('should delete sections', async () => {
     const snap = await readFileSnapshot(WORKING_FILE);
-    
+
     const updated = deleteSection(snap.content, 'authentication');
     expect(updated).not.toContain('### Authentication');
     expect(updated).not.toContain('Bearer tokens');
+  });
+
+  test('should delete sections without affecting adjacent sibling sections', () => {
+    const testDoc = `# Document Title
+
+## Overview
+This is the overview section.
+
+## Component Details
+This section has subsections.
+
+### Implementation
+This is the implementation details that we want to delete.
+
+Some implementation content here.
+
+### Usage
+This is the usage section that should remain intact.
+
+Important usage information that must not be deleted.
+
+## Styling
+This is another top-level section.
+`;
+
+    const result = deleteSection(testDoc, 'implementation');
+
+    // Implementation section should be gone
+    expect(result).not.toContain('### Implementation');
+    expect(result).not.toContain('This is the implementation details');
+    expect(result).not.toContain('Some implementation content here');
+
+    // Usage section should be preserved (this was the bug)
+    expect(result).toContain('### Usage');
+    expect(result).toContain('This is the usage section that should remain intact');
+    expect(result).toContain('Important usage information that must not be deleted');
+
+    // Other sections should be intact
+    expect(result).toContain('## Overview');
+    expect(result).toContain('## Component Details');
+    expect(result).toContain('## Styling');
   });
 });
 

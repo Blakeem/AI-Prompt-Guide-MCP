@@ -80,7 +80,7 @@ export function getParentPath(docPath: string): string | undefined {
   // Otherwise, parent is the folder above
   const parts = documentPath.split('/').filter(part => part !== '' && part !== '.');
   if (parts.length <= 1) {
-    return '/';
+    return '/'; // Return root path for root-level documents' parent
   }
 
   return `/${parts.slice(0, -1).join('/')}`;

@@ -8,7 +8,6 @@ import {
   performSectionEdit,
   pathToNamespace,
   pathToSlug,
-  getSlugDepth,
   getParentSlug,
   validateSlugPath
 } from '../../shared/utilities.js';
@@ -178,7 +177,7 @@ export async function section(
       if (result.action === 'created') {
         // Add hierarchical slug information for created sections
         const hierarchicalInfo = {
-          slug_depth: getSlugDepth(result.section),
+          slug_depth: result.depth ?? 1,  // Use actual markdown heading depth, not slug path depth
           parent_slug: getParentSlug(result.section)
         };
 
@@ -220,8 +219,13 @@ export async function section(
         };
       } else {
         // Add hierarchical slug information for updated sections
+        // For edit operations, get the actual depth from the document
+        const updatedDocument = await manager.getDocument(normalizedPath);
+        const sectionHeading = updatedDocument?.headings.find(h => h.slug === result.section);
+        const actualDepth = sectionHeading?.depth ?? 1;
+
         const hierarchicalInfo = {
-          slug_depth: getSlugDepth(result.section),
+          slug_depth: actualDepth,  // Use actual markdown heading depth
           parent_slug: getParentSlug(result.section)
         };
 

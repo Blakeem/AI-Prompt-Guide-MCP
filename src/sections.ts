@@ -469,9 +469,11 @@ export function deleteSection(markdown: string, slug: string): string {
   const tree = parseMarkdown(markdown);
   let found = false;
 
-  headingRange(tree, matchHeadingBySlug(slug), () => {
+  headingRange(tree, matchHeadingBySlug(slug), (_start, _nodes, end) => {
     found = true;
-    return []; // Return empty array to delete the entire section
+    // CRITICAL BUG FIX: Preserve the end heading to prevent data loss
+    // The end heading marks the start of the next section and must not be deleted
+    return end ? [end] : [];
   });
 
   if (!found) {

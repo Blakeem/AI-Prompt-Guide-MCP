@@ -9,8 +9,6 @@ import {
   pathToNamespace,
   pathToSlug
 } from '../../shared/utilities.js';
-import { listHeadings } from '../../parse.js';
-import { readSection } from '../../sections.js';
 
 interface CompleteTaskResult {
   completed_task: {
@@ -127,16 +125,37 @@ async function findNextAvailableTask(
   };
 } | undefined> {
   try {
-    // Get document content
-    const doc = await (manager as { getDocument: (path: string) => Promise<{ content: string } | null> }).getDocument(docPath);
+    // Get document to access heading structure
+    const doc = await (manager as { getDocument: (path: string) => Promise<{ content: string; headings: Array<{ slug: string; title: string; depth: number }> } | null> }).getDocument(docPath);
     if (doc == null) return undefined;
 
-    // Try to read the Tasks section
-    const tasksContent = readSection(doc.content, 'tasks');
-    if (tasksContent == null || tasksContent === '') return undefined;
+    // Find the Tasks section
+    const tasksSection = doc.headings.find(h =>
+      h.slug === 'tasks' ||
+      h.title.toLowerCase() === 'tasks'
+    );
+    if (tasksSection == null) return undefined;
 
-    // Parse tasks from the Tasks section
-    const tasks = parseTasksFromContent(tasksContent);
+    // Find all task headings (children of the Tasks section)
+    const taskHeadings = doc.headings.filter(h => {
+      return h.slug.startsWith('tasks/') && h.depth === tasksSection.depth + 1;
+    });
+
+    // Parse task details from each task heading
+    const tasks = await Promise.all(taskHeadings.map(async heading => {
+      const taskContent = await (manager as { getSectionContent: (path: string, slug: string) => Promise<string | null> }).getSectionContent(docPath, heading.slug) ?? '';
+      const status = extractMetadata(taskContent, 'Status') ?? 'pending';
+      const priority = extractMetadata(taskContent, 'Priority');
+      const link = extractLinkFromContent(taskContent);
+
+      return {
+        slug: heading.slug,
+        title: heading.title,
+        status,
+        ...(priority != null && priority !== '' && { priority }),
+        ...(link != null && link !== '' && { link })
+      };
+    }));
 
     // Filter out completed task and find available tasks
     const availableTasks = tasks.filter(task =>
@@ -227,51 +246,6 @@ async function getLinkedDocument(
 /**
  * Helper functions
  */
-
-function parseTasksFromContent(tasksContent: string): Array<{
-  slug: string;
-  title: string;
-  status: string;
-  priority?: string;
-  link?: string;
-}> {
-  const tasks: Array<{
-    slug: string;
-    title: string;
-    status: string;
-    priority?: string;
-    link?: string;
-  }> = [];
-
-  // Parse headings (tasks) from the content
-  const headings = listHeadings(tasksContent);
-
-  for (const heading of headings) {
-    if (heading.depth <= 2) continue; // Skip the "Tasks" heading itself
-
-    const slug = heading.slug;
-    const title = heading.title;
-
-    // Extract task content after the heading
-    const taskContent = readSection(tasksContent, slug);
-    if (taskContent == null || taskContent === '') continue;
-
-    // Parse task metadata from content
-    const status = extractMetadata(taskContent, 'Status') ?? 'pending';
-    const priority = extractMetadata(taskContent, 'Priority');
-    const link = extractLinkFromContent(taskContent);
-
-    tasks.push({
-      slug,
-      title,
-      status,
-      ...(priority != null && priority !== '' && { priority }),
-      ...(link != null && link !== '' && { link })
-    });
-  }
-
-  return tasks;
-}
 
 function extractMetadata(content: string, key: string): string | undefined {
   const match = content.match(new RegExp(`^- ${key}:\\s*(.+)$`, 'm'));

@@ -95,7 +95,8 @@ export async function viewTask(
   );
 
   for (const taskSlug of tasks) {
-    const taskExists = taskHeadings.some(h => h.slug === taskSlug);
+    const normalizedSlug = taskSlug.startsWith('#') ? taskSlug.substring(1) : taskSlug;
+    const taskExists = taskHeadings.some(h => h.slug === normalizedSlug);
     if (!taskExists) {
       const availableTasks = taskHeadings.map(h => h.slug).join(', ');
       throw new Error(`Task not found: ${taskSlug}. Available tasks: ${availableTasks}`);
@@ -104,13 +105,14 @@ export async function viewTask(
 
   // Process each task
   const processedTasks = await Promise.all(tasks.map(async taskSlug => {
-    const heading = document.headings.find(h => h.slug === taskSlug);
+    const normalizedSlug = taskSlug.startsWith('#') ? taskSlug.substring(1) : taskSlug;
+    const heading = document.headings.find(h => h.slug === normalizedSlug);
     if (heading == null) {
       throw new Error(`Task not found: ${taskSlug}`);
     }
 
-    // Get task content
-    const content = await manager.getSectionContent(documentPath, taskSlug) ?? '';
+    // Get task content (use normalized slug without #)
+    const content = await manager.getSectionContent(documentPath, normalizedSlug) ?? '';
 
     // Parse task metadata from content
     const status = extractTaskField(content, 'Status') ?? 'pending';
