@@ -3,6 +3,8 @@
  * Handles template processing and content generation
  */
 
+import { parseDocumentAddress, AddressingError } from '../../shared/addressing-system.js';
+
 /**
  * Template processing result
  */
@@ -276,6 +278,20 @@ export async function processTemplate(
 
       docPath = `${namespaceConfig.folder}/${slug}.md`;
 
+      // Validate the generated document path using addressing system
+      try {
+        parseDocumentAddress(docPath);
+      } catch (error) {
+        if (error instanceof AddressingError) {
+          return {
+            error: 'Generated document path is invalid',
+            details: error.message,
+            provided_namespace: namespace
+          };
+        }
+        throw error; // Re-throw non-addressing errors
+      }
+
       // Process rich template with variable substitution
       content = templateInfo.starterStructure.replace(/\{\{title\}\}/g, title);
 
@@ -289,6 +305,20 @@ export async function processTemplate(
     } else {
       // Custom namespace - use simple template and generate path
       docPath = `/${namespace}/${slug}.md`;
+
+      // Validate the generated document path using addressing system
+      try {
+        parseDocumentAddress(docPath);
+      } catch (error) {
+        if (error instanceof AddressingError) {
+          return {
+            error: 'Generated document path is invalid',
+            details: error.message,
+            provided_namespace: namespace
+          };
+        }
+        throw error; // Re-throw non-addressing errors
+      }
 
       // Simple template for custom namespaces
       content = `# ${title}

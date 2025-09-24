@@ -5,13 +5,22 @@
 
 import type { SessionState } from '../../session/types.js';
 import type { DocumentManager } from '../../document-manager.js';
+import type { Heading } from '../../types/core.js';
 import {
   getDocumentManager,
-  pathToNamespace,
-  pathToSlug,
   performSectionEdit
 } from '../../shared/utilities.js';
 import { titleToSlug } from '../../slug.js';
+import {
+  ToolIntegration,
+  AddressingError,
+  DocumentNotFoundError,
+  isTaskSection
+} from '../../shared/addressing-system.js';
+import type {
+  parseTaskAddress,
+  parseDocumentAddress
+} from '../../shared/addressing-system.js';
 
 interface TaskResult {
   operation: string;
@@ -48,72 +57,88 @@ export async function task(
   try {
     const manager: DocumentManager = await getDocumentManager();
 
-    const docPath = args['document'] as string;
+    // Validate required parameters
+    if (typeof args['document'] !== 'string' || args['document'] === '') {
+      throw new AddressingError('Missing required parameter: document', 'MISSING_PARAMETER');
+    }
+
+    const operation = (args['operation'] as string) ?? 'list';
     const taskSlug = args['task'] as string;
     const content = args['content'] as string;
-    const operation = (args['operation'] as string) ?? 'list';
     const title = args['title'] as string;
     const statusFilter = args['status'] as string;
     const priorityFilter = args['priority'] as string;
 
-    if (!docPath) {
-      throw new Error('Missing required parameter: document');
+    // Use addressing system for validation and parsing
+    const { addresses } = ToolIntegration.validateAndParse({
+      document: args['document'],
+      ...(taskSlug != null && taskSlug !== '' && { task: taskSlug })
+    });
+
+    // Get document and validate existence
+    const document = await manager.getDocument(addresses.document.path);
+    if (document == null) {
+      throw new DocumentNotFoundError(addresses.document.path);
     }
 
-    const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
-
-    // Get document information
-    const document = await manager.getDocument(normalizedPath);
-    const documentInfo = document != null ? {
-      path: normalizedPath,
-      slug: pathToSlug(normalizedPath),
-      title: document.metadata.title,
-      namespace: pathToNamespace(normalizedPath)
-    } : undefined;
+    // Format document info using addressing system helper
+    const documentInfo = ToolIntegration.formatDocumentInfo(addresses.document, {
+      title: document.metadata.title
+    });
 
     switch (operation) {
       case 'list':
-        return await listTasks(manager, normalizedPath, statusFilter, priorityFilter, documentInfo);
+        return await listTasks(manager, addresses, statusFilter, priorityFilter, documentInfo);
 
       case 'create':
         if (!title || !content) {
-          throw new Error('Missing required parameters for create: title and content');
+          throw new AddressingError('Missing required parameters for create: title and content', 'MISSING_PARAMETER');
         }
-        return await createTask(manager, normalizedPath, title, content, taskSlug, documentInfo);
+        return await createTask(manager, addresses, title, content, taskSlug, documentInfo);
 
       case 'edit':
         if (!taskSlug || !content) {
-          throw new Error('Missing required parameters for edit: task and content');
+          throw new AddressingError('Missing required parameters for edit: task and content', 'MISSING_PARAMETER');
         }
-        return await editTask(manager, normalizedPath, taskSlug, content, documentInfo);
+        if (addresses.task == null) {
+          throw new AddressingError('Task address validation failed', 'INVALID_TASK');
+        }
+        return await editTask(manager, addresses, content, documentInfo);
 
       default:
-        throw new Error(`Invalid operation: ${operation}. Must be one of: list, create, edit`);
+        throw new AddressingError(`Invalid operation: ${operation}. Must be one of: list, create, edit`, 'INVALID_OPERATION');
     }
 
   } catch (error) {
-    throw new Error(error instanceof Error ? error.message : String(error));
+    if (error instanceof AddressingError) {
+      throw error;
+    }
+    throw new AddressingError(
+      `Task operation failed: ${error instanceof Error ? error.message : String(error)}`,
+      'OPERATION_FAILED'
+    );
   }
 }
 
 /**
  * List tasks from Tasks section with optional filtering
+ * Updated to use addressing system for consistent task identification
  */
 async function listTasks(
   manager: DocumentManager,
-  docPath: string,
+  addresses: { document: ReturnType<typeof parseDocumentAddress> },
   statusFilter?: string,
   priorityFilter?: string,
   documentInfo?: unknown
 ): Promise<TaskResult> {
   try {
-    // Get the document to access its heading structure
-    const document = await manager.getDocument(docPath);
+    // Get the document - existence already validated in main function
+    const document = await manager.getDocument(addresses.document.path);
     if (document == null) {
-      throw new Error(`Document not found: ${docPath}`);
+      throw new DocumentNotFoundError(addresses.document.path);
     }
 
-    // Find the Tasks section heading
+    // Find the Tasks section using consistent addressing logic
     const tasksSection = document.headings.find(h =>
       h.slug === 'tasks' ||
       h.title.toLowerCase() === 'tasks'
@@ -122,20 +147,20 @@ async function listTasks(
     if (tasksSection == null) {
       return {
         operation: 'list',
-        document: docPath,
+        document: addresses.document.path,
         tasks: [],
         ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
         timestamp: new Date().toISOString()
       };
     }
 
-    // Find all task headings (children of the Tasks section)
-    const taskHeadings = getTaskHeadings(document.headings, tasksSection);
+    // Find all task headings using standardized task identification logic
+    const taskHeadings = await getTaskHeadings(document, tasksSection);
 
-    // Parse task details from each task heading
+    // Parse task details from each task heading using addressing system patterns
     const tasks = await Promise.all(taskHeadings.map(async heading => {
-      // Get the task content
-      const taskContent = await manager.getSectionContent(docPath, heading.slug) ?? '';
+      // Get the task content using validated document path
+      const taskContent = await manager.getSectionContent(addresses.document.path, heading.slug) ?? '';
 
       // Parse task metadata from content
       const status = extractMetadata(taskContent, 'Status') ?? 'pending';
@@ -167,7 +192,7 @@ async function listTasks(
 
     return {
       operation: 'list',
-      document: docPath,
+      document: addresses.document.path,
       tasks: filteredTasks,
       ...(nextTask != null && { next_task: nextTask }),
       ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
@@ -175,16 +200,24 @@ async function listTasks(
     };
 
   } catch (error) {
-    throw new Error(`Failed to list tasks: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof AddressingError) {
+      throw error;
+    }
+    throw new AddressingError(
+      `Failed to list tasks: ${error instanceof Error ? error.message : String(error)}`,
+      'TASK_LIST_FAILED',
+      { document: addresses.document.path }
+    );
   }
 }
 
 /**
  * Create a new task in the Tasks section
+ * Updated to use addressing system for validation and consistency
  */
 async function createTask(
   manager: DocumentManager,
-  docPath: string,
+  addresses: { document: ReturnType<typeof parseDocumentAddress> },
   title: string,
   content: string,
   referenceSlug?: string,
@@ -199,20 +232,20 @@ async function createTask(
     const taskContent = `### ${title}
 ${content}`;
 
-    // Use section tool logic to insert the task
+    // Use section tool logic to insert the task with validated paths
     // If referenceSlug provided, insert after it, otherwise append to Tasks section
     const operation = referenceSlug != null && referenceSlug !== '' ? 'insert_after' : 'append_child';
     const targetSection = referenceSlug ?? 'tasks';
 
-    // Create or update the Tasks section
-    await ensureTasksSection(manager, docPath);
+    // Create or update the Tasks section using addressing system validation
+    await ensureTasksSection(manager, addresses.document.path);
 
-    // Insert the new task
-    await performSectionEdit(manager, docPath, targetSection, taskContent, operation, title);
+    // Insert the new task using validated document path
+    await performSectionEdit(manager, addresses.document.path, targetSection, taskContent, operation, title);
 
     return {
       operation: 'create',
-      document: docPath,
+      document: addresses.document.path,
       task_created: {
         slug: taskSlug,  // Return the actual task slug without prefix
         title
@@ -222,33 +255,51 @@ ${content}`;
     };
 
   } catch (error) {
-    throw new Error(`Failed to create task: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof AddressingError) {
+      throw error;
+    }
+    throw new AddressingError(
+      `Failed to create task: ${error instanceof Error ? error.message : String(error)}`,
+      'TASK_CREATE_FAILED',
+      { document: addresses.document.path, title }
+    );
   }
 }
 
 /**
  * Edit an existing task
+ * Updated to use addressing system for task validation and consistency
  */
 async function editTask(
   manager: DocumentManager,
-  docPath: string,
-  taskSlug: string,
+  addresses: { document: ReturnType<typeof parseDocumentAddress>; task?: ReturnType<typeof parseTaskAddress> },
   content: string,
   documentInfo?: unknown
 ): Promise<TaskResult> {
+  // Validate task address exists
+  if (addresses.task == null) {
+    throw new AddressingError('Task address is required for edit operation', 'MISSING_TASK');
+  }
   try {
-    // Update the task section with new content
-    await performSectionEdit(manager, docPath, taskSlug, content, 'replace');
+    // Update the task section with new content using validated addresses
+    await performSectionEdit(manager, addresses.document.path, addresses.task.slug, content, 'replace');
 
     return {
       operation: 'edit',
-      document: docPath,
+      document: addresses.document.path,
       ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
       timestamp: new Date().toISOString()
     };
 
   } catch (error) {
-    throw new Error(`Failed to edit task: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof AddressingError) {
+      throw error;
+    }
+    throw new AddressingError(
+      `Failed to edit task: ${error instanceof Error ? error.message : String(error)}`,
+      'TASK_EDIT_FAILED',
+      { document: addresses.document.path, task: addresses.task.slug }
+    );
   }
 }
 
@@ -261,7 +312,7 @@ async function editTask(
 async function ensureTasksSection(manager: DocumentManager, docPath: string): Promise<void> {
   const document = await manager.getDocument(docPath);
   if (document == null) {
-    throw new Error(`Document not found: ${docPath}`);
+    throw new DocumentNotFoundError(docPath);
   }
 
   // Check if Tasks section already exists
@@ -273,29 +324,33 @@ async function ensureTasksSection(manager: DocumentManager, docPath: string): Pr
   if (tasksSection == null) {
     // No Tasks section exists, we need to create one
     // This should be done by adding it to the document, not via performSectionEdit
-    throw new Error('No Tasks section found in document. Please add a "## Tasks" section to the document first.');
+    throw new AddressingError(
+      'No Tasks section found in document. Please add a "## Tasks" section to the document first.',
+      'NO_TASKS_SECTION',
+      { document: docPath }
+    );
   }
   // Tasks section exists, nothing to do
 }
 
 /**
  * Find all task headings that are children of the Tasks section
- * by checking their structural position and depth in the document
+ * Updated to use addressing system's isTaskSection for consistent task identification
  */
-function getTaskHeadings(
-  headings: readonly { slug: string; title: string; depth: number }[],
-  tasksSection: { slug: string; title: string; depth: number }
-): Array<{ slug: string; title: string; depth: number }> {
-  const taskHeadings: Array<{ slug: string; title: string; depth: number }> = [];
-  const tasksIndex = headings.findIndex(h => h.slug === tasksSection.slug);
+async function getTaskHeadings(
+  document: { readonly headings: readonly Heading[] },
+  tasksSection: Heading
+): Promise<Heading[]> {
+  const taskHeadings: Heading[] = [];
+  const tasksIndex = document.headings.findIndex(h => h.slug === tasksSection.slug);
 
   if (tasksIndex === -1) return taskHeadings;
 
   const targetDepth = tasksSection.depth + 1;
 
-  // Look at headings after the Tasks section
-  for (let i = tasksIndex + 1; i < headings.length; i++) {
-    const heading = headings[i];
+  // Look at headings after the Tasks section using addressing system validation
+  for (let i = tasksIndex + 1; i < document.headings.length; i++) {
+    const heading = document.headings[i];
     if (heading == null) continue;
 
     // If we hit a heading at the same or shallower depth as Tasks, we're done
@@ -305,7 +360,19 @@ function getTaskHeadings(
 
     // If this is a direct child of Tasks section (depth = Tasks.depth + 1), it's a task
     if (heading.depth === targetDepth) {
-      taskHeadings.push(heading);
+      // Use addressing system to validate this is actually a task
+      // Convert readonly Heading[] to compatible format
+      const compatibleDocument = {
+        headings: document.headings.map(h => ({
+          slug: h.slug,
+          title: h.title,
+          depth: h.depth
+        }))
+      };
+      const isTask = await isTaskSection(heading.slug, compatibleDocument);
+      if (isTask) {
+        taskHeadings.push(heading);
+      }
     }
 
     // Skip deeper nested headings (they are children of tasks, not tasks themselves)

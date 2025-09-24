@@ -4,11 +4,20 @@
  */
 
 import type { SessionState } from '../../session/types.js';
+import type { Heading } from '../../types/core.js';
 import {
   getDocumentManager,
-  pathToNamespace,
-  pathToSlug
+  performSectionEdit
 } from '../../shared/utilities.js';
+import {
+  ToolIntegration,
+  AddressingError,
+  DocumentNotFoundError,
+  isTaskSection
+} from '../../shared/addressing-system.js';
+import type {
+  parseDocumentAddress
+} from '../../shared/addressing-system.js';
 
 interface CompleteTaskResult {
   completed_task: {
@@ -29,7 +38,6 @@ interface CompleteTaskResult {
     };
   };
   document_info: {
-    path: string;
     slug: string;
     title: string;
     namespace: string;
@@ -44,35 +52,46 @@ export async function completeTask(
   try {
     const manager = await getDocumentManager();
 
-    // Extract and validate required parameters
-    const docPath = args['document'];
-    const taskSlug = args['task'];
-    const note = args['note'];
-
-    if (typeof docPath !== 'string' || !docPath ||
-        typeof taskSlug !== 'string' || !taskSlug ||
-        typeof note !== 'string' || !note) {
-      throw new Error('Missing required parameters: document, task, and note');
+    // Validate required parameters
+    if (typeof args['document'] !== 'string' || args['document'] === '') {
+      throw new AddressingError('Missing required parameter: document', 'MISSING_PARAMETER');
     }
-    const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
-
-    // Get document information
-    const document = await manager.getDocument(normalizedPath);
-    if (!document) {
-      throw new Error(`Document not found: ${normalizedPath}`);
+    if (typeof args['task'] !== 'string' || args['task'] === '') {
+      throw new AddressingError('Missing required parameter: task', 'MISSING_PARAMETER');
+    }
+    if (typeof args['note'] !== 'string' || args['note'] === '') {
+      throw new AddressingError('Missing required parameter: note', 'MISSING_PARAMETER');
     }
 
-    const documentInfo = {
-      path: normalizedPath,
-      slug: pathToSlug(normalizedPath),
-      title: document.metadata.title,
-      namespace: pathToNamespace(normalizedPath)
-    };
+    // Use addressing system for validation and parsing
+    const { addresses } = ToolIntegration.validateAndParse({
+      document: args['document'],
+      task: args['task']
+    });
 
-    // Get current task content
-    const currentContent = await manager.getSectionContent(normalizedPath, taskSlug);
+    // Get document and validate existence
+    const document = await manager.getDocument(addresses.document.path);
+    if (document == null) {
+      throw new DocumentNotFoundError(addresses.document.path);
+    }
+
+    // Validate task address exists
+    if (addresses.task == null) {
+      throw new AddressingError('Task address is required for complete operation', 'MISSING_TASK');
+    }
+
+    // Format document info using addressing system helper
+    const documentInfo = ToolIntegration.formatDocumentInfo(addresses.document, {
+      title: document.metadata.title
+    });
+
+    // Get current task content using validated addresses
+    const currentContent = await manager.getSectionContent(addresses.document.path, addresses.task.slug);
     if (currentContent == null || currentContent === '') {
-      throw new Error(`Task not found: ${taskSlug}`);
+      throw new AddressingError(`Task not found: ${addresses.task.slug}`, 'TASK_NOT_FOUND', {
+        document: addresses.document.path,
+        task: addresses.task.slug
+      });
     }
 
     // Get task title for response
@@ -80,38 +99,45 @@ export async function completeTask(
 
     // Update task status to completed and add completion note
     const completedDate = new Date().toISOString().substring(0, 10);  // YYYY-MM-DD format
+    const note = args['note'] as string;
     const updatedContent = updateTaskStatus(currentContent, 'completed', note, completedDate);
 
-    // Use performSectionEdit like the section tool does
-    const { performSectionEdit } = await import('../../shared/utilities.js');
-    await performSectionEdit(manager, normalizedPath, taskSlug, updatedContent, 'replace');
+    // Update the task section with validated addresses
+    await performSectionEdit(manager, addresses.document.path, addresses.task.slug, updatedContent, 'replace');
 
-    // Get next available task
-    const nextTask = await findNextAvailableTask(manager, normalizedPath, taskSlug);
+    // Get next available task using addressing system
+    const nextTask = await findNextAvailableTask(manager, addresses, addresses.task.slug);
 
     return {
       completed_task: {
-        slug: taskSlug,
+        slug: addresses.task.slug,
         title: taskTitle,
         note,
         completed_date: completedDate
       },
-      ...(nextTask && { next_task: nextTask }),
+      ...(nextTask != null && { next_task: nextTask }),
       document_info: documentInfo,
       timestamp: new Date().toISOString()
     };
 
   } catch (error) {
-    throw new Error(`Failed to complete task: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof AddressingError) {
+      throw error;
+    }
+    throw new AddressingError(
+      `Task completion failed: ${error instanceof Error ? error.message : String(error)}`,
+      'COMPLETION_FAILED'
+    );
   }
 }
 
 /**
- * Find the next available task in priority order
+ * Find the next available task in priority order using addressing system
+ * Updated to use addressing system's isTaskSection for consistent task identification
  */
 async function findNextAvailableTask(
-  manager: unknown,
-  docPath: string,
+  manager: Awaited<ReturnType<typeof getDocumentManager>>,
+  addresses: { document: ReturnType<typeof parseDocumentAddress> },
   completedTaskSlug: string
 ): Promise<{
   slug: string;
@@ -125,25 +151,25 @@ async function findNextAvailableTask(
   };
 } | undefined> {
   try {
-    // Get document to access heading structure
-    const doc = await (manager as { getDocument: (path: string) => Promise<{ content: string; headings: Array<{ slug: string; title: string; depth: number }> } | null> }).getDocument(docPath);
-    if (doc == null) return undefined;
+    // Get document to access heading structure (existence already validated in main function)
+    const document = await manager.getDocument(addresses.document.path);
+    if (document == null) return undefined;
 
-    // Find the Tasks section
-    const tasksSection = doc.headings.find(h =>
+    // Find the Tasks section using consistent addressing logic
+    const tasksSection = document.headings.find(h =>
       h.slug === 'tasks' ||
       h.title.toLowerCase() === 'tasks'
     );
     if (tasksSection == null) return undefined;
 
-    // Find all task headings (children of the Tasks section)
-    const taskHeadings = doc.headings.filter(h => {
-      return h.slug.startsWith('tasks/') && h.depth === tasksSection.depth + 1;
-    });
+    // Find all task headings using standardized task identification logic
+    const taskHeadings = await getTaskHeadings(document, tasksSection);
 
-    // Parse task details from each task heading
+    // Parse task details from each task heading using validated document path
     const tasks = await Promise.all(taskHeadings.map(async heading => {
-      const taskContent = await (manager as { getSectionContent: (path: string, slug: string) => Promise<string | null> }).getSectionContent(docPath, heading.slug) ?? '';
+      const taskContent = await manager.getSectionContent(addresses.document.path, heading.slug) ?? '';
+
+      // Parse task metadata from content
       const status = extractMetadata(taskContent, 'Status') ?? 'pending';
       const priority = extractMetadata(taskContent, 'Priority');
       const link = extractLinkFromContent(taskContent);
@@ -203,33 +229,89 @@ async function findNextAvailableTask(
 }
 
 /**
- * Get linked document content
+ * Find all task headings that are children of the Tasks section
+ * Updated to use addressing system's isTaskSection for consistent task identification
+ */
+async function getTaskHeadings(
+  document: { readonly headings: readonly Heading[] },
+  tasksSection: Heading
+): Promise<Heading[]> {
+  const taskHeadings: Heading[] = [];
+  const tasksIndex = document.headings.findIndex(h => h.slug === tasksSection.slug);
+
+  if (tasksIndex === -1) return taskHeadings;
+
+  const targetDepth = tasksSection.depth + 1;
+
+  // Look at headings after the Tasks section using addressing system validation
+  for (let i = tasksIndex + 1; i < document.headings.length; i++) {
+    const heading = document.headings[i];
+    if (heading == null) continue;
+
+    // If we hit a heading at the same or shallower depth as Tasks, we're done
+    if (heading.depth <= tasksSection.depth) {
+      break;
+    }
+
+    // If this is a direct child of Tasks section (depth = Tasks.depth + 1), it's a task
+    if (heading.depth === targetDepth) {
+      // Use addressing system to validate this is actually a task
+      // Convert readonly Heading[] to compatible format
+      const compatibleDocument = {
+        headings: document.headings.map(h => ({
+          slug: h.slug,
+          title: h.title,
+          depth: h.depth
+        }))
+      };
+      const isTask = await isTaskSection(heading.slug, compatibleDocument);
+      if (isTask) {
+        taskHeadings.push(heading);
+      }
+    }
+
+    // Skip deeper nested headings (they are children of tasks, not tasks themselves)
+  }
+
+  return taskHeadings;
+}
+
+/**
+ * Get linked document content using addressing system for validation
  */
 async function getLinkedDocument(
-  manager: unknown,
+  manager: Awaited<ReturnType<typeof getDocumentManager>>,
   link: string
 ): Promise<{ path: string; title: string; content?: string } | undefined> {
   try {
     // Parse link format: @/path/doc.md#section or just @/path/doc.md
     const linkMatch = link.match(/^@?(\/[^#]+)(?:#(.+))?$/);
-    if (!linkMatch) return undefined;
+    if (linkMatch == null) return undefined;
 
     const [, docPath, sectionSlug] = linkMatch;
     if (docPath == null || docPath === '') return undefined;
-    const document = await (manager as { getDocument: (path: string) => Promise<{ content: string; metadata: { title: string } } | null> }).getDocument(docPath);
+
+    const document = await manager.getDocument(docPath);
     if (document == null) return undefined;
 
     let content: string | undefined;
     if (sectionSlug != null && sectionSlug !== '') {
-      // Get specific section content
-      const sectionContent = await (manager as { getSectionContent: (path: string, slug: string) => Promise<string | null> }).getSectionContent(docPath, sectionSlug);
+      // Get specific section content using validated document path
+      const sectionContent = await manager.getSectionContent(docPath, sectionSlug);
       content = sectionContent ?? undefined;
     } else {
-      // Get first 500 characters of document
-      content = document.content.slice(0, 500);
-      if (document.content.length > 500) {
-        content += '...';
+      // Get document summary (first heading or first 500 chars from sections if available)
+      if (document.sections && document.sections.size > 0) {
+        const firstSection = Array.from(document.sections.values())[0];
+        if (firstSection != null) {
+          content = firstSection.slice(0, 500);
+          if (firstSection.length > 500) {
+            content = `${content}...`;
+          }
+        }
       }
+      // If no content available, use document title as fallback
+      content ??= `Document: ${document.metadata.title}`;
     }
 
     return {
@@ -248,8 +330,12 @@ async function getLinkedDocument(
  */
 
 function extractMetadata(content: string, key: string): string | undefined {
-  const match = content.match(new RegExp(`^- ${key}:\\s*(.+)$`, 'm'));
-  return match?.[1]?.trim() ?? undefined;
+  // Support both "* Key: value" and "- Key: value" formats
+  const starMatch = content.match(new RegExp(`^\\* ${key}:\\s*(.+)$`, 'm'));
+  if (starMatch != null) return starMatch[1]?.trim();
+
+  const dashMatch = content.match(new RegExp(`^- ${key}:\\s*(.+)$`, 'm'));
+  return dashMatch?.[1]?.trim();
 }
 
 function extractLinkFromContent(content: string): string | undefined {

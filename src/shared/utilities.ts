@@ -17,8 +17,7 @@ export { pathToNamespace, pathToSlug } from './path-utilities.js';
 // Re-export hierarchical slug utilities for convenience
 export {
   splitSlugPath,
-  getParentSlug,
-  validateSlugPath
+  getParentSlug
 } from './slug-utils.js';
 
 // Re-export link utilities for convenience

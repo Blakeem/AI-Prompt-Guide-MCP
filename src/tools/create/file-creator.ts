@@ -4,6 +4,7 @@
  */
 
 import { getDocumentManager } from '../../shared/utilities.js';
+import { parseDocumentAddress, AddressingError } from '../../shared/addressing-system.js';
 
 /**
  * Document creation result
@@ -48,6 +49,24 @@ export async function createDocumentFile(
   slug: string
 ): Promise<DocumentCreationResult | FileCreationError> {
   try {
+    // Validate the document path using addressing system
+    try {
+      parseDocumentAddress(docPath);
+    } catch (error) {
+      if (error instanceof AddressingError) {
+        return {
+          error: 'Invalid document path for creation',
+          details: error.message,
+          provided_parameters: {
+            namespace,
+            title,
+            overview
+          }
+        };
+      }
+      throw error; // Re-throw non-addressing errors
+    }
+
     const manager = await getDocumentManager();
 
     // Create the document with basic structure first

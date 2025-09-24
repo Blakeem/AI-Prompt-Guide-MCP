@@ -140,7 +140,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         timestamp: expect.any(String),
         hierarchical_info: {
           slug_depth: expect.any(Number),
-          parent_slug: expect.anything()
+          parent_slug: null // Top-level sections have no parent
         },
         link_assistance: {
           links_found: expect.any(Array),
@@ -194,7 +194,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         timestamp: expect.any(String),
         hierarchical_info: {
           slug_depth: expect.any(Number),
-          parent_slug: expect.anything()
+          parent_slug: null // Top-level sections have no parent
         },
         link_assistance: {
           links_found: expect.any(Array),
@@ -239,7 +239,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         timestamp: expect.any(String),
         hierarchical_info: {
           slug_depth: expect.any(Number),
-          parent_slug: expect.anything()
+          parent_slug: null // Top-level sections have no parent
         },
         link_assistance: {
           links_found: expect.any(Array),
@@ -325,7 +325,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         timestamp: expect.any(String),
         hierarchical_info: {
           slug_depth: expect.any(Number),
-          parent_slug: expect.anything()
+          parent_slug: null // Top-level sections have no parent
         },
         link_assistance: {
           links_found: expect.any(Array),
@@ -373,7 +373,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         timestamp: expect.any(String),
         hierarchical_info: {
           slug_depth: expect.any(Number),
-          parent_slug: expect.anything()
+          parent_slug: null // Top-level sections have no parent
         },
         link_assistance: {
           links_found: expect.any(Array),
@@ -421,7 +421,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         timestamp: expect.any(String),
         hierarchical_info: {
           slug_depth: expect.any(Number),
-          parent_slug: expect.anything()
+          parent_slug: null // Top-level sections have no parent
         },
         link_assistance: {
           links_found: expect.any(Array),
@@ -468,7 +468,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         timestamp: expect.any(String),
         hierarchical_info: {
           slug_depth: expect.any(Number),
-          parent_slug: expect.anything()
+          parent_slug: null // Top-level sections have no parent
         },
         link_assistance: {
           links_found: expect.any(Array),
@@ -671,7 +671,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
           {
             success: false,
             section: 'features',
-            error: 'Missing required parameters: document and section'
+            error: 'Invalid address:  - Document path cannot be empty' // Addressing system error message
           }
         ],
         document: '/test-doc.md',
@@ -918,7 +918,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         timestamp: expect.any(String),
         hierarchical_info: {
           slug_depth: expect.any(Number),
-          parent_slug: expect.anything()
+          parent_slug: null // Top-level sections have no parent
         },
         link_assistance: {
           links_found: expect.any(Array),
@@ -1054,7 +1054,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         created: true,
         hierarchical_info: {
           slug_depth: expect.any(Number),
-          parent_slug: expect.anything()
+          parent_slug: null // Top-level sections have no parent
         }
       });
 
@@ -1093,9 +1093,9 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
 
       // Verify document info values
       const documentInfo = (result as Record<string, unknown>)['document_info'] as Record<string, unknown>;
-      expect(documentInfo['slug']).toBe('test-slug');
+      expect(documentInfo['slug']).toBe('test-doc'); // Addressing system correctly derives from path
       expect(documentInfo['title']).toBe('Test Document');
-      expect(documentInfo['namespace']).toBe('test-namespace');
+      expect(documentInfo['namespace']).toBe('root'); // Addressing system calculates namespace from path
     });
 
     test('should not include link assistance for remove operations', async () => {

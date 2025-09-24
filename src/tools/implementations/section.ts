@@ -1,22 +1,117 @@
 /**
  * Implementation for the section tool
+ *
+ * Migrated to use central addressing system for consistent document/section addressing
  */
 
 import type { SessionState } from '../../session/types.js';
 import {
   getDocumentManager,
-  performSectionEdit,
-  pathToNamespace,
-  pathToSlug,
-  getParentSlug,
-  validateSlugPath
+  performSectionEdit
 } from '../../shared/utilities.js';
+import {
+  ToolIntegration,
+  AddressingError,
+  parseDocumentAddress,
+  AddressingUtils
+} from '../../shared/addressing-system.js';
 
 /**
- * Normalize section slug by removing # prefix to allow both "section" and "#section" formats
+ * Interface for individual section operation
  */
-function normalizeSectionSlug(sectionSlug: string): string {
-  return sectionSlug.startsWith('#') ? sectionSlug.substring(1) : sectionSlug;
+interface SectionOperation {
+  document: string;
+  section: string;
+  content: string;
+  operation?: string;
+  title?: string;
+}
+
+/**
+ * Result of a section operation
+ */
+interface SectionOperationResult {
+  success: boolean;
+  section: string;
+  action?: 'edited' | 'created' | 'removed';
+  depth?: number;
+  error?: string;
+  removed_content?: string;
+}
+
+/**
+ * Calculate parent slug from hierarchical section slug
+ * Uses the addressing system's slug normalization
+ */
+function getParentSlug(sectionSlug: string): string | null {
+  const normalizedSlug = AddressingUtils.normalizeSlug(sectionSlug);
+  const parts = normalizedSlug.split('/');
+
+  if (parts.length <= 1) {
+    return null; // No parent for top-level sections
+  }
+
+  return parts.slice(0, -1).join('/');
+}
+
+/**
+ * Process a single section operation with addressing system
+ */
+async function processSectionOperation(
+  manager: Awaited<ReturnType<typeof getDocumentManager>>,
+  operation: SectionOperation
+): Promise<SectionOperationResult> {
+  try {
+    // Use addressing system for validation and parsing
+    const { addresses } = ToolIntegration.validateAndParse({
+      document: operation.document,
+      section: operation.section
+    });
+
+    const { document: docAddress, section: sectionAddress } = addresses;
+
+    // Validate that section address exists (not undefined)
+    if (sectionAddress == null) {
+      throw new AddressingError('Section address is required for section operations', 'MISSING_SECTION', {
+        document: operation.document,
+        section: operation.section
+      });
+    }
+
+    // Content validation for non-remove operations
+    const operationType = operation.operation ?? 'replace';
+    if (operationType !== 'remove' && !operation.content) {
+      throw new AddressingError('Content is required for all operations except remove', 'MISSING_CONTENT', {
+        operation: operationType
+      });
+    }
+
+    // Perform the section operation using existing logic but with validated addresses
+    const result = await performSectionEdit(
+      manager,
+      docAddress.path,
+      sectionAddress.slug,
+      operation.content,
+      operationType,
+      operation.title
+    );
+
+    return {
+      success: true,
+      section: result.section,
+      action: result.action,
+      ...(result.depth != null && { depth: result.depth }),
+      ...(result.removedContent !== undefined && { removed_content: result.removedContent })
+    };
+
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      section: operation.section,
+      error: message
+    };
+  }
 }
 
 export async function section(
@@ -30,62 +125,34 @@ export async function section(
     const isBatch = Array.isArray(args);
 
     if (isBatch) {
-      // Handle batch operations
-      const operations = args as Array<{
-        document: string;
-        section: string;
-        content: string;
-        operation?: string;
-        title?: string;
-      }>;
+      // Handle batch operations with addressing system
+      const operations = args as unknown as SectionOperation[];
 
       if (operations.length === 0) {
-        throw new Error('Batch operations array cannot be empty');
+        throw new AddressingError('Batch operations array cannot be empty', 'EMPTY_BATCH');
       }
 
-      const batchResults: Array<{success: boolean; section: string; action?: 'edited' | 'created' | 'removed'; depth?: number; error?: string; removed_content?: string}> = [];
+      const batchResults: SectionOperationResult[] = [];
       let sectionsModified = 0;
       const documentsModified = new Set<string>();
 
-      // Process each operation sequentially
+      // Process each operation sequentially with addressing validation
       for (const op of operations) {
         try {
-          const docPath = op.document ?? '';
-          const sectionSlug = op.section ?? '';
-          const content = op.content ?? '';
-          const operation = op.operation ?? 'replace';
-          const title = op.title;
-
-          if (!docPath || !sectionSlug) {
-            throw new Error('Missing required parameters: document and section');
-          }
-
-          // Content is not required for remove operations
-          if (operation !== 'remove' && !content) {
-            throw new Error('Content is required for all operations except remove');
-          }
-
-          const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
-          documentsModified.add(normalizedPath);
-
-          // Normalize and validate hierarchical slug path if provided
-          const normalizedSlug = normalizeSectionSlug(sectionSlug);
-          const slugValidation = validateSlugPath(normalizedSlug);
-          if (slugValidation.success === false) {
-            throw new Error(`Invalid hierarchical slug "${sectionSlug}": ${slugValidation.error}`);
-          }
-
-          // Perform the enhanced operation with hierarchical slug support
-          const result = await performSectionEdit(manager, normalizedPath, sectionSlug, content, operation, title);
-
-          batchResults.push({
-            success: true,
-            section: result.section,
-            action: result.action,
-            ...(result.depth != null && { depth: result.depth }),
-            ...(result.removedContent !== undefined && { removed_content: result.removedContent })
+          // Parse and validate each operation's addresses
+          const { addresses } = ToolIntegration.validateAndParse({
+            document: op.document ?? '',
+            section: op.section ?? ''
           });
-          sectionsModified++;
+
+          documentsModified.add(addresses.document.path);
+
+          const result = await processSectionOperation(manager, op);
+          batchResults.push(result);
+
+          if (result.success) {
+            sectionsModified++;
+          }
 
         } catch (opError) {
           const message = opError instanceof Error ? opError.message : String(opError);
@@ -97,18 +164,18 @@ export async function section(
         }
       }
 
-      // Get document info for single document batches
+      // Get document info for single document batches using addressing system
       let documentInfo;
       if (Array.from(documentsModified).length === 1) {
         const singleDocPath = Array.from(documentsModified)[0] as string;
-        const doc = await manager.getDocument(singleDocPath);
-        if (doc != null) {
-          documentInfo = {
-            path: singleDocPath,
-            slug: pathToSlug(singleDocPath),
-            title: doc.metadata.title,
-            namespace: pathToNamespace(singleDocPath)
-          };
+        try {
+          const docAddress = parseDocumentAddress(singleDocPath);
+          const doc = await manager.getDocument(singleDocPath);
+          if (doc != null) {
+            documentInfo = ToolIntegration.formatDocumentInfo(docAddress, { title: doc.metadata.title });
+          }
+        } catch {
+          // Skip document info if parsing fails
         }
       }
 
@@ -118,109 +185,92 @@ export async function section(
         sections_modified: sectionsModified,
         total_operations: operations.length,
         timestamp: new Date().toISOString(),
-        ...(documentInfo && {
-          document_info: {
-            slug: documentInfo.slug,
-            title: documentInfo.title,
-            namespace: documentInfo.namespace
-          }
-        })
+        ...(documentInfo && { document_info: documentInfo })
       };
 
     } else {
-      // Handle single operation
-      const singleOp = args as {
-        document: string;
-        section: string;
-        content: string;
-        operation?: string;
-        title?: string;
-      };
+      // Handle single operation with addressing system
+      const singleOp = args as unknown as SectionOperation;
 
-      const docPath = singleOp.document ?? '';
-      const sectionSlug = singleOp.section ?? '';
+      // Validate and parse addresses
+      const { addresses } = ToolIntegration.validateAndParse({
+        document: singleOp.document ?? '',
+        section: singleOp.section ?? ''
+      });
+
+      const { document: docAddress, section: sectionAddress } = addresses;
+
+      // Validate section address exists
+      if (sectionAddress == null) {
+        throw new AddressingError('Section address is required for section operations', 'MISSING_SECTION', {
+          document: singleOp.document,
+          section: singleOp.section
+        });
+      }
+
       const content = singleOp.content ?? '';
       const operation = singleOp.operation ?? 'replace';
       const title = singleOp.title;
 
-      if (!docPath || !sectionSlug) {
-        throw new Error('Missing required parameters: document and section');
-      }
-
-      // Content is not required for remove operations
+      // Content validation for non-remove operations
       if (operation !== 'remove' && !content) {
-        throw new Error('Content is required for all operations except remove');
+        throw new AddressingError('Content is required for all operations except remove', 'MISSING_CONTENT', {
+          operation
+        });
       }
 
-      const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
+      // Perform the section operation using existing logic but with validated addresses
+      const result = await performSectionEdit(
+        manager,
+        docAddress.path,
+        sectionAddress.slug,
+        content,
+        operation,
+        title
+      );
 
-      // Normalize and validate hierarchical slug path if provided
-      const normalizedSlug = normalizeSectionSlug(sectionSlug);
-      const slugValidation = validateSlugPath(normalizedSlug);
-      if (slugValidation.success === false) {
-        throw new Error(`Invalid hierarchical slug "${sectionSlug}": ${slugValidation.error}`);
-      }
-
-      // Perform the enhanced operation with hierarchical slug support
-      const result = await performSectionEdit(manager, normalizedPath, sectionSlug, content, operation, title);
-
-      // Get document information for response
-      const document = await manager.getDocument(normalizedPath);
-      const documentInfo = document != null ? {
-        path: normalizedPath,
-        slug: pathToSlug(normalizedPath),
-        title: document.metadata.title,
-        namespace: pathToNamespace(normalizedPath)
-      } : undefined;
+      // Get document information for response using addressing system
+      const document = await manager.getDocument(docAddress.path);
+      const documentInfo = document != null
+        ? ToolIntegration.formatDocumentInfo(docAddress, { title: document.metadata.title })
+        : undefined;
 
       // Return different response based on action
       if (result.action === 'created') {
-        // Add hierarchical slug information for created sections
+        // Add hierarchical slug information for created sections using addressing utilities
         const hierarchicalInfo = {
           slug_depth: result.depth ?? 1,  // Use actual markdown heading depth, not slug path depth
           parent_slug: getParentSlug(result.section)
         };
 
         // Analyze links in the created content
-        const linkAssistance = await analyzeSectionLinks(content, normalizedPath, result.section, manager);
+        const linkAssistance = await analyzeSectionLinks(content, docAddress.path, result.section, manager);
 
         return {
           created: true,
-          document: normalizedPath,
+          document: docAddress.path,
           new_section: result.section,
           ...(result.depth !== undefined && { depth: result.depth }),
           operation,
           timestamp: new Date().toISOString(),
           hierarchical_info: hierarchicalInfo,
           link_assistance: linkAssistance,
-          ...(documentInfo && {
-            document_info: {
-              slug: documentInfo.slug,
-              title: documentInfo.title,
-              namespace: documentInfo.namespace
-            }
-          })
+          ...(documentInfo && { document_info: documentInfo })
         };
       } else if (result.action === 'removed') {
         return {
           removed: true,
-          document: normalizedPath,
+          document: docAddress.path,
           section: result.section,
           removed_content: result.removedContent,
           operation,
           timestamp: new Date().toISOString(),
-          ...(documentInfo && {
-            document_info: {
-              slug: documentInfo.slug,
-              title: documentInfo.title,
-              namespace: documentInfo.namespace
-            }
-          })
+          ...(documentInfo && { document_info: documentInfo })
         };
       } else {
         // Add hierarchical slug information for updated sections
         // For edit operations, get the actual depth from the document
-        const updatedDocument = await manager.getDocument(normalizedPath);
+        const updatedDocument = await manager.getDocument(docAddress.path);
         const sectionHeading = updatedDocument?.headings.find(h => h.slug === result.section);
         const actualDepth = sectionHeading?.depth ?? 1;
 
@@ -230,28 +280,39 @@ export async function section(
         };
 
         // Analyze links in the updated content
-        const linkAssistance = await analyzeSectionLinks(content, normalizedPath, result.section, manager);
+        const linkAssistance = await analyzeSectionLinks(content, docAddress.path, result.section, manager);
 
         return {
           updated: true,
-          document: normalizedPath,
+          document: docAddress.path,
           section: result.section,
           operation,
           timestamp: new Date().toISOString(),
           hierarchical_info: hierarchicalInfo,
           link_assistance: linkAssistance,
-          ...(documentInfo && {
-            document_info: {
-              slug: documentInfo.slug,
-              title: documentInfo.title,
-              namespace: documentInfo.namespace
-            }
-          })
+          ...(documentInfo && { document_info: documentInfo })
         };
       }
     }
 
   } catch (error) {
+    // Handle addressing errors appropriately
+    if (error instanceof AddressingError) {
+      throw new Error(
+        JSON.stringify({
+          code: -32603,
+          message: 'Failed to edit section',
+          data: {
+            reason: error.code,
+            details: error.message,
+            context: error.context,
+            args
+          }
+        })
+      );
+    }
+
+    // Handle other errors
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(
       JSON.stringify({
@@ -260,8 +321,8 @@ export async function section(
         data: {
           reason: 'EDIT_ERROR',
           details: message,
-          args,
-        },
+          args
+        }
       })
     );
   }
@@ -369,7 +430,7 @@ async function analyzeSectionLinks(
     commonMistakes.push('Consider using @ syntax instead: @/path/doc.md');
   }
 
-  // Generate content-based link suggestions
+  // Generate content-based link suggestions using addressing system for consistency
   const keywords = extractContentKeywords(content);
 
   if (keywords.length > 0) {
@@ -389,24 +450,30 @@ async function analyzeSectionLinks(
       for (const result of relevantResults) {
         const document = await manager.getDocument(result.documentPath);
         if (document) {
-          const targetNamespace = pathToNamespace(result.documentPath);
+          // Use addressing system for consistent namespace handling
+          try {
+            const docAddress = parseDocumentAddress(result.documentPath);
+            const targetNamespace = docAddress.namespace;
 
-          // Determine placement hint based on content and namespace
-          let placementHint = 'Add to relevant paragraph or list';
-          if (content.includes('overview') || content.includes('introduction')) {
-            placementHint = 'Consider adding to overview section for context';
-          } else if (content.includes('implementation') || content.includes('example')) {
-            placementHint = 'Reference in implementation details';
-          } else if (content.includes('see also') || content.includes('related')) {
-            placementHint = 'Perfect for "See Also" or "Related" sections';
+            // Determine placement hint based on content and namespace
+            let placementHint = 'Add to relevant paragraph or list';
+            if (content.includes('overview') || content.includes('introduction')) {
+              placementHint = 'Consider adding to overview section for context';
+            } else if (content.includes('implementation') || content.includes('example')) {
+              placementHint = 'Reference in implementation details';
+            } else if (content.includes('see also') || content.includes('related')) {
+              placementHint = 'Perfect for "See Also" or "Related" sections';
+            }
+
+            linkSuggestions.push({
+              suggested_link: `@${result.documentPath}`,
+              target_document: result.documentTitle,
+              rationale: `Related ${targetNamespace} document with shared concepts: ${keywords.slice(0, 2).join(', ')}`,
+              placement_hint: placementHint
+            });
+          } catch {
+            // Skip suggestions if address parsing fails
           }
-
-          linkSuggestions.push({
-            suggested_link: `@${result.documentPath}`,
-            target_document: result.documentTitle,
-            rationale: `Related ${targetNamespace} document with shared concepts: ${keywords.slice(0, 2).join(', ')}`,
-            placement_hint: placementHint
-          });
         }
       }
     } catch {

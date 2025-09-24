@@ -5,6 +5,12 @@
 
 import type { SessionState } from '../../session/types.js';
 import {
+  ToolIntegration,
+  DocumentNotFoundError,
+  AddressingError,
+  parseTaskAddress
+} from '../../shared/addressing-system.js';
+import {
   splitSlugPath,
   getParentSlug,
   getDocumentManager
@@ -52,29 +58,31 @@ export async function viewTask(
     validateTaskCount
   } = await import('../schemas/view-task-schemas.js');
 
-  // Input validation and parsing
-  const documentParam = args['document'];
-  if (typeof documentParam !== 'string' || documentParam === '') {
-    throw new Error('document parameter is required and must be a non-empty string');
+  // Validate required parameters
+  if (typeof args['document'] !== 'string' || args['document'] === '') {
+    throw new AddressingError('document parameter is required and must be a non-empty string', 'INVALID_PARAMETER');
   }
 
-  const taskParam = args['task'];
-  if (taskParam == null || (typeof taskParam !== 'string' && !Array.isArray(taskParam))) {
-    throw new Error('task parameter is required and must be a string or array of strings');
+  if (args['task'] == null || (typeof args['task'] !== 'string' && !Array.isArray(args['task']))) {
+    throw new AddressingError('task parameter is required and must be a string or array of strings', 'INVALID_PARAMETER');
   }
 
-  const tasks = parseTasks(taskParam as string | string[]);
+  // Parse tasks using existing schema helper but validate count
+  const tasks = parseTasks(args['task'] as string | string[]);
   if (!validateTaskCount(tasks)) {
-    throw new Error(`Too many tasks. Maximum 10 tasks allowed, got ${tasks.length}`);
+    throw new AddressingError(`Too many tasks. Maximum 10 tasks allowed, got ${tasks.length}`, 'TOO_MANY_TASKS');
   }
 
-  // Normalize document path
-  const documentPath = documentParam.startsWith('/') ? documentParam : `/${documentParam}`;
+  // Use addressing system for document validation
+  const { addresses } = ToolIntegration.validateAndParse({
+    document: args['document'],
+    // We don't use task here because we need to handle multiple tasks manually
+  });
 
   // Get document
-  const document = await manager.getDocument(documentPath);
+  const document = await manager.getDocument(addresses.document.path);
   if (document == null) {
-    throw new Error(`Document not found: ${documentPath}`);
+    throw new DocumentNotFoundError(addresses.document.path);
   }
 
   // Find tasks section
@@ -85,34 +93,62 @@ export async function viewTask(
   );
 
   if (tasksSection == null) {
-    throw new Error(`No tasks section found in document: ${documentPath}`);
+    throw new AddressingError(`No tasks section found in document: ${addresses.document.path}`, 'NO_TASKS_SECTION', {
+      document: addresses.document.path
+    });
   }
 
-  // Validate all tasks exist within the tasks section
-  const taskHeadings = document.headings.filter(h =>
-    h.slug.startsWith(`${tasksSection.slug}/`) ||
-    tasks.includes(h.slug)
-  );
+  // Parse and validate all tasks using addressing system
+  const taskAddresses = tasks.map(taskSlug => {
+    try {
+      return parseTaskAddress(taskSlug, addresses.document.path);
+    } catch (error) {
+      if (error instanceof AddressingError) {
+        throw error;
+      }
+      throw new AddressingError(`Invalid task reference: ${taskSlug}`, 'INVALID_TASK', { taskSlug });
+    }
+  });
 
-  for (const taskSlug of tasks) {
-    const normalizedSlug = taskSlug.startsWith('#') ? taskSlug.substring(1) : taskSlug;
-    const taskExists = taskHeadings.some(h => h.slug === normalizedSlug);
+  // Validate all tasks exist in document and are within tasks section
+  for (const taskAddr of taskAddresses) {
+    const taskExists = document.headings.some(h => h.slug === taskAddr.slug);
     if (!taskExists) {
-      const availableTasks = taskHeadings.map(h => h.slug).join(', ');
-      throw new Error(`Task not found: ${taskSlug}. Available tasks: ${availableTasks}`);
+      // Get available tasks for error message
+      const availableTasks = document.headings
+        .filter(h => h.slug.startsWith(`${tasksSection.slug}/`))
+        .map(h => h.slug)
+        .join(', ');
+      throw new AddressingError(
+        `Task not found: ${taskAddr.slug}. Available tasks: ${availableTasks}`,
+        'TASK_NOT_FOUND',
+        { taskSlug: taskAddr.slug, document: addresses.document.path }
+      );
+    }
+
+    // Check if task is actually within the tasks section
+    if (!taskAddr.slug.startsWith(`${tasksSection.slug}/`)) {
+      throw new AddressingError(
+        `Section ${taskAddr.slug} is not a task (not under tasks section)`,
+        'NOT_A_TASK',
+        { taskSlug: taskAddr.slug, tasksSection: tasksSection.slug }
+      );
     }
   }
 
   // Process each task
-  const processedTasks = await Promise.all(tasks.map(async taskSlug => {
-    const normalizedSlug = taskSlug.startsWith('#') ? taskSlug.substring(1) : taskSlug;
-    const heading = document.headings.find(h => h.slug === normalizedSlug);
+  const processedTasks = await Promise.all(taskAddresses.map(async taskAddr => {
+    const heading = document.headings.find(h => h.slug === taskAddr.slug);
     if (heading == null) {
-      throw new Error(`Task not found: ${taskSlug}`);
+      throw new AddressingError(
+        `Task not found: ${taskAddr.slug}`,
+        'TASK_NOT_FOUND',
+        { taskSlug: taskAddr.slug, document: addresses.document.path }
+      );
     }
 
-    // Get task content (use normalized slug without #)
-    const content = await manager.getSectionContent(documentPath, normalizedSlug) ?? '';
+    // Get task content using the normalized slug
+    const content = await manager.getSectionContent(addresses.document.path, taskAddr.slug) ?? '';
 
     // Parse task metadata from content
     const status = extractTaskField(content, 'Status') ?? 'pending';
@@ -123,7 +159,7 @@ export async function viewTask(
     // Calculate word count
     const wordCount = content.split(/\s+/).filter(word => word.length > 0).length;
 
-    // Build hierarchical information
+    // Build hierarchical information using existing utilities
     const slugParts = splitSlugPath(heading.slug);
     const fullPath = slugParts.join('/');
     const parent = getParentSlug(heading.slug);
@@ -172,7 +208,7 @@ export async function viewTask(
   };
 
   return {
-    document: documentPath,
+    document: addresses.document.path,
     tasks: processedTasks,
     summary
   };

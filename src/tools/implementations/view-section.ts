@@ -5,6 +5,13 @@
 
 import type { SessionState } from '../../session/types.js';
 import {
+  ToolIntegration,
+  DocumentNotFoundError,
+  SectionNotFoundError,
+  AddressingError,
+  parseSectionAddress
+} from '../../shared/addressing-system.js';
+import {
   splitSlugPath,
   getParentSlug,
   getDocumentManager
@@ -48,51 +55,62 @@ export async function viewSection(
     validateSectionCount
   } = await import('../schemas/view-section-schemas.js');
 
-  // Input validation and parsing
-  const documentParam = args['document'];
-  if (typeof documentParam !== 'string' || documentParam === '') {
-    throw new Error('document parameter is required and must be a non-empty string');
+  // Validate required parameters
+  if (typeof args['document'] !== 'string' || args['document'] === '') {
+    throw new AddressingError('document parameter is required and must be a non-empty string', 'INVALID_PARAMETER');
   }
 
-  const sectionParam = args['section'];
-  if (sectionParam == null || (typeof sectionParam !== 'string' && !Array.isArray(sectionParam))) {
-    throw new Error('section parameter is required and must be a string or array of strings');
+  if (args['section'] == null || (typeof args['section'] !== 'string' && !Array.isArray(args['section']))) {
+    throw new AddressingError('section parameter is required and must be a string or array of strings', 'INVALID_PARAMETER');
   }
 
-  const sections = parseSections(sectionParam as string | string[]);
+  // Parse sections using existing schema helper but validate count
+  const sections = parseSections(args['section'] as string | string[]);
   if (!validateSectionCount(sections)) {
-    throw new Error(`Too many sections. Maximum 10 sections allowed, got ${sections.length}`);
+    throw new AddressingError(`Too many sections. Maximum 10 sections allowed, got ${sections.length}`, 'TOO_MANY_SECTIONS');
   }
 
-  // Normalize document path
-  const documentPath = documentParam.startsWith('/') ? documentParam : `/${documentParam}`;
+  // Use addressing system for document validation
+  const { addresses } = ToolIntegration.validateAndParse({
+    document: args['document'],
+    // We don't use section here because we need to handle multiple sections manually
+  });
 
   // Get document
-  const document = await manager.getDocument(documentPath);
+  const document = await manager.getDocument(addresses.document.path);
   if (document == null) {
-    throw new Error(`Document not found: ${documentPath}`);
+    throw new DocumentNotFoundError(addresses.document.path);
   }
 
-  // Validate all sections exist (strip # prefix for comparison)
-  for (const sectionSlug of sections) {
-    const normalizedSlug = sectionSlug.startsWith('#') ? sectionSlug.substring(1) : sectionSlug;
-    const sectionExists = document.headings.some(h => h.slug === normalizedSlug);
+  // Parse and validate all sections using addressing system
+  const sectionAddresses = sections.map(sectionSlug => {
+    try {
+      return parseSectionAddress(sectionSlug, addresses.document.path);
+    } catch (error) {
+      if (error instanceof AddressingError) {
+        throw error;
+      }
+      throw new AddressingError(`Invalid section reference: ${sectionSlug}`, 'INVALID_SECTION', { sectionSlug });
+    }
+  });
+
+  // Validate all sections exist in document
+  for (const sectionAddr of sectionAddresses) {
+    const sectionExists = document.headings.some(h => h.slug === sectionAddr.slug);
     if (!sectionExists) {
-      const availableSections = document.headings.map(h => h.slug).join(', ');
-      throw new Error(`Section not found: ${sectionSlug}. Available sections: ${availableSections}`);
+      throw new SectionNotFoundError(sectionAddr.slug, addresses.document.path);
     }
   }
 
   // Process each section
-  const processedSections = await Promise.all(sections.map(async sectionSlug => {
-    const normalizedSlug = sectionSlug.startsWith('#') ? sectionSlug.substring(1) : sectionSlug;
-    const heading = document.headings.find(h => h.slug === normalizedSlug);
+  const processedSections = await Promise.all(sectionAddresses.map(async sectionAddr => {
+    const heading = document.headings.find(h => h.slug === sectionAddr.slug);
     if (heading == null) {
-      throw new Error(`Section not found: ${sectionSlug}`);
+      throw new SectionNotFoundError(sectionAddr.slug, addresses.document.path);
     }
 
-    // Get section content (use normalized slug without #)
-    const content = await manager.getSectionContent(documentPath, normalizedSlug) ?? '';
+    // Get section content using the normalized slug
+    const content = await manager.getSectionContent(addresses.document.path, sectionAddr.slug) ?? '';
 
     // Analyze section for links
     const links: string[] = [];
@@ -102,7 +120,7 @@ export async function viewSection(
     // Calculate word count
     const wordCount = content.split(/\s+/).filter(word => word.length > 0).length;
 
-    // Build hierarchical information
+    // Build hierarchical information using existing utilities
     const slugParts = splitSlugPath(heading.slug);
     const fullPath = slugParts.join('/');
     const parent = getParentSlug(heading.slug);
@@ -132,7 +150,7 @@ export async function viewSection(
   };
 
   return {
-    document: documentPath,
+    document: addresses.document.path,
     sections: processedSections,
     summary
   };

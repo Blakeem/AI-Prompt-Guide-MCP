@@ -6,6 +6,12 @@
 import type { SessionState } from '../../session/types.js';
 import { getDocumentManager } from '../../shared/utilities.js';
 import {
+  AddressingError,
+  DocumentNotFoundError,
+  parseDocumentAddress,
+  parseSectionAddress
+} from '../../shared/addressing-system.js';
+import {
   analyzeDocumentLinks,
   assessImplementationReadiness,
   analyzeSectionContent,
@@ -71,7 +77,7 @@ export async function browseDocuments(
     // Normalize path
     const normalizedPath = requestedPath.startsWith('/') ? requestedPath : `/${requestedPath}`;
 
-    // Parse section path
+    // Parse section path using existing helper (still needed for non-document paths)
     const { documentPath, sectionSlug } = parseSectionPath(normalizedPath);
 
     // Check if we're targeting a specific document with potential section
@@ -111,13 +117,22 @@ export async function browseDocuments(
       return result;
 
     } else if (isDocumentPath) {
-      // Document/Section browse mode
-      const { sections, document_context } = await getSectionStructure(
-        manager,
-        documentPath,
-        analyzeSectionContent,
-        sectionSlug
-      );
+      // Document/Section browse mode - use addressing system for validation
+      try {
+        const documentAddress = parseDocumentAddress(documentPath);
+
+        // Optional section validation if provided
+        let sectionAddress;
+        if (sectionSlug != null && sectionSlug !== '') {
+          sectionAddress = parseSectionAddress(sectionSlug, documentAddress.path);
+        }
+
+        const { sections, document_context } = await getSectionStructure(
+          manager,
+          documentAddress.path,
+          analyzeSectionContent,
+          sectionAddress?.slug
+        );
 
       const result: BrowseResponse = {
         path: normalizedPath,
@@ -130,38 +145,46 @@ export async function browseDocuments(
         totalItems: sections.length
       };
 
-      // Add related documents analysis if requested
-      if (includeRelated && document_context != null) {
-        const relatedDocuments = await analyzeDocumentLinks(
-          manager,
-          documentPath,
-          linkDepth,
-          classifyRelationship,
-          findRelatedByContent
-        );
-        if (relatedDocuments != null) {
-          result.related_documents = relatedDocuments;
+        // Add related documents analysis if requested
+        if (includeRelated && document_context != null) {
+          const relatedDocuments = await analyzeDocumentLinks(
+            manager,
+            documentAddress.path,
+            linkDepth,
+            classifyRelationship,
+            findRelatedByContent
+          );
+          if (relatedDocuments != null) {
+            result.related_documents = relatedDocuments;
 
-          // Generate implementation readiness assessment
-          const allRelated = [
-            ...relatedDocuments.forward_links,
-            ...relatedDocuments.backward_links,
-            ...relatedDocuments.related_by_content
-          ];
-          result.implementation_readiness = assessImplementationReadiness(allRelated);
+            // Generate implementation readiness assessment
+            const allRelated = [
+              ...relatedDocuments.forward_links,
+              ...relatedDocuments.backward_links,
+              ...relatedDocuments.related_by_content
+            ];
+            result.implementation_readiness = assessImplementationReadiness(allRelated);
+          }
         }
-      }
 
-      if (normalizedPath !== '/') {
-        result.breadcrumb = generateBreadcrumb(normalizedPath);
-      }
+        if (normalizedPath !== '/') {
+          result.breadcrumb = generateBreadcrumb(normalizedPath);
+        }
 
-      const parent = getParentPath(normalizedPath);
-      if (parent != null) {
-        result.parentPath = parent;
-      }
+        const parent = getParentPath(normalizedPath);
+        if (parent != null) {
+          result.parentPath = parent;
+        }
 
-      return result;
+        return result;
+
+      } catch (error) {
+        // Handle addressing errors with proper error types
+        if (error instanceof AddressingError) {
+          throw error;
+        }
+        throw new DocumentNotFoundError(documentPath);
+      }
 
     } else {
       // Folder browse mode
@@ -191,9 +214,14 @@ export async function browseDocuments(
     }
 
   } catch (error) {
+    // Handle addressing errors properly
+    if (error instanceof AddressingError) {
+      throw error;
+    }
+
     const message = error instanceof Error ? error.message : String(error);
 
-    // Return error response with helpful guidance
+    // Return error response with helpful guidance for other errors
     return {
       path: args['path'] as string ?? '/',
       structure: {
