@@ -6,12 +6,12 @@ This is a comprehensive MCP server for intelligent specification document manage
 
 **Purpose:** Enable LLMs to manage specification documents programmatically through progressive discovery workflows, with automatic context loading from linked documents and comprehensive document analysis tools.
 
-**Current Status:** 🎉 **Central Addressing System Migration Complete** - All 8 MCP tools successfully migrated to unified addressing framework with comprehensive issue resolution. System is production-ready with zero quality gate violations.
+**Current Status:** Production-ready system with unified addressing framework and comprehensive quality gates.
 
 **Key Features:**
 - **Central Addressing System** - Unified, type-safe addressing for documents, sections, and tasks with LRU caching
 - **Advanced Document Linking** - Cross-document references with `@/path/doc.md#section` syntax
-- **Slug-based Section Addressing** - Hierarchical addressing (e.g., `#api/authentication/jwt-tokens`)
+- **Flat Section Addressing** - Unique slug addressing with automatic duplicate handling (e.g., `#overview`, `#tasks-1`)
 - **Progressive Discovery Workflows** - Step-by-step document creation with intelligent guidance
 - **Task Management System** - Complete task lifecycle with priority, dependencies, and completion tracking
 - **View Tools Suite** - Clean, focused viewing for documents, sections, and tasks
@@ -142,66 +142,99 @@ async getDocument(docPath: string): Promise<CachedDocument | null> {
 }
 ```
 
-### **Key Design Principle**
+### **Key Design Principles**
+
+#### **Markdown Parsing**
 **ALWAYS use the existing markdown parsing tools** (`listHeadings()`, `buildToc()`, `insertRelative()`, `readSection()`) instead of manual string manipulation. The toolkit provides these tools specifically to avoid brittle string parsing that breaks on edge cases.
+
+#### **Task Identification Pattern**
+**ALWAYS use structural analysis for task identification**, not slug-based patterns:
+```typescript
+// ✅ CORRECT: Use structural analysis
+import { isTaskSection } from '../shared/addressing-system.js';
+
+const isTask = await isTaskSection(heading.slug, document);
+if (isTask) {
+  // Handle as task
+}
+
+// ❌ WRONG: Don't use slug prefixes or naming conventions
+if (heading.slug.startsWith('task-') || heading.title.includes('TODO')) {
+  // This approach is brittle and inconsistent
+}
+```
+
+#### **Archive Operations Pattern**
+**ALWAYS capture actual return values from archive operations**, don't construct paths manually:
+```typescript
+// ✅ CORRECT: Use actual return values
+const result = await manager.archiveDocument(addresses.document.path);
+return {
+  archived_to: result.archivePath,    // Use actual path
+  audit_file: result.auditPath        // Use actual audit path
+};
+
+// ❌ WRONG: Manual path construction
+return {
+  archived_to: `${docsRoot}/archived/${docSlug}.md`,  // May be incorrect
+  audit_file: `${docsRoot}/archived/${docSlug}_audit.json`  // May be incorrect
+};
+```
+
+#### **Single GithubSlugger Instance**
+**ALWAYS use a single GithubSlugger instance per document** for automatic duplicate handling:
+```typescript
+// ✅ CORRECT: Single instance per document
+const slugger = new GithubSlugger();
+headings.forEach(heading => {
+  heading.slug = slugger.slug(heading.title);  // Auto handles duplicates: task, task-1, task-2
+});
+
+// ❌ WRONG: Multiple instances lose duplicate tracking
+headings.forEach(heading => {
+  const slugger = new GithubSlugger();  // Creates new instance each time
+  heading.slug = slugger.slug(heading.title);  // Duplicates not handled
+});
+```
+
+#### **CachedDocument Access Pattern**
+**ALWAYS access document.sections for content**, not non-existent properties:
+```typescript
+// ✅ CORRECT: Access existing properties
+const document = await manager.getDocument(path);
+const sections = document.sections;  // Map<string, string>
+const metadata = document.metadata;  // DocumentMetadata
+
+// ❌ WRONG: document.content doesn't exist
+const content = document.content;  // TypeError: undefined property
+```
 
 ## TESTING AND DEVELOPMENT
 
 ### MCP Inspector Testing (REQUIRED)
 
-#### **Development Workflow**
-Use **ad hoc inspector sessions** - start only when testing, stop immediately after:
+#### **Essential Workflow**
+Use **ad hoc inspector sessions** - start for testing, stop immediately after:
 
 ```bash
-# Start inspector for testing
-pnpm inspector:dev
+# Check for port conflicts first (if needed)
+lsof -i :6277,:6274  # Show what's using ports 6277/6274
 
-# Test functionality in browser
-# Stop inspector immediately: Ctrl+C
-```
-
-#### **Inspector Startup Process**
-1. **Check for conflicts first:**
-   ```bash
-   lsof -i :6277  # Check proxy port  
-   lsof -i :6274  # Check inspector port
-   # Kill any running processes: kill <PID>
-   ```
-
-2. **Start fresh inspector:**
-   ```bash
-   pnpm inspector:dev
-   ```
-
-3. **Access URL:** Open the provided URL with pre-filled auth token:
-   ```
-   🔗 Open inspector with token pre-filled:
-      http://localhost:6274/?MCP_PROXY_AUTH_TOKEN=<token>
-   ```
-
-#### **Handoff Protocol**
-**For user testing sessions:**
-1. **Assistant**: Stop all background inspectors  
-2. **User**: Start fresh inspector with `pnpm inspector:dev`
-3. **User**: Test functionality, then stop with `Ctrl+C`
-4. **Clean environment**: No persistent background processes
-
-#### **Port Conflict Resolution**
-If you encounter "PORT IS IN USE" errors:
-```bash
-# Method 1: Find and kill specific processes
-lsof -i :6277 -i :6274  # Show what's using the ports
-kill <PID1> <PID2> <PID3>  # Kill the specific process IDs
-
-# Method 2: Kill by process pattern (more aggressive)
-pkill -f "inspector.*tsx"
-pkill -f "modelcontextprotocol"
-
-# Method 3: One-liner to clear both ports
+# Kill conflicting processes if found
 lsof -ti :6277,:6274 | xargs -r kill
+
+# Start inspector
+pnpm inspector:dev
+# 🔗 Open provided URL with pre-filled token: http://localhost:6274/?MCP_PROXY_AUTH_TOKEN=<token>
+
+# Test functionality, then stop: Ctrl+C
 ```
 
-**Common Cause**: Orphaned inspector processes that detached from Claude Code sessions but are still running in background.
+#### **Key Testing Practices**
+- **Ad Hoc Sessions**: Start only when needed, stop immediately after testing
+- **Clean Handoffs**: Assistant stops all background inspectors before user testing
+- **Port Management**: Use one-liner to clear orphaned processes on ports 6274/6277
+- **Evidence Collection**: Capture MCP inspector sessions for issue verification
 
 ### Common Development Issues & Solutions
 
@@ -230,6 +263,82 @@ const manager = new DocumentManager(docsRoot);
 - Use `run_in_background: true` for long-running commands
 - Check process output with BashOutput tool
 - Kill processes properly using KillBash tool or direct `kill` commands
+
+### **Critical Internal Utilities & Patterns**
+
+#### **Section Boundary Handling**
+Use `getSectionContentForRemoval()` for accurate removal reporting that matches actual behavior:
+```typescript
+import { getSectionContentForRemoval } from '../sections.js';
+
+// ✅ CORRECT: Matches actual removal behavior
+const contentToBeRemoved = getSectionContentForRemoval(document.content, sectionSlug);
+return {
+  removed_content: contentToBeRemoved,  // Excludes end boundary marker
+  // ... other response data
+};
+
+// ❌ WRONG: Using readSection() reports more content than actually removed
+const wrongContent = readSection(document.content, sectionSlug);
+```
+
+#### **Unified Task Identification**
+Always use `getTaskHeadings()` for consistent task identification across all tools:
+```typescript
+import { getTaskHeadings } from '../tools/implementations/view-document.js';
+
+// ✅ CORRECT: Unified task identification logic
+export async function getTaskHeadings(document: CachedDocument): Promise<HeadingInfo[]> {
+  const taskHeadings: HeadingInfo[] = [];
+
+  for (const heading of document.headings) {
+    const compatibleDocument = { content: document.sections.get(heading.slug) ?? '', headings: [] };
+    const isTask = await isTaskSection(heading.slug, compatibleDocument);
+    if (isTask) {
+      taskHeadings.push(heading);
+    }
+  }
+
+  return taskHeadings;
+}
+```
+
+#### **Error Handling Patterns**
+Use centralized addressing system error types for consistent error reporting:
+```typescript
+import {
+  AddressingError,
+  DocumentNotFoundError,
+  SectionNotFoundError
+} from '../shared/addressing-system.js';
+
+// ✅ CORRECT: Rich error context for debugging
+try {
+  const { addresses } = ToolIntegration.validateAndParse({ document: path, section: slug });
+} catch (error) {
+  if (error instanceof DocumentNotFoundError) {
+    return {
+      error: `Document not found: ${error.context.path}`,
+      suggestion: 'Check document path and ensure it exists'
+    };
+  } else if (error instanceof SectionNotFoundError) {
+    return {
+      error: `Section '${error.context.slug}' not found in document`,
+      available_sections: error.context.availableSections
+    };
+  }
+  throw error;  // Re-throw unexpected errors
+}
+```
+
+#### **Critical File System Utilities**
+Always check actual file structure - test against `.spec-docs-mcp/docs/` structure:
+```bash
+# ✅ CORRECT: Verify document structure during development
+ls -la .spec-docs-mcp/docs/        # Check root documents
+ls -la .spec-docs-mcp/docs/api/    # Check namespace structure
+ls -la .spec-docs-mcp/archived/    # Check archive functionality
+```
 
 ### Integration Testing Workflow
 1. **Start Inspector** → `pnpm inspector:dev`
@@ -403,44 +512,6 @@ sessionStore.updateSession(sessionId, { toolStage: newStage });
 4. **Error Recovery**: Return helpful guidance instead of throwing errors
 5. **State Updates**: Update session state before triggering notifications
 
-### MCP Inspector Testing
-
-#### Testing Progressive Discovery
-
-1. **Manual Refresh Required**: MCP Inspector doesn't auto-refresh on `tools/list_changed`
-2. **Test Flow**:
-   - Call tool with minimal params
-   - Manually refresh tool list (pull down or click refresh)
-   - Observe schema changes
-   - Call with next stage params
-   - Repeat until complete
-
-3. **Programmatic Testing**:
-```javascript
-// Create test script as .cjs file for CommonJS
-const commands = [
-  { name: 'Initial tools/list', request: '{"method":"tools/list"}' },
-  { name: 'Call tool', request: '{"method":"tools/call","params":{...}}' },
-  { name: 'Verify schema update', request: '{"method":"tools/list"}' }
-];
-```
-
-### Tool List Update Notifications
-
-#### How It Works
-When tool schemas need updating:
-```typescript
-void server.notification({
-  method: 'notifications/tools/list_changed',
-  params: {}
-});
-```
-
-#### Important Limitations
-- **Not universally supported**: Many MCP clients ignore these notifications
-- **Manual intervention often required**: Users must refresh manually
-- **Transport-level only**: LLMs don't see these notifications in context
-- **Still useful**: Some clients DO respect them, so always send
 
 ### Adding New Tools Checklist
 
@@ -456,71 +527,16 @@ When implementing a new MCP tool:
 - [ ] Test with MCP Inspector including all stages
 - [ ] Document any special behavior or limitations
 
-### Common Patterns to Follow
-
-#### Pattern: Centralized Constants
-```typescript
-// src/tools/schemas/tool-schemas.ts
-export const TOOL_CONSTANTS = {
-  TYPES: { /* ... */ },
-  LIMITS: { /* ... */ },
-  DEFAULTS: { /* ... */ }
-};
-```
-
-#### Pattern: Response Consistency
-```typescript
-// Always return structured responses
-return {
-  stage: 'current_stage',
-  data: { /* relevant data */ },
-  next_step: 'Clear instruction',
-  example: { /* valid example */ }
-};
-```
-
-#### Pattern: Error Fallbacks
-```typescript
-// Instead of throwing errors
-if (invalid) {
-  return {
-    stage: 'error_fallback',
-    error: 'What went wrong',
-    help: 'How to fix it',
-    example: { /* correct usage */ }
-  };
-}
-```
 
 ## CENTRAL ADDRESSING SYSTEM
 
-### **🎯 Migration Complete - Unified Addressing Framework**
+The central addressing system provides **type-safe, performant, and flexible addressing** for all document, section, and task operations across the MCP server.
 
-The central addressing system provides **type-safe, performant, and flexible addressing** for all document, section, and task operations across the MCP server. This comprehensive migration eliminated addressing inconsistencies and provides a foundation for scalable document management.
-
-#### **✅ Migration Achievements**
-
-**🚀 Core Module Implementation:**
-- **New Framework**: `src/shared/addressing-system.ts` (435 lines of robust addressing logic)
+**Core Features:**
 - **Type Safety**: Comprehensive interfaces for `DocumentAddress`, `SectionAddress`, `TaskAddress`
 - **Performance**: LRU caching with automatic eviction (1000 item limit)
 - **Error Handling**: Custom error types with context (`AddressingError`, `DocumentNotFoundError`, `SectionNotFoundError`)
 - **Flexibility**: Support for multiple input formats (`"section"`, `"#section"`, `"/doc.md#section"`)
-
-**🔧 Complete Tool Migration:**
-All 8 MCP tools successfully migrated to use central addressing:
-- **View Tools**: `view-section.ts`, `view-task.ts`, `create-document.ts`
-- **Core Editing**: `section.ts`, `task.ts`, `complete-task.ts`, `manage-document.ts`
-- **Navigation**: `browse-documents.ts`
-
-**🛡️ Issue Resolution:**
-Systematically resolved all 6 critical issues from alpha testing:
-1. **Data Integrity**: Section removal boundary preservation (no more data loss)
-2. **Task Workflow**: Complete task system rebuild with structural analysis
-3. **Content Retrieval**: Normalized slug handling for section viewing
-4. **Address Flexibility**: Universal support for `"section"` and `"#section"` formats
-5. **Document Persistence**: Verified working in `.spec-docs-mcp/docs/` structure
-6. **Namespace Display**: Root documents correctly show `namespace: "root"`
 
 #### **Document Addressing**
 ```typescript
@@ -616,43 +632,7 @@ const taskPath = ToolIntegration.formatTaskPath(addresses.task);
 // Returns: '/project/setup.md#initialize-project (task)'
 ```
 
-#### **3. Centralized Parser Usage**
-```typescript
-import {
-  parseDocumentAddress,
-  parseSectionAddress,
-  parseTaskAddress
-} from '../shared/addressing-system.js';
-
-// Individual parsers for specific needs
-const document = parseDocumentAddress('/api/specs/auth.md');
-const section = parseSectionAddress('#overview', document.path);
-const task = parseTaskAddress('setup-database', '/project/setup.md');
-
-// Bulk validation for tool parameters
-const { addresses } = ToolIntegration.validateAndParse({
-  document: '/api/specs/auth.md',
-  section: 'overview'  // or '#overview' - both work
-});
-```
-
-#### **4. Performance and Caching**
-```typescript
-import { AddressingUtils } from '../shared/addressing-system.js';
-
-// Cache management and debugging
-const stats = AddressingUtils.getCacheStats();
-// Returns: { documentCacheSize: 45, sectionCacheSize: 128, maxSize: 1000 }
-
-// Clear cache for testing
-AddressingUtils.clearCache();
-
-// Format validation utilities
-const isDocPath = AddressingUtils.looksLikeDocumentPath('/api/spec.md'); // true
-const isSectionRef = AddressingUtils.looksLikeSectionReference('#overview'); // true
-```
-
-#### **5. Error Handling and Validation**
+#### **3. Error Handling and Validation**
 ```typescript
 import { AddressingError, DocumentNotFoundError } from '../shared/addressing-system.js';
 
@@ -671,64 +651,58 @@ try {
 }
 ```
 
-### **🎯 Migration Guidelines & Success Metrics**
 
-#### **✅ Completed Migration Patterns**
+## SYSTEMATIC ISSUE RESOLUTION WORKFLOW
 
-**Before Migration (Inconsistent):**
-```typescript
-// OLD: Manual path parsing and inconsistent formats
-const docPath = args.document;
-const sectionSlug = args.section?.startsWith('#') ? args.section.substring(1) : args.section;
-const namespace = docPath === '/root-file.md' ? 'root' : docPath.split('/')[1];
+### **The "Special Sauce" - Proven Systematic Approach**
+
+Based on our successful alpha testing and comprehensive issue resolution, this systematic approach enables sustained productivity and quality outcomes:
+
+#### **🎯 Core Workflow Principles**
+1. **One Tool at a Time** - Never have multiple agents/developers working on the same tool simultaneously to avoid conflicts
+2. **Evidence-Based Resolution** - Always replicate issues using MCP inspector before attempting fixes
+3. **[Edit → Build → Test] Repeat Loop** - Mandatory cycle until acceptance criteria met
+4. **Quality Gates Enforcement** - `pnpm check:all` must pass before considering work complete
+5. **Comprehensive Regression Testing** - Test ALL functions of a tool after changes, not just the fixed function
+
+#### **📋 Structured Task Management**
+```markdown
+## Per-Tool Task Packet Structure:
+- **Clear Problem Statement** with original user wording
+- **Steps to Replicate** using MCP inspector
+- **Milestones & Acceptance Criteria** with explicit DoD (Definition of Done)
+- **Non-Regression Checks** covering all tool functions
+- **Evidence Requirements** (logs, screenshots, diffs, MCP inspector sessions)
 ```
 
-**After Migration (Standardized):**
-```typescript
-// NEW: Centralized addressing with validation
-const { addresses } = ToolIntegration.validateAndParse({
-  document: args.document,
-  section: args.section  // Handles both 'section' and '#section' automatically
-});
+#### **🔄 Agent-Based Issue Resolution Pattern**
+1. **Coordinator** consolidates issues and slices work per tool with clear boundaries
+2. **Specialist Agent** receives complete context, replicates issue, executes fix cycle
+3. **Evidence Collection** with MCP inspector demonstrations and quality gate verification
+4. **Knowledge Sharing** via structured notes capturing lessons learned and bad practices flagged
 
-const documentInfo = ToolIntegration.formatDocumentInfo(addresses.document);
+#### **🛠️ Technical Execution Standards**
+```bash
+# Mandatory quality verification cycle:
+pnpm test:run      # ALL tests must pass
+pnpm lint          # ZERO warnings/errors
+pnpm typecheck     # ZERO type errors
+pnpm check:dead-code # ZERO unused exports
+pnpm inspector:dev # Manual testing with MCP inspector
 ```
 
-#### **🛠️ Migration Implementation Success**
+#### **📝 Documentation and Learning**
+- **Capture Bad Practices** encountered with rationale and suggested replacements
+- **Document Reusable Patterns** for future development
+- **Evidence-Based Decisions** with comprehensive evaluation (e.g., hierarchical addressing evaluation)
+- **Continuous Knowledge Updates** to prevent repeated mistakes
 
-**Tools Successfully Migrated:** 8/8 (100% completion)
-1. ✅ `view-section.ts` - Fixed content retrieval with normalized addressing
-2. ✅ `view-task.ts` - Structural task identification instead of slug prefixes
-3. ✅ `section.ts` - Universal `#slug` and `slug` format support
-4. ✅ `task.ts` - Complete rebuild with `getTaskHeadings()` structural analysis
-5. ✅ `complete-task.ts` - Integrated with new task addressing system
-6. ✅ `manage-document.ts` - Standardized document operations
-7. ✅ `create-document.ts` - Progressive discovery with addressing validation
-8. ✅ `browse-documents.ts` - Namespace consistency for root documents
-
-#### **🎯 Quality Metrics Achieved**
-
-**Code Quality Gates:** ✅ ALL PASSING
-- **ESLint**: 0 errors, 0 warnings
-- **TypeScript**: 0 compilation errors
-- **Dead Code Detection**: 0 unused exports
-- **Build System**: Clean compilation without warnings
-- **Test Framework**: 253 tests passing across 7 test files
-
-**Performance Improvements:**
-- **LRU Caching**: Address parsing cached (1000 item limit)
-- **Type Safety**: Compile-time validation prevents runtime errors
-- **Error Context**: Rich error messages with debugging context
-- **Memory Efficiency**: Automatic cache eviction prevents memory leaks
-
-#### **🔧 Technical Debt Resolution**
-
-**Eliminated Issues:**
-1. **Inconsistent addressing** - All tools now use centralized parsers
-2. **Manual slug handling** - Automated normalization with flexible input support
-3. **Namespace calculation** - Centralized `pathToNamespace()` with 'root' handling
-4. **Error handling** - Comprehensive custom error types with context
-5. **Cache management** - Automatic LRU eviction and performance optimization
+### **Why This Approach Works**
+- **Prevents Tool Conflicts** - Sequential tool work eliminates merge conflicts and overlapping changes
+- **Ensures Complete Testing** - MCP inspector usage catches integration issues missed by unit tests
+- **Maintains Quality** - Rigid quality gates prevent technical debt accumulation
+- **Knowledge Preservation** - Systematic documentation enables learning from every issue resolution
+- **Sustained Productivity** - Clear structure allows extended work sessions (1+ hour) without degradation
 
 ## Key Principles
 
@@ -739,6 +713,7 @@ const documentInfo = ToolIntegration.formatDocumentInfo(addresses.document);
 5. **No Dead Code** - Zero unused exports allowed (enforced by CI)
 6. **MCP Compliance** - Use proper MCP patterns and error handling
 7. **Production Ready** - Every change must pass ALL quality gates
+8. **Systematic Workflow** - Use the proven ALPHA-TEST-WORKFLOW.md approach for complex issue resolution
 
 ## DEBUGGING PRINCIPLES
 
