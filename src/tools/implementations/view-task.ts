@@ -110,15 +110,18 @@ export async function viewTask(
     }
   });
 
-  // Validate all tasks exist in document and are within tasks section
+  // Import task identification logic from addressing system
+  const { isTaskSection } = await import('../../shared/addressing-system.js');
+
+  // Use getTaskHeadings similar to task.ts for consistent task identification
+  const taskHeadings = await getTaskHeadings(document, tasksSection);
+
+  // Validate all requested tasks exist and are actual tasks
   for (const taskAddr of taskAddresses) {
-    const taskExists = document.headings.some(h => h.slug === taskAddr.slug);
+    const taskExists = taskHeadings.some(h => h.slug === taskAddr.slug);
     if (!taskExists) {
-      // Get available tasks for error message
-      const availableTasks = document.headings
-        .filter(h => h.slug.startsWith(`${tasksSection.slug}/`))
-        .map(h => h.slug)
-        .join(', ');
+      // Get available tasks for error message (use same logic as task.ts)
+      const availableTasks = taskHeadings.map(h => h.slug).join(', ');
       throw new AddressingError(
         `Task not found: ${taskAddr.slug}. Available tasks: ${availableTasks}`,
         'TASK_NOT_FOUND',
@@ -126,8 +129,16 @@ export async function viewTask(
       );
     }
 
-    // Check if task is actually within the tasks section
-    if (!taskAddr.slug.startsWith(`${tasksSection.slug}/`)) {
+    // Validate this is actually a task using addressing system logic
+    const compatibleDocument = {
+      headings: document.headings.map(h => ({
+        slug: h.slug,
+        title: h.title,
+        depth: h.depth
+      }))
+    };
+    const isTask = await isTaskSection(taskAddr.slug, compatibleDocument);
+    if (!isTask) {
       throw new AddressingError(
         `Section ${taskAddr.slug} is not a task (not under tasks section)`,
         'NOT_A_TASK',
@@ -242,4 +253,58 @@ function extractDependencies(content: string): string[] {
   if (depsString.toLowerCase() === 'none') return [];
 
   return depsString.split(',').map(dep => dep.trim()).filter(dep => dep !== '');
+}
+
+/**
+ * Find all task headings that are children of the Tasks section
+ * Updated to use addressing system's isTaskSection for consistent task identification
+ * COPIED FROM task.ts FOR CONSISTENCY
+ */
+async function getTaskHeadings(
+  document: { readonly headings: readonly { slug: string; title: string; depth: number }[] },
+  tasksSection: { slug: string; depth: number }
+): Promise<Array<{ slug: string; title: string; depth: number }>> {
+  const taskHeadings: Array<{ slug: string; title: string; depth: number }> = [];
+  const tasksIndex = document.headings.findIndex(h => h.slug === tasksSection.slug);
+
+  if (tasksIndex === -1) return taskHeadings;
+
+  const targetDepth = tasksSection.depth + 1;
+
+  // Look at headings after the Tasks section using addressing system validation
+  for (let i = tasksIndex + 1; i < document.headings.length; i++) {
+    const heading = document.headings[i];
+    if (heading == null) continue;
+
+    // If we hit a heading at the same or shallower depth as Tasks, we're done
+    if (heading.depth <= tasksSection.depth) {
+      break;
+    }
+
+    // If this is a direct child of Tasks section (depth = Tasks.depth + 1), it's a task
+    if (heading.depth === targetDepth) {
+      // Use addressing system to validate this is actually a task
+      const compatibleDocument = {
+        headings: document.headings.map(h => ({
+          slug: h.slug,
+          title: h.title,
+          depth: h.depth
+        }))
+      };
+
+      const { isTaskSection } = await import('../../shared/addressing-system.js');
+      const isTask = await isTaskSection(heading.slug, compatibleDocument);
+      if (isTask) {
+        taskHeadings.push({
+          slug: heading.slug,
+          title: heading.title,
+          depth: heading.depth
+        });
+      }
+    }
+
+    // Skip deeper nested headings (they are children of tasks, not tasks themselves)
+  }
+
+  return taskHeadings;
 }

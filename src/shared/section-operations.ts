@@ -4,6 +4,7 @@
 
 import type { DocumentManager } from '../document-manager.js';
 import type { InsertMode } from '../types/index.js';
+import { getSectionContentForRemoval, deleteSection } from '../sections.js';
 
 /**
  * Helper function to perform a single section edit operation
@@ -33,11 +34,8 @@ export async function performSectionEdit(
       throw new Error(`Section not found: ${sectionSlug}. Available sections: ${document.headings.map(h => h.slug).join(', ')}`);
     }
 
-    // Get current content for recovery
-    const removedContent = await manager.getSectionContent(normalizedPath, sectionSlug) ?? '';
-
-    // Remove the section using the sections utility
-    const { deleteSection } = await import('../sections.js');
+    // Get the actual content that will be removed (excluding boundary markers)
+    // This ensures the reported removed_content matches what deleteSection actually removes
     const { loadConfig } = await import('../config.js');
     const path = await import('node:path');
     const config = loadConfig();
@@ -45,6 +43,10 @@ export async function performSectionEdit(
     const { readFileSnapshot, writeFileIfUnchanged } = await import('../fsio.js');
 
     const snapshot = await readFileSnapshot(absolutePath);
+
+    // Get the content that will actually be removed (matches deleteSection behavior)
+    const removedContent = getSectionContentForRemoval(snapshot.content, sectionSlug) ?? '';
+
     const updatedContent = deleteSection(snapshot.content, sectionSlug);
     await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updatedContent);
 

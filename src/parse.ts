@@ -7,7 +7,7 @@ import remarkParse from 'remark-parse';
 import { toString } from 'mdast-util-to-string';
 import { visitParents } from 'unist-util-visit-parents';
 import type { Heading as MdHeading, Root } from 'mdast';
-import { titleToSlug } from './slug.js';
+import GithubSlugger from 'github-slugger';
 import { DEFAULT_LIMITS, ERROR_CODES } from './constants/defaults.js';
 import type { Heading, TocNode, HeadingDepth, SpecDocsError } from './types/index.js';
 
@@ -52,12 +52,16 @@ function parseMarkdown(markdown: string): Root {
 
 /**
  * Extracts all headings from markdown with hierarchy information
+ * Uses document-scoped slugger to ensure unique slugs for duplicate titles
  */
 export function listHeadings(markdown: string): readonly Heading[] {
   const tree = parseMarkdown(markdown);
   const headings: Heading[] = [];
   // Track parent-child relationships through AST traversal
   let counter = -1;
+
+  // Use document-scoped slugger for unique slug generation
+  const slugger = new GithubSlugger();
 
   visitParents(tree, 'heading', (node: MdHeading) => {
     counter++;
@@ -72,7 +76,7 @@ export function listHeadings(markdown: string): readonly Heading[] {
     }
 
     const title = toString(node).trim();
-    
+
     // Validate title length
     if (title.length > DEFAULT_LIMITS.MAX_HEADING_TITLE_LENGTH) {
       throw createError(
@@ -90,12 +94,13 @@ export function listHeadings(markdown: string): readonly Heading[] {
       );
     }
 
-    const slug = titleToSlug(title);
+    // Use stateful slugger to handle duplicates automatically
+    const slug = slugger.slug(title);
     const depth = normalizeHeadingDepth(node.depth);
 
     // Find parent heading (nearest previous heading with smaller depth)
     let parentIndex: number | null = null;
-    
+
     // Look through already processed headings in reverse order
     for (let i = headings.length - 1; i >= 0; i--) {
       const heading = headings[i];
@@ -156,31 +161,25 @@ export function buildToc(markdown: string): readonly TocNode[] {
 
 /**
  * Validates that a markdown document structure is well-formed
+ * Note: With stateful slugger, duplicate slugs are automatically handled
  */
 export function validateMarkdownStructure(markdown: string): void {
   try {
+    // Parse headings to trigger validation of limits and structure
     const headings = listHeadings(markdown);
-    const slugCounts = new Map<string, number>();
 
-    // Check for duplicate slugs at the same hierarchical level
-    headings.forEach((heading) => {
-      const key = `${heading.parentIndex}:${heading.slug}`;
-      const count = slugCounts.get(key) ?? 0;
-      slugCounts.set(key, count + 1);
+    // Basic structure validation - the stateful slugger ensures unique slugs
+    // so we don't need to check for duplicates anymore
 
-      if (count > 0) {
-        throw createError(
-          `Duplicate heading slug "${heading.slug}" found at same hierarchical level`,
-          ERROR_CODES.DUPLICATE_HEADING,
-          {
-            slug: heading.slug,
-            title: heading.title,
-            parentIndex: heading.parentIndex,
-            index: heading.index,
-          }
-        );
-      }
-    });
+    // Verify we have headings if this is called
+    if (headings.length === 0) {
+      // This is actually valid - documents can have no headings
+      return;
+    }
+
+    // Additional structural validation could be added here if needed
+    // For now, the heading parsing itself handles most validation
+
   } catch (error) {
     if (error instanceof Error && 'code' in error) {
       throw error; // Re-throw our custom errors

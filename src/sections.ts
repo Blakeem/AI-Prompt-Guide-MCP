@@ -455,6 +455,49 @@ export function renameHeading(markdown: string, slug: string, newTitle: string):
 }
 
 /**
+ * Gets the content that would be removed by a deleteSection operation
+ * This excludes the end boundary marker to match actual removal behavior
+ */
+export function getSectionContentForRemoval(markdown: string, slug: string): string | null {
+  if (!slug || typeof slug !== 'string') {
+    throw createError(
+      'Slug must be a non-empty string',
+      ERROR_CODES.INVALID_SLUG,
+      { slug }
+    );
+  }
+
+  const tree = parseMarkdown(markdown);
+  let captured: string | null = null;
+
+  headingRange(tree, matchHeadingBySlug(slug), (start, nodes, _end) => {
+    // Serialize only the content that will be removed (excluding end boundary)
+    // This matches the behavior of deleteSection which preserves the end marker
+    const section: Root = {
+      type: 'root',
+      children: [start, ...nodes].filter(Boolean) as Content[],
+    };
+
+    try {
+      captured = toMarkdown(section);
+    } catch (error) {
+      throw createError(
+        'Failed to serialize section content for removal',
+        ERROR_CODES.INVALID_SECTION_CONTENT,
+        {
+          slug,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      );
+    }
+
+    return [start, ...nodes]; // No modification (not actually removing anything here)
+  });
+
+  return captured;
+}
+
+/**
  * Deletes an entire section (heading and its content)
  */
 export function deleteSection(markdown: string, slug: string): string {

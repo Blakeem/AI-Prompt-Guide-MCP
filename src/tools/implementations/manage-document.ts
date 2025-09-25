@@ -177,17 +177,16 @@ async function performDocumentOperation(
   switch (operation) {
     case 'archive': {
       // Archive document (move to archive folder with audit trail) using validated addresses
-      await manager.archiveDocument(addresses.document.path);
+      const archiveResult = await manager.archiveDocument(addresses.document.path);
 
-      // Build archive paths using validated document path
-      const archiveBasePath = addresses.document.path.replace(/^\//, '/archived/');
-      const auditPath = archiveBasePath.replace(/\.md$/, '.audit.json');
+      // Use the actual paths returned by archiveDocument (handles duplicates correctly)
+      const auditPath = `${archiveResult.archivePath}.audit`;
 
       return {
         action: 'archived',
         document: addresses.document.path,
-        from: addresses.document.path,
-        to: archiveBasePath,
+        from: archiveResult.originalPath,
+        to: archiveResult.archivePath,
         audit_file: auditPath,
         document_info: createDocumentInfo(addresses.document)
       };

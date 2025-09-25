@@ -184,10 +184,9 @@ export async function loadLinkedDocumentContext(
       }
     }
 
-    // Extract namespace from document path
-    const namespace = current.docPath.includes('/')
-      ? current.docPath.substring(1, current.docPath.lastIndexOf('/'))
-      : '';
+    // Extract namespace using central addressing system
+    const { pathToNamespace } = await import('./path-utilities.js');
+    const namespace = pathToNamespace(current.docPath);
 
     // Create source link reference
     const sourceLink = current.sectionSlug != null && current.sectionSlug !== ''

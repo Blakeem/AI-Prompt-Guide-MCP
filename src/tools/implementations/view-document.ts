@@ -200,10 +200,10 @@ async function processDocument(
   document: CachedDocument,
   sectionSlug: string | undefined
 ): Promise<ViewDocumentResponse['documents'][0]> {
-  // Extract namespace from document path
-  const namespace = documentPath.includes('/')
-    ? documentPath.substring(1, documentPath.lastIndexOf('/'))
-    : '';
+  // Extract namespace using central addressing system
+  const { parseDocumentAddress } = await import('../../shared/addressing-system.js');
+  const documentAddress = parseDocumentAddress(documentPath);
+  const namespace = documentAddress.namespace;
 
   // Build enhanced sections list with hierarchical information
   let sectionsToShow = document.headings;
@@ -313,30 +313,47 @@ async function processDocument(
     sectionsWithoutLinks
   };
 
-  // Analyze tasks if present
+  // Analyze tasks if present using consistent logic from task.ts
   let tasks: ViewDocumentResponse['documents'][0]['tasks'];
-  const taskSection = document.headings.find((h: { slug: string; title: string }) => h.slug === 'tasks' || h.title.toLowerCase().includes('task'));
-  if (taskSection != null) {
-    const taskContent = await manager.getSectionContent(documentPath, taskSection.slug) ?? '';
-    const taskMatches = taskContent.match(/^\s*- \[([ x])\]/gm) ?? [];
-    const totalTasks = taskMatches.length;
-    const completedTasks = taskMatches.filter((match: string) => match.includes('[x]')).length;
-    const pendingTasks = totalTasks - completedTasks;
+  const taskSection = document.headings.find((h: { slug: string; title: string }) =>
+    h.slug === 'tasks' || h.title.toLowerCase() === 'tasks'
+  );
 
+  if (taskSection != null) {
+    // Use the same task identification logic as task.ts
+    const taskHeadings = await getTaskHeadingsForViewDocument(document, taskSection);
+
+    let completedTasks = 0;
+    let pendingTasks = 0;
     const sectionsWithTasks: string[] = [];
-    for (const heading of document.headings) {
-      const content = await manager.getSectionContent(documentPath, heading.slug) ?? '';
-      if (content.match(/^\s*- \[([ x])\]/m) != null) {
-        sectionsWithTasks.push(heading.slug);
+
+    // Analyze each task heading for status
+    for (const taskHeading of taskHeadings) {
+      const content = await manager.getSectionContent(documentPath, taskHeading.slug) ?? '';
+
+      // Extract status using same logic as task.ts
+      const status = extractTaskStatus(content) ?? 'pending';
+
+      if (status === 'completed') {
+        completedTasks++;
+      } else {
+        pendingTasks++;
       }
+
+      sectionsWithTasks.push(taskHeading.slug);
     }
 
-    tasks = {
-      total: totalTasks,
-      completed: completedTasks,
-      pending: pendingTasks,
-      sections_with_tasks: sectionsWithTasks
-    };
+    const totalTasks = taskHeadings.length;
+
+    // Only include tasks object if there are actual tasks
+    if (totalTasks > 0) {
+      tasks = {
+        total: totalTasks,
+        completed: completedTasks,
+        pending: pendingTasks,
+        sections_with_tasks: sectionsWithTasks
+      };
+    }
   }
 
   // Return document data
@@ -397,4 +414,70 @@ async function buildSectionContext(
     child_sections: childSections,
     sibling_sections: siblingSections
   };
+}
+
+/**
+ * Find all task headings that are children of the Tasks section
+ * COPIED FROM task.ts FOR CONSISTENCY
+ */
+async function getTaskHeadingsForViewDocument(
+  document: CachedDocument,
+  tasksSection: { slug: string; title: string; depth?: number }
+): Promise<Array<{ slug: string; title: string; depth: number }>> {
+  const taskHeadings: Array<{ slug: string; title: string; depth: number }> = [];
+  const tasksIndex = document.headings.findIndex(h => h.slug === tasksSection.slug);
+
+  if (tasksIndex === -1) return taskHeadings;
+
+  const tasksSectionDepth = tasksSection.depth ?? document.headings.find(h => h.slug === tasksSection.slug)?.depth ?? 2;
+  const targetDepth = tasksSectionDepth + 1;
+
+  // Look at headings after the Tasks section
+  for (let i = tasksIndex + 1; i < document.headings.length; i++) {
+    const heading = document.headings[i];
+    if (heading == null) continue;
+
+    // If we hit a heading at the same or shallower depth as Tasks, we're done
+    if (heading.depth <= tasksSectionDepth) {
+      break;
+    }
+
+    // If this is a direct child of Tasks section (depth = Tasks.depth + 1), it's a task
+    if (heading.depth === targetDepth) {
+      // Use addressing system to validate this is actually a task
+      const compatibleDocument = {
+        headings: document.headings.map(h => ({
+          slug: h.slug,
+          title: h.title,
+          depth: h.depth
+        }))
+      };
+
+      const { isTaskSection } = await import('../../shared/addressing-system.js');
+      const isTask = await isTaskSection(heading.slug, compatibleDocument);
+      if (isTask) {
+        taskHeadings.push({
+          slug: heading.slug,
+          title: heading.title,
+          depth: heading.depth
+        });
+      }
+    }
+
+    // Skip deeper nested headings (they are children of tasks, not tasks themselves)
+  }
+
+  return taskHeadings;
+}
+
+/**
+ * Extract task status from content (same logic as task.ts)
+ */
+function extractTaskStatus(content: string): string | undefined {
+  // Support both "* Status: value" and "- Status: value" formats
+  const starMatch = content.match(/^\* Status:\s*(.+)$/m);
+  if (starMatch != null) return starMatch[1]?.trim();
+
+  const dashMatch = content.match(/^- Status:\s*(.+)$/m);
+  return dashMatch?.[1]?.trim();
 }
