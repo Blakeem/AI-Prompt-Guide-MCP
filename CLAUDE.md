@@ -56,13 +56,8 @@ pnpm check:all          # Runs all checks: lint + typecheck + dead-code
 Based on practical experience implementing this system, here are the most common linting issues encountered and their proper solutions:
 
 ### 1. **Non-null Assertions (`@typescript-eslint/no-non-null-assertion`)**
-❌ **Avoid:** `array[0]!.property` or `value!`
-✅ **Use:** Explicit null checks with proper handling
+Use explicit null checks with proper handling:
 ```typescript
-// Bad
-const firstHeading = headings[0]!.slug;
-
-// Good 
 const firstHeading = headings[0];
 if (firstHeading != null) {
   const slug = firstHeading.slug;
@@ -81,62 +76,33 @@ if (value != null && value.startsWith('#')) {
 ```
 
 ### 3. **Nullish Coalescing (`@typescript-eslint/prefer-nullish-coalescing`)**
-❌ **Avoid:** `||` for potentially falsy values
-✅ **Use:** `??` for null/undefined checks
+Use `??` for null/undefined checks:
 ```typescript
-// Bad
-const title = heading.title || 'Default Title';
-const matches = content.match(regex) || [];
-
-// Good
-const title = heading.title ?? 'Default Title'; 
+const title = heading.title ?? 'Default Title';
 const matches = content.match(regex) ?? [];
 ```
 
 ### 4. **Nullish Assignment (`@typescript-eslint/prefer-nullish-coalescing`)**
-❌ **Avoid:** Manual null checks for assignment
-✅ **Use:** `??=` operator
+Use `??=` operator for conditional assignment:
 ```typescript
-// Bad
-if (document.sections == null) {
-  document.sections = new Map();
-}
-
-// Good
 document.sections ??= new Map();
 ```
 
 ### 5. **String Concatenation (`prefer-template`)**
-❌ **Avoid:** String concatenation with `+`
-✅ **Use:** Template literals
+Use template literals:
 ```typescript
-// Bad
-content += '\n\n' + tocPlaceholder;
-
-// Good
 content = `${content}\n\n${tocPlaceholder}`;
 ```
 
 ### 6. **Strict Boolean Expressions (`@typescript-eslint/strict-boolean-expressions`)**
-❌ **Avoid:** Implicit truthiness checks
-✅ **Use:** Explicit comparisons
+Use explicit comparisons:
 ```typescript
-// Bad - implicit truthiness
-if (line && !line.startsWith('#')) { }
-
-// Good - explicit checks
 if (line != null && line !== '' && !line.startsWith('#')) { }
 ```
 
 ### 7. **Function Return Types (`@typescript-eslint/explicit-function-return-type`)**
 Always add explicit return types to public methods:
 ```typescript
-// Bad
-async getDocument(docPath: string) {
-  return await this.cache.getDocument(docPath);
-}
-
-// Good
 async getDocument(docPath: string): Promise<CachedDocument | null> {
   return await this.cache.getDocument(docPath);
 }
@@ -148,65 +114,41 @@ async getDocument(docPath: string): Promise<CachedDocument | null> {
 **ALWAYS use the existing markdown parsing tools** (`listHeadings()`, `buildToc()`, `insertRelative()`, `readSection()`) instead of manual string manipulation. The toolkit provides these tools specifically to avoid brittle string parsing that breaks on edge cases.
 
 #### **Task Identification Pattern**
-**ALWAYS use structural analysis for task identification**, not slug-based patterns:
+Use structural analysis for task identification:
 ```typescript
-// ✅ CORRECT: Use structural analysis
 import { isTaskSection } from '../shared/addressing-system.js';
 
 const isTask = await isTaskSection(heading.slug, document);
 if (isTask) {
   // Handle as task
 }
-
-// ❌ WRONG: Don't use slug prefixes or naming conventions
-if (heading.slug.startsWith('task-') || heading.title.includes('TODO')) {
-  // This approach is brittle and inconsistent
-}
 ```
 
 #### **Archive Operations Pattern**
-**ALWAYS capture actual return values from archive operations**, don't construct paths manually:
+Capture actual return values from archive operations:
 ```typescript
-// ✅ CORRECT: Use actual return values
 const result = await manager.archiveDocument(addresses.document.path);
 return {
-  archived_to: result.archivePath,    // Use actual path
-  audit_file: result.auditPath        // Use actual audit path
-};
-
-// ❌ WRONG: Manual path construction
-return {
-  archived_to: `${docsRoot}/archived/${docSlug}.md`,  // May be incorrect
-  audit_file: `${docsRoot}/archived/${docSlug}_audit.json`  // May be incorrect
+  archived_to: result.archivePath,
+  audit_file: result.auditPath
 };
 ```
 
 #### **Single GithubSlugger Instance**
-**ALWAYS use a single GithubSlugger instance per document** for automatic duplicate handling:
+Use a single GithubSlugger instance per document for automatic duplicate handling:
 ```typescript
-// ✅ CORRECT: Single instance per document
 const slugger = new GithubSlugger();
 headings.forEach(heading => {
   heading.slug = slugger.slug(heading.title);  // Auto handles duplicates: task, task-1, task-2
 });
-
-// ❌ WRONG: Multiple instances lose duplicate tracking
-headings.forEach(heading => {
-  const slugger = new GithubSlugger();  // Creates new instance each time
-  heading.slug = slugger.slug(heading.title);  // Duplicates not handled
-});
 ```
 
 #### **CachedDocument Access Pattern**
-**ALWAYS access document.sections for content**, not non-existent properties:
+Access document.sections for content:
 ```typescript
-// ✅ CORRECT: Access existing properties
 const document = await manager.getDocument(path);
 const sections = document.sections;  // Map<string, string>
 const metadata = document.metadata;  // DocumentMetadata
-
-// ❌ WRONG: document.content doesn't exist
-const content = document.content;  // TypeError: undefined property
 ```
 
 ## TESTING AND DEVELOPMENT
@@ -267,27 +209,22 @@ const manager = new DocumentManager(docsRoot);
 ### **Critical Internal Utilities & Patterns**
 
 #### **Section Boundary Handling**
-Use `getSectionContentForRemoval()` for accurate removal reporting that matches actual behavior:
+Use `getSectionContentForRemoval()` for accurate removal reporting:
 ```typescript
 import { getSectionContentForRemoval } from '../sections.js';
 
-// ✅ CORRECT: Matches actual removal behavior
 const contentToBeRemoved = getSectionContentForRemoval(document.content, sectionSlug);
 return {
   removed_content: contentToBeRemoved,  // Excludes end boundary marker
   // ... other response data
 };
-
-// ❌ WRONG: Using readSection() reports more content than actually removed
-const wrongContent = readSection(document.content, sectionSlug);
 ```
 
 #### **Unified Task Identification**
-Always use `getTaskHeadings()` for consistent task identification across all tools:
+Use `getTaskHeadings()` for consistent task identification across all tools:
 ```typescript
 import { getTaskHeadings } from '../tools/implementations/view-document.js';
 
-// ✅ CORRECT: Unified task identification logic
 export async function getTaskHeadings(document: CachedDocument): Promise<HeadingInfo[]> {
   const taskHeadings: HeadingInfo[] = [];
 
@@ -312,7 +249,6 @@ import {
   SectionNotFoundError
 } from '../shared/addressing-system.js';
 
-// ✅ CORRECT: Rich error context for debugging
 try {
   const { addresses } = ToolIntegration.validateAndParse({ document: path, section: slug });
 } catch (error) {
@@ -332,9 +268,8 @@ try {
 ```
 
 #### **Critical File System Utilities**
-Always check actual file structure - test against `.spec-docs-mcp/docs/` structure:
+Check actual file structure - test against `.spec-docs-mcp/docs/` structure:
 ```bash
-# ✅ CORRECT: Verify document structure during development
 ls -la .spec-docs-mcp/docs/        # Check root documents
 ls -la .spec-docs-mcp/docs/api/    # Check namespace structure
 ls -la .spec-docs-mcp/archived/    # Check archive functionality
@@ -718,7 +653,4 @@ pnpm inspector:dev # Manual testing with MCP inspector
 ## DEBUGGING PRINCIPLES
 
 ### **Never Mask Issues - Always Find Root Cause**
-When encountering warnings or errors:
-
-❌ **DON'T:** Hide warnings with grep, redirects, or suppression
-✅ **DO:** Trace to the actual source and resolve properly
+When encountering warnings or errors, trace to the actual source and resolve properly.
