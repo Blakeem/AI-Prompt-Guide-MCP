@@ -74,7 +74,7 @@ export async function viewTask(
   }
 
   // Use addressing system for document validation
-  const { addresses } = ToolIntegration.validateAndParse({
+  const { addresses } = await ToolIntegration.validateAndParse({
     document: args['document'],
     // We don't use task here because we need to handle multiple tasks manually
   });
@@ -99,16 +99,16 @@ export async function viewTask(
   }
 
   // Parse and validate all tasks using addressing system
-  const taskAddresses = tasks.map(taskSlug => {
+  const taskAddresses = await Promise.all(tasks.map(async taskSlug => {
     try {
-      return parseTaskAddress(taskSlug, addresses.document.path);
+      return await parseTaskAddress(taskSlug, addresses.document.path);
     } catch (error) {
       if (error instanceof AddressingError) {
         throw error;
       }
       throw new AddressingError(`Invalid task reference: ${taskSlug}`, 'INVALID_TASK', { taskSlug });
     }
-  });
+  }));
 
   // Import task identification logic from addressing system
   const { isTaskSection } = await import('../../shared/addressing-system.js');

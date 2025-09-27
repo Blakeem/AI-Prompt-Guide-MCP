@@ -124,7 +124,7 @@ export async function browseDocuments(
         // Optional section validation if provided
         let sectionAddress;
         if (sectionSlug != null && sectionSlug !== '') {
-          sectionAddress = parseSectionAddress(sectionSlug, documentAddress.path);
+          sectionAddress = await parseSectionAddress(sectionSlug, documentAddress.path);
         }
 
         const { sections, document_context } = await getSectionStructure(

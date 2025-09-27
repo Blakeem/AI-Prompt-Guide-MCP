@@ -12,8 +12,7 @@ import {
 import {
   ToolIntegration,
   AddressingError,
-  parseDocumentAddress,
-  AddressingUtils
+  parseDocumentAddress
 } from '../../shared/addressing-system.js';
 
 /**
@@ -39,20 +38,6 @@ interface SectionOperationResult {
   removed_content?: string;
 }
 
-/**
- * Calculate parent slug from hierarchical section slug
- * Uses the addressing system's slug normalization
- */
-function getParentSlug(sectionSlug: string): string | null {
-  const normalizedSlug = AddressingUtils.normalizeSlug(sectionSlug);
-  const parts = normalizedSlug.split('/');
-
-  if (parts.length <= 1) {
-    return null; // No parent for top-level sections
-  }
-
-  return parts.slice(0, -1).join('/');
-}
 
 /**
  * Process a single section operation with addressing system
@@ -63,7 +48,7 @@ async function processSectionOperation(
 ): Promise<SectionOperationResult> {
   try {
     // Use addressing system for validation and parsing
-    const { addresses } = ToolIntegration.validateAndParse({
+    const { addresses } = await ToolIntegration.validateAndParse({
       document: operation.document,
       section: operation.section
     });
@@ -140,7 +125,7 @@ export async function section(
       for (const op of operations) {
         try {
           // Parse and validate each operation's addresses
-          const { addresses } = ToolIntegration.validateAndParse({
+          const { addresses } = await ToolIntegration.validateAndParse({
             document: op.document ?? '',
             section: op.section ?? ''
           });
@@ -193,7 +178,7 @@ export async function section(
       const singleOp = args as unknown as SectionOperation;
 
       // Validate and parse addresses
-      const { addresses } = ToolIntegration.validateAndParse({
+      const { addresses } = await ToolIntegration.validateAndParse({
         document: singleOp.document ?? '',
         section: singleOp.section ?? ''
       });
@@ -237,11 +222,16 @@ export async function section(
 
       // Return different response based on action
       if (result.action === 'created') {
-        // Add hierarchical slug information for created sections using addressing utilities
+        // Add hierarchical info (backward compatibility)
         const hierarchicalInfo = {
-          slug_depth: result.depth ?? 1,  // Use actual markdown heading depth, not slug path depth
-          parent_slug: getParentSlug(result.section)
+          slug_depth: result.depth ?? 1,  // Use actual markdown heading depth
+          parent_slug: result.section.includes('/')
+            ? result.section.split('/').slice(0, -1).join('/')
+            : null
         };
+
+        // Add new hierarchical context (enhancement) using standardized ToolIntegration method
+        const hierarchicalContext = ToolIntegration.formatHierarchicalContext(sectionAddress);
 
         // Analyze links in the created content
         const linkAssistance = await analyzeSectionLinks(content, docAddress.path, result.section, manager);
@@ -254,6 +244,7 @@ export async function section(
           operation,
           timestamp: new Date().toISOString(),
           hierarchical_info: hierarchicalInfo,
+          ...(hierarchicalContext != null && { hierarchical_context: hierarchicalContext }),
           link_assistance: linkAssistance,
           ...(documentInfo && { document_info: documentInfo })
         };
@@ -268,16 +259,20 @@ export async function section(
           ...(documentInfo && { document_info: documentInfo })
         };
       } else {
-        // Add hierarchical slug information for updated sections
-        // For edit operations, get the actual depth from the document
+        // Add hierarchical info (backward compatibility)
         const updatedDocument = await manager.getDocument(docAddress.path);
         const sectionHeading = updatedDocument?.headings.find(h => h.slug === result.section);
         const actualDepth = sectionHeading?.depth ?? 1;
 
         const hierarchicalInfo = {
           slug_depth: actualDepth,  // Use actual markdown heading depth
-          parent_slug: getParentSlug(result.section)
+          parent_slug: result.section.includes('/')
+            ? result.section.split('/').slice(0, -1).join('/')
+            : null
         };
+
+        // Add new hierarchical context (enhancement) using standardized ToolIntegration method
+        const hierarchicalContext = ToolIntegration.formatHierarchicalContext(sectionAddress);
 
         // Analyze links in the updated content
         const linkAssistance = await analyzeSectionLinks(content, docAddress.path, result.section, manager);
@@ -289,6 +284,7 @@ export async function section(
           operation,
           timestamp: new Date().toISOString(),
           hierarchical_info: hierarchicalInfo,
+          ...(hierarchicalContext != null && { hierarchical_context: hierarchicalContext }),
           link_assistance: linkAssistance,
           ...(documentInfo && { document_info: documentInfo })
         };

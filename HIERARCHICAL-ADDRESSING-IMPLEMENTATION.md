@@ -185,7 +185,7 @@ async getSectionContent(docPath: string, slug: string): Promise<string | null> {
 **File:** `src/shared/addressing-system.ts:185-245`
 
 ```typescript
-export function parseSectionAddress(sectionRef: string, contextDoc?: string): SectionAddress {
+export async function parseSectionAddress(sectionRef: string, contextDoc?: string): Promise<SectionAddress> {
   // ... existing validation logic ...
 
   let documentPath: string;
@@ -212,7 +212,7 @@ export function parseSectionAddress(sectionRef: string, contextDoc?: string): Se
   }
 
   // Enhanced slug normalization for hierarchical paths
-  const normalizedSlug = normalizeHierarchicalSlug(sectionSlug);
+  const normalizedSlug = await normalizeHierarchicalSlug(sectionSlug);
 
   if (normalizedSlug === '') {
     throw new InvalidAddressError(sectionRef, 'Section slug cannot be empty');
@@ -230,7 +230,7 @@ export function parseSectionAddress(sectionRef: string, contextDoc?: string): Se
   return address;
 }
 
-function normalizeHierarchicalSlug(slug: string): string {
+async function normalizeHierarchicalSlug(slug: string): Promise<string> {
   // Remove # prefix if present
   let normalized = slug.startsWith('#') ? slug.substring(1) : slug;
 

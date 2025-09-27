@@ -261,24 +261,43 @@ class DocumentCache extends EventEmitter {
     // Check if sections are already loaded
     document.sections ??= new Map();
 
-    // Return cached section if available
-    if (document.sections.has(slug)) {
-      return document.sections.get(slug) ?? null;
+    // Check cache for both flat and hierarchical keys
+    const cacheKeys = [slug];
+    if (slug.includes('/')) {
+      // Also try the final component as a fallback
+      const parts = slug.split('/');
+      const lastPart = parts.pop();
+      if (lastPart != null && lastPart !== '') {
+        cacheKeys.push(lastPart);
+      }
     }
 
-    // Load section from file
+    for (const key of cacheKeys) {
+      if (document.sections.has(key)) {
+        return document.sections.get(key) ?? null;
+      }
+    }
+
+    // Load section from file with hierarchical support
     try {
       const absolutePath = this.getAbsolutePath(docPath);
       const content = await fs.readFile(absolutePath, 'utf8');
-      
-      // Use existing readSection function to extract section
+
       const { readSection } = await import('./sections.js');
       const sectionContent = readSection(content, slug);
-      
+
       if (sectionContent != null) {
+        // Cache under both hierarchical and flat keys for efficiency
         document.sections.set(slug, sectionContent);
+        if (slug.includes('/')) {
+          const parts = slug.split('/');
+          const flatKey = parts.pop();
+          if (flatKey != null && flatKey !== '') {
+            document.sections.set(flatKey, sectionContent);
+          }
+        }
       }
-      
+
       return sectionContent;
     } catch (error) {
       logger.error('Failed to load section content', { path: docPath, slug, error });

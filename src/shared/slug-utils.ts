@@ -318,7 +318,7 @@ export function validateSlugPath(slugPath: string): SlugPathOperation {
  * @param slugPath - Raw slug path to normalize
  * @returns Normalized slug path
  */
-function normalizeSlugPath(slugPath: string): string {
+export function normalizeSlugPath(slugPath: string): string {
   if (typeof slugPath !== 'string') {
     return '';
   }

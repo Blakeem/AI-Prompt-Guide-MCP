@@ -10,11 +10,13 @@ import { headingRange } from 'mdast-util-heading-range';
 import type { Root, Heading as MdHeading, Content } from 'mdast';
 import { visitParents } from 'unist-util-visit-parents';
 import { titleToSlug } from './slug.js';
+import { listHeadings } from './parse.js';
 import { ERROR_CODES, DEFAULT_LIMITS } from './constants/defaults.js';
-import type { 
-  HeadingDepth, 
-  InsertMode, 
-  SpecDocsError 
+import type {
+  HeadingDepth,
+  InsertMode,
+  SpecDocsError,
+  Heading
 } from './types/index.js';
 
 /**
@@ -41,13 +43,96 @@ function parseMarkdown(markdown: string): Root {
 }
 
 /**
- * Creates a heading matcher function for the given slug
+ * Creates a heading matcher function for the given slug with hierarchical support
  */
-function matchHeadingBySlug(slug: string) {
+function matchHeadingBySlug(slug: string, headings?: readonly Heading[]) {
+  let headingIndex = -1; // Track which heading we're currently testing
+
   return (value: string): boolean => {
-    return titleToSlug(value.trim()) === slug;
+    headingIndex++; // Increment for each heading tested
+    const basicSlug = titleToSlug(value.trim());
+
+    // For hierarchical paths, we need to match the specific heading, not just any heading with the same title
+    if (slug.includes('/') && headings) {
+      // Find the target heading using our hierarchical logic
+      const targetHeading = findTargetHierarchicalHeading(slug, headings);
+      if (targetHeading) {
+        // Only match if this is the exact heading we want
+        return headingIndex === targetHeading.index && titleToSlug(targetHeading.title) === basicSlug;
+      }
+      return false;
+    }
+
+    // Direct flat match (current behavior)
+    return basicSlug === slug;
   };
 }
+
+/**
+ * Finds the specific heading that matches the hierarchical path
+ */
+function findTargetHierarchicalHeading(targetPath: string, headings: readonly Heading[]): Heading | null {
+  const pathParts = targetPath.toLowerCase().split('/');
+  const finalSlug = pathParts[pathParts.length - 1];
+
+  // Find all sections that match the final slug (could be multiple due to disambiguation)
+  const candidateSections = headings.filter(h => {
+    return h.slug === finalSlug || h.slug.startsWith(`${finalSlug}-`);
+  });
+
+  // For each candidate, check if its hierarchy matches the expected path
+  for (const targetSection of candidateSections) {
+    const actualPath: string[] = [];
+    let currentDepth = targetSection.depth;
+    const currentIndex = targetSection.index;
+
+    // Walk backwards through headings to build the actual path
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      const heading = headings[i];
+      if (heading != null && heading.depth < currentDepth) {
+        actualPath.unshift(heading.slug);
+        currentDepth = heading.depth;
+      }
+    }
+    actualPath.push(targetSection.slug);
+
+    // Check if this path matches what we expect
+    const actualPathStr = actualPath.join('/');
+    const expectedPathStr = pathParts.join('/');
+
+    // For hierarchical matching, check if the expected path is a suffix of the actual path
+    if (actualPathStr === expectedPathStr || actualPathStr.endsWith(`/${expectedPathStr}`)) {
+      return targetSection;
+    }
+
+    // Try to match by handling disambiguation in intermediate path components
+    // For example: "frontend/authentication/jwt-tokens" should match "frontend/authentication-1/jwt-tokens-1"
+    if (pathParts.length > 1) {
+      // Build expected path with potential disambiguation
+      const expectedWithPossibleDisambiguation = pathParts.map((part, index) => {
+        // For each part, see if there's a disambiguated version in the actual path
+        const actualPart = actualPath[actualPath.length - pathParts.length + index];
+        if (actualPart != null && actualPart !== '' && (actualPart === part || actualPart.startsWith(`${part}-`))) {
+          return actualPart;
+        }
+        return part;
+      }).join('/');
+
+      if (actualPathStr === expectedWithPossibleDisambiguation || actualPathStr.endsWith(`/${expectedWithPossibleDisambiguation}`)) {
+        return targetSection;
+      }
+    }
+
+    // Also check if we can match by replacing the final slug with the disambiguated version
+    const expectedWithDisambiguated = pathParts.slice(0, -1).concat([targetSection.slug]).join('/');
+    if (actualPathStr === expectedWithDisambiguated || actualPathStr.endsWith(`/${expectedWithDisambiguated}`)) {
+      return targetSection;
+    }
+  }
+
+  return null;
+}
+
 
 /**
  * Finds the parent heading index for a given slug
@@ -166,10 +251,33 @@ export function readSection(markdown: string, slug: string): string | null {
     );
   }
 
+  // For hierarchical paths, validate that the path is reasonable before proceeding
+  if (slug.includes('/')) {
+    // Check for obvious invalid cases
+    if (slug.includes('//') || slug.startsWith('/') || slug.endsWith('/')) {
+      throw createError(
+        `Invalid hierarchical path: ${slug}`,
+        ERROR_CODES.INVALID_SLUG,
+        { slug }
+      );
+    }
+
+    const headings = listHeadings(markdown);
+    const targetHeading = findTargetHierarchicalHeading(slug, headings);
+    if (!targetHeading) {
+      throw createError(
+        `Section not found in hierarchical context: ${slug}`,
+        ERROR_CODES.HEADING_NOT_FOUND,
+        { slug }
+      );
+    }
+  }
+
   const tree = parseMarkdown(markdown);
+  const headings = listHeadings(markdown); // Get heading context
   let captured: string | null = null;
 
-  headingRange(tree, matchHeadingBySlug(slug), (start, nodes, end) => {
+  headingRange(tree, matchHeadingBySlug(slug, headings), (start, nodes, end) => {
     // Serialize the captured section including the heading
     const section: Root = {
       type: 'root',
@@ -214,13 +322,14 @@ export function replaceSectionBody(
   validateSectionBody(newBodyMarkdown);
 
   const tree = parseMarkdown(markdown);
+  const headings = listHeadings(markdown); // Get heading context
   const newBodyTree = parseMarkdown(newBodyMarkdown);
 
   // Filter out any heading nodes from the new body (safety measure)
   const sanitizedChildren = newBodyTree.children.filter(node => node.type !== 'heading');
 
   let found = false;
-  headingRange(tree, matchHeadingBySlug(slug), (start, _nodes, end) => {
+  headingRange(tree, matchHeadingBySlug(slug, headings), (start, _nodes, end) => {
     found = true;
     return [start, ...sanitizedChildren, end].filter(Boolean);
   });
@@ -330,8 +439,9 @@ export function insertRelative(
 
   let found = false;
   const resultTree = parseMarkdown(markdown); // Fresh tree for mutation
-  
-  headingRange(resultTree, matchHeadingBySlug(refSlug), (start, nodes, end) => {
+  const headings = listHeadings(markdown); // Get heading context
+
+  headingRange(resultTree, matchHeadingBySlug(refSlug, headings), (start, nodes, end) => {
     found = true;
     
     switch (mode) {
@@ -468,9 +578,10 @@ export function getSectionContentForRemoval(markdown: string, slug: string): str
   }
 
   const tree = parseMarkdown(markdown);
+  const headings = listHeadings(markdown); // Get heading context
   let captured: string | null = null;
 
-  headingRange(tree, matchHeadingBySlug(slug), (start, nodes, _end) => {
+  headingRange(tree, matchHeadingBySlug(slug, headings), (start, nodes, _end) => {
     // Serialize only the content that will be removed (excluding end boundary)
     // This matches the behavior of deleteSection which preserves the end marker
     const section: Root = {
@@ -510,9 +621,10 @@ export function deleteSection(markdown: string, slug: string): string {
   }
 
   const tree = parseMarkdown(markdown);
+  const headings = listHeadings(markdown); // Get heading context
   let found = false;
 
-  headingRange(tree, matchHeadingBySlug(slug), (_start, _nodes, end) => {
+  headingRange(tree, matchHeadingBySlug(slug, headings), (_start, _nodes, end) => {
     found = true;
     // CRITICAL BUG FIX: Preserve the end heading to prevent data loss
     // The end heading marks the start of the next section and must not be deleted

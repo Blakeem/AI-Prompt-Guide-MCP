@@ -37,7 +37,7 @@ export class SectionNotFoundError extends AddressingError {
   }
 }
 
-class InvalidAddressError extends AddressingError {
+export class InvalidAddressError extends AddressingError {
   constructor(address: string, reason: string) {
     super(`Invalid address: ${address} - ${reason}`, 'INVALID_ADDRESS', { address, reason });
   }
@@ -184,10 +184,29 @@ export function parseDocumentAddress(docPath: string): DocumentAddress {
 }
 
 /**
+ * Normalize a hierarchical slug by removing # prefix and normalizing path components
+ *
+ * @param slug - Raw slug that may contain hierarchical paths
+ * @returns Normalized hierarchical slug
+ */
+async function normalizeHierarchicalSlug(slug: string): Promise<string> {
+  // Remove # prefix if present
+  let normalized = slug.startsWith('#') ? slug.substring(1) : slug;
+
+  // Normalize hierarchical path components
+  if (normalized.includes('/')) {
+    const { normalizeSlugPath } = await import('./slug-utils.js');
+    normalized = normalizeSlugPath(normalized);
+  }
+
+  return normalized;
+}
+
+/**
  * Parse and normalize a section reference with caching
  * Supports formats: "section", "#section", "/doc.md#section"
  */
-export function parseSectionAddress(sectionRef: string, contextDoc?: string): SectionAddress {
+export async function parseSectionAddress(sectionRef: string, contextDoc?: string): Promise<SectionAddress> {
   if (typeof sectionRef !== 'string') {
     throw new InvalidAddressError(String(sectionRef), 'Section reference must be a string');
   }
@@ -226,8 +245,8 @@ export function parseSectionAddress(sectionRef: string, contextDoc?: string): Se
     sectionSlug = sectionRef;
   }
 
-  // Normalize section slug (remove # prefix if present)
-  const normalizedSlug = sectionSlug.startsWith('#') ? sectionSlug.substring(1) : sectionSlug;
+  // Enhanced slug normalization for hierarchical paths
+  const normalizedSlug = await normalizeHierarchicalSlug(sectionSlug);
 
   if (normalizedSlug === '') {
     throw new InvalidAddressError(sectionRef, 'Section slug cannot be empty');
@@ -250,9 +269,9 @@ export function parseSectionAddress(sectionRef: string, contextDoc?: string): Se
  * Parse and normalize a task reference with caching
  * Tasks are special sections that live under a "Tasks" parent section
  */
-export function parseTaskAddress(taskRef: string, contextDoc?: string): TaskAddress {
+export async function parseTaskAddress(taskRef: string, contextDoc?: string): Promise<TaskAddress> {
   // Parse as a section first
-  const sectionAddr = parseSectionAddress(taskRef, contextDoc);
+  const sectionAddr = await parseSectionAddress(taskRef, contextDoc);
 
   const address: TaskAddress = {
     document: sectionAddr.document,
@@ -304,24 +323,34 @@ export interface StandardizedParams {
 /**
  * Parse common tool parameters into standardized addresses
  */
-function standardizeToolParams(params: {
+async function standardizeToolParams(params: {
   document: string;
   section?: string;
   task?: string;
-}): StandardizedParams {
+}): Promise<StandardizedParams> {
   const document = parseDocumentAddress(params.document);
 
   const result: StandardizedParams = { document };
 
   if (params.section != null && params.section !== '') {
-    result.section = parseSectionAddress(params.section, document.path);
+    result.section = await parseSectionAddress(params.section, document.path);
   }
 
   if (params.task != null && params.task !== '') {
-    result.task = parseTaskAddress(params.task, document.path);
+    result.task = await parseTaskAddress(params.task, document.path);
   }
 
   return result;
+}
+
+/**
+ * Hierarchical context information for section addresses
+ */
+export interface HierarchicalContext {
+  full_path: string;
+  parent_path: string;
+  section_name: string;
+  depth: number;
 }
 
 /**
@@ -331,11 +360,11 @@ export class ToolIntegration {
   /**
    * Standard parameter validation and parsing for document-based tools
    */
-  static validateAndParse<T extends Record<string, unknown>>(
+  static async validateAndParse<T extends Record<string, unknown>>(
     params: T & { document: string; section?: string; task?: string }
-  ): { addresses: StandardizedParams; params: T } {
+  ): Promise<{ addresses: StandardizedParams; params: T }> {
     try {
-      const addresses = standardizeToolParams({
+      const addresses = await standardizeToolParams({
         document: params.document,
         ...(params.section != null && { section: params.section }),
         ...(params.task != null && { task: params.task })
@@ -370,10 +399,11 @@ export class ToolIntegration {
   }
 
   /**
-   * Standard section path formatting for responses
+   * Standard section path formatting for responses with hierarchical indicator
    */
   static formatSectionPath(section: SectionAddress): string {
-    return section.fullPath;
+    const path = section.fullPath;
+    return section.slug.includes('/') ? `${path} (hierarchical)` : path;
   }
 
   /**
@@ -382,54 +412,54 @@ export class ToolIntegration {
   static formatTaskPath(task: TaskAddress): string {
     return `${task.fullPath} (task)`;
   }
-}
-
-
-/**
- * Performance and debugging utilities
- */
-export class AddressingUtils {
-  /**
-   * Clear address cache (useful for testing)
-   */
-  static clearCache(): void {
-    cache.clear();
-  }
 
   /**
-   * Get cache statistics for debugging
+   * Format hierarchical context for section addresses
+   * Returns null for flat sections, detailed context for hierarchical
    */
-  static getCacheStats(): {
-    documentCacheSize: number;
-    sectionCacheSize: number;
-    maxSize: number;
-  } {
-    // Need to access private properties - use a public method instead
+  static formatHierarchicalContext(section: SectionAddress): HierarchicalContext | null {
+    if (!section.slug.includes('/')) {
+      return null;
+    }
+
+    const parts = section.slug.split('/');
     return {
-      documentCacheSize: cache.getDocumentCacheSize(),
-      sectionCacheSize: cache.getSectionCacheSize(),
-      maxSize: cache.getMaxSize()
+      full_path: section.slug,
+      parent_path: parts.slice(0, -1).join('/'),
+      section_name: parts[parts.length - 1] ?? '',
+      depth: parts.length
     };
   }
 
   /**
-   * Normalize section slug (utility for manual operations)
+   * Enhanced error formatting with hierarchical context
    */
-  static normalizeSlug(slug: string): string {
-    return slug.startsWith('#') ? slug.substring(1) : slug;
-  }
+  static formatHierarchicalError(
+    error: AddressingError,
+    suggestion?: string
+  ): { error: string; context?: unknown; suggestion?: string } {
+    const result: { error: string; context?: unknown; suggestion?: string } = {
+      error: error.message
+    };
 
-  /**
-   * Check if a string looks like a document path
-   */
-  static looksLikeDocumentPath(str: string): boolean {
-    return typeof str === 'string' && str.includes('/') && str.endsWith('.md');
-  }
+    if (error.context != null) {
+      result.context = error.context;
+    }
 
-  /**
-   * Check if a string looks like a section reference
-   */
-  static looksLikeSectionReference(str: string): boolean {
-    return typeof str === 'string' && (str.includes('#') || !str.includes('/'));
+    // Add hierarchical-aware suggestions
+    if (error instanceof SectionNotFoundError && error.context != null) {
+      const slug = error.context['slug'] as string;
+      if (typeof slug === 'string' && slug.includes('/')) {
+        const parentPath = slug.split('/').slice(0, -1).join('/');
+        result.suggestion = suggestion ?? `Section not found. Try checking parent section: ${parentPath}`;
+      } else if (suggestion != null) {
+        result.suggestion = suggestion;
+      }
+    } else if (suggestion != null) {
+      result.suggestion = suggestion;
+    }
+
+    return result;
   }
 }
+

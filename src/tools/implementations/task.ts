@@ -17,10 +17,46 @@ import {
   DocumentNotFoundError,
   isTaskSection
 } from '../../shared/addressing-system.js';
+import type { parseDocumentAddress } from '../../shared/addressing-system.js';
 import type {
-  parseTaskAddress,
-  parseDocumentAddress
+  DocumentAddress,
+  TaskAddress
 } from '../../shared/addressing-system.js';
+
+/**
+ * Get hierarchical context for a task slug
+ */
+function getTaskHierarchicalContext(taskSlug: string): TaskHierarchicalContext | null {
+  if (!taskSlug.includes('/')) {
+    return null; // No hierarchical context for flat tasks
+  }
+
+  const parts = taskSlug.split('/');
+  if (parts.length < 2) {
+    return null;
+  }
+
+  return {
+    full_path: taskSlug,
+    parent_path: parts.slice(0, -1).join('/'),
+    phase: parts[0] ?? '',
+    category: parts[1] ?? '',
+    task_name: parts[parts.length - 1] ?? '',
+    depth: parts.length
+  };
+}
+
+/**
+ * Hierarchical context for tasks
+ */
+interface TaskHierarchicalContext {
+  full_path: string;
+  parent_path: string;
+  phase: string;
+  category: string;
+  task_name: string;
+  depth: number;
+}
 
 interface TaskResult {
   operation: string;
@@ -32,7 +68,13 @@ interface TaskResult {
     priority?: string;
     link?: string;
     dependencies?: string[];
+    hierarchical_context?: TaskHierarchicalContext;
   }>;
+  hierarchical_summary?: {
+    by_phase: Record<string, { total: number; pending: number; in_progress: number; completed: number }>;
+    by_category: Record<string, { total: number; pending: number; in_progress?: number; completed?: number }>;
+    critical_path: string[];
+  };
   next_task?: {
     slug: string;
     title: string;
@@ -41,6 +83,7 @@ interface TaskResult {
   task_created?: {
     slug: string;
     title: string;
+    hierarchical_context?: TaskHierarchicalContext;
   };
   document_info?: {
     slug: string;
@@ -70,7 +113,7 @@ export async function task(
     const priorityFilter = args['priority'] as string;
 
     // Use addressing system for validation and parsing
-    const { addresses } = ToolIntegration.validateAndParse({
+    const { addresses } = await ToolIntegration.validateAndParse({
       document: args['document'],
       ...(taskSlug != null && taskSlug !== '' && { task: taskSlug })
     });
@@ -168,13 +211,17 @@ async function listTasks(
       const link = extractLinkFromContent(taskContent);
       const dependencies = extractDependencies(taskContent);
 
+      // Get hierarchical context for the task
+      const hierarchicalContext = getTaskHierarchicalContext(heading.slug);
+
       return {
         slug: heading.slug,
         title: heading.title,
         status,
         ...(priority != null && priority !== '' && { priority }),
         ...(link != null && link !== '' && { link }),
-        ...(dependencies.length > 0 && { dependencies })
+        ...(dependencies.length > 0 && { dependencies }),
+        ...(hierarchicalContext != null && { hierarchical_context: hierarchicalContext })
       };
     }));
 
@@ -190,10 +237,14 @@ async function listTasks(
     // Find next available task (pending or in_progress, high priority first)
     const nextTask = findNextTask(filteredTasks);
 
+    // Generate hierarchical summary
+    const hierarchicalSummary = generateHierarchicalSummary(filteredTasks);
+
     return {
       operation: 'list',
       document: addresses.document.path,
       tasks: filteredTasks,
+      ...(hierarchicalSummary != null && { hierarchical_summary: hierarchicalSummary }),
       ...(nextTask != null && { next_task: nextTask }),
       ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
       timestamp: new Date().toISOString()
@@ -272,7 +323,7 @@ ${content}`;
  */
 async function editTask(
   manager: DocumentManager,
-  addresses: { document: ReturnType<typeof parseDocumentAddress>; task?: ReturnType<typeof parseTaskAddress> },
+  addresses: { document: DocumentAddress; task?: TaskAddress },
   content: string,
   documentInfo?: unknown
 ): Promise<TaskResult> {
@@ -428,6 +479,109 @@ function findNextTask(tasks: Array<{ status: string; priority?: string; slug: st
     slug: nextTask.slug,
     title: nextTask.title,
     ...(nextTask.link != null && nextTask.link !== '' && { link: nextTask.link })
+  };
+}
+
+/**
+ * Generate hierarchical summary for tasks
+ */
+function generateHierarchicalSummary(
+  tasks: Array<{
+    slug: string;
+    status: string;
+    hierarchical_context?: TaskHierarchicalContext;
+  }>
+): {
+  by_phase: Record<string, { total: number; pending: number; in_progress: number; completed: number }>;
+  by_category: Record<string, { total: number; pending: number; in_progress?: number; completed?: number }>;
+  critical_path: string[];
+} | null {
+  const hierarchicalTasks = tasks.filter(t => t.hierarchical_context != null);
+
+  if (hierarchicalTasks.length === 0) {
+    return null; // No hierarchical tasks
+  }
+
+  // Group by phase
+  const byPhase: Record<string, { total: number; pending: number; in_progress: number; completed: number }> = {};
+  const byCategory: Record<string, { total: number; pending: number; in_progress?: number; completed?: number }> = {};
+
+  for (const task of hierarchicalTasks) {
+    const context = task.hierarchical_context;
+    if (context == null) continue;
+
+    const phase = context.phase;
+    const category = context.category;
+
+    // Initialize phase stats
+    byPhase[phase] ??= { total: 0, pending: 0, in_progress: 0, completed: 0 };
+
+    // Initialize category stats
+    byCategory[category] ??= { total: 0, pending: 0 };
+
+    // Update counts
+    const phaseStats = byPhase[phase];
+    const categoryStats = byCategory[category];
+
+    if (phaseStats != null) {
+      phaseStats.total++;
+    }
+    if (categoryStats != null) {
+      categoryStats.total++;
+    }
+
+    if (task.status === 'pending') {
+      if (phaseStats != null) {
+        phaseStats.pending++;
+      }
+      if (categoryStats != null) {
+        categoryStats.pending++;
+      }
+    } else if (task.status === 'in_progress') {
+      if (phaseStats != null) {
+        phaseStats.in_progress++;
+      }
+      if (categoryStats != null) {
+        categoryStats.in_progress ??= 0;
+        categoryStats.in_progress++;
+      }
+    } else if (task.status === 'completed') {
+      if (phaseStats != null) {
+        phaseStats.completed++;
+      }
+      if (categoryStats != null) {
+        categoryStats.completed ??= 0;
+        categoryStats.completed++;
+      }
+    }
+  }
+
+  // Generate critical path (simplified - tasks in dependency order)
+  const criticalPath = hierarchicalTasks
+    .filter(task => task.hierarchical_context != null)
+    .sort((a, b) => {
+      // Sort by phase first, then by category, then by task name
+      const aContext = a.hierarchical_context;
+      const bContext = b.hierarchical_context;
+
+      if (aContext == null || bContext == null) {
+        return 0; // Should not happen due to filter above, but safety
+      }
+
+      if (aContext.phase !== bContext.phase) {
+        return aContext.phase.localeCompare(bContext.phase);
+      }
+      if (aContext.category !== bContext.category) {
+        return aContext.category.localeCompare(bContext.category);
+      }
+      return aContext.task_name.localeCompare(bContext.task_name);
+    })
+    .map(t => t.slug);
+
+  return {
+    by_phase: byPhase,
+    by_category: byCategory,
+    critical_path: criticalPath
   };
 }
 

@@ -64,7 +64,7 @@ export async function completeTask(
     }
 
     // Use addressing system for validation and parsing
-    const { addresses } = ToolIntegration.validateAndParse({
+    const { addresses } = await ToolIntegration.validateAndParse({
       document: args['document'],
       task: args['task']
     });

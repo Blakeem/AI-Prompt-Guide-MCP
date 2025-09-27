@@ -4,6 +4,7 @@
  */
 
 import type { SessionState } from '../../session/types.js';
+import type { HierarchicalContext } from '../../shared/addressing-system.js';
 import {
   ToolIntegration,
   DocumentNotFoundError,
@@ -18,7 +19,7 @@ import {
 } from '../../shared/utilities.js';
 
 /**
- * Clean response format for view_section
+ * Enhanced response format for view_section with hierarchical support
  */
 interface ViewSectionResponse {
   document: string;
@@ -31,11 +32,18 @@ interface ViewSectionResponse {
     parent?: string;
     word_count: number;
     links: string[];
+    hierarchical_context: HierarchicalContext | null;
   }>;
   summary: {
     total_sections: number;
     total_words: number;
     has_content: boolean;
+    hierarchical_stats?: {
+      max_depth: number;
+      namespaces: string[];
+      flat_sections: number;
+      hierarchical_sections: number;
+    };
   };
 }
 
@@ -71,7 +79,7 @@ export async function viewSection(
   }
 
   // Use addressing system for document validation
-  const { addresses } = ToolIntegration.validateAndParse({
+  const { addresses } = await ToolIntegration.validateAndParse({
     document: args['document'],
     // We don't use section here because we need to handle multiple sections manually
   });
@@ -83,16 +91,16 @@ export async function viewSection(
   }
 
   // Parse and validate all sections using addressing system
-  const sectionAddresses = sections.map(sectionSlug => {
+  const sectionAddresses = await Promise.all(sections.map(async sectionSlug => {
     try {
-      return parseSectionAddress(sectionSlug, addresses.document.path);
+      return await parseSectionAddress(sectionSlug, addresses.document.path);
     } catch (error) {
       if (error instanceof AddressingError) {
         throw error;
       }
       throw new AddressingError(`Invalid section reference: ${sectionSlug}`, 'INVALID_SECTION', { sectionSlug });
     }
-  });
+  }));
 
   // Validate all sections exist in document
   for (const sectionAddr of sectionAddresses) {
@@ -125,6 +133,9 @@ export async function viewSection(
     const fullPath = slugParts.join('/');
     const parent = getParentSlug(heading.slug);
 
+    // Get hierarchical context using standardized ToolIntegration method
+    const hierarchicalContext = ToolIntegration.formatHierarchicalContext(sectionAddr);
+
     const sectionData: ViewSectionResponse['sections'][0] = {
       slug: heading.slug,
       title: heading.title,
@@ -132,7 +143,8 @@ export async function viewSection(
       depth: heading.depth,
       full_path: fullPath,
       word_count: wordCount,
-      links
+      links,
+      hierarchical_context: hierarchicalContext
     };
 
     if (parent != null && parent !== '') {
@@ -142,11 +154,33 @@ export async function viewSection(
     return sectionData;
   }));
 
-  // Calculate summary statistics
+  // Calculate summary statistics with hierarchical stats
+  const hierarchicalSections = processedSections.filter(s => s.hierarchical_context != null);
+  const flatSections = processedSections.filter(s => s.hierarchical_context == null);
+
+  // Get unique namespaces from hierarchical sections
+  const namespaces = [...new Set(
+    hierarchicalSections
+      .map(s => s.hierarchical_context?.parent_path)
+      .filter((path): path is string => path != null && path !== '')
+  )];
+
+  // Calculate max depth
+  const maxDepth = Math.max(
+    ...hierarchicalSections.map(s => s.hierarchical_context?.depth ?? 0),
+    0
+  );
+
   const summary = {
     total_sections: processedSections.length,
     total_words: processedSections.reduce((sum, section) => sum + section.word_count, 0),
-    has_content: processedSections.some(section => section.content.trim() !== '')
+    has_content: processedSections.some(section => section.content.trim() !== ''),
+    hierarchical_stats: {
+      max_depth: maxDepth,
+      namespaces,
+      flat_sections: flatSections.length,
+      hierarchical_sections: hierarchicalSections.length
+    }
   };
 
   return {
