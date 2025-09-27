@@ -12,7 +12,6 @@ import {
   type TaskAddress
 } from '../../shared/addressing-system.js';
 import {
-  splitSlugPath,
   getParentSlug,
   getDocumentManager
 } from '../../shared/utilities.js';
@@ -53,30 +52,19 @@ export async function viewTask(
   // Initialize document manager
   const manager = await getDocumentManager();
 
-  // Import helper functions
-  const {
-    parseTasks,
-    validateTaskCount
-  } = await import('../schemas/view-task-schemas.js');
+  // Import helper functions (now handled by standardized validation)
+  // const { parseTasks, validateTaskCount } = await import('../schemas/view-task-schemas.js');
 
-  // Validate required parameters
-  if (typeof args['document'] !== 'string' || args['document'] === '') {
-    throw new AddressingError('document parameter is required and must be a non-empty string', 'INVALID_PARAMETER');
-  }
+  // Validate required parameters using standardized utilities
+  const documentPath = ToolIntegration.validateDocumentParameter(args['document']);
+  const tasks = ToolIntegration.validateArrayParameter(args['task'], 'task');
 
-  if (args['task'] == null || (typeof args['task'] !== 'string' && !Array.isArray(args['task']))) {
-    throw new AddressingError('task parameter is required and must be a string or array of strings', 'INVALID_PARAMETER');
-  }
-
-  // Parse tasks using existing schema helper but validate count
-  const tasks = parseTasks(args['task'] as string | string[]);
-  if (!validateTaskCount(tasks)) {
-    throw new AddressingError(`Too many tasks. Maximum 10 tasks allowed, got ${tasks.length}`, 'TOO_MANY_TASKS');
-  }
+  // Validate count using standardized utility
+  ToolIntegration.validateCountLimit(tasks, 10, 'tasks');
 
   // Use addressing system for document validation
-  const { addresses } = await ToolIntegration.validateAndParse({
-    document: args['document'],
+  const { addresses } = ToolIntegration.validateAndParse({
+    document: documentPath,
     // We don't use task here because we need to handle multiple tasks manually
   });
 
@@ -101,12 +89,13 @@ export async function viewTask(
 
   // Parse and validate all tasks using addressing system
   // Use Promise.allSettled for non-critical view operations to handle partial failures gracefully
-  const taskAddressResults = await Promise.allSettled(tasks.map(async taskSlug => {
+  const taskAddressResults = await Promise.allSettled(tasks.map(taskSlug => {
     try {
-      return await parseTaskAddress(taskSlug, addresses.document.path);
+      return parseTaskAddress(taskSlug, addresses.document.path);
     } catch (error) {
       if (error instanceof AddressingError) {
-        throw error;
+        const errorResponse = ToolIntegration.formatHierarchicalError(error, 'Check task path format and hierarchical structure');
+        throw new AddressingError(errorResponse.error, error.code, errorResponse.context as Record<string, unknown> | undefined);
       }
       throw new AddressingError(`Invalid task reference: ${taskSlug}`, 'INVALID_TASK', { taskSlug });
     }
@@ -195,9 +184,7 @@ export async function viewTask(
     // Calculate word count
     const wordCount = content.split(/\s+/).filter(word => word.length > 0).length;
 
-    // Build hierarchical information using existing utilities
-    const slugParts = splitSlugPath(heading.slug);
-    const fullPath = slugParts.join('/');
+    // Build hierarchical information using standardized ToolIntegration methods
     const parent = getParentSlug(heading.slug);
 
     const taskData: ViewTaskResponse['tasks'][0] = {
@@ -205,7 +192,7 @@ export async function viewTask(
       title: heading.title,
       content,
       depth: heading.depth,
-      full_path: fullPath,
+      full_path: ToolIntegration.formatTaskPath(taskAddr),
       status,
       priority,
       dependencies,

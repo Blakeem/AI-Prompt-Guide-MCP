@@ -139,7 +139,7 @@ async function performDocumentOperation(
 }> {
 
   // Use addressing system for validation and parsing
-  const { addresses } = await ToolIntegration.validateAndParse({
+  const { addresses } = ToolIntegration.validateAndParse({
     document: docPath
   });
 
@@ -257,7 +257,7 @@ async function performDocumentOperation(
       const finalNewPath = newPath.endsWith('.md') ? newPath : `${newPath}.md`;
 
       // Validate the new path format using addressing system
-      const { addresses: newAddresses } = await ToolIntegration.validateAndParse({
+      const { addresses: newAddresses } = ToolIntegration.validateAndParse({
         document: finalNewPath
       });
 

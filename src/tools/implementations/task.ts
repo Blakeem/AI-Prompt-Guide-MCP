@@ -153,7 +153,7 @@ export async function task(
     const priorityFilter = args['priority'] as string;
 
     // Use addressing system for validation and parsing
-    const { addresses } = await ToolIntegration.validateAndParse({
+    const { addresses } = ToolIntegration.validateAndParse({
       document: args['document'],
       ...(taskSlug != null && taskSlug !== '' && { task: taskSlug })
     });
@@ -194,7 +194,8 @@ export async function task(
 
   } catch (error) {
     if (error instanceof AddressingError) {
-      throw error;
+      const errorResponse = ToolIntegration.formatHierarchicalError(error, 'Verify task section structure and document organization');
+      throw new AddressingError(errorResponse.error, error.code, errorResponse.context as Record<string, unknown> | undefined);
     }
     throw new AddressingError(
       `Task operation failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -317,7 +318,8 @@ async function listTasks(
 
   } catch (error) {
     if (error instanceof AddressingError) {
-      throw error;
+      const errorResponse = ToolIntegration.formatHierarchicalError(error, 'Check document has Tasks section and verify hierarchical structure');
+      throw new AddressingError(errorResponse.error, error.code, errorResponse.context as Record<string, unknown> | undefined);
     }
     throw new AddressingError(
       `Failed to list tasks: ${error instanceof Error ? error.message : String(error)}`,
@@ -372,7 +374,8 @@ ${content}`;
 
   } catch (error) {
     if (error instanceof AddressingError) {
-      throw error;
+      const errorResponse = ToolIntegration.formatHierarchicalError(error, 'Ensure Tasks section exists and task hierarchy is valid');
+      throw new AddressingError(errorResponse.error, error.code, errorResponse.context as Record<string, unknown> | undefined);
     }
     throw new AddressingError(
       `Failed to create task: ${error instanceof Error ? error.message : String(error)}`,
@@ -409,7 +412,8 @@ async function editTask(
 
   } catch (error) {
     if (error instanceof AddressingError) {
-      throw error;
+      const errorResponse = ToolIntegration.formatHierarchicalError(error, 'Verify task exists and hierarchy structure is correct');
+      throw new AddressingError(errorResponse.error, error.code, errorResponse.context as Record<string, unknown> | undefined);
     }
     throw new AddressingError(
       `Failed to edit task: ${error instanceof Error ? error.message : String(error)}`,

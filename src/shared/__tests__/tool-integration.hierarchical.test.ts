@@ -22,7 +22,7 @@ describe('ToolIntegration - Hierarchical Response Formatting', () => {
   describe('formatHierarchicalContext', () => {
     it('should format hierarchical context for multi-level paths', async () => {
       // Create mock section address for hierarchical path
-      const { addresses } = await ToolIntegration.validateAndParse({
+      const { addresses } = ToolIntegration.validateAndParse({
         document: '/api/authentication.md',
         section: 'api/authentication/jwt-tokens'
       });
@@ -42,7 +42,7 @@ describe('ToolIntegration - Hierarchical Response Formatting', () => {
     });
 
     it('should format hierarchical context for two-level paths', async () => {
-      const { addresses } = await ToolIntegration.validateAndParse({
+      const { addresses } = ToolIntegration.validateAndParse({
         document: '/docs/guide.md',
         section: 'frontend/components'
       });
@@ -62,7 +62,7 @@ describe('ToolIntegration - Hierarchical Response Formatting', () => {
     });
 
     it('should return null for flat sections', async () => {
-      const { addresses } = await ToolIntegration.validateAndParse({
+      const { addresses } = ToolIntegration.validateAndParse({
         document: '/docs/guide.md',
         section: 'authentication'
       });
@@ -77,7 +77,7 @@ describe('ToolIntegration - Hierarchical Response Formatting', () => {
     });
 
     it('should handle edge cases with single slash', async () => {
-      const { addresses } = await ToolIntegration.validateAndParse({
+      const { addresses } = ToolIntegration.validateAndParse({
         document: '/docs/guide.md',
         section: 'api/overview'
       });
@@ -97,7 +97,7 @@ describe('ToolIntegration - Hierarchical Response Formatting', () => {
     });
 
     it('should handle complex nested paths', async () => {
-      const { addresses } = await ToolIntegration.validateAndParse({
+      const { addresses } = ToolIntegration.validateAndParse({
         document: '/complex/nested.md',
         section: 'level1/level2/level3/level4'
       });
@@ -119,7 +119,7 @@ describe('ToolIntegration - Hierarchical Response Formatting', () => {
 
   describe('formatSectionPath with hierarchical indicator', () => {
     it('should add hierarchical indicator for hierarchical paths', async () => {
-      const { addresses } = await ToolIntegration.validateAndParse({
+      const { addresses } = ToolIntegration.validateAndParse({
         document: '/docs/api.md',
         section: 'api/auth/tokens'
       });
@@ -134,7 +134,7 @@ describe('ToolIntegration - Hierarchical Response Formatting', () => {
     });
 
     it('should not add indicator for flat paths', async () => {
-      const { addresses } = await ToolIntegration.validateAndParse({
+      const { addresses } = ToolIntegration.validateAndParse({
         document: '/docs/api.md',
         section: 'tokens'
       });
@@ -149,7 +149,7 @@ describe('ToolIntegration - Hierarchical Response Formatting', () => {
     });
 
     it('should handle complex hierarchical paths', async () => {
-      const { addresses } = await ToolIntegration.validateAndParse({
+      const { addresses } = ToolIntegration.validateAndParse({
         document: '/complex/document.md',
         section: 'level1/level2/level3/final'
       });
@@ -220,7 +220,7 @@ describe('ToolIntegration - Hierarchical Response Formatting', () => {
 
   describe('backward compatibility with existing methods', () => {
     it('should maintain existing formatDocumentInfo functionality', async () => {
-      const { addresses } = await ToolIntegration.validateAndParse({
+      const { addresses } = ToolIntegration.validateAndParse({
         document: '/api/authentication.md'
       });
 
@@ -236,7 +236,7 @@ describe('ToolIntegration - Hierarchical Response Formatting', () => {
     });
 
     it('should maintain existing formatTaskPath functionality', async () => {
-      const { addresses } = await ToolIntegration.validateAndParse({
+      const { addresses } = ToolIntegration.validateAndParse({
         document: '/project/setup.md',
         task: 'initialize-project'
       });

@@ -3,12 +3,15 @@
  */
 
 import type { DocumentManager } from '../document-manager.js';
-import { initializeGlobalCache } from '../document-cache.js';
+import { createDocumentCache } from '../document-cache.js';
+
+import type { DocumentCache } from '../document-cache.js';
 
 /**
- * Get document manager instance (lazy initialization)
+ * Get document manager instance (lazy initialization with dependency injection)
  */
 let documentManager: DocumentManager | null = null;
+let documentCache: DocumentCache | null = null;
 
 export async function getDocumentManager(): Promise<DocumentManager> {
   if (documentManager == null) {
@@ -18,19 +21,16 @@ export async function getDocumentManager(): Promise<DocumentManager> {
 
     const config = loadConfig();
 
-    // Initialize global cache if not already done
-    try {
-      initializeGlobalCache(config.docsBasePath, {
-        maxCacheSize: 100,
-        enableWatching: true,
-        watchIgnorePatterns: ['**/node_modules/**', '**/.git/**', '**/dist/**'],
-        evictionPolicy: 'lru'
-      });
-    } catch {
-      // Cache already initialized, ignore
-    }
+    // Create cache instance with dependency injection using factory function
+    documentCache ??= createDocumentCache(config.docsBasePath, {
+      maxCacheSize: 100,
+      enableWatching: true,
+      watchIgnorePatterns: ['**/node_modules/**', '**/.git/**', '**/dist/**'],
+      evictionPolicy: 'lru'
+    });
 
-    documentManager = new DocumentManager(config.docsBasePath);
+    documentManager = new DocumentManager(config.docsBasePath, documentCache);
   }
   return documentManager;
 }
+

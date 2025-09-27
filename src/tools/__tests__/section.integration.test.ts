@@ -80,13 +80,13 @@ describe('Edit Section Tool - Integration Tests', () => {
     await ensureDirectoryExists(TEST_DOCS_DIR);
 
     // Initialize global cache
-    initializeGlobalCache(TEST_DOCS_DIR, {
+    const cache = initializeGlobalCache(TEST_DOCS_DIR, {
       maxCacheSize: 10,
       enableWatching: false // Disable watching for tests
     });
 
-    // Create document manager
-    documentManager = new DocumentManager(TEST_DOCS_DIR);
+    // Create document manager with explicit cache dependency
+    documentManager = new DocumentManager(TEST_DOCS_DIR, cache);
 
     // Mock getDocumentManager to return our test instance
     const { getDocumentManager } = await import('../../shared/utilities.js');

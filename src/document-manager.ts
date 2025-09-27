@@ -4,7 +4,7 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { getGlobalCache } from './document-cache.js';
+import type { DocumentCache } from './document-cache.js';
 import { replaceSectionBody, insertRelative, renameHeading, deleteSection } from './sections.js';
 import { listHeadings, buildToc } from './parse.js';
 import { ensureDirectoryExists, writeFileIfUnchanged, readFileSnapshot, fileExists } from './fsio.js';
@@ -61,11 +61,12 @@ interface SearchResult {
  */
 export class DocumentManager {
   private readonly docsRoot: string;
-  private readonly cache = getGlobalCache();
+  private readonly cache: DocumentCache;
   private readonly pathHandler: PathHandler;
 
-  constructor(docsRoot: string) {
+  constructor(docsRoot: string, cache: DocumentCache) {
     this.docsRoot = path.resolve(docsRoot);
+    this.cache = cache;
     this.pathHandler = new PathHandler(this.docsRoot);
   }
 

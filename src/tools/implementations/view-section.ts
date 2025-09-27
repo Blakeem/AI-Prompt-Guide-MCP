@@ -14,7 +14,6 @@ import {
   type SectionAddress
 } from '../../shared/addressing-system.js';
 import {
-  splitSlugPath,
   getParentSlug,
   getDocumentManager
 } from '../../shared/utilities.js';
@@ -58,30 +57,19 @@ export async function viewSection(
   // Initialize document manager
   const manager = await getDocumentManager();
 
-  // Import helper functions
-  const {
-    parseSections,
-    validateSectionCount
-  } = await import('../schemas/view-section-schemas.js');
+  // Import helper functions (now handled by standardized validation)
+  // const { parseSections, validateSectionCount } = await import('../schemas/view-section-schemas.js');
 
-  // Validate required parameters
-  if (typeof args['document'] !== 'string' || args['document'] === '') {
-    throw new AddressingError('document parameter is required and must be a non-empty string', 'INVALID_PARAMETER');
-  }
+  // Validate required parameters using standardized utilities
+  const documentPath = ToolIntegration.validateDocumentParameter(args['document']);
+  const sections = ToolIntegration.validateArrayParameter(args['section'], 'section');
 
-  if (args['section'] == null || (typeof args['section'] !== 'string' && !Array.isArray(args['section']))) {
-    throw new AddressingError('section parameter is required and must be a string or array of strings', 'INVALID_PARAMETER');
-  }
-
-  // Parse sections using existing schema helper but validate count
-  const sections = parseSections(args['section'] as string | string[]);
-  if (!validateSectionCount(sections)) {
-    throw new AddressingError(`Too many sections. Maximum 10 sections allowed, got ${sections.length}`, 'TOO_MANY_SECTIONS');
-  }
+  // Validate count using standardized utility
+  ToolIntegration.validateCountLimit(sections, 10, 'sections');
 
   // Use addressing system for document validation
-  const { addresses } = await ToolIntegration.validateAndParse({
-    document: args['document'],
+  const { addresses } = ToolIntegration.validateAndParse({
+    document: documentPath,
     // We don't use section here because we need to handle multiple sections manually
   });
 
@@ -93,9 +81,9 @@ export async function viewSection(
 
   // Parse and validate all sections using addressing system
   // Use Promise.allSettled for non-critical view operations to handle partial failures gracefully
-  const sectionAddressResults = await Promise.allSettled(sections.map(async sectionSlug => {
+  const sectionAddressResults = await Promise.allSettled(sections.map(sectionSlug => {
     try {
-      return await parseSectionAddress(sectionSlug, addresses.document.path);
+      return parseSectionAddress(sectionSlug, addresses.document.path);
     } catch (error) {
       if (error instanceof AddressingError) {
         throw error;
@@ -153,9 +141,7 @@ export async function viewSection(
     // Calculate word count
     const wordCount = content.split(/\s+/).filter(word => word.length > 0).length;
 
-    // Build hierarchical information using existing utilities
-    const slugParts = splitSlugPath(heading.slug);
-    const fullPath = slugParts.join('/');
+    // Build hierarchical information using standardized ToolIntegration methods
     const parent = getParentSlug(heading.slug);
 
     // Get hierarchical context using standardized ToolIntegration method
@@ -166,7 +152,7 @@ export async function viewSection(
       title: heading.title,
       content,
       depth: heading.depth,
-      full_path: fullPath,
+      full_path: ToolIntegration.formatSectionPath(sectionAddr),
       word_count: wordCount,
       links,
       hierarchical_context: hierarchicalContext

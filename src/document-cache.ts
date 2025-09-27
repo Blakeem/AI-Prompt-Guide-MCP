@@ -10,6 +10,7 @@ import { EventEmitter } from 'node:events';
 import { listHeadings, buildToc } from './parse.js';
 import type { Heading, TocNode } from './types/index.js';
 import { getGlobalLogger } from './utils/logger.js';
+import { invalidateAddressCache } from './shared/addressing-system.js';
 
 const logger = getGlobalLogger();
 
@@ -55,7 +56,7 @@ const DEFAULT_OPTIONS: CacheOptions = {
 /**
  * Document cache with file watching and intelligent invalidation
  */
-class DocumentCache extends EventEmitter {
+export class DocumentCache extends EventEmitter {
   private readonly cache = new Map<string, CachedDocument>();
   private readonly accessOrder = new Map<string, number>();
   private readonly options: CacheOptions;
@@ -68,14 +69,41 @@ class DocumentCache extends EventEmitter {
     super();
     this.docsRoot = path.resolve(docsRoot);
     this.options = { ...DEFAULT_OPTIONS, ...options };
-    
+
     if (this.options.enableWatching) {
       this.initializeWatcher();
     }
-    
-    logger.info('DocumentCache initialized', { 
-      docsRoot: this.docsRoot, 
-      maxSize: this.options.maxCacheSize 
+
+    // Integrate with addressing system cache for consistency
+    this.setupAddressingCacheIntegration();
+
+    logger.info('DocumentCache initialized', {
+      docsRoot: this.docsRoot,
+      maxSize: this.options.maxCacheSize
+    });
+  }
+
+  /**
+   * Setup integration with addressing system cache to maintain consistency
+   */
+  private setupAddressingCacheIntegration(): void {
+    // Listen to our own document change events and invalidate addressing cache
+    this.on('document:changed', (docPath: string) => {
+      try {
+        invalidateAddressCache(docPath);
+        logger.debug('Invalidated addressing cache for changed document', { path: docPath });
+      } catch (error) {
+        logger.warn('Failed to invalidate addressing cache', { path: docPath, error });
+      }
+    });
+
+    this.on('document:deleted', (docPath: string) => {
+      try {
+        invalidateAddressCache(docPath);
+        logger.debug('Invalidated addressing cache for deleted document', { path: docPath });
+      } catch (error) {
+        logger.warn('Failed to invalidate addressing cache', { path: docPath, error });
+      }
     });
   }
 
@@ -381,11 +409,19 @@ class DocumentCache extends EventEmitter {
   invalidateDocument(docPath: string): boolean {
     const existed = this.cache.delete(docPath);
     this.accessOrder.delete(docPath);
-    
+
     if (existed) {
       logger.debug('Invalidated cached document', { path: docPath });
+
+      // Also invalidate addressing cache for consistency
+      try {
+        invalidateAddressCache(docPath);
+        logger.debug('Invalidated addressing cache for manually invalidated document', { path: docPath });
+      } catch (error) {
+        logger.warn('Failed to invalidate addressing cache during manual invalidation', { path: docPath, error });
+      }
     }
-    
+
     return existed;
   }
 
@@ -449,29 +485,40 @@ class DocumentCache extends EventEmitter {
 
 /**
  * Global cache instance (singleton pattern)
+ * @deprecated Use dependency injection with DocumentCache constructor instead
  */
 let globalCache: DocumentCache | undefined;
 
 /**
  * Initialize global document cache
+ * @deprecated Use dependency injection with DocumentCache constructor instead
  */
 export function initializeGlobalCache(docsRoot: string, options?: Partial<CacheOptions>): DocumentCache {
   if (globalCache) {
     throw new Error('Global document cache already initialized');
   }
-  
+
   globalCache = new DocumentCache(docsRoot, options);
   return globalCache;
 }
 
 /**
  * Get global cache instance
+ * @deprecated Use dependency injection with DocumentCache constructor instead
  */
 export function getGlobalCache(): DocumentCache {
   if (!globalCache) {
     throw new Error('Global document cache not initialized. Call initializeGlobalCache() first.');
   }
-  
+
   return globalCache;
+}
+
+/**
+ * Factory function for creating DocumentCache instances with explicit configuration
+ * This is the recommended approach for new code instead of global singletons
+ */
+export function createDocumentCache(docsRoot: string, options?: Partial<CacheOptions>): DocumentCache {
+  return new DocumentCache(docsRoot, options);
 }
 

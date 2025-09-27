@@ -9,6 +9,7 @@ import {
   getDocumentManager,
   parseLink
 } from '../../shared/utilities.js';
+import { DocumentNotFoundError } from '../../shared/addressing-system.js';
 
 /**
  * Enhanced response format for view_document (supports multiple documents)
@@ -118,24 +119,16 @@ export async function viewDocument(
   // Initialize document manager
   const manager = await getDocumentManager();
 
-  // Import helper functions
+  // Import helper functions (validation now handled by ToolIntegration)
   const {
-    parseDocuments,
     normalizeSection,
-    validateDocumentCount,
     isValidLinkDepth
   } = await import('../schemas/view-document-schemas.js');
 
-  // Input validation and parsing
-  const documentParam = args['document'];
-  if (documentParam == null || (typeof documentParam !== 'string' && !Array.isArray(documentParam))) {
-    throw new Error('document parameter is required and must be a string or array of strings');
-  }
-
-  const documents = parseDocuments(documentParam as string | string[]);
-  if (!validateDocumentCount(documents)) {
-    throw new Error(`Too many documents. Maximum ${5} documents allowed, got ${documents.length}`);
-  }
+  // Input validation and parsing using standardized utilities
+  const { ToolIntegration } = await import('../../shared/addressing-system.js');
+  const documents = ToolIntegration.validateArrayParameter(args['document'], 'document');
+  ToolIntegration.validateCountLimit(documents, 5, 'documents');
 
   const sectionSlug = normalizeSection(args['section'] as string);
   const includeLinked = args['include_linked'] as boolean ?? false;
@@ -152,19 +145,16 @@ export async function viewDocument(
   let sectionContext: ViewDocumentResponse['section_context'];
 
   for (const documentPath of documents) {
-    // Get document
-    const document = await manager.getDocument(documentPath);
-    if (document == null) {
-      throw new Error(`Document not found: ${documentPath}`);
-    }
+    // Use standardized document validation
+    const { addresses } = ToolIntegration.validateAndParse({
+      document: documentPath,
+      ...(sectionSlug != null && sectionSlug !== '' && { section: sectionSlug })
+    });
 
-    // If section-specific viewing, validate section exists
-    if (sectionSlug != null && sectionSlug !== '') {
-      const sectionExists = document.headings.some(h => h.slug === sectionSlug);
-      if (!sectionExists) {
-        const availableSections = document.headings.map(h => h.slug).join(', ');
-        throw new Error(`Section not found in ${documentPath}: ${sectionSlug}. Available sections: ${availableSections}`);
-      }
+    // Get document
+    const document = await manager.getDocument(addresses.document.path);
+    if (document == null) {
+      throw new DocumentNotFoundError(addresses.document.path);
     }
 
     const processedDoc = await processDocument(manager, documentPath, document, sectionSlug);
@@ -227,10 +217,9 @@ async function processDocument(
   document: CachedDocument,
   sectionSlug: string | undefined
 ): Promise<ViewDocumentResponse['documents'][0]> {
-  // Extract namespace using central addressing system
+  // Parse document address for standardized formatting
   const { parseDocumentAddress } = await import('../../shared/addressing-system.js');
   const documentAddress = parseDocumentAddress(documentPath);
-  const namespace = documentAddress.namespace;
 
   // Build enhanced sections list with hierarchical information
   let sectionsToShow = document.headings;
@@ -255,10 +244,12 @@ async function processDocument(
     const linkMatches = content.match(/@(?:\/[^\s\]]+(?:#[^\s\]]*)?|#[^\s\]]*)/g) ?? [];
     links.push(...linkMatches);
 
-    // Build hierarchical information
-    const { splitSlugPath, getParentSlug } = await import('../../shared/utilities.js');
-    const slugParts = splitSlugPath(heading.slug);
-    const fullPath = slugParts.join('/');
+    // Build hierarchical information using standardized ToolIntegration methods
+    const { parseSectionAddress, ToolIntegration } = await import('../../shared/addressing-system.js');
+    const { getParentSlug } = await import('../../shared/utilities.js');
+
+    const sectionAddress = parseSectionAddress(heading.slug, documentPath);
+    const fullPath = ToolIntegration.formatSectionPath(sectionAddress);
     const parent = getParentSlug(heading.slug);
 
     const sectionData: {
@@ -383,12 +374,15 @@ async function processDocument(
     }
   }
 
-  // Return document data
+  // Return document data using standardized ToolIntegration formatting
+  const { ToolIntegration } = await import('../../shared/addressing-system.js');
+  const documentInfo = ToolIntegration.formatDocumentInfo(documentAddress, { title: document.metadata.title });
+
   const documentData: ViewDocumentResponse['documents'][0] = {
     path: documentPath,
-    slug: documentPath.split('/').pop()?.replace('.md', '') ?? 'unknown',
-    title: document.metadata.title,
-    namespace,
+    slug: documentInfo.slug,
+    title: documentInfo.title,
+    namespace: documentInfo.namespace,
     sections: enhancedSections,
     documentLinks,
     lastModified,

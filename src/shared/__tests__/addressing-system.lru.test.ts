@@ -51,19 +51,19 @@ describe('AddressCache LRU Implementation', () => {
     // Access first section multiple times
     const firstSection = sections[0];
     if (firstSection != null) {
-      await parseSectionAddress(firstSection, contextDoc);
-      await parseSectionAddress(firstSection, contextDoc);
+      parseSectionAddress(firstSection, contextDoc);
+      parseSectionAddress(firstSection, contextDoc);
     }
 
     // Access middle section
     const middleSection = sections[2];
     if (middleSection != null) {
-      await parseSectionAddress(middleSection, contextDoc);
+      parseSectionAddress(middleSection, contextDoc);
     }
 
     // All sections should be accessible
     for (const section of sections) {
-      const addr = await parseSectionAddress(section, contextDoc);
+      const addr = parseSectionAddress(section, contextDoc);
       expect(addr.slug).toBe(section);
     }
   });
@@ -127,18 +127,18 @@ describe('AddressCache LRU Implementation', () => {
 
     // Parse all hierarchical sections
     for (const section of hierarchicalSections) {
-      await parseSectionAddress(section, contextDoc);
+      parseSectionAddress(section, contextDoc);
     }
 
     // Access some sections to test LRU behavior
     const firstHierSection = hierarchicalSections[0];
     const thirdHierSection = hierarchicalSections[2];
-    if (firstHierSection != null) await parseSectionAddress(firstHierSection, contextDoc);
-    if (thirdHierSection != null) await parseSectionAddress(thirdHierSection, contextDoc);
+    if (firstHierSection != null) parseSectionAddress(firstHierSection, contextDoc);
+    if (thirdHierSection != null) parseSectionAddress(thirdHierSection, contextDoc);
 
     // Verify all are still accessible and properly formatted
     for (const section of hierarchicalSections) {
-      const addr = await parseSectionAddress(section, contextDoc);
+      const addr = parseSectionAddress(section, contextDoc);
       expect(addr.slug).toBe(section);
       expect(addr.fullPath).toBe(`${contextDoc}#${section}`);
     }
@@ -156,20 +156,20 @@ describe('AddressCache LRU Implementation', () => {
 
     // Parse all sections
     for (const section of mixedSections) {
-      await parseSectionAddress(section, contextDoc);
+      parseSectionAddress(section, contextDoc);
     }
 
     // Access in different order to test LRU
     const troubleshootingSection = mixedSections[4]; // troubleshooting
     const authSection = mixedSections[1]; // api/authentication
     const overviewSection = mixedSections[0]; // overview
-    if (troubleshootingSection != null) await parseSectionAddress(troubleshootingSection, contextDoc);
-    if (authSection != null) await parseSectionAddress(authSection, contextDoc);
-    if (overviewSection != null) await parseSectionAddress(overviewSection, contextDoc);
+    if (troubleshootingSection != null) parseSectionAddress(troubleshootingSection, contextDoc);
+    if (authSection != null) parseSectionAddress(authSection, contextDoc);
+    if (overviewSection != null) parseSectionAddress(overviewSection, contextDoc);
 
     // Verify all are accessible with correct formatting
     for (const section of mixedSections) {
-      const addr = await parseSectionAddress(section, contextDoc);
+      const addr = parseSectionAddress(section, contextDoc);
       expect(addr.slug).toBe(section);
 
       if (section.includes('/')) {

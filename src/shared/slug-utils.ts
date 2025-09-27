@@ -77,8 +77,17 @@ export function joinSlugPath(parts: string[]): string {
  * @returns Number of levels in the hierarchy (e.g., "api/auth/jwt" returns 3)
  */
 export function getSlugDepth(slugPath: string): number {
-  const parts = splitSlugPath(slugPath);
-  return parts.length;
+  if (typeof slugPath !== 'string') {
+    return 0;
+  }
+
+  const normalized = normalizeSlugPath(slugPath);
+  if (normalized === '') {
+    return 0;
+  }
+
+  // Count slashes and add 1 for the number of segments
+  return (normalized.match(/\//g) ?? []).length + 1;
 }
 
 /**
@@ -88,13 +97,17 @@ export function getSlugDepth(slugPath: string): number {
  * @returns Parent slug path (e.g., "api/auth") or undefined for top-level
  */
 export function getParentSlug(slugPath: string): string | undefined {
-  const parts = splitSlugPath(slugPath);
-
-  if (parts.length <= 1) {
+  if (typeof slugPath !== 'string') {
     return undefined;
   }
 
-  return joinSlugPath(parts.slice(0, -1));
+  const normalized = normalizeSlugPath(slugPath);
+  if (normalized === '') {
+    return undefined;
+  }
+
+  const lastSlash = normalized.lastIndexOf('/');
+  return lastSlash > 0 ? normalized.substring(0, lastSlash) : undefined;
 }
 
 /**
@@ -104,8 +117,17 @@ export function getParentSlug(slugPath: string): string | undefined {
  * @returns Leaf component (e.g., "jwt-tokens")
  */
 export function getSlugLeaf(slugPath: string): string {
-  const parts = splitSlugPath(slugPath);
-  return parts[parts.length - 1] ?? '';
+  if (typeof slugPath !== 'string') {
+    return '';
+  }
+
+  const normalized = normalizeSlugPath(slugPath);
+  if (normalized === '') {
+    return '';
+  }
+
+  const lastSlash = normalized.lastIndexOf('/');
+  return lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
 }
 
 /**

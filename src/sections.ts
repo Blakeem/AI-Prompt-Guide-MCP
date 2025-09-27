@@ -12,19 +12,68 @@ import { visitParents } from 'unist-util-visit-parents';
 import { titleToSlug } from './slug.js';
 import { listHeadings } from './parse.js';
 import { ERROR_CODES, DEFAULT_LIMITS } from './constants/defaults.js';
+import { AddressingError } from './shared/addressing-system.js';
 import type {
   HeadingDepth,
   InsertMode,
-  SpecDocsError,
   Heading
 } from './types/index.js';
 
 /**
- * Creates a custom error with code and context
+ * Specialized error classes for section operations using standardized AddressingError hierarchy
  */
-function createError(message: string, code: string, context?: Record<string, unknown>): SpecDocsError {
-  const error = new Error(message) as SpecDocsError;
-  return Object.assign(error, { code, context });
+class SectionOperationError extends AddressingError {
+  constructor(message: string, code: string, context?: Record<string, unknown>) {
+    super(message, code, context);
+    this.name = 'SectionOperationError';
+  }
+}
+
+class InvalidSectionContentError extends SectionOperationError {
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message, ERROR_CODES.INVALID_SECTION_CONTENT, context);
+    this.name = 'InvalidSectionContentError';
+  }
+}
+
+class InvalidSlugError extends SectionOperationError {
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message, ERROR_CODES.INVALID_SLUG, context);
+    this.name = 'InvalidSlugError';
+  }
+}
+
+class HeadingNotFoundError extends SectionOperationError {
+  constructor(slug: string, context?: Record<string, unknown>) {
+    super(`Heading not found: ${slug}`, ERROR_CODES.HEADING_NOT_FOUND, { slug, ...context });
+    this.name = 'HeadingNotFoundError';
+  }
+}
+
+class DuplicateHeadingError extends SectionOperationError {
+  constructor(title: string, slug: string, depth: number, context?: Record<string, unknown>) {
+    super(`Duplicate heading at depth ${depth}: "${title}" (slug: ${slug})`, ERROR_CODES.DUPLICATE_HEADING, {
+      title,
+      slug,
+      depth,
+      ...context
+    });
+    this.name = 'DuplicateHeadingError';
+  }
+}
+
+class InvalidTitleError extends SectionOperationError {
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message, ERROR_CODES.INVALID_TITLE, context);
+    this.name = 'InvalidTitleError';
+  }
+}
+
+class InvalidOperationError extends SectionOperationError {
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message, ERROR_CODES.INVALID_OPERATION, context);
+    this.name = 'InvalidOperationError';
+  }
 }
 
 /**
@@ -34,9 +83,8 @@ function parseMarkdown(markdown: string): Root {
   try {
     return unified().use(remarkParse).parse(markdown) as Root;
   } catch (error) {
-    throw createError(
+    throw new InvalidSectionContentError(
       'Failed to parse markdown',
-      ERROR_CODES.INVALID_SECTION_CONTENT,
       { error: error instanceof Error ? error.message : String(error) }
     );
   }
@@ -289,13 +337,11 @@ function ensureUniqueAmongSiblings(
     if (headingParentIndex === parentIndex && heading.node.depth === depth) {
       const existingSlug = titleToSlug(toString(heading.node).trim());
       if (existingSlug === targetSlug) {
-        throw createError(
-          `Duplicate heading at depth ${depth}: "${newTitle}" (slug: ${targetSlug})`,
-          ERROR_CODES.DUPLICATE_HEADING,
+        throw new DuplicateHeadingError(
+          newTitle,
+          targetSlug,
+          depth,
           {
-            title: newTitle,
-            slug: targetSlug,
-            depth,
             parentIndex,
             conflictingIndex: i,
           }
@@ -317,9 +363,8 @@ function validateHierarchicalPath(slug: string): void {
   const MAX_COMPONENT_LENGTH = 200;
 
   if (slug.length > MAX_PATH_LENGTH) {
-    throw createError(
+    throw new InvalidSlugError(
       `Hierarchical path too long (max: ${MAX_PATH_LENGTH} characters)`,
-      ERROR_CODES.INVALID_SLUG,
       { slug, length: slug.length, maxLength: MAX_PATH_LENGTH }
     );
   }
@@ -327,9 +372,8 @@ function validateHierarchicalPath(slug: string): void {
   // Normalize Unicode to prevent normalization attacks
   const normalizedSlug = slug.normalize('NFC');
   if (normalizedSlug !== slug) {
-    throw createError(
+    throw new InvalidSlugError(
       'Path contains non-normalized Unicode characters',
-      ERROR_CODES.INVALID_SLUG,
       { slug, normalized: normalizedSlug }
     );
   }
@@ -338,18 +382,16 @@ function validateHierarchicalPath(slug: string): void {
   // eslint-disable-next-line no-control-regex
   const dangerousChars = /[\x00-\x1F\x7F\uFFFE\uFFFF\\%]/;
   if (dangerousChars.test(slug)) {
-    throw createError(
+    throw new InvalidSlugError(
       'Path contains dangerous characters (control chars, null bytes, backslashes, or percent encoding)',
-      ERROR_CODES.INVALID_SLUG,
       { slug }
     );
   }
 
   // Check for whitespace at start/end or in problematic positions
   if (slug.trim() !== slug || /\s{2,}/.test(slug)) {
-    throw createError(
+    throw new InvalidSlugError(
       'Path contains leading/trailing whitespace or multiple consecutive spaces',
-      ERROR_CODES.INVALID_SLUG,
       { slug }
     );
   }
@@ -358,44 +400,39 @@ function validateHierarchicalPath(slug: string): void {
   const components = slug.split('/');
 
   if (components.length > MAX_PATH_DEPTH) {
-    throw createError(
+    throw new InvalidSlugError(
       `Path too deep (max: ${MAX_PATH_DEPTH} levels)`,
-      ERROR_CODES.INVALID_SLUG,
       { slug, depth: components.length, maxDepth: MAX_PATH_DEPTH }
     );
   }
 
   for (const component of components) {
     if (component.length === 0) {
-      throw createError(
+      throw new InvalidSlugError(
         'Path contains empty components (double slashes)',
-        ERROR_CODES.INVALID_SLUG,
         { slug }
       );
     }
 
     if (component.length > MAX_COMPONENT_LENGTH) {
-      throw createError(
+      throw new InvalidSlugError(
         `Path component too long (max: ${MAX_COMPONENT_LENGTH} characters)`,
-        ERROR_CODES.INVALID_SLUG,
         { slug, component, length: component.length, maxLength: MAX_COMPONENT_LENGTH }
       );
     }
 
     // Check for path traversal attempts
     if (component === '.' || component === '..' || component.includes('..')) {
-      throw createError(
+      throw new InvalidSlugError(
         'Path contains path traversal attempts',
-        ERROR_CODES.INVALID_SLUG,
         { slug, component }
       );
     }
 
     // Check for percent encoding (simple detection)
     if (component.includes('%')) {
-      throw createError(
+      throw new InvalidSlugError(
         'Path contains percent encoding which is not allowed',
-        ERROR_CODES.INVALID_SLUG,
         { slug, component }
       );
     }
@@ -403,17 +440,15 @@ function validateHierarchicalPath(slug: string): void {
 
   // Additional security checks
   if (slug.startsWith('/') || slug.endsWith('/')) {
-    throw createError(
+    throw new InvalidSlugError(
       'Path cannot start or end with forward slash',
-      ERROR_CODES.INVALID_SLUG,
       { slug }
     );
   }
 
   if (slug.includes('//')) {
-    throw createError(
+    throw new InvalidSlugError(
       'Path cannot contain double slashes',
-      ERROR_CODES.INVALID_SLUG,
       { slug }
     );
   }
@@ -424,17 +459,15 @@ function validateHierarchicalPath(slug: string): void {
  */
 function validateSectionBody(body: string): void {
   if (typeof body !== 'string') {
-    throw createError(
+    throw new InvalidSectionContentError(
       'Section body must be a string',
-      ERROR_CODES.INVALID_SECTION_CONTENT,
       { type: typeof body }
     );
   }
 
   if (body.length > DEFAULT_LIMITS.MAX_SECTION_BODY_LENGTH) {
-    throw createError(
+    throw new InvalidSectionContentError(
       `Section body too long (max: ${DEFAULT_LIMITS.MAX_SECTION_BODY_LENGTH} characters)`,
-      ERROR_CODES.INVALID_SECTION_CONTENT,
       { length: body.length, maxLength: DEFAULT_LIMITS.MAX_SECTION_BODY_LENGTH }
     );
   }
@@ -452,9 +485,8 @@ function validateSlugSecurity(slug: string): string {
   // eslint-disable-next-line no-control-regex
   const dangerousChars = /[\x00-\x1F\x7F\uFFFE\uFFFF\\%]/;
   if (dangerousChars.test(normalizedSlug)) {
-    throw createError(
+    throw new InvalidSlugError(
       'Slug contains dangerous characters (control chars, null bytes, backslashes, or percent encoding)',
-      ERROR_CODES.INVALID_SLUG,
       { slug: normalizedSlug }
     );
   }
@@ -462,18 +494,16 @@ function validateSlugSecurity(slug: string): string {
   // Check for length limits
   const MAX_SLUG_LENGTH = 1000;
   if (normalizedSlug.length > MAX_SLUG_LENGTH) {
-    throw createError(
+    throw new InvalidSlugError(
       `Slug too long (max: ${MAX_SLUG_LENGTH} characters)`,
-      ERROR_CODES.INVALID_SLUG,
       { slug: normalizedSlug, length: normalizedSlug.length, maxLength: MAX_SLUG_LENGTH }
     );
   }
 
   // Check for whitespace issues
   if (normalizedSlug.trim() !== normalizedSlug || /\s{2,}/.test(normalizedSlug)) {
-    throw createError(
+    throw new InvalidSlugError(
       'Slug contains leading/trailing whitespace or multiple consecutive spaces',
-      ERROR_CODES.INVALID_SLUG,
       { slug: normalizedSlug }
     );
   }
@@ -506,9 +536,8 @@ function validateSlugSecurity(slug: string): string {
  */
 export function readSection(markdown: string, slug: string): string | null {
   if (!slug || typeof slug !== 'string') {
-    throw createError(
+    throw new InvalidSlugError(
       'Slug must be a non-empty string',
-      ERROR_CODES.INVALID_SLUG,
       { slug }
     );
   }
@@ -523,10 +552,9 @@ export function readSection(markdown: string, slug: string): string | null {
     const headings = listHeadings(markdown);
     const targetHeading = findTargetHierarchicalHeading(normalizedSlug, headings);
     if (!targetHeading) {
-      throw createError(
-        `Section not found in hierarchical context: ${normalizedSlug}`,
-        ERROR_CODES.HEADING_NOT_FOUND,
-        { slug: normalizedSlug }
+      throw new HeadingNotFoundError(
+        normalizedSlug,
+        { hierarchicalContext: true }
       );
     }
   }
@@ -545,9 +573,8 @@ export function readSection(markdown: string, slug: string): string | null {
     try {
       captured = toMarkdown(section);
     } catch (error) {
-      throw createError(
+      throw new InvalidSectionContentError(
         'Failed to serialize section',
-        ERROR_CODES.INVALID_SECTION_CONTENT,
         {
           slug: normalizedSlug,
           error: error instanceof Error ? error.message : String(error)
@@ -570,9 +597,8 @@ export function replaceSectionBody(
   newBodyMarkdown: string
 ): string {
   if (!slug || typeof slug !== 'string') {
-    throw createError(
+    throw new InvalidSlugError(
       'Slug must be a non-empty string',
-      ERROR_CODES.INVALID_SLUG,
       { slug }
     );
   }
@@ -593,24 +619,165 @@ export function replaceSectionBody(
   });
 
   if (!found) {
-    throw createError(
-      `Heading not found: ${slug}`,
-      ERROR_CODES.HEADING_NOT_FOUND,
-      { slug }
-    );
+    throw new HeadingNotFoundError(slug);
   }
 
   try {
     return toMarkdown(tree);
   } catch (error) {
-    throw createError(
+    throw new InvalidSectionContentError(
       'Failed to serialize updated markdown',
-      ERROR_CODES.INVALID_SECTION_CONTENT,
-      { 
+      {
         slug,
         error: error instanceof Error ? error.message : String(error)
       }
     );
+  }
+}
+
+/**
+ * Context for section insertion operations
+ */
+interface SectionInsertionContext {
+  readonly markdown: string;
+  readonly refSlug: string;
+  readonly newTitle: string;
+  readonly newDepth: HeadingDepth;
+  readonly bodyMarkdown: string;
+  readonly tree: Root;
+  readonly headings: readonly Heading[];
+}
+
+/**
+ * Strategy interface for different section insertion modes
+ */
+interface SectionInsertionStrategy {
+  /**
+   * Determines the parent index and final depth for the new section
+   */
+  determineParentAndDepth(context: SectionInsertionContext): {
+    parentIndex: number | null;
+    finalDepth: HeadingDepth;
+  };
+
+  /**
+   * Performs the actual insertion in the AST
+   */
+  insertInAST(
+    start: Content,
+    nodes: Content[],
+    end: Content | null | undefined,
+    insertNodes: Content[]
+  ): Content[];
+}
+
+/**
+ * Strategy for inserting a section before the reference heading
+ */
+class InsertBeforeStrategy implements SectionInsertionStrategy {
+  determineParentAndDepth(context: SectionInsertionContext): {
+    parentIndex: number | null;
+    finalDepth: HeadingDepth;
+  } {
+    return {
+      parentIndex: findParentHeadingIndex(context.tree, context.refSlug),
+      finalDepth: context.newDepth
+    };
+  }
+
+  insertInAST(
+    start: Content,
+    nodes: Content[],
+    end: Content | null | undefined,
+    insertNodes: Content[]
+  ): Content[] {
+    return [...insertNodes, start, ...nodes, end].filter((node): node is Content => node != null);
+  }
+}
+
+/**
+ * Strategy for inserting a section after the reference heading
+ */
+class InsertAfterStrategy implements SectionInsertionStrategy {
+  determineParentAndDepth(context: SectionInsertionContext): {
+    parentIndex: number | null;
+    finalDepth: HeadingDepth;
+  } {
+    return {
+      parentIndex: findParentHeadingIndex(context.tree, context.refSlug),
+      finalDepth: context.newDepth
+    };
+  }
+
+  insertInAST(
+    start: Content,
+    nodes: Content[],
+    end: Content | null | undefined,
+    insertNodes: Content[]
+  ): Content[] {
+    return [start, ...nodes, end, ...insertNodes].filter((node): node is Content => node != null);
+  }
+}
+
+/**
+ * Strategy for appending a section as a child of the reference heading
+ */
+class AppendChildStrategy implements SectionInsertionStrategy {
+  determineParentAndDepth(context: SectionInsertionContext): {
+    parentIndex: number | null;
+    finalDepth: HeadingDepth;
+  } {
+    // Find the reference heading to use as parent
+    const headings: Array<{ node: MdHeading; index: number }> = [];
+    let counter = -1;
+
+    visitParents(context.tree, 'heading', (node: MdHeading) => {
+      counter++;
+      headings.push({ node, index: counter });
+    });
+
+    const refHeading = headings.find(h =>
+      titleToSlug(toString(h.node).trim()) === context.refSlug
+    );
+
+    if (!refHeading) {
+      throw new HeadingNotFoundError(context.refSlug);
+    }
+
+    return {
+      parentIndex: refHeading.index,
+      finalDepth: Math.min(6, refHeading.node.depth + 1) as HeadingDepth
+    };
+  }
+
+  insertInAST(
+    start: Content,
+    nodes: Content[],
+    end: Content | null | undefined,
+    insertNodes: Content[]
+  ): Content[] {
+    return [start, ...nodes, ...insertNodes, end].filter((node): node is Content => node != null);
+  }
+}
+
+/**
+ * Factory for creating insertion strategies
+ */
+class SectionInsertionStrategyFactory {
+  static createStrategy(mode: InsertMode): SectionInsertionStrategy {
+    switch (mode) {
+      case 'insert_before':
+        return new InsertBeforeStrategy();
+      case 'insert_after':
+        return new InsertAfterStrategy();
+      case 'append_child':
+        return new AppendChildStrategy();
+      default:
+        throw new InvalidOperationError(
+          `Invalid insert mode: ${mode}`,
+          { mode }
+        );
+    }
   }
 }
 
@@ -625,68 +792,50 @@ export function insertRelative(
   newTitle: string,
   bodyMarkdown = ''
 ): string {
+  // Input validation
   if (!refSlug || typeof refSlug !== 'string') {
-    throw createError(
+    throw new InvalidSlugError(
       'Reference slug must be a non-empty string',
-      ERROR_CODES.INVALID_SLUG,
       { slug: refSlug }
     );
   }
 
   if (!newTitle || typeof newTitle !== 'string') {
-    throw createError(
+    throw new InvalidTitleError(
       'New title must be a non-empty string',
-      ERROR_CODES.INVALID_TITLE,
       { title: newTitle }
     );
   }
 
   validateSectionBody(bodyMarkdown);
 
+  // Parse markdown and prepare context
   const tree = parseMarkdown(markdown);
+  const headings = listHeadings(markdown);
 
-  // Determine parent index and depth based on mode
-  let parentIndex: number | null;
-  let finalDepth: HeadingDepth;
+  const context: SectionInsertionContext = {
+    markdown,
+    refSlug,
+    newTitle,
+    newDepth,
+    bodyMarkdown,
+    tree,
+    headings
+  };
 
-  if (mode === 'append_child') {
-    // Parent is the reference heading itself
-    const headings: Array<{ node: MdHeading; index: number }> = [];
-    let counter = -1;
-    
-    visitParents(tree, 'heading', (node: MdHeading) => {
-      counter++;
-      headings.push({ node, index: counter });
-    });
+  // Get strategy for the specified mode
+  const strategy = SectionInsertionStrategyFactory.createStrategy(mode);
 
-    const refHeading = headings.find(h => 
-      titleToSlug(toString(h.node).trim()) === refSlug
-    );
-
-    if (!refHeading) {
-      throw createError(
-        `Reference heading not found: ${refSlug}`,
-        ERROR_CODES.HEADING_NOT_FOUND,
-        { slug: refSlug }
-      );
-    }
-
-    parentIndex = refHeading.index;
-    finalDepth = Math.min(6, refHeading.node.depth + 1) as HeadingDepth;
-  } else {
-    // Parent is the same as the reference heading's parent
-    parentIndex = findParentHeadingIndex(tree, refSlug);
-    finalDepth = newDepth;
-  }
+  // Determine parent and depth using strategy
+  const { parentIndex, finalDepth } = strategy.determineParentAndDepth(context);
 
   // Ensure uniqueness among siblings
   ensureUniqueAmongSiblings(tree, parentIndex, finalDepth, newTitle);
 
-  // Parse body content
+  // Parse body content and create insertion nodes
   const bodyTree = parseMarkdown(bodyMarkdown);
   const bodyChildren = bodyTree.children.filter(node => node.type !== 'heading');
 
-  // Create the new heading node
   const headingNode: MdHeading = {
     type: 'heading',
     depth: finalDepth,
@@ -695,44 +844,25 @@ export function insertRelative(
 
   const insertNodes: Content[] = [headingNode, ...bodyChildren];
 
+  // Perform the insertion using strategy
   let found = false;
   const resultTree = parseMarkdown(markdown); // Fresh tree for mutation
-  const headings = listHeadings(markdown); // Get heading context
 
   headingRange(resultTree, matchHeadingBySlug(refSlug, headings), (start, nodes, end) => {
     found = true;
-    
-    switch (mode) {
-      case 'insert_before':
-        return [...insertNodes, start, ...nodes, end].filter(Boolean);
-      case 'insert_after':
-        return [start, ...nodes, end, ...insertNodes].filter(Boolean);
-      case 'append_child':
-        return [start, ...nodes, ...insertNodes, end].filter(Boolean);
-      default:
-        throw createError(
-          `Invalid insert mode: ${mode}`,
-          ERROR_CODES.INVALID_OPERATION,
-          { mode }
-        );
-    }
+    return strategy.insertInAST(start, nodes, end, insertNodes);
   });
 
   if (!found) {
-    throw createError(
-      `Reference heading not found: ${refSlug}`,
-      ERROR_CODES.HEADING_NOT_FOUND,
-      { slug: refSlug }
-    );
+    throw new HeadingNotFoundError(refSlug);
   }
 
   try {
     return toMarkdown(resultTree);
   } catch (error) {
-    throw createError(
+    throw new InvalidSectionContentError(
       'Failed to serialize updated markdown',
-      ERROR_CODES.INVALID_SECTION_CONTENT,
-      { 
+      {
         refSlug,
         newTitle,
         error: error instanceof Error ? error.message : String(error)
@@ -746,17 +876,15 @@ export function insertRelative(
  */
 export function renameHeading(markdown: string, slug: string, newTitle: string): string {
   if (!slug || typeof slug !== 'string') {
-    throw createError(
+    throw new InvalidSlugError(
       'Slug must be a non-empty string',
-      ERROR_CODES.INVALID_SLUG,
       { slug }
     );
   }
 
   if (!newTitle || typeof newTitle !== 'string') {
-    throw createError(
+    throw new InvalidTitleError(
       'New title must be a non-empty string',
-      ERROR_CODES.INVALID_TITLE,
       { title: newTitle }
     );
   }
@@ -784,11 +912,7 @@ export function renameHeading(markdown: string, slug: string, newTitle: string):
   }
 
   if (!targetHeading) {
-    throw createError(
-      `Heading not found: ${slug}`,
-      ERROR_CODES.HEADING_NOT_FOUND,
-      { slug }
-    );
+    throw new HeadingNotFoundError(slug);
   }
 
   // Find parent of target heading
@@ -810,10 +934,9 @@ export function renameHeading(markdown: string, slug: string, newTitle: string):
   try {
     return toMarkdown(tree);
   } catch (error) {
-    throw createError(
+    throw new InvalidSectionContentError(
       'Failed to serialize updated markdown',
-      ERROR_CODES.INVALID_SECTION_CONTENT,
-      { 
+      {
         slug,
         newTitle,
         error: error instanceof Error ? error.message : String(error)
@@ -828,9 +951,8 @@ export function renameHeading(markdown: string, slug: string, newTitle: string):
  */
 export function getSectionContentForRemoval(markdown: string, slug: string): string | null {
   if (!slug || typeof slug !== 'string') {
-    throw createError(
+    throw new InvalidSlugError(
       'Slug must be a non-empty string',
-      ERROR_CODES.INVALID_SLUG,
       { slug }
     );
   }
@@ -850,9 +972,8 @@ export function getSectionContentForRemoval(markdown: string, slug: string): str
     try {
       captured = toMarkdown(section);
     } catch (error) {
-      throw createError(
+      throw new InvalidSectionContentError(
         'Failed to serialize section content for removal',
-        ERROR_CODES.INVALID_SECTION_CONTENT,
         {
           slug,
           error: error instanceof Error ? error.message : String(error)
@@ -871,9 +992,8 @@ export function getSectionContentForRemoval(markdown: string, slug: string): str
  */
 export function deleteSection(markdown: string, slug: string): string {
   if (!slug || typeof slug !== 'string') {
-    throw createError(
+    throw new InvalidSlugError(
       'Slug must be a non-empty string',
-      ERROR_CODES.INVALID_SLUG,
       { slug }
     );
   }
@@ -890,20 +1010,15 @@ export function deleteSection(markdown: string, slug: string): string {
   });
 
   if (!found) {
-    throw createError(
-      `Heading not found: ${slug}`,
-      ERROR_CODES.HEADING_NOT_FOUND,
-      { slug }
-    );
+    throw new HeadingNotFoundError(slug);
   }
 
   try {
     return toMarkdown(tree);
   } catch (error) {
-    throw createError(
+    throw new InvalidSectionContentError(
       'Failed to serialize updated markdown',
-      ERROR_CODES.INVALID_SECTION_CONTENT,
-      { 
+      {
         slug,
         error: error instanceof Error ? error.message : String(error)
       }

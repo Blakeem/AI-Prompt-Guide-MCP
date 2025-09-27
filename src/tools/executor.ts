@@ -1,5 +1,5 @@
 /**
- * Tool execution dispatcher that routes tool calls to their implementations
+ * Tool execution dispatcher using registry-based pattern for Open/Closed Principle compliance
  */
 
 import type { SessionState } from '../session/types.js';
@@ -16,7 +16,32 @@ import {
 } from './implementations/index.js';
 
 /**
- * Execute tool based on name and session state
+ * Tool implementation function signature
+ */
+type ToolImplementation = (
+  args: Record<string, unknown>,
+  state: SessionState,
+  onListChanged?: () => void
+) => Promise<unknown>;
+
+/**
+ * Registry of tool implementations - follows Open/Closed Principle
+ * New tools can be added without modifying the executor logic
+ */
+const TOOL_REGISTRY: Record<string, ToolImplementation> = {
+  'create_document': createDocument,
+  'browse_documents': browseDocuments,
+  section,
+  'manage_document': manageDocument,
+  'view_document': viewDocument,
+  'view_section': viewSection,
+  'view_task': viewTask,
+  task,
+  'complete_task': completeTask
+};
+
+/**
+ * Execute tool based on name and session state using registry pattern
  */
 export async function executeTool(
   toolName: string,
@@ -24,41 +49,17 @@ export async function executeTool(
   state: SessionState,
   onListChanged?: () => void
 ): Promise<unknown> {
-  switch (toolName) {
-    case 'create_document':
-      return await createDocument(args, state, onListChanged);
+  const implementation = TOOL_REGISTRY[toolName];
 
-    case 'browse_documents':
-      return await browseDocuments(args, state);
-
-    case 'section':
-      return await section(args, state);
-
-    case 'manage_document':
-      return await manageDocument(args, state);
-
-
-    case 'view_document':
-      return await viewDocument(args, state);
-
-    case 'view_section':
-      return await viewSection(args, state);
-
-    case 'view_task':
-      return await viewTask(args, state);
-
-    case 'task':
-      return await task(args, state);
-
-    case 'complete_task':
-      return await completeTask(args, state);
-
-    default:
-      throw new Error(
-        JSON.stringify({
-          code: -32601,
-          message: `Unknown tool: ${toolName}`,
-        })
-      );
+  if (implementation == null) {
+    throw new Error(
+      JSON.stringify({
+        code: -32601,
+        message: `Unknown tool: ${toolName}`,
+      })
+    );
   }
+
+  return await implementation(args, state, onListChanged);
 }
+

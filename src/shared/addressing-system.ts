@@ -14,6 +14,7 @@
  */
 
 import { pathToNamespace, pathToSlug } from './path-utilities.js';
+import { normalizeSlugPath } from './slug-utils.js';
 
 /**
  * Custom error types for addressing system
@@ -44,12 +45,38 @@ export class InvalidAddressError extends AddressingError {
 }
 
 /**
+ * Cache configuration constants
+ */
+const DEFAULT_ADDRESS_CACHE_SIZE = 1000; // Chosen for high-traffic MCP server operations with document/section reuse
+
+/**
+ * Cache configuration interface for different eviction strategies
+ */
+interface CacheConfig {
+  readonly maxSize: number;
+  readonly evictionStrategy?: 'lru';
+}
+
+/**
+ * Cache factory for creating configurable address caches
+ */
+class CacheFactory {
+  static createCache(config: CacheConfig = { maxSize: DEFAULT_ADDRESS_CACHE_SIZE }): AddressCache {
+    return new AddressCache(config);
+  }
+}
+
+/**
  * Address parsing cache for performance optimization with proper LRU implementation
  */
 class AddressCache {
   private readonly documentCache = new Map<string, DocumentAddress>();
   private readonly sectionCache = new Map<string, SectionAddress>();
-  private readonly maxSize = 1000;
+  private readonly maxSize: number;
+
+  constructor(config: CacheConfig) {
+    this.maxSize = config.maxSize;
+  }
 
   getDocument(path: string): DocumentAddress | undefined {
     const address = this.documentCache.get(path);
@@ -104,6 +131,29 @@ class AddressCache {
     this.sectionCache.clear();
   }
 
+  /**
+   * Invalidate all cached addresses for a specific document
+   * This should be called when a document changes to ensure cache consistency
+   */
+  invalidateDocument(docPath: string): void {
+    // Remove the document itself
+    this.documentCache.delete(docPath);
+
+    // Remove all sections that belong to this document
+    // Section cache keys can be either hierarchical (docPath#section) or flat (section)
+    // We need to remove entries that reference this document
+    const keysToRemove: string[] = [];
+    for (const [key, address] of this.sectionCache.entries()) {
+      if (address.document.path === docPath) {
+        keysToRemove.push(key);
+      }
+    }
+
+    for (const key of keysToRemove) {
+      this.sectionCache.delete(key);
+    }
+  }
+
   getDocumentCacheSize(): number {
     return this.documentCache.size;
   }
@@ -117,7 +167,15 @@ class AddressCache {
   }
 }
 
-const cache = new AddressCache();
+const cache = CacheFactory.createCache();
+
+/**
+ * Invalidate addressing cache entries for a specific document
+ * This should be called when a document changes to maintain cache consistency
+ */
+export function invalidateAddressCache(docPath: string): void {
+  cache.invalidateDocument(docPath);
+}
 
 /**
  * Core addressing interfaces
@@ -207,13 +265,12 @@ export function parseDocumentAddress(docPath: string): DocumentAddress {
  * @param slug - Raw slug that may contain hierarchical paths
  * @returns Normalized hierarchical slug
  */
-async function normalizeHierarchicalSlug(slug: string): Promise<string> {
+function normalizeHierarchicalSlug(slug: string): string {
   // Remove # prefix if present
   let normalized = slug.startsWith('#') ? slug.substring(1) : slug;
 
   // Normalize hierarchical path components
   if (normalized.includes('/')) {
-    const { normalizeSlugPath } = await import('./slug-utils.js');
     normalized = normalizeSlugPath(normalized);
   }
 
@@ -224,7 +281,7 @@ async function normalizeHierarchicalSlug(slug: string): Promise<string> {
  * Parse and normalize a section reference with caching
  * Supports formats: "section", "#section", "/doc.md#section"
  */
-export async function parseSectionAddress(sectionRef: string, contextDoc?: string): Promise<SectionAddress> {
+export function parseSectionAddress(sectionRef: string, contextDoc?: string): SectionAddress {
   if (typeof sectionRef !== 'string') {
     throw new InvalidAddressError(String(sectionRef), 'Section reference must be a string');
   }
@@ -264,7 +321,7 @@ export async function parseSectionAddress(sectionRef: string, contextDoc?: strin
   }
 
   // Enhanced slug normalization for hierarchical paths
-  const normalizedSlug = await normalizeHierarchicalSlug(sectionSlug);
+  const normalizedSlug = normalizeHierarchicalSlug(sectionSlug);
 
   if (normalizedSlug === '') {
     throw new InvalidAddressError(sectionRef, 'Section slug cannot be empty');
@@ -287,9 +344,9 @@ export async function parseSectionAddress(sectionRef: string, contextDoc?: strin
  * Parse and normalize a task reference with caching
  * Tasks are special sections that live under a "Tasks" parent section
  */
-export async function parseTaskAddress(taskRef: string, contextDoc?: string): Promise<TaskAddress> {
+export function parseTaskAddress(taskRef: string, contextDoc?: string): TaskAddress {
   // Parse as a section first
-  const sectionAddr = await parseSectionAddress(taskRef, contextDoc);
+  const sectionAddr = parseSectionAddress(taskRef, contextDoc);
 
   const address: TaskAddress = {
     document: sectionAddr.document,
@@ -341,21 +398,21 @@ export interface StandardizedParams {
 /**
  * Parse common tool parameters into standardized addresses
  */
-async function standardizeToolParams(params: {
+function standardizeToolParams(params: {
   document: string;
   section?: string;
   task?: string;
-}): Promise<StandardizedParams> {
+}): StandardizedParams {
   const document = parseDocumentAddress(params.document);
 
   const result: StandardizedParams = { document };
 
   if (params.section != null && params.section !== '') {
-    result.section = await parseSectionAddress(params.section, document.path);
+    result.section = parseSectionAddress(params.section, document.path);
   }
 
   if (params.task != null && params.task !== '') {
-    result.task = await parseTaskAddress(params.task, document.path);
+    result.task = parseTaskAddress(params.task, document.path);
   }
 
   return result;
@@ -378,11 +435,11 @@ export class ToolIntegration {
   /**
    * Standard parameter validation and parsing for document-based tools
    */
-  static async validateAndParse<T extends Record<string, unknown>>(
+  static validateAndParse<T extends Record<string, unknown>>(
     params: T & { document: string; section?: string; task?: string }
-  ): Promise<{ addresses: StandardizedParams; params: T }> {
+  ): { addresses: StandardizedParams; params: T } {
     try {
-      const addresses = await standardizeToolParams({
+      const addresses = standardizeToolParams({
         document: params.document,
         ...(params.section != null && { section: params.section }),
         ...(params.task != null && { task: params.task })
@@ -496,6 +553,45 @@ export class ToolIntegration {
       typeof context.slug === 'string' &&
       typeof context.documentPath === 'string'
     );
+  }
+
+  /**
+   * Common validation utilities to eliminate copy-paste patterns
+   */
+
+  /**
+   * Validate document parameter - standard pattern used across tools
+   */
+  static validateDocumentParameter(document: unknown): string {
+    if (typeof document !== 'string' || document === '') {
+      throw new AddressingError('document parameter is required and must be a non-empty string', 'INVALID_PARAMETER');
+    }
+    return document;
+  }
+
+  /**
+   * Validate count limits with consistent error messages
+   */
+  static validateCountLimit(items: unknown[], maxCount: number, itemType: string): void {
+    if (items.length > maxCount) {
+      throw new AddressingError(
+        `Too many ${itemType}. Maximum ${maxCount} ${itemType} allowed, got ${items.length}`,
+        `TOO_MANY_${itemType.toUpperCase()}`
+      );
+    }
+  }
+
+  /**
+   * Validate array parameter with type checking
+   */
+  static validateArrayParameter(param: unknown, paramName: string): string[] {
+    if (param == null || (typeof param !== 'string' && !Array.isArray(param))) {
+      throw new AddressingError(
+        `${paramName} parameter is required and must be a string or array of strings`,
+        'INVALID_PARAMETER'
+      );
+    }
+    return Array.isArray(param) ? param as string[] : [param as string];
   }
 }
 
