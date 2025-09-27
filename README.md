@@ -1,4 +1,4 @@
-# Spec-Docs MCP Server
+# Spec-Docs MCP Server (Under Active Development) 
 
 A Model Context Protocol (MCP) server that enables LLMs to manage interconnected specification documents through intelligent, progressive discovery workflows.
 
