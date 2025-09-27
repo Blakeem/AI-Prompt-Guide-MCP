@@ -1,6 +1,7 @@
 # ISSUE-RESOLUTION-AGENT-MEMORY.md
 
 This file tracks all issue resolution work performed by subagents. Each agent appends their work summary using the template below.
+If something doesn't match the request being made, check the memories of previous developments that can be found in `ISSUE-RESOLUTION-AGENT-MEMORY-COMPLETE.md`.
 
 ## Purpose
 
