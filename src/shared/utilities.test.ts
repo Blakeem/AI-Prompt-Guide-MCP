@@ -38,7 +38,8 @@ const createSampleDocument = (): CachedDocument => ({
     wordCount: 100,
     linkCount: 0,
     codeBlockCount: 0,
-    lastAccessed: new Date()
+    lastAccessed: new Date(),
+    cacheGeneration: 1
   },
   headings: [
     { index: 0, depth: 1, title: 'Test Document', slug: 'test-document', parentIndex: null },

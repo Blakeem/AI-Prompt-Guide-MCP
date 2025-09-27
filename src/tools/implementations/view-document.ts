@@ -82,7 +82,34 @@ interface ViewDocumentResponse {
 }
 
 /**
- * Execute view_document tool with enhanced capabilities
+ * MCP tool for enhanced document viewing with comprehensive metadata and linked document context
+ *
+ * Provides detailed document inspection including content, structure analysis, statistics,
+ * and automatic loading of linked document context. Supports both single and multiple document viewing.
+ *
+ * @param args - Parameters object containing document path(s) and viewing options
+ * @param _state - MCP session state (unused in current implementation)
+ * @returns Enhanced document information with metadata, content, statistics, and linked context
+ *
+ * @example
+ * // Single document view
+ * const result = await viewDocument({
+ *   document: "api/authentication.md"
+ * });
+ *
+ * // Multiple documents with linked context loading
+ * const result = await viewDocument({
+ *   documents: ["api/auth.md", "api/users.md"],
+ *   include_linked_context: true
+ * });
+ *
+ * // Access comprehensive document information
+ * console.log(result.documents[0].title);
+ * console.log(result.documents[0].statistics.word_count);
+ * console.log(result.documents[0].headings.length);
+ *
+ * @throws {Error} When document paths are invalid or documents cannot be loaded
+ * @throws {Error} When linked document context loading fails
  */
 export async function viewDocument(
   args: Record<string, unknown>,

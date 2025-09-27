@@ -166,22 +166,45 @@ async function findNextAvailableTask(
     const taskHeadings = await getTaskHeadings(document, tasksSection);
 
     // Parse task details from each task heading using validated document path
-    const tasks = await Promise.all(taskHeadings.map(async heading => {
-      const taskContent = await manager.getSectionContent(addresses.document.path, heading.slug) ?? '';
+    // Use try-catch with cleanup for critical operations to prevent resource leaks
+    interface TaskData {
+      slug: string;
+      title: string;
+      status: string;
+      priority?: string;
+      link?: string;
+    }
+    let tasks: TaskData[] = [];
+    try {
+      tasks = await Promise.all(taskHeadings.map(async heading => {
+        const taskContent = await manager.getSectionContent(addresses.document.path, heading.slug) ?? '';
 
-      // Parse task metadata from content
-      const status = extractMetadata(taskContent, 'Status') ?? 'pending';
-      const priority = extractMetadata(taskContent, 'Priority');
-      const link = extractLinkFromContent(taskContent);
+        // Parse task metadata from content
+        const status = extractMetadata(taskContent, 'Status') ?? 'pending';
+        const priority = extractMetadata(taskContent, 'Priority');
+        const link = extractLinkFromContent(taskContent);
 
-      return {
-        slug: heading.slug,
-        title: heading.title,
-        status,
-        ...(priority != null && priority !== '' && { priority }),
-        ...(link != null && link !== '' && { link })
-      };
-    }));
+        return {
+          slug: heading.slug,
+          title: heading.title,
+          status,
+          ...(priority != null && priority !== '' && { priority }),
+          ...(link != null && link !== '' && { link })
+        };
+      }));
+    } catch (error) {
+      // Critical operation failed - ensure cache consistency by invalidating document
+      // This prevents partial cache state that could cause data corruption
+      try {
+        manager['cache'].invalidateDocument(addresses.document.path);
+      } catch (cleanupError) {
+        // Log cleanup failure but don't mask original error
+        console.warn(`Cache cleanup failed after task loading error: ${cleanupError}`);
+      }
+
+      // Re-throw original error to maintain expected behavior
+      throw error;
+    }
 
     // Filter out completed task and find available tasks
     const availableTasks = tasks.filter(task =>
@@ -194,8 +217,8 @@ async function findNextAvailableTask(
     // Sort by priority (high first) then by document order (top to bottom)
     availableTasks.sort((a, b) => {
       const priorityOrder = { high: 3, medium: 2, low: 1 };
-      const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] || 1;
-      const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] || 1;
+      const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 1;
+      const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 1;
 
       if (bPriority !== aPriority) {
         return bPriority - aPriority; // Higher priority first
@@ -304,8 +327,8 @@ async function getLinkedDocument(
       if (document.sections && document.sections.size > 0) {
         const firstSection = Array.from(document.sections.values())[0];
         if (firstSection != null) {
-          content = firstSection.slice(0, 500);
-          if (firstSection.length > 500) {
+          content = firstSection.content.slice(0, 500);
+          if (firstSection.content.length > 500) {
             content = `${content}...`;
           }
         }

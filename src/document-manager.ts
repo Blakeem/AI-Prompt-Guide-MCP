@@ -87,7 +87,24 @@ export class DocumentManager {
   }
 
   /**
-   * Create document with template and features
+   * Creates a new markdown document with specified content and metadata
+   *
+   * Validates document path, ensures parent directories exist, and builds initial content
+   * from template or provided data. Automatically generates table of contents if requested.
+   *
+   * @param docPath - Relative path for the new document (e.g., "api/new-feature.md")
+   * @param options - Configuration for document creation including title, content, and template
+   * @returns Promise that resolves when document is successfully created
+   *
+   * @example
+   * await manager.createDocument("api/authentication.md", {
+   *   title: "Authentication Guide",
+   *   content: "Initial content here",
+   *   generateToc: true
+   * });
+   *
+   * @throws {Error} When document already exists at the specified path
+   * @throws {Error} When filesystem operations fail (permissions, disk space, etc.)
    */
   async createDocument(docPath: string, options: CreateDocumentOptions): Promise<void> {
     const absolutePath = this.getAbsolutePath(docPath);
@@ -274,7 +291,21 @@ export class DocumentManager {
   }
 
   /**
-   * Archive document or folder (move to archive folder with duplicate handling)
+   * Archives a document or folder by moving it to the archived directory with audit trail
+   *
+   * Creates timestamped archive directory, moves the document/folder, and generates
+   * an audit file with metadata about the archival operation.
+   *
+   * @param userPath - Path to document or folder to archive (relative to docs root)
+   * @returns Archive operation result with original path, archive path, and folder status
+   *
+   * @example
+   * const result = await manager.archiveDocument("api/old-feature.md");
+   * console.log(`Archived to: ${result.archivePath}`);
+   * console.log(`Was folder: ${result.wasFolder}`);
+   *
+   * @throws {Error} When source path doesn't exist or archive operation fails
+   * @throws {Error} When filesystem operations fail (permissions, disk space, etc.)
    */
   async archiveDocument(userPath: string): Promise<{ originalPath: string; archivePath: string; wasFolder: boolean }> {
     // Normalize and validate the path

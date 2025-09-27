@@ -52,7 +52,8 @@ const createSampleDocument = (path: string = '/api/users.md'): CachedDocument =>
     wordCount: 500,
     linkCount: 10,
     codeBlockCount: 5,
-    lastAccessed: new Date('2024-01-01')
+    lastAccessed: new Date('2024-01-01'),
+    cacheGeneration: 1
   },
   headings: [
     { index: 0, depth: 1, title: 'API Documentation', slug: 'api-documentation', parentIndex: null },

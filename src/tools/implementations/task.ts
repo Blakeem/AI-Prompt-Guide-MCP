@@ -93,6 +93,46 @@ interface TaskResult {
   timestamp: string;
 }
 
+/**
+ * MCP tool for comprehensive task management with creation, editing, and listing capabilities
+ *
+ * Supports task lifecycle management including creation of new tasks, editing existing ones,
+ * and intelligent filtering by status, priority, and document context. Uses hierarchical
+ * addressing for precise task location and management.
+ *
+ * @param args - Task operation parameters including action, document paths, and task details
+ * @param _state - MCP session state (unused in current implementation)
+ * @returns Task operation results with created/edited tasks, document context, and filtered lists
+ *
+ * @example
+ * // Create a new task
+ * const result = await task({
+ *   action: "create",
+ *   document: "project/setup.md",
+ *   title: "Initialize Database",
+ *   priority: "high",
+ *   status: "pending"
+ * });
+ *
+ * // List tasks with filtering
+ * const result = await task({
+ *   action: "list",
+ *   documents: ["project/setup.md", "api/auth.md"],
+ *   status: "pending",
+ *   priority: "high"
+ * });
+ *
+ * // Edit existing task
+ * const result = await task({
+ *   action: "edit",
+ *   document: "project/setup.md",
+ *   task: "initialize-database",
+ *   status: "in-progress"
+ * });
+ *
+ * @throws {AddressingError} When document or task addresses are invalid or not found
+ * @throws {Error} When task operations fail due to content constraints or structural issues
+ */
 export async function task(
   args: Record<string, unknown>,
   _state: SessionState
@@ -201,29 +241,54 @@ async function listTasks(
     const taskHeadings = await getTaskHeadings(document, tasksSection);
 
     // Parse task details from each task heading using addressing system patterns
-    const tasks = await Promise.all(taskHeadings.map(async heading => {
-      // Get the task content using validated document path
-      const taskContent = await manager.getSectionContent(addresses.document.path, heading.slug) ?? '';
+    // Use try-catch with cleanup for critical operations to prevent resource leaks
+    interface TaskData {
+      slug: string;
+      title: string;
+      status: string;
+      priority?: string;
+      link?: string;
+      dependencies?: string[];
+      hierarchical_context?: TaskHierarchicalContext;
+    }
+    let tasks: TaskData[] = [];
+    try {
+      tasks = await Promise.all(taskHeadings.map(async heading => {
+        // Get the task content using validated document path
+        const taskContent = await manager.getSectionContent(addresses.document.path, heading.slug) ?? '';
 
-      // Parse task metadata from content
-      const status = extractMetadata(taskContent, 'Status') ?? 'pending';
-      const priority = extractMetadata(taskContent, 'Priority');
-      const link = extractLinkFromContent(taskContent);
-      const dependencies = extractDependencies(taskContent);
+        // Parse task metadata from content
+        const status = extractMetadata(taskContent, 'Status') ?? 'pending';
+        const priority = extractMetadata(taskContent, 'Priority');
+        const link = extractLinkFromContent(taskContent);
+        const dependencies = extractDependencies(taskContent);
 
-      // Get hierarchical context for the task
-      const hierarchicalContext = getTaskHierarchicalContext(heading.slug);
+        // Get hierarchical context for the task
+        const hierarchicalContext = getTaskHierarchicalContext(heading.slug);
 
-      return {
-        slug: heading.slug,
-        title: heading.title,
-        status,
-        ...(priority != null && priority !== '' && { priority }),
-        ...(link != null && link !== '' && { link }),
-        ...(dependencies.length > 0 && { dependencies }),
-        ...(hierarchicalContext != null && { hierarchical_context: hierarchicalContext })
-      };
-    }));
+        return {
+          slug: heading.slug,
+          title: heading.title,
+          status,
+          ...(priority != null && priority !== '' && { priority }),
+          ...(link != null && link !== '' && { link }),
+          ...(dependencies.length > 0 && { dependencies }),
+          ...(hierarchicalContext != null && { hierarchical_context: hierarchicalContext })
+        };
+      }));
+    } catch (error) {
+      // Critical operation failed - ensure cache consistency by invalidating document
+      // This prevents partial cache state that could cause data corruption
+      try {
+        manager['cache'].invalidateDocument(addresses.document.path);
+      } catch (cleanupError) {
+        // Log cleanup failure but don't mask original error
+        console.warn(`Cache cleanup failed after task loading error: ${cleanupError}`);
+      }
+
+      // Re-throw original error to maintain expected behavior
+      throw error;
+    }
 
     // Apply filters
     let filteredTasks = tasks;

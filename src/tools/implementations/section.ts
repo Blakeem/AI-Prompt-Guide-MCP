@@ -99,6 +99,34 @@ async function processSectionOperation(
   }
 }
 
+/**
+ * MCP tool for comprehensive section management with support for all CRUD operations
+ *
+ * Supports both single and batch operations for section editing, creation, and deletion.
+ * Uses the central addressing system for consistent hierarchical and flat addressing patterns.
+ *
+ * @param args - Single operation object or array of operations for batch processing
+ * @param _state - MCP session state (unused in current implementation)
+ * @returns Operation results with document info, affected sections, and status details
+ *
+ * @example
+ * // Single section edit
+ * const result = await section({
+ *   document: "api/auth.md",
+ *   section: "overview",
+ *   content: "Updated content",
+ *   operation: "replace"
+ * });
+ *
+ * // Batch operations
+ * const result = await section([
+ *   { document: "api/auth.md", section: "overview", content: "New content", operation: "replace" },
+ *   { document: "api/auth.md", section: "examples", content: "Example content", operation: "append_child" }
+ * ]);
+ *
+ * @throws {AddressingError} When document or section addresses are invalid or not found
+ * @throws {Error} When section operations fail due to content constraints or filesystem errors
+ */
 export async function section(
   args: Record<string, unknown> | Array<Record<string, unknown>>,
   _state: SessionState
@@ -292,34 +320,17 @@ export async function section(
     }
 
   } catch (error) {
-    // Handle addressing errors appropriately
+    // Handle addressing errors appropriately - re-throw to maintain error structure
     if (error instanceof AddressingError) {
-      throw new Error(
-        JSON.stringify({
-          code: -32603,
-          message: 'Failed to edit section',
-          data: {
-            reason: error.code,
-            details: error.message,
-            context: error.context,
-            args
-          }
-        })
-      );
+      throw error;
     }
 
-    // Handle other errors
+    // Handle other errors - wrap in AddressingError for proper MCP handling
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      JSON.stringify({
-        code: -32603,
-        message: 'Failed to edit section',
-        data: {
-          reason: 'EDIT_ERROR',
-          details: message,
-          args
-        }
-      })
+    throw new AddressingError(
+      `Failed to edit section: ${message}`,
+      'SECTION_EDIT_ERROR',
+      { args, originalError: message }
     );
   }
 }

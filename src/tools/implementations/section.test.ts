@@ -5,6 +5,7 @@
 import { describe, test, expect, beforeEach, vi, type MockedFunction } from 'vitest';
 import { section } from './section.js';
 import { performSectionEdit, getDocumentManager } from '../../shared/utilities.js';
+import { AddressingError } from '../../shared/addressing-system.js';
 import type { DocumentManager } from '../../document-manager.js';
 import type { SessionState } from '../../session/types.js';
 
@@ -42,7 +43,8 @@ const createMockDocumentManager = (): Partial<DocumentManager> => ({
       wordCount: 100,
       linkCount: 5,
       codeBlockCount: 2,
-      lastAccessed: new Date()
+      lastAccessed: new Date(),
+      cacheGeneration: 1
     },
     headings: [],
     toc: [],
@@ -746,22 +748,21 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         .rejects
         .toThrow();
 
-      // Verify the error format includes JSON with error details
+      // Verify the error is now a proper AddressingError (MCP-compliant)
       try {
         await section(args, mockSessionState);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        const parsedError = JSON.parse(errorMessage);
+        expect(error).toBeInstanceOf(AddressingError);
 
-        expect(parsedError).toEqual({
-          code: -32603,
-          message: 'Failed to edit section',
-          data: {
-            reason: 'EDIT_ERROR',
-            details: 'Document not found',
-            args
-          }
-        });
+        if (error instanceof AddressingError) {
+          expect(error.code).toBe('SECTION_EDIT_ERROR');
+          expect(error.message).toContain('Failed to edit section');
+          expect(error.message).toContain('Document not found');
+          expect(error.context).toEqual({
+            args,
+            originalError: 'Document not found'
+          });
+        }
       }
     });
 

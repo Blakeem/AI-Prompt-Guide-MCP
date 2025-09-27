@@ -8,7 +8,8 @@ import {
   ToolIntegration,
   DocumentNotFoundError,
   AddressingError,
-  parseTaskAddress
+  parseTaskAddress,
+  type TaskAddress
 } from '../../shared/addressing-system.js';
 import {
   splitSlugPath,
@@ -99,7 +100,8 @@ export async function viewTask(
   }
 
   // Parse and validate all tasks using addressing system
-  const taskAddresses = await Promise.all(tasks.map(async taskSlug => {
+  // Use Promise.allSettled for non-critical view operations to handle partial failures gracefully
+  const taskAddressResults = await Promise.allSettled(tasks.map(async taskSlug => {
     try {
       return await parseTaskAddress(taskSlug, addresses.document.path);
     } catch (error) {
@@ -109,6 +111,29 @@ export async function viewTask(
       throw new AddressingError(`Invalid task reference: ${taskSlug}`, 'INVALID_TASK', { taskSlug });
     }
   }));
+
+  // Separate successful addresses from failures for graceful handling
+  const taskAddresses: TaskAddress[] = [];
+  const failedTasks: string[] = [];
+
+  taskAddressResults.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      taskAddresses.push(result.value);
+    } else {
+      const taskSlug = tasks[index];
+      if (taskSlug != null) {
+        failedTasks.push(taskSlug);
+      }
+    }
+  });
+
+  // If all tasks failed, throw the first error to maintain backward compatibility
+  if (taskAddresses.length === 0 && failedTasks.length > 0) {
+    const firstResult = taskAddressResults[0];
+    if (firstResult?.status === 'rejected') {
+      throw firstResult.reason;
+    }
+  }
 
   // Import task identification logic from addressing system
   const { isTaskSection } = await import('../../shared/addressing-system.js');
@@ -147,8 +172,8 @@ export async function viewTask(
     }
   }
 
-  // Process each task
-  const processedTasks = await Promise.all(taskAddresses.map(async taskAddr => {
+  // Process each task using Promise.allSettled for graceful partial failure handling
+  const taskProcessingResults = await Promise.allSettled(taskAddresses.map(async taskAddr => {
     const heading = document.headings.find(h => h.slug === taskAddr.slug);
     if (heading == null) {
       throw new AddressingError(
@@ -197,6 +222,29 @@ export async function viewTask(
 
     return taskData;
   }));
+
+  // Separate successful tasks from failures
+  const processedTasks: ViewTaskResponse['tasks'] = [];
+  const processingErrors: { taskSlug: string; error: Error }[] = [];
+
+  taskProcessingResults.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      processedTasks.push(result.value);
+    } else {
+      processingErrors.push({
+        taskSlug: taskAddresses[index]?.slug ?? failedTasks[0] ?? 'unknown',
+        error: result.reason
+      });
+    }
+  });
+
+  // If all tasks failed to process, throw the first error for backward compatibility
+  if (processedTasks.length === 0 && processingErrors.length > 0) {
+    const firstError = processingErrors[0];
+    if (firstError != null) {
+      throw firstError.error;
+    }
+  }
 
   // Calculate summary statistics
   const statusCounts: Record<string, number> = {};

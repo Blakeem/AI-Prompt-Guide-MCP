@@ -44,7 +44,7 @@ export class InvalidAddressError extends AddressingError {
 }
 
 /**
- * Address parsing cache for performance optimization
+ * Address parsing cache for performance optimization with proper LRU implementation
  */
 class AddressCache {
   private readonly documentCache = new Map<string, DocumentAddress>();
@@ -52,12 +52,17 @@ class AddressCache {
   private readonly maxSize = 1000;
 
   getDocument(path: string): DocumentAddress | undefined {
-    return this.documentCache.get(path);
+    const address = this.documentCache.get(path);
+    if (address != null) {
+      // Touch for LRU: re-insert to maintain access order
+      this.touch(this.documentCache, path, address);
+    }
+    return address;
   }
 
   setDocument(path: string, address: DocumentAddress): void {
-    if (this.documentCache.size >= this.maxSize) {
-      // Simple LRU: remove oldest entry
+    if (this.documentCache.size >= this.maxSize && !this.documentCache.has(path)) {
+      // Proper LRU: remove least recently used (first in iteration order)
       const firstKey = this.documentCache.keys().next().value;
       if (firstKey != null) {
         this.documentCache.delete(firstKey);
@@ -67,18 +72,31 @@ class AddressCache {
   }
 
   getSection(key: string): SectionAddress | undefined {
-    return this.sectionCache.get(key);
+    const address = this.sectionCache.get(key);
+    if (address != null) {
+      // Touch for LRU: re-insert to maintain access order
+      this.touch(this.sectionCache, key, address);
+    }
+    return address;
   }
 
   setSection(key: string, address: SectionAddress): void {
-    if (this.sectionCache.size >= this.maxSize) {
-      // Simple LRU: remove oldest entry
+    if (this.sectionCache.size >= this.maxSize && !this.sectionCache.has(key)) {
+      // Proper LRU: remove least recently used (first in iteration order)
       const firstKey = this.sectionCache.keys().next().value;
       if (firstKey != null) {
         this.sectionCache.delete(firstKey);
       }
     }
     this.sectionCache.set(key, address);
+  }
+
+  /**
+   * Touch method to maintain true LRU order by re-inserting accessed items
+   */
+  private touch<T>(cache: Map<string, T>, key: string, value: T): void {
+    cache.delete(key);
+    cache.set(key, value);
   }
 
   clear(): void {
@@ -446,12 +464,16 @@ export class ToolIntegration {
       result.context = error.context;
     }
 
-    // Add hierarchical-aware suggestions
+    // Add hierarchical-aware suggestions with proper type safety
     if (error instanceof SectionNotFoundError && error.context != null) {
-      const slug = error.context['slug'] as string;
-      if (typeof slug === 'string' && slug.includes('/')) {
-        const parentPath = slug.split('/').slice(0, -1).join('/');
-        result.suggestion = suggestion ?? `Section not found. Try checking parent section: ${parentPath}`;
+      if (ToolIntegration.hasSectionContext(error.context)) {
+        const slug = error.context.slug;
+        if (slug.includes('/')) {
+          const parentPath = slug.split('/').slice(0, -1).join('/');
+          result.suggestion = suggestion ?? `Section not found. Try checking parent section: ${parentPath}`;
+        } else if (suggestion != null) {
+          result.suggestion = suggestion;
+        }
       } else if (suggestion != null) {
         result.suggestion = suggestion;
       }
@@ -460,6 +482,20 @@ export class ToolIntegration {
     }
 
     return result;
+  }
+
+  /**
+   * Type guard to safely check if error context has section-specific properties
+   */
+  static hasSectionContext(context: unknown): context is { slug: string; documentPath: string } {
+    return (
+      context != null &&
+      typeof context === 'object' &&
+      'slug' in context &&
+      'documentPath' in context &&
+      typeof context.slug === 'string' &&
+      typeof context.documentPath === 'string'
+    );
   }
 }
 

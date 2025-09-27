@@ -100,34 +100,17 @@ export async function manageDocument(
     }
 
   } catch (error) {
-    // Handle addressing errors appropriately
+    // Handle addressing errors appropriately - re-throw to maintain error structure
     if (error instanceof AddressingError) {
-      throw new Error(
-        JSON.stringify({
-          code: -32603,
-          message: 'Failed to manage document',
-          data: {
-            reason: error.code,
-            details: error.message,
-            context: error.context,
-            args
-          }
-        })
-      );
+      throw error;
     }
 
-    // Handle other errors
+    // Handle other errors - wrap in AddressingError for proper MCP handling
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      JSON.stringify({
-        code: -32603,
-        message: 'Failed to manage document',
-        data: {
-          reason: 'MANAGE_ERROR',
-          details: message,
-          args,
-        },
-      })
+    throw new AddressingError(
+      `Failed to manage document: ${message}`,
+      'DOCUMENT_MANAGE_ERROR',
+      { args, originalError: message }
     );
   }
 }

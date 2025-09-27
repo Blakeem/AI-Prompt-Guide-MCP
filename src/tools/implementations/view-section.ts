@@ -10,7 +10,8 @@ import {
   DocumentNotFoundError,
   SectionNotFoundError,
   AddressingError,
-  parseSectionAddress
+  parseSectionAddress,
+  type SectionAddress
 } from '../../shared/addressing-system.js';
 import {
   splitSlugPath,
@@ -91,7 +92,8 @@ export async function viewSection(
   }
 
   // Parse and validate all sections using addressing system
-  const sectionAddresses = await Promise.all(sections.map(async sectionSlug => {
+  // Use Promise.allSettled for non-critical view operations to handle partial failures gracefully
+  const sectionAddressResults = await Promise.allSettled(sections.map(async sectionSlug => {
     try {
       return await parseSectionAddress(sectionSlug, addresses.document.path);
     } catch (error) {
@@ -102,6 +104,29 @@ export async function viewSection(
     }
   }));
 
+  // Separate successful addresses from failures for graceful handling
+  const sectionAddresses: SectionAddress[] = [];
+  const failedSections: string[] = [];
+
+  sectionAddressResults.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      sectionAddresses.push(result.value);
+    } else {
+      const sectionSlug = sections[index];
+      if (sectionSlug != null) {
+        failedSections.push(sectionSlug);
+      }
+    }
+  });
+
+  // If all sections failed, throw the first error to maintain backward compatibility
+  if (sectionAddresses.length === 0 && failedSections.length > 0) {
+    const firstResult = sectionAddressResults[0];
+    if (firstResult?.status === 'rejected') {
+      throw firstResult.reason;
+    }
+  }
+
   // Validate all sections exist in document
   for (const sectionAddr of sectionAddresses) {
     const sectionExists = document.headings.some(h => h.slug === sectionAddr.slug);
@@ -110,8 +135,8 @@ export async function viewSection(
     }
   }
 
-  // Process each section
-  const processedSections = await Promise.all(sectionAddresses.map(async sectionAddr => {
+  // Process each section using Promise.allSettled for graceful partial failure handling
+  const sectionProcessingResults = await Promise.allSettled(sectionAddresses.map(async sectionAddr => {
     const heading = document.headings.find(h => h.slug === sectionAddr.slug);
     if (heading == null) {
       throw new SectionNotFoundError(sectionAddr.slug, addresses.document.path);
@@ -153,6 +178,29 @@ export async function viewSection(
 
     return sectionData;
   }));
+
+  // Separate successful sections from failures
+  const processedSections: ViewSectionResponse['sections'] = [];
+  const processingErrors: { sectionSlug: string; error: Error }[] = [];
+
+  sectionProcessingResults.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      processedSections.push(result.value);
+    } else {
+      processingErrors.push({
+        sectionSlug: sectionAddresses[index]?.slug ?? failedSections[0] ?? 'unknown',
+        error: result.reason
+      });
+    }
+  });
+
+  // If all sections failed to process, throw the first error for backward compatibility
+  if (processedSections.length === 0 && processingErrors.length > 0) {
+    const firstError = processingErrors[0];
+    if (firstError != null) {
+      throw firstError.error;
+    }
+  }
 
   // Calculate summary statistics with hierarchical stats
   const hierarchicalSections = processedSections.filter(s => s.hierarchical_context != null);

@@ -22,6 +22,12 @@ interface DocumentMetadata {
   linkCount: number;
   codeBlockCount: number;
   lastAccessed: Date;
+  cacheGeneration: number;
+}
+
+interface CachedSectionEntry {
+  content: string;
+  generation: number;
 }
 
 export interface CachedDocument {
@@ -29,7 +35,7 @@ export interface CachedDocument {
   headings: readonly Heading[];
   toc: readonly TocNode[];
   slugIndex: ReadonlyMap<string, number>;
-  sections?: Map<string, string>; // Lazy-loaded content
+  sections?: Map<string, CachedSectionEntry>; // Lazy-loaded content with generations
 }
 
 interface CacheOptions {
@@ -56,6 +62,7 @@ class DocumentCache extends EventEmitter {
   private readonly docsRoot: string;
   private watcher: ReturnType<typeof watch> | undefined;
   private accessCounter = 0;
+  private cacheGenerationCounter = 0;
 
   constructor(docsRoot: string, options: Partial<CacheOptions> = {}) {
     super();
@@ -132,12 +139,12 @@ class DocumentCache extends EventEmitter {
     const lines = content.split('\n');
     const firstHeading = lines.find(line => line.startsWith('#'));
     const title = firstHeading?.replace(/^#+\s*/, '') ?? path.basename(filePath, '.md');
-    
+
     // Simple content analysis
     const wordCount = content.split(/\s+/).length;
     const linkMatches = content.match(/\[([^\]]+)\]\([^)]+\)/g) ?? [];
     const codeBlockMatches = content.match(/```[\s\S]*?```/g) ?? [];
-    
+
     return {
       path: this.getRelativePath(filePath),
       title,
@@ -146,7 +153,8 @@ class DocumentCache extends EventEmitter {
       wordCount,
       linkCount: linkMatches.length,
       codeBlockCount: codeBlockMatches.length,
-      lastAccessed: new Date()
+      lastAccessed: new Date(),
+      cacheGeneration: ++this.cacheGenerationCounter
     };
   }
 
@@ -195,7 +203,53 @@ class DocumentCache extends EventEmitter {
   }
 
   /**
-   * Get or load a document into cache
+   * Atomically update cache with both hierarchical and flat keys
+   * This prevents race conditions by ensuring both keys are set with the same generation
+   */
+  private atomicCacheUpdate(document: CachedDocument, slug: string, content: string): void {
+    const generation = ++this.cacheGenerationCounter;
+    const entry: CachedSectionEntry = { content, generation };
+
+    // Initialize sections map if not present
+    document.sections ??= new Map();
+
+    // Atomic operation: update both keys with same generation
+    document.sections.set(slug, entry);
+
+    // If hierarchical slug, also cache under flat key
+    if (slug.includes('/')) {
+      const parts = slug.split('/');
+      const flatKey = parts.pop();
+      if (flatKey != null && flatKey !== '') {
+        document.sections.set(flatKey, entry); // Same entry object, same generation
+      }
+    }
+
+    logger.debug('Atomic cache update completed', {
+      slug,
+      generation,
+      hierarchicalKey: slug,
+      flatKey: slug.includes('/') ? slug.split('/').pop() : null
+    });
+  }
+
+  /**
+   * Retrieves a document from cache or loads it from the filesystem
+   *
+   * Uses LRU eviction policy and automatic cache invalidation on file changes.
+   * Documents are parsed to extract headings, table of contents, and metadata.
+   *
+   * @param docPath - Relative path to the document (e.g., "api/auth.md")
+   * @returns Cached document with metadata and structure, or null if file doesn't exist
+   *
+   * @example
+   * const doc = await cache.getDocument("api/authentication.md");
+   * if (doc) {
+   *   console.log(`Title: ${doc.metadata.title}`);
+   *   console.log(`Headings: ${doc.headings.length}`);
+   * }
+   *
+   * @throws {Error} When file access fails due to permissions or other filesystem errors
    */
   async getDocument(docPath: string): Promise<CachedDocument | null> {
     // Check cache first
@@ -250,7 +304,24 @@ class DocumentCache extends EventEmitter {
   }
 
   /**
-   * Lazy-load section content for a document
+   * Retrieves the content of a specific section from a document with atomic cache operations
+   *
+   * Supports both hierarchical and flat addressing with lazy-loading section cache.
+   * Uses generation-based cache consistency to prevent race conditions between
+   * hierarchical and flat cache keys.
+   *
+   * @param docPath - Relative path to the document
+   * @param slug - Section slug (flat or hierarchical path)
+   * @returns Section content or null if section not found
+   *
+   * @example
+   * // Flat addressing
+   * const content = await cache.getSectionContent("api/auth.md", "overview");
+   *
+   * // Hierarchical addressing
+   * const content = await cache.getSectionContent("api/auth.md", "api/auth/jwt-tokens");
+   *
+   * @throws {Error} When document cannot be loaded or section extraction fails
    */
   async getSectionContent(docPath: string, slug: string): Promise<string | null> {
     const document = await this.getDocument(docPath);
@@ -273,8 +344,14 @@ class DocumentCache extends EventEmitter {
     }
 
     for (const key of cacheKeys) {
-      if (document.sections.has(key)) {
-        return document.sections.get(key) ?? null;
+      const entry = document.sections.get(key);
+      if (entry) {
+        logger.debug('Cache hit for section', {
+          key,
+          generation: entry.generation,
+          slug
+        });
+        return entry.content;
       }
     }
 
@@ -287,15 +364,8 @@ class DocumentCache extends EventEmitter {
       const sectionContent = readSection(content, slug);
 
       if (sectionContent != null) {
-        // Cache under both hierarchical and flat keys for efficiency
-        document.sections.set(slug, sectionContent);
-        if (slug.includes('/')) {
-          const parts = slug.split('/');
-          const flatKey = parts.pop();
-          if (flatKey != null && flatKey !== '') {
-            document.sections.set(flatKey, sectionContent);
-          }
-        }
+        // Use atomic cache update to prevent race conditions
+        this.atomicCacheUpdate(document, slug, sectionContent);
       }
 
       return sectionContent;
