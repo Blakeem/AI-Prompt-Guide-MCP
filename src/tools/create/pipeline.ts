@@ -76,7 +76,11 @@ export async function executeCreateDocumentPipeline(
   const namespace = args['namespace'] as string | undefined;
   const title = args['title'] as string | undefined;
   const overview = args['overview'] as string | undefined;
-  const create = args['create'] as boolean | undefined;
+
+  // Normalize create parameter to handle both boolean true and string "true"
+  // This ensures compatibility even if MCP sends string values
+  const rawCreate = args['create'];
+  const create = rawCreate === true || rawCreate === 'true';
 
   // Get the global session store singleton
   const sessionStore = getGlobalSessionStore();

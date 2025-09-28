@@ -275,7 +275,9 @@ export function determineCreateDocumentStage(args: Record<string, unknown>): num
   const hasNamespace = args['namespace'] != null && args['namespace'] !== '';
   const hasTitle = args['title'] != null && args['title'] !== '';
   const hasOverview = args['overview'] != null && args['overview'] !== '';
-  const hasCreate = args['create'] === true;
+  // Normalize create parameter to handle both boolean true and string "true"
+  const rawCreate = args['create'];
+  const hasCreate = rawCreate === true || rawCreate === 'true';
 
   // Stage 3: Has all required parameters including create: true
   if (hasNamespace && hasTitle && hasOverview && hasCreate) {

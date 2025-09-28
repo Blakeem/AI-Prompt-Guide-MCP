@@ -458,12 +458,15 @@ async function ensureTasksSection(manager: DocumentManager, docPath: string): Pr
 // getTaskHeadings function moved to shared/task-utilities.ts to eliminate duplication
 
 function extractMetadata(content: string, key: string): string | undefined {
-  // Support both "* Key: value" and "- Key: value" formats
+  // Support multiple metadata formats: "* Key: value", "- Key: value", and "**Key:** value"
   const starMatch = content.match(new RegExp(`^\\* ${key}:\\s*(.+)$`, 'm'));
   if (starMatch != null) return starMatch[1]?.trim();
 
   const dashMatch = content.match(new RegExp(`^- ${key}:\\s*(.+)$`, 'm'));
-  return dashMatch?.[1]?.trim();
+  if (dashMatch != null) return dashMatch[1]?.trim();
+
+  const boldMatch = content.match(new RegExp(`^\\*\\*${key}:\\*\\*\\s*(.+)$`, 'm'));
+  return boldMatch?.[1]?.trim();
 }
 
 function extractLinkFromContent(content: string): string | undefined {

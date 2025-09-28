@@ -75,10 +75,9 @@ export async function viewTask(
     throw new DocumentNotFoundError(addresses.document.path);
   }
 
-  // Find tasks section
+  // Find tasks section (consistent with task.ts)
   const tasksSection = document.headings.find(h =>
     h.slug === 'tasks' ||
-    h.title.toLowerCase().includes('task') ||
     h.title.toLowerCase() === 'tasks'
   );
 
