@@ -1,305 +1,289 @@
-# Spec-Docs MCP Server (Under Active Development) 
+# AI Prompt Guide MCP
 
-A Model Context Protocol (MCP) server that enables LLMs to manage interconnected specification documents through intelligent, progressive discovery workflows.
+**A knowledge-process graph with memory, acting as cognitive scaffolding for LLMs.**
 
-## The Problem
+---
 
-Traditional documentation management requires manual coordination between related documents, leading to:
-- **Fragmented instructions** scattered across multiple markdown files
-- **Missing context** when specifications reference other documents
-- **Inconsistent implementations** due to incomplete information loading
-- **Manual coordination** between documentation, specs, and implementation guides
+## ⚠️ Alpha Status - Under Active Development
 
-## The Solution
+**This project is in early alpha and not recommended for production use.** The system is being actively developed and tested. APIs, data structures, and core concepts may change significantly. Use at your own risk.
 
-Spec-Docs MCP provides a **linked document ecosystem** where:
-- Specifications automatically **load related documents** into context
-- **Progressive discovery** guides users through complex workflows step-by-step
-- **Linked references** ensure all relevant information is available during tasks
-- **Structured templates** create consistent, interconnected documentation
+---
 
-Think of it as a more powerful replacement for manual markdown management, where documents understand their relationships and guide development workflows intelligently.
+## What Is This?
 
-## Status
+AI Prompt Guide is a **multilayer knowledge-process graph system** built on Model Context Protocol (MCP) that provides cognitive scaffolding for LLMs through structured reasoning workflows.
 
-🎉 **Central Addressing System Complete** - All 8 MCP tools successfully migrated to unified addressing framework with comprehensive issue resolution. System is production-ready with zero quality gate violations and robust type-safe addressing for documents, sections, and tasks. **Ready for production** - comprehensive testing completed!
+### Technical Foundation
 
-## Key Features
+At its core, this is a **typed property hypergraph over Markdown** where:
 
-### 🎯 **Central Addressing System** (NEW)
-- **Type-Safe Addressing** - Unified `DocumentAddress`, `SectionAddress`, `TaskAddress` interfaces with validation
-- **Format Flexibility** - Support for `"section"`, `"#section"`, and `"/doc.md#section"` formats
-- **Performance Optimization** - LRU caching with automatic eviction (1000 item limit)
-- **Error Handling** - Rich error context with custom error types (`AddressingError`, `DocumentNotFoundError`)
-- **Tool Integration** - Standardized `ToolIntegration.validateAndParse()` pattern across all 8 MCP tools
-- **Migration Complete** - All critical alpha issues resolved with comprehensive addressing framework
+**Graph Layer:**
+- **Nodes** = document sections, tasks, workflows, and prompts
+- **Edges** = containment (document → section), sequence (task → next task), and semantic links (transcludes, references, causal flows)
+- **Documents** act as hyperedges, bundling related sections and tasks into coherent units
 
-### 🔗 **Advanced Document Linking System**
-- **Cross-Document References** - Use `@/path/doc.md` to link between documents
-- **Section-Specific Links** - Link directly to sections with `@/guides/setup.md#configuration`
-- **Within-Document Links** - Reference local sections with `@#section-name`
-- **Hierarchical Slugs** - Prevent naming conflicts with nested slug paths like `#api/authentication/jwt-tokens`
-- **Automatic Context Loading** - Referenced documents load automatically with cycle detection
-- **Smart Link Suggestions** - AI-powered recommendations based on content analysis
-- **Link Validation & Health** - Comprehensive validation with health scoring and auto-fix suggestions
+**Workflow Layer:**
+- Specialized **reasoning protocols** (like Multi-Option Trade-off Analysis, Causal Flow Mapping, Spec-First Integration)
+- Reusable, addressable workflow nodes with structured steps and constraints
+- Not static prompts, but graph-encoded procedures that guide LLM reasoning
 
-### 🎯 **Progressive Discovery Workflows**
-- **Guided Creation** - Step-by-step document creation with best practices built-in
-- **Context-Aware Schemas** - Tool parameters revealed progressively to conserve context
-- **Intelligent Defaults** - Templates and examples provided at each step
-- **Error Recovery** - Helpful guidance instead of cryptic error messages
+**Memory Layer** (Planned):
+- Agent memory store indexed by graph IDs and context (document, git commit, task sequence)
+- Episodic recall ("what happened last run?") and semantic recall ("what decisions were made for feature X?")
+- Cross-session audit trail for tracking agent work and decisions over time
 
-### 📋 **Specification-Driven Development**
-- **Living Documentation** - Specs that update and guide implementation
-- **Template Consistency** - Standard formats for API specs, implementation guides, architecture docs
-- **Task Integration** - Link tasks directly to specification sections
-- **Automatic Validation** - Ensure implementations match specifications
+**Control Flow:**
+- Traversing the graph = executing adaptive reasoning paths
+- Just-in-time context injection ensures structured information, not "text soup"
+- Progressive discovery reveals complexity as needed, conserving context
 
-### 🛠 **Available MCP Tools**
+### In Plain English
+
+Think of it as **accessibility tools for LLMs** - a system that:
+- Provides go-to reasoning routines and decision-making scripts
+- Organizes knowledge as a linked graph instead of scattered documents
+- Tracks what the LLM has done across sessions (memory)
+- Guides LLMs through complex multi-step workflows with structured thinking protocols
+
+## Current Capabilities
+
+### 🎯 Central Addressing System
+- **Type-Safe Addressing** - Unified interfaces for documents, sections, and tasks with validation
+- **Format Flexibility** - Supports `"section"`, `"#section"`, and `"/doc.md#section"` addressing
+- **Performance** - LRU caching with automatic eviction (1000 item limit)
+- **Error Handling** - Rich context with custom error types
+
+### 🔗 Knowledge Graph Features
+- **Cross-Document References** - Link documents with `@/path/doc.md#section` syntax
+- **Automatic Context Loading** - Referenced documents load on-demand with cycle detection
+- **Flat Section Addressing** - Unique slug addressing with automatic duplicate handling
+- **Link Validation** - Health scoring and auto-fix suggestions for broken links
+
+### 📋 Available MCP Tools
 
 **Core Document Management:**
-- `create_document` - Progressive document creation with smart link guidance ✅
-- `browse_documents` - Unified browsing and searching with namespace awareness ✅
+- `create_document` - Progressive document creation with smart link guidance
+- `browse_documents` - Unified browsing and searching with namespace awareness
 
 **Unified Content Operations:**
-- `section` - Complete section management with intelligent link assistance ✅
-  - Edit operations: `replace`, `append`, `prepend` with link validation
-  - Create operations: `insert_before`, `insert_after`, `append_child` with automatic depth
-  - Remove operations: `remove` with content recovery
-  - Smart link suggestions based on content analysis
+- `section` - Complete section management (edit, create, delete)
+  - Operations: `replace`, `append`, `prepend`, `insert_before`, `insert_after`, `append_child`, `remove`
   - Batch support for multiple operations
+  - Link validation and suggestions
 
 **Unified Document Operations:**
-- `manage_document` - Complete document management with batch support ✅
-  - `archive` - Safe archival with audit trails
-  - `delete` - Permanent deletion (requires confirmation)
-  - `rename` - Update document titles
-  - `move` - Relocate documents with path management
+- `manage_document` - Complete document lifecycle
+  - Operations: `archive`, `delete`, `rename`, `move`
+  - Safe archival with audit trails
+  - Batch operation support
 
 **View & Inspection Tools:**
-- `view_document` - Enhanced document inspection with comprehensive stats and metadata ✅
-  - Multiple document support: view single or multiple documents
-  - Document health metrics: word count, links, tasks, last modified
-  - Comprehensive link analysis and section navigation
-- `view_section` - Clean section content viewer ✅
-  - Single or multiple section viewing
-  - Section hierarchy and content analysis
-  - No stats overhead - focused on content
-- `view_task` - Clean task data viewer ✅
-  - Single or multiple task viewing
-  - Task metadata: status, priority, dependencies, linked documents
-  - Summary statistics by status and priority
+- `view_document` - Enhanced inspection with stats and metadata
+- `view_section` - Clean section content viewer
+- `view_task` - Task data with status and priority
 
 **Task Management:**
-- `task` - Unified task operations: create, edit, and list tasks ✅
-- `complete_task` - Mark tasks completed with notes and get next available task ✅
+- `task` - Unified task operations (create, edit, list)
+- `complete_task` - Mark completed, get next task with linked documents
 
-## Use Cases
+## Technical Architecture
 
-### **For Development Teams**
-- **API Documentation** - Create comprehensive, linked API specifications with implementation guides
-- **Architecture Planning** - Document system design with connected component specifications
-- **Feature Development** - Link user stories to technical specs to implementation guides
+### Graph Structure
 
-### **For Technical Writers**
-- **Documentation Ecosystems** - Build interconnected documentation that guides readers through complex topics
-- **Standard Templates** - Ensure consistent structure across all documentation types
-- **Content Validation** - Verify that implementation guides match current specifications
-
-### **For LLM Integration**
-- **Intelligent Assistance** - AI assistants that understand document relationships and load relevant context
-- **Guided Workflows** - Step-by-step processes that prevent incomplete implementations
-- **Context-Aware Responses** - AI responses that consider all related documentation
-
-## Example Workflow
-
-```mermaid
-graph TD
-    A[Create API Spec] --> B[Progressive Discovery Guide]
-    B --> C[Section Tool: Add Endpoints]
-    C --> D[Section Tool: Batch Operations]
-    D --> E[Manage Document: Archive Old Version]
-    E --> F[Create Implementation Tasks]
-    F --> G[Section Tool: Link References]
-    G --> H[Complete Unified Documentation]
+```
+Multilayer Knowledge Graph:
+├── Document Layer (Hyperedges)
+│   ├── Contains sections and tasks
+│   ├── Namespace organization (e.g., /api/, /guides/)
+│   └── Metadata (title, modified, links)
+├── Section Layer (Content Nodes)
+│   ├── Unique slug addressing (#overview, #task-1)
+│   ├── Hierarchical relationships (parent/child)
+│   └── Cross-document transclusions (@/doc.md#section)
+└── Task Layer (Workflow Nodes)
+    ├── Sequential dependencies (task → next)
+    ├── Status tracking (pending/in-progress/completed)
+    └── Priority ordering (high/medium/low)
 ```
 
-### Unified Tool Examples
+### Addressing System Architecture
 
-```javascript
-// Section tool - All operations in one
-await section({
-  document: "/api/user-service.md",
-  section: "#authentication",
-  content: "Updated auth flow...",
-  operation: "replace"
-});
-
-// Batch section operations
-await section([
-  { document: "/api/spec.md", section: "#endpoints", content: "...", operation: "append" },
-  { document: "/api/spec.md", section: "#new-feature", content: "...", operation: "insert_after", title: "New Feature" },
-  { document: "/api/spec.md", section: "#deprecated", operation: "remove" }
-]);
-
-// Document management - All operations unified
-await manage_document({
-  operation: "archive",
-  document: "/old-spec.md"
-});
-```
-
-## Architecture
-
-### Central Addressing System Architecture
-The server is built on a **comprehensive addressing framework** that provides type-safe, performant, and flexible addressing for all document operations:
-
-**Core Framework:**
-- **`src/shared/addressing-system.ts`** - Central addressing module (435 lines)
-- **Type Safety** - `DocumentAddress`, `SectionAddress`, `TaskAddress` interfaces
-- **Performance** - LRU caching with automatic eviction (1000 item limit)
-- **Validation** - Custom error types with rich context (`AddressingError`, `DocumentNotFoundError`)
-- **Tool Integration** - Standardized `ToolIntegration.validateAndParse()` pattern
-
-**Migration Success:**
-- **8/8 Tools Migrated** - 100% completion rate
-- **All Critical Issues Resolved** - Data integrity, task workflows, content retrieval
-- **Quality Gates** - 0 errors, 0 warnings, 0 unused exports
-- **Test Coverage** - 253 tests passing across 7 test files
-
-### Progressive Discovery Pattern
-Tools reveal parameters gradually, guiding users through complex workflows:
-- **Stage 0**: Discovery - Show available options with addressing validation
-- **Stage 1**: Configuration - Gather specific requirements with format flexibility
-- **Stage 2**: Creation - Execute with full context and type safety
-
-### Modular MCP Design
 ```
 src/
-├── session/           # Session state management with singleton patterns
+├── shared/
+│   ├── addressing-system.ts    # Central type-safe addressing (435 lines)
+│   ├── path-utilities.ts       # Path and namespace utilities
+│   └── utilities.ts            # Common helpers
+├── session/
+│   ├── session-store.ts        # Singleton state management
+│   └── types.ts                # SessionState interface
 ├── tools/
-│   ├── schemas/       # Centralized schema definitions with examples
-│   ├── implementations/ # Individual tool logic (all using central addressing)
-│   └── registry.ts    # Dynamic tool registration
-├── server/            # MCP protocol handling
-└── shared/
-    ├── addressing-system.ts    # Central addressing framework (NEW)
-    ├── path-utilities.ts      # Path and namespace utilities
-    └── utilities.ts           # Common utilities and helpers
+│   ├── schemas/                # Centralized schema definitions
+│   ├── implementations/        # Tool logic (all using central addressing)
+│   ├── registry.ts             # Dynamic tool registration
+│   └── executor.ts             # Tool execution dispatcher
+└── server/
+    └── request-handlers/       # MCP protocol handling
 ```
 
-### Document Linking System
-- **Automatic Context Loading** - Referenced documents load when needed
-- **Smart Templates** - Consistent structure across document types
-- **Cross-Reference Validation** - Ensure linked documents exist and are current
-- **Progressive Enhancement** - Start simple, add complexity as needed
-- **Addressing Integration** - Links use central addressing for consistency
+### Progressive Discovery Pattern
+
+Tools reveal parameters gradually to conserve context:
+- **Stage 0**: Discovery - Show available options
+- **Stage 1**: Configuration - Gather specific requirements
+- **Stage 2**: Execution - Complete operation with full context
+
+## Future Vision
+
+### 🧠 Memory System (Next Phase)
+- **SQLite-based memory store** with full-text search (FTS5)
+- **Git-integrated audit trail** - track decisions across commits
+- **Cross-session agent memory** - LLMs can review past work
+- **Sub-agent context sharing** - all agents share memory within the system
+- Query interface: `store_memory`, `search_memory`, `get_session_memory`
+
+### 🎯 Reasoning Protocol Library (Planned)
+
+Structured workflows for common LLM reasoning tasks:
+
+1. **`decide.tradeoffs@v1`** - Multi-option trade-off analysis with weighted criteria
+2. **`integrate.spec-first@v1`** - Spec-first integration with canonical APIs
+3. **`map.causal-flow.mermaid@v1`** - Cause→effect DAG mapping with evidence
+4. **`triage.min-repro@v1`** - Failure triage with minimal reproduction
+5. **`rollout.guardrails@v1`** - Guardrailed rollout with automatic rollback
+6. **`experiment.evidence@v1`** - Evidence-based experiment protocol
+7. **`simplify.complexity-budget@v1`** - Simplicity gate with complexity budgets
+8. **`adapt.interface-diff@v1`** - Interface diff and adaptation planning
+9. **`audit.assumptions@v1`** - Assumption audit with falsifiable tests
+10. **`validate.data-quality@v1`** - Data quality gate with drift detection
+
+Each protocol is a **reusable graph-encoded procedure** that guides LLMs through structured reasoning steps.
+
+### 🚀 Long-Term Architecture
+
+**Complete knowledge-process graph** with:
+- **Graph traversal engine** for workflow execution
+- **Prompt workflow DSL** for custom reasoning protocols
+- **Episodic memory integration** across git history
+- **Multi-agent coordination** with shared context
+- **Decision artifact storage** with searchable history
 
 ## Installation & Setup
 
 ### For Claude Desktop Users
 
-Add this to your `mcp.json` file to use the published package:
+Add this to your `claude_desktop_config.json`:
 
 ```json
 {
-  "$schema": "https://schemas.modelcontextprotocol.io/0.1.0/mcp.json",
   "mcpServers": {
-    "spec-docs-mcp": {
+    "ai-prompt-guide-mcp": {
       "command": "npx",
-      "args": ["-y", "@blakeem/spec-docs-mcp"],
+      "args": ["-y", "ai-prompt-guide-mcp"],
       "env": {
-        "DOCS_BASE_PATH": "./.spec-docs-mcp/docs"
+        "DOCS_BASE_PATH": "./.ai-prompt-guide/docs"
       }
     }
   }
 }
 ```
 
-**Required Configuration:**
-- `DOCS_BASE_PATH` - Path to your documents directory (only required setting)
-
-**Optional Configuration:**
-- `LOG_LEVEL` - Set to `debug` for verbose logging (defaults to `info`)
-
-The server uses sensible defaults for all other settings. Advanced users can override additional settings if needed, but for most users, only `DOCS_BASE_PATH` is required.
+**Configuration:**
+- `DOCS_BASE_PATH` - Path to your documents directory (required)
+- `LOG_LEVEL` - Set to `debug` for verbose logging (optional, defaults to `info`)
 
 ### For Development
 
 ```bash
 # Clone and install
-git clone https://github.com/Blakeem/Spec-Docs-MCP.git
-cd Spec-Docs-MCP
+git clone https://github.com/Blakeem/AI-Prompt-Guide-MCP.git
+cd AI-Prompt-Guide-MCP
 pnpm install && pnpm build
 
 # Start MCP inspector for testing
 pnpm inspector:dev
 
 # Run quality gates
-pnpm test:run && pnpm lint && pnpm typecheck
+pnpm check:all
 ```
 
-## Testing Progressive Discovery
+## Testing with MCP Inspector
 
-1. **Start Inspector**: `pnpm inspector:dev`
-2. **Call Tool**: Use `create_document` with empty parameters
-3. **Manual Refresh**: Pull down or click refresh in tool list
-4. **Observe Evolution**: See schema expand with new parameters
-5. **Continue Flow**: Call with next stage parameters
+```bash
+# Start inspector
+pnpm inspector:dev
 
-## Technical Foundation
+# Open URL with pre-filled token
+# Test tools interactively
+# Ctrl+C to stop when done
+```
+
+## Development Status
+
+### ✅ Completed (Alpha v0.1)
+- Central addressing system with type-safe validation
+- 8 MCP tools migrated to unified addressing framework
+- Document linking system with `@` syntax
+- Task management with status/priority tracking
+- Progressive discovery workflows
+- 253 passing tests with comprehensive coverage
+
+### 🚧 In Progress
+- Memory system design and SQLite integration
+- Reasoning protocol library implementation
+- Workflow template system
+
+### 📋 Planned
+- Git-integrated audit trail
+- Cross-session agent memory queries
+- Graph traversal engine for workflow execution
+- Multi-agent context sharing
+- Decision artifact search and retrieval
+
+## Quality Standards
+
+**Mandatory Quality Gates:**
+```bash
+pnpm test:run      # All tests must pass
+pnpm lint          # Zero warnings/errors
+pnpm typecheck     # Zero type errors
+pnpm check:dead-code # Zero unused exports
+pnpm check:all     # Run all checks
+```
 
 **Built With:**
-- **TypeScript** - Strict mode for type safety
-- **MCP SDK** - Full protocol compliance
-- **Unified/Remark** - AST-based markdown processing
-- **Progressive Schemas** - Context-conserving parameter discovery
-- **Session Management** - Singleton pattern for state persistence
+- TypeScript (strict mode)
+- MCP SDK (full protocol compliance)
+- Unified/Remark (AST-based markdown)
+- Vitest (comprehensive testing)
+- ESLint (zero-tolerance linting)
 
-**Quality Standards:**
-- Comprehensive test coverage with Vitest
-- Zero-tolerance linting with ESLint
-- Strict TypeScript configuration
-- Automated quality gates
+## Use Cases
 
-## Roadmap
+**For Development:**
+- Track architectural decisions as linked knowledge graphs
+- Guide LLMs through complex multi-step workflows
+- Maintain audit trail of AI-assisted development
 
-**🎉 Central Addressing System Complete:**
-- **✅ Unified Addressing Framework** - Type-safe addressing for documents, sections, and tasks
-- **✅ Tool Migration Success** - All 8 MCP tools using central addressing (100% completion)
-- **✅ Critical Issue Resolution** - Data integrity, task workflows, content retrieval all fixed
-- **✅ Performance Optimization** - LRU caching with automatic eviction
-- **✅ Error Handling** - Rich error context with custom error types
-- **✅ Quality Gates** - Zero errors, warnings, or unused exports
-- **✅ Format Flexibility** - Universal support for `"section"` and `"#section"` formats
+**For AI Research:**
+- Test structured reasoning protocols vs free-form prompting
+- Build reusable workflow libraries for common tasks
+- Study agent memory and decision-making patterns
 
-**✅ Alpha Testing Phase Complete:**
-- **Comprehensive Document Linking System** - Full `@` syntax support with cross-document and section links
-- **Hierarchical Slug Architecture** - Prevents naming conflicts with nested paths
-- **Smart Link Guidance** - AI-powered suggestions in document creation and editing
-- **Link Validation & Health** - System-wide link health monitoring with auto-fix suggestions
-- **Complete Tool Suite** - All MCP tools implemented and tested with central addressing
-- **Task Management System** - Full task lifecycle with priority and dependency tracking
-- **Enhanced View Tools** - Clean, focused viewing for documents, sections, and tasks
-
-**🎯 Production Ready:**
-- **Architecture Foundation** - Robust, scalable addressing system for future enhancements
-- **Code Quality** - Comprehensive testing with 253 tests passing
-- **Documentation** - Complete technical documentation with migration examples
-- **Developer Experience** - Standardized patterns and error handling
-
-**🚀 Future Vision:**
-- **Smart Context Loading** - AI-driven relevant document discovery
-- **Workflow Automation** - Complete development process guidance
-- **Integration Ecosystem** - Connect with popular development tools
-- **Team Collaboration** - Multi-user document coordination
-- **Template Library** - Comprehensive collection of document templates
+**For Documentation:**
+- Create interconnected documentation ecosystems
+- Link specifications to implementation guides
+- Maintain living documentation that guides development
 
 ## Contributing
 
-This project is building the foundation for **intelligent documentation management**. We're creating tools that understand context, guide workflows, and eliminate the friction of managing complex, interconnected specifications.
+This project is building **cognitive infrastructure for LLMs**. We're creating:
+- Structured reasoning protocols that improve AI decision-making
+- Knowledge graph systems that provide just-in-time context
+- Memory systems that enable cross-session learning
 
-Contributions, ideas, and feedback welcome as we shape the future of specification-driven development!
+Contributions, ideas, and feedback welcome!
 
 ## License
 
@@ -307,4 +291,4 @@ MIT - See LICENSE file for details
 
 ---
 
-*Building documentation systems that think.*
+*Building cognitive scaffolding for the next generation of AI systems.*

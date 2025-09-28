@@ -1,8 +1,8 @@
-# spec-docs-mcp Alpha Retest
+# ai-prompt-guide-mcp Alpha Retest
 
 ## Critical Issues
 - **`view_section` still cannot retrieve content**
-  - Steps: `spec-docs-mcp__view_section` with `/final-result.md` + `section:"overview"` (and `"#overview"`).
+  - Steps: `ai-prompt-guide-mcp__view_section` with `/final-result.md` + `section:"overview"` (and `"#overview"`).
   - Result: `Section not found: #overview` even though the slug appears in the document; only the fallback `view_document` path works.
   - Impact: Section-level fetching remains unusable via the tool surface.
   - Note: This is observed via the MCP CLI; Claude Inspector status unknown.
@@ -20,7 +20,7 @@
   - After creating `/api/specs/billing-api.md` and `/frontend/components/modal-dialog.md`, `rg --files -g "*billing-api.md"` (and analogous) finds nothing in the repo.
   - Impact: Specs vanish outside the MCP session, leaving the repo out of sync with documented work.
 - **`section` operations still reject `#slug` despite stated fix**
-  - `spec-docs-mcp__section` with `section:"#basic-usage"` returns “Heading not found: #basic-usage”.
+  - `ai-prompt-guide-mcp__section` with `section:"#basic-usage"` returns “Heading not found: #basic-usage”.
   - Impact: Users must mentally strip `#`, conflicting with schema examples and error copy.
 - **`hierarchical_info.slug_depth` stays `1` for nested inserts**
   - Example: `append_child` under `usage-examples` reports `slug_depth: 1` even though the new heading is depth 3.
@@ -52,7 +52,7 @@
    - Files: `task.ts`, `complete-task.ts`
 
 3. **Document persistence - VERIFIED**
-   - Documents ARE saved to disk in `.spec-docs-mcp/docs/` as configured
+   - Documents ARE saved to disk in `.ai-prompt-guide/docs/` as configured
    - Issue was test methodology looking in wrong location
 
 4. **Duplicate Tasks sections - FIXED**

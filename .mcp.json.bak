@@ -1,11 +1,11 @@
 {
   "$schema": "https://schemas.modelcontextprotocol.io/0.1.0/mcp.json",
   "mcpServers": {
-    "spec-docs-mcp": {
+    "ai-prompt-guide-mcp": {
       "command": "node",
-      "args": ["/home/blake/Development/Spec-Docs-MCP/dist/index.js"],
+      "args": ["/home/blake/Development/AI-Prompt-Guide-MCP/dist/index.js"],
       "env": {
-        "DOCS_BASE_PATH": "./.spec-docs-mcp/docs"
+        "DOCS_BASE_PATH": "./.ai-prompt-guide/docs"
       }
     }
   }

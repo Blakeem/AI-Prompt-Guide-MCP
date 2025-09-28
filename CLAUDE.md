@@ -1,10 +1,10 @@
-# CLAUDE.md - Assistant Instructions for Spec-Docs MCP Server
+# CLAUDE.md - Assistant Instructions for AI-Prompt-Guide MCP Server
 
 ## Project Overview
 
-This is a comprehensive MCP server for intelligent specification document management. The server provides full Create, Read, Update, and Delete operations on interconnected Markdown documents with advanced linking, task management, and view capabilities.
+This is a comprehensive MCP server for intelligent AI prompt and guide document management. The server provides full Create, Read, Update, and Delete operations on interconnected Markdown documents with advanced linking, task management, and view capabilities.
 
-**Purpose:** Enable LLMs to manage specification documents programmatically through progressive discovery workflows, with automatic context loading from linked documents and comprehensive document analysis tools.
+**Purpose:** Enable LLMs to manage AI prompt guides and documentation programmatically through progressive discovery workflows, with automatic context loading from linked documents and comprehensive document analysis tools.
 
 **Current Status:** Production-ready system with unified addressing framework and comprehensive quality gates.
 
@@ -198,7 +198,7 @@ const manager = new DocumentManager(docsRoot);
 
 #### 3. **Archive Functionality Testing**
 - Archive system creates `/archived` directory with audit trails
-- Test files should be in `.spec-docs-mcp/docs/` structure
+- Test files should be in `.ai-prompt-guide/docs/` structure
 - Always verify both document movement AND audit file creation
 
 #### 4. **Background Process Management**
@@ -268,11 +268,11 @@ try {
 ```
 
 #### **Critical File System Utilities**
-Check actual file structure - test against `.spec-docs-mcp/docs/` structure:
+Check actual file structure - test against `.ai-prompt-guide/docs/` structure:
 ```bash
-ls -la .spec-docs-mcp/docs/        # Check root documents
-ls -la .spec-docs-mcp/docs/api/    # Check namespace structure
-ls -la .spec-docs-mcp/archived/    # Check archive functionality
+ls -la .ai-prompt-guide/docs/        # Check root documents
+ls -la .ai-prompt-guide/docs/api/    # Check namespace structure
+ls -la .ai-prompt-guide/archived/    # Check archive functionality
 ```
 
 ### Integration Testing Workflow
@@ -280,7 +280,7 @@ ls -la .spec-docs-mcp/archived/    # Check archive functionality
 2. **Run Quality Gates** → `pnpm check:all` (includes lint + typecheck + dead-code)
 3. **Test CRUD Operations** → Use inspector interface
 4. **Verify Archive System** → Create, then archive test documents
-5. **Check Templates** → Verify `.spec-docs-mcp/templates/` accessibility
+5. **Check Templates** → Verify `.ai-prompt-guide/templates/` accessibility
 
 ## Dead Code Prevention (MANDATORY)
 

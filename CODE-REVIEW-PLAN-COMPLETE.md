@@ -91,7 +91,7 @@
 **Related**: Agent-04 identified performance issues in core infrastructure
 
 ### 🔴 CRITICAL Unreliable Test Infrastructure - section.integration.test.ts
-**Description**: Integration tests consistently produce unhandled rejection errors for missing test files (/home/blake/Development/Spec-Docs-MCP/.spec-docs-mcp/test-integration/integration-test.md), indicating fundamental infrastructure issues with test setup/teardown.
+**Description**: Integration tests consistently produce unhandled rejection errors for missing test files (/home/blake/Development/AI-Prompt-Guide-MCP/.ai-prompt-guide/test-integration/integration-test.md), indicating fundamental infrastructure issues with test setup/teardown.
 **Impact**: Unhandled errors mask real test failures and create false confidence in test results
 **Recommendation**: Fix test directory creation and cleanup logic to prevent file not found errors during async operations
 **Files Affected**: src/tools/__tests__/section.integration.test.ts

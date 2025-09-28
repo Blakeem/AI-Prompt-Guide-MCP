@@ -23,6 +23,7 @@ export interface TestEnvironmentOptions {
 
 /**
  * Comprehensive test environment manager
+ * Note: Used internally by setupTestSuite() - exported for type inference
  */
 export class TestEnvironment {
   private readonly tempDir: string;
@@ -216,6 +217,7 @@ let globalTestEnvironment: TestEnvironment | null = null;
 
 /**
  * Set up test environment with proper isolation
+ * Note: Used internally by setupTestSuite()
  */
 export function setupTestEnvironment(options: TestEnvironmentOptions = {}): TestEnvironment {
   if (globalTestEnvironment) {
@@ -228,6 +230,7 @@ export function setupTestEnvironment(options: TestEnvironmentOptions = {}): Test
 
 /**
  * Get the current test environment
+ * Note: Used internally by setupTestSuite()
  */
 export function getTestEnvironment(): TestEnvironment {
   if (!globalTestEnvironment) {
@@ -238,6 +241,7 @@ export function getTestEnvironment(): TestEnvironment {
 
 /**
  * Clean up test environment
+ * Note: Used internally by setupTestSuite()
  */
 export async function cleanupTestEnvironment(): Promise<void> {
   if (globalTestEnvironment) {

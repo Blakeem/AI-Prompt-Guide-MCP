@@ -12,7 +12,7 @@ Comprehensive validation of the MCP server following the central addressing syst
 ## Testing Environment
 
 - ✅ MCP Inspector: Running on ports 6274/6277
-- ✅ Test Documents: Available in `.spec-docs-mcp/docs/`
+- ✅ Test Documents: Available in `.ai-prompt-guide/docs/`
 - ✅ Quality Gates: All passing (lint, typecheck, dead code)
 
 ## ORIGINAL ALPHA-TEST-2 ISSUES VALIDATION
@@ -266,7 +266,7 @@ The system demonstrates **excellent core functionality** in navigation, search, 
 1. **NEW-5: Archive Operation Silent Failure** → **✅ RESOLVED**
    - **Root Cause**: Archive operations ignored return values and created incorrect response paths
    - **Fix Applied**: Capture actual archive results and use returned paths for responses
-   - **Evidence**: Archive directory `.spec-docs-mcp/docs/archived/` contains multiple audit files
+   - **Evidence**: Archive directory `.ai-prompt-guide/docs/archived/` contains multiple audit files
    - **Impact**: Data loss risk eliminated - archive operations now work correctly
 
 2. **NEW-3: Document Creation Silent Failure** → **✅ RESOLVED**
@@ -540,7 +540,7 @@ Comprehensive final verification conducted on the complete MCP server system fol
 **CRITICAL ISSUES - ALL RESOLVED**
 
 **✅ NEW-5: Archive Operation Silent Failure**
-- **Evidence**: 5+ audit files found in `.spec-docs-mcp/docs/archived/`
+- **Evidence**: 5+ audit files found in `.ai-prompt-guide/docs/archived/`
 - **Verification**: Archive operations create proper audit trails with timestamps
 - **Sample**: `/archived/test/final-archive-test.md.audit` contains complete metadata
 - **Status**: **FULLY RESOLVED** - No data loss risk

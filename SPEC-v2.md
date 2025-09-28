@@ -1256,9 +1256,9 @@ defaults:
   slug_max_length: 50
 
 paths:
-  docs_root: ".spec-docs-mcp/docs"
-  templates: ".spec-docs-mcp/templates"
-  archived: ".spec-docs-mcp/archived"
+  docs_root: ".ai-prompt-guide/docs"
+  templates: ".ai-prompt-guide/templates"
+  archived: ".ai-prompt-guide/archived"
 ```
 
 ## Success Metrics

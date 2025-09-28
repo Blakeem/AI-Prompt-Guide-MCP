@@ -268,6 +268,7 @@ class LinkAnalysisService {
 
 /**
  * Convenience function to create link analysis service
+ * Note: Used via dynamic import in section.ts for performance optimization
  */
 export function createLinkAnalysisService(manager: DocumentManager): LinkAnalysisService {
   return new LinkAnalysisService(manager);

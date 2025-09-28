@@ -17,7 +17,7 @@ import {
 import { titleToSlug } from './slug.js';
 import { createSilentLogger, setGlobalLogger } from './utils/logger.js';
 
-const DOCS_DIR = path.resolve(process.cwd(), '.spec-docs-mcp/docs');
+const DOCS_DIR = path.resolve(process.cwd(), '.ai-prompt-guide/docs');
 const TEST_FILE = path.join(DOCS_DIR, 'final-result.md');
 const WORKING_FILE = path.join(DOCS_DIR, 'working-test.md');
 // Relative paths for readFileSnapshot
@@ -26,7 +26,10 @@ const REL_WORKING_FILE = 'working-test.md';
 beforeAll(async () => {
   // Set up silent logger for tests
   setGlobalLogger(createSilentLogger());
-  
+
+  // Configure docs base path for fsio PathHandler
+  process.env['DOCS_BASE_PATH'] = '.ai-prompt-guide/docs';
+
   // Ensure test directory exists
   await ensureDirectoryExists(DOCS_DIR);
 });

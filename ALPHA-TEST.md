@@ -1,12 +1,12 @@
-# spec-docs-mcp Alpha Test
+# ai-prompt-guide-mcp Alpha Test
 
 ## Critical Issues
 - **`view_section` / `view_task` unusable because of global cache errors**
-  - Steps: Call `spec-docs-mcp__view_section` or `spec-docs-mcp__view_task` after opening any document (e.g., `/final-result.md`). Both immediately return `Global document cache already initialized`.
+  - Steps: Call `ai-prompt-guide-mcp__view_section` or `ai-prompt-guide-mcp__view_task` after opening any document (e.g., `/final-result.md`). Both immediately return `Global document cache already initialized`.
   - Impact: Cannot drill into individual sections or inspect task metadata, so large docs are effectively unreadable through the MCP interface.
   - Recommendation: Fix the cache lifecycle so repeated reads work, or reset the cache per request.
 - **Task management workflow is broken end-to-end**
-  - `spec-docs-mcp__task` `operation:"create"` throws `manager.editSection is not a function`.
+  - `ai-prompt-guide-mcp__task` `operation:"create"` throws `manager.editSection is not a function`.
   - Checkbox lists under `## Tasks` are not detected (`operation:"list"` returns `[]`, `complete_task` cannot find slugs).
   - Impact: The flagship "link spec to tasks and complete them" workflow cannot be exercised.
   - Recommendation: Wire the task manager to the section editor, parse `- [ ]` items into tasks, and expose consistent slugs so `complete_task` can advance to the next item.

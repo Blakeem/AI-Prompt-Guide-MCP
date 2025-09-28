@@ -17,8 +17,9 @@ export interface MockDocumentManagerOptions {
 
 /**
  * Mock document manager for testing
+ * Note: Not exported directly - use createMockDocumentManager() factory function
  */
-export class MockDocumentManager {
+class MockDocumentManager {
   private readonly mockFileSystem: MockFileSystem;
   private simulateErrors: boolean;
   private readonly documentCache: Map<string, CachedDocument> = new Map();

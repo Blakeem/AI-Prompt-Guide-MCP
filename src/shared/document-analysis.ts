@@ -33,7 +33,7 @@ import { AddressingError } from './addressing-system.js';
  * }
  * ```
  */
-export class DocumentAnalysisError extends AddressingError {
+class DocumentAnalysisError extends AddressingError {
   constructor(
     message: string,
     public operation: string,

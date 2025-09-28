@@ -44,7 +44,7 @@ function getPathHandler(): PathHandler {
       // During tests or when config is not available, use a default base path
       // This allows tests to run while still providing security in production
       const envPath = process.env['DOCS_BASE_PATH'];
-      const defaultBasePath = envPath != null && envPath !== '' ? envPath : './.spec-docs-mcp/docs';
+      const defaultBasePath = envPath != null && envPath !== '' ? envPath : './.ai-prompt-guide/docs';
       pathHandler = new PathHandler(defaultBasePath);
     }
   }

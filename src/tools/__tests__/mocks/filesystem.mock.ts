@@ -243,8 +243,9 @@ export function createMockFileSystem(options: MockFileSystemOptions = {}): MockF
 
 /**
  * Error scenarios for comprehensive testing
+ * Note: Used internally by createFileSystemError()
  */
-export const ERROR_SCENARIOS = {
+const ERROR_SCENARIOS = {
   PERMISSION_DENIED: {
     code: 'EACCES',
     message: 'EACCES: permission denied'
