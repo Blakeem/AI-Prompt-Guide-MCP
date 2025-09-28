@@ -19,10 +19,7 @@ export {
   getParentSlug
 } from './slug-utils.js';
 
-// Re-export link utilities for convenience
-export {
-  parseLink
-} from './link-utils.js';
+// Note: parseLink removed as it's used via direct import from link-utils.js
 
 // Note: Link validation utilities removed as they are not currently used
 

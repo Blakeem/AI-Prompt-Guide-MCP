@@ -20,6 +20,8 @@ import { createSilentLogger, setGlobalLogger } from './utils/logger.js';
 const DOCS_DIR = path.resolve(process.cwd(), '.spec-docs-mcp/docs');
 const TEST_FILE = path.join(DOCS_DIR, 'final-result.md');
 const WORKING_FILE = path.join(DOCS_DIR, 'working-test.md');
+// Relative paths for readFileSnapshot
+const REL_WORKING_FILE = 'working-test.md';
 
 beforeAll(async () => {
   // Set up silent logger for tests
@@ -30,13 +32,8 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  // Create fresh working copy for each test
-  try {
-    const original = await readFileSnapshot(TEST_FILE);
-    await fs.writeFile(WORKING_FILE, original.content, 'utf8');
-  } catch {
-    // If TEST_FILE doesn't exist, create a sample document
-    const sampleDoc = `# API Documentation
+  // Create sample document for tests
+  const sampleDoc = `# API Documentation
 
 ## Overview
 
@@ -68,9 +65,10 @@ Returns a list of products.
 
 Creates a new product.
 `;
-    await fs.writeFile(TEST_FILE, sampleDoc, 'utf8');
-    await fs.writeFile(WORKING_FILE, sampleDoc, 'utf8');
-  }
+
+  // Ensure both test files exist with consistent content
+  await fs.writeFile(TEST_FILE, sampleDoc, 'utf8');
+  await fs.writeFile(WORKING_FILE, sampleDoc, 'utf8');
 });
 
 afterAll(async () => {
@@ -84,9 +82,9 @@ afterAll(async () => {
 
 describe('Markdown Parsing', () => {
   test('should parse and list headings with correct hierarchy', async () => {
-    const snap = await readFileSnapshot(TEST_FILE);
-    const headings = listHeadings(snap.content);
-    
+    const content = await fs.readFile(TEST_FILE, 'utf8');
+    const headings = listHeadings(content);
+
     expect(headings.length).toBeGreaterThan(0);
     expect(headings[0]?.title).toBe('API Documentation');
     expect(headings[0]?.depth).toBe(1);
@@ -94,81 +92,81 @@ describe('Markdown Parsing', () => {
   });
 
   test('should build hierarchical table of contents', async () => {
-    const snap = await readFileSnapshot(TEST_FILE);
-    const toc = buildToc(snap.content);
-    
+    const content = await fs.readFile(TEST_FILE, 'utf8');
+    const toc = buildToc(content);
+
     expect(toc.length).toBeGreaterThan(0);
     expect(toc[0]?.title).toBe('API Documentation');
     expect(toc[0]?.children.length).toBeGreaterThan(0);
   });
 
   test('should validate markdown structure', async () => {
-    const snap = await readFileSnapshot(TEST_FILE);
-    
+    const content = await fs.readFile(TEST_FILE, 'utf8');
+
     // Should not throw for well-formed document
-    expect(() => validateMarkdownStructure(snap.content)).not.toThrow();
+    expect(() => validateMarkdownStructure(content)).not.toThrow();
   });
 });
 
 describe('Section Reading', () => {
   test('should read sections by slug', async () => {
-    const snap = await readFileSnapshot(TEST_FILE);
-    
-    const overviewSection = readSection(snap.content, 'overview');
+    const content = await fs.readFile(TEST_FILE, 'utf8');
+
+    const overviewSection = readSection(content, 'overview');
     expect(overviewSection).not.toBeNull();
     expect(overviewSection).toContain('## Overview');
     expect(overviewSection).toContain('REST endpoints');
-    
-    const authSection = readSection(snap.content, 'authentication');
+
+    const authSection = readSection(content, 'authentication');
     expect(authSection).not.toBeNull();
     expect(authSection).toContain('### Authentication');
     expect(authSection).toContain('Bearer tokens');
   });
 
   test('should return null for non-existent sections', async () => {
-    const snap = await readFileSnapshot(TEST_FILE);
-    
-    const nonExistent = readSection(snap.content, 'non-existent-section');
+    const content = await fs.readFile(TEST_FILE, 'utf8');
+
+    const nonExistent = readSection(content, 'non-existent-section');
     expect(nonExistent).toBeNull();
   });
 });
 
 describe('Section Modification', () => {
   test('should replace section body', async () => {
-    const snap = await readFileSnapshot(WORKING_FILE);
+    const content = await fs.readFile(WORKING_FILE, 'utf8');
     const newContent = 'Updated authentication information.';
-    
-    const updated = replaceSectionBody(snap.content, 'authentication', newContent);
+
+    const updated = replaceSectionBody(content, 'authentication', newContent);
     expect(updated).toContain(newContent);
     expect(updated).toContain('### Authentication');
   });
 
   test('should insert sections relative to existing ones', async () => {
-    const snap = await readFileSnapshot(WORKING_FILE);
+    const content = await fs.readFile(WORKING_FILE, 'utf8');
     const body = 'This is a new feature.';
-    
-    const updated = insertRelative(snap.content, 'authentication', 'insert_after', 3, 'New Feature', body);
+
+    const updated = insertRelative(content, 'authentication', 'insert_after', 3, 'New Feature', body);
     expect(updated).toContain('### New Feature');
-    
+
     const headings = listHeadings(updated);
     const authIndex = headings.findIndex(h => h.slug === 'authentication');
     const newIndex = headings.findIndex(h => h.slug === 'new-feature');
-    
+
     expect(newIndex).toBeGreaterThan(authIndex);
   });
 
   test('should rename headings', async () => {
-    const snap = await readFileSnapshot(WORKING_FILE);
-    
-    const updated = renameHeading(snap.content, 'authentication', 'Security');
+    const content = await fs.readFile(WORKING_FILE, 'utf8');
+
+    const updated = renameHeading(content, 'authentication', 'Security');
     expect(updated).toContain('### Security');
     expect(updated).not.toContain('### Authentication');
   });
 
   test('should delete sections', async () => {
-    const snap = await readFileSnapshot(WORKING_FILE);
+    const content = await fs.readFile(WORKING_FILE, 'utf8');
 
-    const updated = deleteSection(snap.content, 'authentication');
+    const updated = deleteSection(content, 'authentication');
     expect(updated).not.toContain('### Authentication');
     expect(updated).not.toContain('Bearer tokens');
   });
@@ -217,18 +215,15 @@ This is another top-level section.
 
 describe('File Operations', () => {
   test('should handle file mtime preconditions', async () => {
-    const content = 'Test content';
-    await fs.writeFile(WORKING_FILE, content, 'utf8');
-    
-    const snap1 = await readFileSnapshot(WORKING_FILE);
-    const snap2 = await readFileSnapshot(WORKING_FILE);
-    
+    // Use the working file path that already exists from beforeEach
+    const snap1 = await readFileSnapshot(REL_WORKING_FILE);
+
     // First write should succeed
-    await writeFileIfUnchanged(WORKING_FILE, snap1.mtimeMs, 'Updated content');
-    
+    await writeFileIfUnchanged(REL_WORKING_FILE, snap1.mtimeMs, 'Updated content');
+
     // Second write with stale mtime should fail
     await expect(
-      writeFileIfUnchanged(WORKING_FILE, snap2.mtimeMs, 'Another update')
+      writeFileIfUnchanged(REL_WORKING_FILE, snap1.mtimeMs, 'Another update')
     ).rejects.toThrow('File has been modified by another process');
   });
 });

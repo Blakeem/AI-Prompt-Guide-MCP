@@ -53,7 +53,7 @@ interface LinkInfo {
 /**
  * Main link analysis service
  */
-export class LinkAnalysisService {
+class LinkAnalysisService {
   constructor(private readonly manager: DocumentManager) {}
 
   /**

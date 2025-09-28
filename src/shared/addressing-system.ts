@@ -18,6 +18,43 @@ import { normalizeSlugPath } from './slug-utils.js';
 
 /**
  * Custom error types for addressing system
+ *
+ * These error classes provide consistent error handling throughout the addressing system
+ * with standardized error codes and contextual information for debugging and recovery.
+ */
+
+/**
+ * Base error class for all addressing system errors
+ *
+ * Provides structured error information with error codes and contextual data
+ * for programmatic error handling and debugging.
+ *
+ * @param message - Human-readable error message
+ * @param code - Machine-readable error code for programmatic handling
+ * @param context - Additional context about the error for debugging
+ *
+ * @example Basic error handling
+ * ```typescript
+ * try {
+ *   // Some addressing operation
+ * } catch (error) {
+ *   if (error instanceof AddressingError) {
+ *     console.error('Error code:', error.code);
+ *     console.error('Context:', error.context);
+ *   }
+ * }
+ * ```
+ *
+ * @example Error code checking
+ * ```typescript
+ * try {
+ *   parseDocumentAddress('/invalid/path');
+ * } catch (error) {
+ *   if (error instanceof AddressingError && error.code === 'DOCUMENT_NOT_FOUND') {
+ *     // Handle missing document specifically
+ *   }
+ * }
+ * ```
  */
 export class AddressingError extends Error {
   constructor(message: string, public code: string, public context?: Record<string, unknown>) {
@@ -26,18 +63,133 @@ export class AddressingError extends Error {
   }
 }
 
+/**
+ * Error thrown when a document cannot be found at the specified path
+ *
+ * This error indicates that the document path is valid but the document
+ * does not exist in the file system or document cache.
+ *
+ * @param path - The document path that was not found
+ *
+ * @example Handling missing documents
+ * ```typescript
+ * try {
+ *   const doc = parseDocumentAddress('/missing/document.md');
+ * } catch (error) {
+ *   if (error instanceof DocumentNotFoundError) {
+ *     console.error('Document not found:', error.context.path);
+ *     // Suggest creating the document or checking the path
+ *   }
+ * }
+ * ```
+ *
+ * @example Recovery strategy
+ * ```typescript
+ * try {
+ *   return parseDocumentAddress(documentPath);
+ * } catch (error) {
+ *   if (error instanceof DocumentNotFoundError) {
+ *     // Try alternative paths or suggest creation
+ *     return suggestAlternativeDocuments(error.context.path);
+ *   }
+ *   throw error;
+ * }
+ * ```
+ */
 export class DocumentNotFoundError extends AddressingError {
   constructor(path: string) {
     super(`Document not found: ${path}`, 'DOCUMENT_NOT_FOUND', { path });
   }
 }
 
+/**
+ * Error thrown when a section cannot be found within a document
+ *
+ * This error indicates that the document exists but the specified section
+ * slug does not match any section in the document.
+ *
+ * @param slug - The section slug that was not found
+ * @param documentPath - The document path where the section was searched
+ *
+ * @example Handling missing sections
+ * ```typescript
+ * try {
+ *   const section = parseSectionAddress('missing-section', '/api/auth.md');
+ * } catch (error) {
+ *   if (error instanceof SectionNotFoundError) {
+ *     console.error('Section not found:', error.context.slug);
+ *     console.error('In document:', error.context.documentPath);
+ *     // Suggest available sections or check section name
+ *   }
+ * }
+ * ```
+ *
+ * @example Hierarchical section recovery
+ * ```typescript
+ * try {
+ *   return parseSectionAddress(sectionSlug, documentPath);
+ * } catch (error) {
+ *   if (error instanceof SectionNotFoundError) {
+ *     const slug = error.context.slug;
+ *     if (slug.includes('/')) {
+ *       // Try parent section for hierarchical addresses
+ *       const parentSlug = slug.split('/').slice(0, -1).join('/');
+ *       console.log(`Section not found. Try parent section: ${parentSlug}`);
+ *     }
+ *   }
+ *   throw error;
+ * }
+ * ```
+ */
 export class SectionNotFoundError extends AddressingError {
   constructor(slug: string, documentPath: string) {
     super(`Section not found: ${slug} in ${documentPath}`, 'SECTION_NOT_FOUND', { slug, documentPath });
   }
 }
 
+/**
+ * Error thrown when an address format is invalid or malformed
+ *
+ * This error indicates that the provided address string does not conform
+ * to expected patterns or contains invalid characters or structure.
+ *
+ * @param address - The invalid address that was provided
+ * @param reason - Specific reason why the address is invalid
+ *
+ * @example Handling invalid addresses
+ * ```typescript
+ * try {
+ *   const doc = parseDocumentAddress('invalid-path');
+ * } catch (error) {
+ *   if (error instanceof InvalidAddressError) {
+ *     console.error('Invalid address:', error.context.address);
+ *     console.error('Reason:', error.context.reason);
+ *     // Provide guidance on correct address format
+ *   }
+ * }
+ * ```
+ *
+ * @example Address format validation
+ * ```typescript
+ * function validateAndParseAddress(address: string) {
+ *   try {
+ *     return parseDocumentAddress(address);
+ *   } catch (error) {
+ *     if (error instanceof InvalidAddressError) {
+ *       switch (error.context.reason) {
+ *         case 'Document path must end with .md':
+ *           return parseDocumentAddress(address + '.md');
+ *         case 'Document path cannot be empty':
+ *           throw new Error('Please provide a document path');
+ *         default:
+ *           throw error;
+ *       }
+ *     }
+ *     throw error;
+ *   }
+ * }
+ * ```
+ */
 export class InvalidAddressError extends AddressingError {
   constructor(address: string, reason: string) {
     super(`Invalid address: ${address} - ${reason}`, 'INVALID_ADDRESS', { address, reason });
@@ -430,10 +582,49 @@ export interface HierarchicalContext {
 
 /**
  * Tool integration helpers - standard patterns for adopting the addressing system
+ *
+ * This class provides standardized methods for tools to consistently handle addressing,
+ * validation, formatting, and error handling across the MCP server.
  */
 export class ToolIntegration {
   /**
    * Standard parameter validation and parsing for document-based tools
+   *
+   * Validates and parses document/section/task addresses into standardized format.
+   * Throws AddressingError for validation failures with appropriate error codes.
+   *
+   * @param params - Parameters containing document and optional section/task references
+   * @returns Object with validated addresses and original params
+   * @throws {DocumentNotFoundError} When document path is invalid
+   * @throws {SectionNotFoundError} When section reference is invalid
+   * @throws {InvalidAddressError} When address format is malformed
+   * @throws {AddressingError} For general parameter validation failures
+   *
+   * @example Basic document validation
+   * ```typescript
+   * const { addresses } = ToolIntegration.validateAndParse({
+   *   document: '/api/auth.md'
+   * });
+   * // Returns: { addresses: { document: DocumentAddress }, params: {...} }
+   * ```
+   *
+   * @example Document with section
+   * ```typescript
+   * const { addresses } = ToolIntegration.validateAndParse({
+   *   document: '/api/auth.md',
+   *   section: 'jwt-tokens'
+   * });
+   * // Returns: { addresses: { document: DocumentAddress, section: SectionAddress }, params: {...} }
+   * ```
+   *
+   * @example Hierarchical section addressing
+   * ```typescript
+   * const { addresses } = ToolIntegration.validateAndParse({
+   *   document: '/api/auth.md',
+   *   section: 'authentication/jwt-tokens'
+   * });
+   * // Handles hierarchical paths automatically
+   * ```
    */
   static validateAndParse<T extends Record<string, unknown>>(
     params: T & { document: string; section?: string; task?: string }
@@ -460,6 +651,24 @@ export class ToolIntegration {
 
   /**
    * Standard document info response format
+   *
+   * Provides consistent document information structure across all tools.
+   *
+   * @param document - Document address object
+   * @param metadata - Optional metadata containing document title
+   * @returns Standardized document info object
+   *
+   * @example Basic document info
+   * ```typescript
+   * const docInfo = ToolIntegration.formatDocumentInfo(document);
+   * // Returns: { slug: 'auth', title: 'auth', namespace: 'api' }
+   * ```
+   *
+   * @example With metadata title
+   * ```typescript
+   * const docInfo = ToolIntegration.formatDocumentInfo(document, { title: 'Authentication Guide' });
+   * // Returns: { slug: 'auth', title: 'Authentication Guide', namespace: 'api' }
+   * ```
    */
   static formatDocumentInfo(document: DocumentAddress, metadata?: { title: string }): {
     slug: string;
@@ -475,6 +684,24 @@ export class ToolIntegration {
 
   /**
    * Standard section path formatting for responses with hierarchical indicator
+   *
+   * Formats section paths consistently with hierarchical indicators when applicable.
+   * Adds "(hierarchical)" suffix for sections containing forward slashes.
+   *
+   * @param section - Section address object
+   * @returns Formatted section path with hierarchical indicator if applicable
+   *
+   * @example Flat section
+   * ```typescript
+   * const path = ToolIntegration.formatSectionPath(flatSection);
+   * // Returns: '/api/auth.md#overview'
+   * ```
+   *
+   * @example Hierarchical section
+   * ```typescript
+   * const path = ToolIntegration.formatSectionPath(hierarchicalSection);
+   * // Returns: '/api/auth.md#authentication/jwt-tokens (hierarchical)'
+   * ```
    */
   static formatSectionPath(section: SectionAddress): string {
     const path = section.fullPath;
@@ -483,6 +710,17 @@ export class ToolIntegration {
 
   /**
    * Standard task path formatting for responses
+   *
+   * Formats task paths with consistent "(task)" indicator.
+   *
+   * @param task - Task address object
+   * @returns Formatted task path with task indicator
+   *
+   * @example Task path formatting
+   * ```typescript
+   * const path = ToolIntegration.formatTaskPath(taskAddress);
+   * // Returns: '/project/setup.md#initialize-project (task)'
+   * ```
    */
   static formatTaskPath(task: TaskAddress): string {
     return `${task.fullPath} (task)`;
@@ -490,7 +728,29 @@ export class ToolIntegration {
 
   /**
    * Format hierarchical context for section addresses
-   * Returns null for flat sections, detailed context for hierarchical
+   *
+   * Provides detailed hierarchical information for sections with forward slashes.
+   * Returns null for flat sections to indicate no hierarchical structure.
+   *
+   * @param section - Section address object
+   * @returns Hierarchical context object or null for flat sections
+   *
+   * @example Flat section (returns null)
+   * ```typescript
+   * const context = ToolIntegration.formatHierarchicalContext(flatSection);
+   * // Returns: null
+   * ```
+   *
+   * @example Hierarchical section
+   * ```typescript
+   * const context = ToolIntegration.formatHierarchicalContext(hierarchicalSection);
+   * // Returns: {
+   * //   full_path: 'authentication/jwt-tokens',
+   * //   parent_path: 'authentication',
+   * //   section_name: 'jwt-tokens',
+   * //   depth: 2
+   * // }
+   * ```
    */
   static formatHierarchicalContext(section: SectionAddress): HierarchicalContext | null {
     if (!section.slug.includes('/')) {
@@ -508,6 +768,43 @@ export class ToolIntegration {
 
   /**
    * Enhanced error formatting with hierarchical context
+   *
+   * Provides standardized error formatting with hierarchical-aware suggestions.
+   * Automatically adds helpful suggestions for hierarchical section errors.
+   *
+   * @param error - AddressingError to format
+   * @param suggestion - Optional custom suggestion to override defaults
+   * @returns Formatted error object with context and suggestions
+   *
+   * @example Basic error formatting
+   * ```typescript
+   * try {
+   *   parseDocumentAddress('/invalid/path');
+   * } catch (error) {
+   *   const formatted = ToolIntegration.formatHierarchicalError(error);
+   *   // Returns: { error: 'Document not found: /invalid/path', context: { path: '/invalid/path' } }
+   * }
+   * ```
+   *
+   * @example Hierarchical section error with auto-suggestion
+   * ```typescript
+   * try {
+   *   parseSectionAddress('auth/missing-section', '/api/guide.md');
+   * } catch (error) {
+   *   const formatted = ToolIntegration.formatHierarchicalError(error);
+   *   // Returns: {
+   *   //   error: 'Section not found: auth/missing-section',
+   *   //   context: { slug: 'auth/missing-section', documentPath: '/api/guide.md' },
+   *   //   suggestion: 'Section not found. Try checking parent section: auth'
+   *   // }
+   * }
+   * ```
+   *
+   * @example Custom suggestion
+   * ```typescript
+   * const formatted = ToolIntegration.formatHierarchicalError(error, 'Check the document exists first');
+   * // Uses provided suggestion instead of auto-generated one
+   * ```
    */
   static formatHierarchicalError(
     error: AddressingError,
@@ -543,6 +840,21 @@ export class ToolIntegration {
 
   /**
    * Type guard to safely check if error context has section-specific properties
+   *
+   * Provides type-safe validation for error context structure before accessing properties.
+   * Used internally by formatHierarchicalError for safe property access.
+   *
+   * @param context - Unknown context object to validate
+   * @returns True if context has required section properties
+   *
+   * @example Type guard usage
+   * ```typescript
+   * if (ToolIntegration.hasSectionContext(error.context)) {
+   *   // TypeScript now knows context has slug and documentPath properties
+   *   const slug = error.context.slug;
+   *   const docPath = error.context.documentPath;
+   * }
+   * ```
    */
   static hasSectionContext(context: unknown): context is { slug: string; documentPath: string } {
     return (
@@ -561,6 +873,27 @@ export class ToolIntegration {
 
   /**
    * Validate document parameter - standard pattern used across tools
+   *
+   * Ensures document parameter is a non-empty string with consistent error messaging.
+   *
+   * @param document - Document parameter to validate
+   * @returns Validated document string
+   * @throws {AddressingError} When document is not a non-empty string
+   *
+   * @example Valid document
+   * ```typescript
+   * const doc = ToolIntegration.validateDocumentParameter('/api/auth.md');
+   * // Returns: '/api/auth.md'
+   * ```
+   *
+   * @example Invalid document
+   * ```typescript
+   * try {
+   *   ToolIntegration.validateDocumentParameter('');
+   * } catch (error) {
+   *   // Throws: AddressingError with code 'INVALID_PARAMETER'
+   * }
+   * ```
    */
   static validateDocumentParameter(document: unknown): string {
     if (typeof document !== 'string' || document === '') {
@@ -571,6 +904,28 @@ export class ToolIntegration {
 
   /**
    * Validate count limits with consistent error messages
+   *
+   * Validates that arrays don't exceed specified limits with standardized error messages.
+   *
+   * @param items - Array to validate count for
+   * @param maxCount - Maximum allowed count
+   * @param itemType - Type name for error messages
+   * @throws {AddressingError} When count exceeds limit
+   *
+   * @example Valid count
+   * ```typescript
+   * ToolIntegration.validateCountLimit(['a', 'b'], 5, 'documents');
+   * // Passes validation
+   * ```
+   *
+   * @example Count limit exceeded
+   * ```typescript
+   * try {
+   *   ToolIntegration.validateCountLimit(['a', 'b', 'c'], 2, 'documents');
+   * } catch (error) {
+   *   // Throws: AddressingError 'Too many documents. Maximum 2 documents allowed, got 3'
+   * }
+   * ```
    */
   static validateCountLimit(items: unknown[], maxCount: number, itemType: string): void {
     if (items.length > maxCount) {
@@ -583,6 +938,35 @@ export class ToolIntegration {
 
   /**
    * Validate array parameter with type checking
+   *
+   * Validates and normalizes array parameters that can be strings or arrays.
+   * Converts single strings to single-element arrays for consistent handling.
+   *
+   * @param param - Parameter to validate (string or array of strings)
+   * @param paramName - Parameter name for error messages
+   * @returns Normalized array of strings
+   * @throws {AddressingError} When parameter is not string or array
+   *
+   * @example String parameter
+   * ```typescript
+   * const result = ToolIntegration.validateArrayParameter('single', 'documents');
+   * // Returns: ['single']
+   * ```
+   *
+   * @example Array parameter
+   * ```typescript
+   * const result = ToolIntegration.validateArrayParameter(['a', 'b'], 'documents');
+   * // Returns: ['a', 'b']
+   * ```
+   *
+   * @example Invalid parameter
+   * ```typescript
+   * try {
+   *   ToolIntegration.validateArrayParameter(null, 'documents');
+   * } catch (error) {
+   *   // Throws: AddressingError 'documents parameter is required and must be a string or array of strings'
+   * }
+   * ```
    */
   static validateArrayParameter(param: unknown, paramName: string): string[] {
     if (param == null || (typeof param !== 'string' && !Array.isArray(param))) {
@@ -592,6 +976,282 @@ export class ToolIntegration {
       );
     }
     return Array.isArray(param) ? param as string[] : [param as string];
+  }
+
+  /**
+   * Validate string parameter with consistent error handling
+   *
+   * Ensures parameter is a non-empty string with standardized error messages.
+   * Prevents common validation inconsistencies across tools.
+   *
+   * @param param - Parameter to validate
+   * @param paramName - Parameter name for error messages
+   * @returns Validated string parameter
+   * @throws {AddressingError} When parameter is not a non-empty string
+   *
+   * @example Valid string parameter
+   * ```typescript
+   * const operation = ToolIntegration.validateStringParameter('edit', 'operation');
+   * // Returns: 'edit'
+   * ```
+   *
+   * @example Invalid string parameter
+   * ```typescript
+   * try {
+   *   ToolIntegration.validateStringParameter('', 'operation');
+   * } catch (error) {
+   *   // Throws: AddressingError with code 'INVALID_PARAMETER'
+   * }
+   * ```
+   */
+  static validateStringParameter(param: unknown, paramName: string): string {
+    if (typeof param !== 'string' || param.trim() === '') {
+      throw new AddressingError(
+        `${paramName} parameter is required and must be a non-empty string`,
+        'INVALID_PARAMETER'
+      );
+    }
+    return param.trim();
+  }
+
+  /**
+   * Validate optional string parameter with consistent error handling
+   *
+   * Validates optional string parameters, returning undefined for null/undefined inputs.
+   * Ensures non-empty strings when provided.
+   *
+   * @param param - Optional parameter to validate
+   * @param paramName - Parameter name for error messages
+   * @returns Validated string or undefined
+   * @throws {AddressingError} When parameter is empty string or invalid type
+   *
+   * @example Valid optional parameter
+   * ```typescript
+   * const content = ToolIntegration.validateOptionalStringParameter('hello', 'content');
+   * // Returns: 'hello'
+   *
+   * const content2 = ToolIntegration.validateOptionalStringParameter(undefined, 'content');
+   * // Returns: undefined
+   * ```
+   */
+  static validateOptionalStringParameter(param: unknown, paramName: string): string | undefined {
+    if (param == null || param === '') {
+      return undefined;
+    }
+    if (typeof param !== 'string') {
+      throw new AddressingError(
+        `${paramName} parameter must be a string when provided`,
+        'INVALID_PARAMETER'
+      );
+    }
+    return param.trim();
+  }
+
+  /**
+   * Validate operation parameter against allowed values
+   *
+   * Ensures operation parameter is one of the allowed values with consistent error messaging.
+   * Prevents duplicate validation logic across tools.
+   *
+   * @param operation - Operation to validate
+   * @param allowedOperations - Array of allowed operation values
+   * @param toolName - Tool name for error context
+   * @returns Validated operation string
+   * @throws {AddressingError} When operation is not in allowed list
+   *
+   * @example Valid operation
+   * ```typescript
+   * const op = ToolIntegration.validateOperation('edit', ['list', 'create', 'edit'], 'task');
+   * // Returns: 'edit'
+   * ```
+   *
+   * @example Invalid operation
+   * ```typescript
+   * try {
+   *   ToolIntegration.validateOperation('invalid', ['list', 'create'], 'task');
+   * } catch (error) {
+   *   // Throws: AddressingError 'Invalid operation: invalid. Must be one of: list, create'
+   * }
+   * ```
+   */
+  static validateOperation(operation: unknown, allowedOperations: readonly string[], toolName: string): string {
+    if (typeof operation !== 'string' || !allowedOperations.includes(operation)) {
+      throw new AddressingError(
+        `Invalid operation: ${String(operation)}. Must be one of: ${allowedOperations.join(', ')}`,
+        'INVALID_OPERATION',
+        { operation, allowedOperations, toolName }
+      );
+    }
+    return operation;
+  }
+
+  /**
+   * Standard error response formatter for tool consistency
+   *
+   * Creates consistent error response objects across all tools. Standardizes on returning
+   * error objects rather than throwing exceptions for better MCP client experience.
+   *
+   * @param error - Error to format (AddressingError or generic Error)
+   * @param toolName - Name of the tool that encountered the error
+   * @param suggestion - Optional suggestion for error recovery
+   * @returns Standardized error response object
+   *
+   * @example AddressingError formatting
+   * ```typescript
+   * try {
+   *   // Some operation that throws AddressingError
+   * } catch (error) {
+   *   if (error instanceof AddressingError) {
+   *     return ToolIntegration.formatErrorResponse(error, 'section', 'Check document exists');
+   *   }
+   *   throw error;
+   * }
+   * // Returns: {
+   * //   error: "Section not found: overview",
+   * //   error_code: "SECTION_NOT_FOUND",
+   * //   tool: "section",
+   * //   context: { slug: "overview", documentPath: "/api/auth.md" },
+   * //   suggestion: "Check document exists"
+   * // }
+   * ```
+   */
+  static formatErrorResponse(
+    error: AddressingError | Error,
+    toolName: string,
+    suggestion?: string
+  ): {
+    error: string;
+    error_code: string;
+    tool: string;
+    context?: Record<string, unknown>;
+    suggestion?: string;
+  } {
+    const response: {
+      error: string;
+      error_code: string;
+      tool: string;
+      context?: Record<string, unknown>;
+      suggestion?: string;
+    } = {
+      error: error.message,
+      error_code: error instanceof AddressingError ? error.code : 'TOOL_ERROR',
+      tool: toolName
+    };
+
+    // Add context for AddressingError instances
+    if (error instanceof AddressingError && error.context != null) {
+      response.context = error.context;
+    }
+
+    // Add suggestion
+    if (suggestion != null) {
+      response.suggestion = suggestion;
+    }
+
+    return response;
+  }
+
+  /**
+   * Standard success response wrapper for tool consistency
+   *
+   * Creates consistent success response structure across all tools. Provides standardized
+   * metadata and ensures consistent field naming conventions.
+   *
+   * @param data - Tool-specific response data
+   * @param toolName - Name of the tool generating the response
+   * @param metadata - Optional metadata (timing, counts, etc.)
+   * @returns Standardized success response object
+   *
+   * @example Standard success response
+   * ```typescript
+   * const result = await someOperation();
+   * return ToolIntegration.formatSuccessResponse(
+   *   { sections: result.sections, content: result.content },
+   *   'section',
+   *   { operation_count: 1, processing_time_ms: 45 }
+   * );
+   * // Returns: {
+   * //   success: true,
+   * //   tool: "section",
+   * //   data: { sections: [...], content: "..." },
+   * //   metadata: { operation_count: 1, processing_time_ms: 45, timestamp: "2025-09-27T..." }
+   * // }
+   * ```
+   */
+  static formatSuccessResponse<T extends Record<string, unknown>>(
+    data: T,
+    toolName: string,
+    metadata?: Record<string, unknown>
+  ): {
+    success: true;
+    tool: string;
+    data: T;
+    metadata: Record<string, unknown>;
+  } {
+    return {
+      success: true,
+      tool: toolName,
+      data,
+      metadata: {
+        ...metadata,
+        timestamp: new Date().toISOString()
+      }
+    };
+  }
+
+  /**
+   * Batch error handler for consistent multi-operation error reporting
+   *
+   * Handles errors from batch operations consistently across tools. Returns partial
+   * success information when some operations succeed and others fail.
+   *
+   * @param errors - Array of errors encountered during batch operations
+   * @param successes - Number of successful operations
+   * @param toolName - Name of the tool handling the batch
+   * @returns Standardized batch error response
+   *
+   * @example Batch error handling
+   * ```typescript
+   * const errors = [
+   *   { index: 1, error: new SectionNotFoundError('missing', '/doc.md') },
+   *   { index: 3, error: new AddressingError('Invalid content', 'INVALID_CONTENT') }
+   * ];
+   * return ToolIntegration.formatBatchErrorResponse(errors, 2, 'section');
+   * // Returns: {
+   * //   success: false,
+   * //   tool: "section",
+   * //   partial_success: { successful_operations: 2, failed_operations: 2 },
+   * //   errors: [ ... ],
+   * //   suggestion: "Review failed operations and retry individually"
+   * // }
+   * ```
+   */
+  static formatBatchErrorResponse(
+    errors: Array<{ index: number; error: AddressingError | Error }>,
+    successes: number,
+    toolName: string
+  ): {
+    success: false;
+    tool: string;
+    partial_success: { successful_operations: number; failed_operations: number };
+    errors: Array<{ index: number; error: string; error_code: string; context?: Record<string, unknown> }>;
+    suggestion: string;
+  } {
+    return {
+      success: false,
+      tool: toolName,
+      partial_success: {
+        successful_operations: successes,
+        failed_operations: errors.length
+      },
+      errors: errors.map(({ index, error }) => ({
+        index,
+        error: error.message,
+        error_code: error instanceof AddressingError ? error.code : 'TOOL_ERROR',
+        ...(error instanceof AddressingError && error.context && { context: error.context })
+      })),
+      suggestion: 'Review failed operations and retry individually'
+    };
   }
 }
 

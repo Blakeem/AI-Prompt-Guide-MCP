@@ -41,12 +41,8 @@ export async function manageDocument(
       // Process each operation sequentially using addressing system validation
       for (const op of operations) {
         try {
-          const operation = op.operation ?? '';
-          const docPath = op.document ?? '';
-
-          if (operation === '' || docPath === '') {
-            throw new AddressingError('Missing required parameters: operation and document', 'MISSING_PARAMETER');
-          }
+          const operation = ToolIntegration.validateStringParameter(op.operation, 'operation');
+          const docPath = ToolIntegration.validateDocumentParameter(op.document);
 
           const result = await performDocumentOperation(manager, operation, docPath, op);
 
@@ -84,12 +80,8 @@ export async function manageDocument(
         confirm?: boolean;
       };
 
-      const operation = singleOp.operation ?? '';
-      const docPath = singleOp.document ?? '';
-
-      if (operation === '' || docPath === '') {
-        throw new AddressingError('Missing required parameters: operation and document', 'MISSING_PARAMETER');
-      }
+      const operation = ToolIntegration.validateStringParameter(singleOp.operation, 'operation');
+      const docPath = ToolIntegration.validateDocumentParameter(singleOp.document);
 
       const result = await performDocumentOperation(manager, operation, docPath, singleOp);
 
@@ -157,7 +149,14 @@ async function performDocumentOperation(
     });
   };
 
-  switch (operation) {
+  // Validate operation using standardized utilities
+  const validatedOperation = ToolIntegration.validateOperation(
+    operation,
+    ['archive', 'delete', 'rename', 'move'] as const,
+    'manage-document'
+  );
+
+  switch (validatedOperation) {
     case 'archive': {
       // Archive document (move to archive folder with audit trail) using validated addresses
       const archiveResult = await manager.archiveDocument(addresses.document.path);
@@ -200,11 +199,7 @@ async function performDocumentOperation(
 
     case 'rename': {
       // Rename document title
-      if (options.new_title === null || options.new_title === undefined || options.new_title === '') {
-        throw new AddressingError('new_title is required for rename operation', 'MISSING_PARAMETER', {
-          document: addresses.document.path
-        });
-      }
+      const newTitle = ToolIntegration.validateStringParameter(options.new_title, 'new_title');
 
       // Get current title
       const oldTitle = document.headings.find(h => h.depth === 1)?.title ?? 'Untitled';
@@ -224,7 +219,7 @@ async function performDocumentOperation(
       if (titleHeadings.length > 0) {
         const firstHeading = titleHeadings[0];
         if (firstHeading != null) {
-          const updatedContent = renameHeading(snapshot.content, firstHeading.slug, options.new_title as string);
+          const updatedContent = renameHeading(snapshot.content, firstHeading.slug, newTitle);
           await writeFileIfUnchanged(renameAbsolutePath, snapshot.mtimeMs, updatedContent);
         }
       }
@@ -246,14 +241,10 @@ async function performDocumentOperation(
 
     case 'move': {
       // Move document to new path
-      if (options.new_path === null || options.new_path === undefined || options.new_path === '') {
-        throw new AddressingError('new_path is required for move operation', 'MISSING_PARAMETER', {
-          document: addresses.document.path
-        });
-      }
+      const rawNewPath = ToolIntegration.validateStringParameter(options.new_path, 'new_path');
 
       // Parse and validate the new path using addressing system
-      const newPath = options.new_path.startsWith('/') ? options.new_path : `/${options.new_path}`;
+      const newPath = rawNewPath.startsWith('/') ? rawNewPath : `/${rawNewPath}`;
       const finalNewPath = newPath.endsWith('.md') ? newPath : `${newPath}.md`;
 
       // Validate the new path format using addressing system

@@ -76,7 +76,12 @@ describe('Edit Section Tool - Integration Tests', () => {
     // Set up silent logger for tests
     setGlobalLogger(createSilentLogger());
 
-    // Ensure test directory exists
+    // Ensure test directory exists and clean it first
+    try {
+      await fs.rm(TEST_DOCS_DIR, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
     await ensureDirectoryExists(TEST_DOCS_DIR);
 
     // Initialize global cache
@@ -94,6 +99,9 @@ describe('Edit Section Tool - Integration Tests', () => {
   });
 
   beforeEach(async () => {
+    // Ensure test directory exists before creating files
+    await ensureDirectoryExists(TEST_DOCS_DIR);
+
     // Create fresh test document for each test
     await fs.writeFile(FULL_TEST_PATH, SAMPLE_DOCUMENT, 'utf8');
 

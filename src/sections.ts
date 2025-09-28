@@ -22,6 +22,51 @@ import type {
 /**
  * Specialized error classes for section operations using standardized AddressingError hierarchy
  */
+
+/**
+ * Base error class for all section operation failures
+ *
+ * This error provides structured information about section operation failures,
+ * including operation context and recovery patterns specific to section manipulation.
+ *
+ * @param message - Human-readable error description
+ * @param code - Machine-readable error code for programmatic handling
+ * @param context - Additional context about the failed operation
+ *
+ * @example Basic section error handling
+ * ```typescript
+ * try {
+ *   await performSectionOperation(document, section, operation);
+ * } catch (error) {
+ *   if (error instanceof SectionOperationError) {
+ *     console.error('Section operation failed:', error.code);
+ *     console.error('Context:', error.context);
+ *     // Implement recovery based on error code
+ *   }
+ * }
+ * ```
+ *
+ * @example Error code patterns
+ * ```typescript
+ * try {
+ *   await editSection(docPath, sectionSlug, content);
+ * } catch (error) {
+ *   if (error instanceof SectionOperationError) {
+ *     switch (error.code) {
+ *       case 'HEADING_NOT_FOUND':
+ *         // Suggest similar section names or create section
+ *         break;
+ *       case 'INVALID_OPERATION':
+ *         // Provide valid operation options
+ *         break;
+ *       case 'DUPLICATE_HEADING':
+ *         // Handle heading conflicts
+ *         break;
+ *     }
+ *   }
+ * }
+ * ```
+ */
 class SectionOperationError extends AddressingError {
   constructor(message: string, code: string, context?: Record<string, unknown>) {
     super(message, code, context);
@@ -29,6 +74,51 @@ class SectionOperationError extends AddressingError {
   }
 }
 
+/**
+ * Error thrown when section content is invalid or malformed
+ *
+ * This error indicates that the provided section content violates format requirements,
+ * contains invalid markup, or fails content validation rules.
+ *
+ * @param message - Specific validation error description
+ * @param context - Additional context about the invalid content
+ *
+ * @example Handling invalid content
+ * ```typescript
+ * try {
+ *   await updateSectionContent(docPath, sectionSlug, content);
+ * } catch (error) {
+ *   if (error instanceof InvalidSectionContentError) {
+ *     console.error('Invalid content:', error.message);
+ *     console.error('Content length:', error.context?.contentLength);
+ *     // Provide content formatting guidance
+ *   }
+ * }
+ * ```
+ *
+ * @example Content validation patterns
+ * ```typescript
+ * function validateSectionContent(content: string): void {
+ *   try {
+ *     if (!content || content.trim() === '') {
+ *       throw new InvalidSectionContentError('Section content cannot be empty');
+ *     }
+ *     if (content.length > MAX_SECTION_LENGTH) {
+ *       throw new InvalidSectionContentError('Section content exceeds maximum length', {
+ *         contentLength: content.length,
+ *         maxLength: MAX_SECTION_LENGTH
+ *       });
+ *     }
+ *   } catch (error) {
+ *     // Handle validation failure with user-friendly guidance
+ *     throw error;
+ *   }
+ * }
+ * ```
+ *
+ * @throws {InvalidSectionContentError} When content validation fails
+ * @see {@link SectionOperationError} Base class for section operation errors
+ */
 class InvalidSectionContentError extends SectionOperationError {
   constructor(message: string, context?: Record<string, unknown>) {
     super(message, ERROR_CODES.INVALID_SECTION_CONTENT, context);
@@ -36,6 +126,62 @@ class InvalidSectionContentError extends SectionOperationError {
   }
 }
 
+/**
+ * Error thrown when a section slug is invalid or malformed
+ *
+ * This error indicates that the provided section slug does not conform to
+ * slug formatting rules, contains invalid characters, or conflicts with
+ * hierarchical addressing patterns.
+ *
+ * @param message - Specific slug validation error description
+ * @param context - Additional context about the invalid slug
+ *
+ * @example Handling invalid slugs
+ * ```typescript
+ * try {
+ *   const section = parseSectionSlug(userProvidedSlug);
+ * } catch (error) {
+ *   if (error instanceof InvalidSlugError) {
+ *     console.error('Invalid slug format:', error.message);
+ *     console.error('Provided slug:', error.context?.slug);
+ *     // Suggest valid slug format
+ *     console.log('Valid format: lowercase letters, numbers, hyphens only');
+ *   }
+ * }
+ * ```
+ *
+ * @example Slug validation and normalization
+ * ```typescript
+ * function normalizeSlug(rawSlug: string): string {
+ *   try {
+ *     // Remove invalid characters and normalize
+ *     const normalized = rawSlug.toLowerCase()
+ *       .replace(/[^a-z0-9-]/g, '-')
+ *       .replace(/-+/g, '-')
+ *       .replace(/^-|-$/g, '');
+ *
+ *     if (!normalized) {
+ *       throw new InvalidSlugError('Slug cannot be empty after normalization', {
+ *         originalSlug: rawSlug,
+ *         normalizedSlug: normalized
+ *       });
+ *     }
+ *
+ *     return normalized;
+ *   } catch (error) {
+ *     if (error instanceof InvalidSlugError) {
+ *       // Provide alternative slug suggestions
+ *       throw error;
+ *     }
+ *     throw new InvalidSlugError('Slug normalization failed', { originalSlug: rawSlug });
+ *   }
+ * }
+ * ```
+ *
+ * @throws {InvalidSlugError} When slug format validation fails
+ * @see {@link SectionOperationError} Base class for section operation errors
+ * @see {@link parseDocumentAddress} Related addressing functionality
+ */
 class InvalidSlugError extends SectionOperationError {
   constructor(message: string, context?: Record<string, unknown>) {
     super(message, ERROR_CODES.INVALID_SLUG, context);
@@ -43,6 +189,74 @@ class InvalidSlugError extends SectionOperationError {
   }
 }
 
+/**
+ * Error thrown when a heading cannot be found in the document
+ *
+ * This error indicates that the specified heading slug does not match any
+ * existing heading in the document. It provides context for recovery including
+ * similar headings and hierarchical path suggestions.
+ *
+ * @param slug - The heading slug that was not found
+ * @param context - Additional context including available headings
+ *
+ * @example Handling missing headings
+ * ```typescript
+ * try {
+ *   const heading = findHeadingBySlug(document, targetSlug);
+ * } catch (error) {
+ *   if (error instanceof HeadingNotFoundError) {
+ *     console.error('Heading not found:', error.context.slug);
+ *     console.log('Available headings:', error.context.availableHeadings);
+ *     // Suggest similar headings for recovery
+ *   }
+ * }
+ * ```
+ *
+ * @example Hierarchical heading recovery
+ * ```typescript
+ * try {
+ *   return findHeadingBySlug(document, hierarchicalSlug);
+ * } catch (error) {
+ *   if (error instanceof HeadingNotFoundError) {
+ *     const slug = error.context.slug as string;
+ *
+ *     // Try parent heading for hierarchical addresses
+ *     if (slug.includes('/')) {
+ *       const parentSlug = slug.split('/').slice(0, -1).join('/');
+ *       console.log(`Heading not found. Try parent: ${parentSlug}`);
+ *       return findHeadingBySlug(document, parentSlug);
+ *     }
+ *
+ *     // Suggest similar headings based on edit distance
+ *     const suggestions = findSimilarHeadings(document, slug);
+ *     console.log('Similar headings:', suggestions);
+ *   }
+ *   throw error;
+ * }
+ * ```
+ *
+ * @example Creating missing headings
+ * ```typescript
+ * async function getOrCreateHeading(document: Document, slug: string): Promise<Heading> {
+ *   try {
+ *     return findHeadingBySlug(document, slug);
+ *   } catch (error) {
+ *     if (error instanceof HeadingNotFoundError) {
+ *       // Prompt user to create the heading
+ *       const shouldCreate = await promptUser(`Create heading "${slug}"?`);
+ *       if (shouldCreate) {
+ *         return await createHeading(document, slug);
+ *       }
+ *     }
+ *     throw error;
+ *   }
+ * }
+ * ```
+ *
+ * @throws {HeadingNotFoundError} When heading lookup fails
+ * @see {@link SectionOperationError} Base class for section operation errors
+ * @see {@link findTargetHierarchicalHeading} Hierarchical heading lookup
+ */
 class HeadingNotFoundError extends SectionOperationError {
   constructor(slug: string, context?: Record<string, unknown>) {
     super(`Heading not found: ${slug}`, ERROR_CODES.HEADING_NOT_FOUND, { slug, ...context });
@@ -50,6 +264,84 @@ class HeadingNotFoundError extends SectionOperationError {
   }
 }
 
+/**
+ * Error thrown when attempting to create a duplicate heading
+ *
+ * This error indicates that a heading with the same title already exists at the
+ * specified depth level, which would create ambiguous addressing. It provides
+ * context for resolving the conflict through slug disambiguation or restructuring.
+ *
+ * @param title - The duplicate heading title
+ * @param slug - The conflicting slug that would be generated
+ * @param depth - The heading depth where the conflict occurs
+ * @param context - Additional context including existing headings
+ *
+ * @example Handling duplicate headings
+ * ```typescript
+ * try {
+ *   await createHeading(document, title, depth);
+ * } catch (error) {
+ *   if (error instanceof DuplicateHeadingError) {
+ *     console.error('Duplicate heading:', error.context.title);
+ *     console.error('Existing slug:', error.context.slug);
+ *     console.error('Conflict at depth:', error.context.depth);
+ *     // Suggest disambiguation strategies
+ *   }
+ * }
+ * ```
+ *
+ * @example Automatic slug disambiguation
+ * ```typescript
+ * async function createHeadingWithDisambiguation(
+ *   document: Document,
+ *   title: string,
+ *   depth: number
+ * ): Promise<Heading> {
+ *   try {
+ *     return await createHeading(document, title, depth);
+ *   } catch (error) {
+ *     if (error instanceof DuplicateHeadingError) {
+ *       // Automatically add suffix for disambiguation
+ *       const baseSlug = error.context.slug as string;
+ *       let counter = 1;
+ *
+ *       while (true) {
+ *         try {
+ *           const disambiguatedTitle = `${title} ${counter}`;
+ *           return await createHeading(document, disambiguatedTitle, depth);
+ *         } catch (duplicateError) {
+ *           if (duplicateError instanceof DuplicateHeadingError) {
+ *             counter++;
+ *             continue;
+ *           }
+ *           throw duplicateError;
+ *         }
+ *       }
+ *     }
+ *     throw error;
+ *   }
+ * }
+ * ```
+ *
+ * @example Manual conflict resolution
+ * ```typescript
+ * function handleDuplicateHeading(error: DuplicateHeadingError): void {
+ *   const { title, slug, depth } = error.context;
+ *
+ *   console.log(`Conflict: Heading "${title}" already exists at depth ${depth}`);
+ *   console.log(`Current slug: ${slug}`);
+ *   console.log('Resolution options:');
+ *   console.log('1. Use different title');
+ *   console.log('2. Move to different section');
+ *   console.log('3. Merge with existing heading');
+ *   console.log('4. Add disambiguating suffix');
+ * }
+ * ```
+ *
+ * @throws {DuplicateHeadingError} When heading title conflicts with existing heading
+ * @see {@link SectionOperationError} Base class for section operation errors
+ * @see {@link GithubSlugger} Slug generation with automatic disambiguation
+ */
 class DuplicateHeadingError extends SectionOperationError {
   constructor(title: string, slug: string, depth: number, context?: Record<string, unknown>) {
     super(`Duplicate heading at depth ${depth}: "${title}" (slug: ${slug})`, ERROR_CODES.DUPLICATE_HEADING, {
@@ -62,6 +354,87 @@ class DuplicateHeadingError extends SectionOperationError {
   }
 }
 
+/**
+ * Error thrown when a section title is invalid or malformed
+ *
+ * This error indicates that the provided section title violates title formatting
+ * rules, contains invalid characters, or fails title validation constraints.
+ *
+ * @param message - Specific title validation error description
+ * @param context - Additional context about the invalid title
+ *
+ * @example Handling invalid titles
+ * ```typescript
+ * try {
+ *   await createSectionWithTitle(document, invalidTitle);
+ * } catch (error) {
+ *   if (error instanceof InvalidTitleError) {
+ *     console.error('Invalid title format:', error.message);
+ *     console.error('Provided title:', error.context?.title);
+ *     // Provide title formatting guidance
+ *   }
+ * }
+ * ```
+ *
+ * @example Title validation patterns
+ * ```typescript
+ * function validateSectionTitle(title: string): void {
+ *   if (!title || title.trim() === '') {
+ *     throw new InvalidTitleError('Section title cannot be empty', { title });
+ *   }
+ *
+ *   if (title.length > MAX_TITLE_LENGTH) {
+ *     throw new InvalidTitleError('Section title too long', {
+ *       title,
+ *       length: title.length,
+ *       maxLength: MAX_TITLE_LENGTH
+ *     });
+ *   }
+ *
+ *   if (title.includes('#')) {
+ *     throw new InvalidTitleError('Section title cannot contain # characters', { title });
+ *   }
+ *
+ *   // Check for markdown formatting issues
+ *   if (title.startsWith('*') || title.startsWith('_')) {
+ *     throw new InvalidTitleError('Section title cannot start with markdown formatting', { title });
+ *   }
+ * }
+ * ```
+ *
+ * @example Title normalization and recovery
+ * ```typescript
+ * function normalizeSectionTitle(rawTitle: string): string {
+ *   try {
+ *     validateSectionTitle(rawTitle);
+ *     return rawTitle.trim();
+ *   } catch (error) {
+ *     if (error instanceof InvalidTitleError) {
+ *       // Attempt automatic title fixing
+ *       let normalized = rawTitle.trim();
+ *
+ *       // Remove problematic characters
+ *       normalized = normalized.replace(/[#*_]/g, '');
+ *
+ *       // Truncate if too long
+ *       if (normalized.length > MAX_TITLE_LENGTH) {
+ *         normalized = normalized.substring(0, MAX_TITLE_LENGTH - 3) + '...';
+ *       }
+ *
+ *       if (normalized) {
+ *         console.warn(`Title normalized: "${rawTitle}" -> "${normalized}"`);
+ *         return normalized;
+ *       }
+ *     }
+ *     throw error;
+ *   }
+ * }
+ * ```
+ *
+ * @throws {InvalidTitleError} When title validation fails
+ * @see {@link SectionOperationError} Base class for section operation errors
+ * @see {@link InvalidSlugError} Related slug validation errors
+ */
 class InvalidTitleError extends SectionOperationError {
   constructor(message: string, context?: Record<string, unknown>) {
     super(message, ERROR_CODES.INVALID_TITLE, context);
@@ -69,6 +442,98 @@ class InvalidTitleError extends SectionOperationError {
   }
 }
 
+/**
+ * Error thrown when a section operation is invalid or not supported
+ *
+ * This error indicates that the requested operation cannot be performed due to
+ * invalid operation type, incompatible parameters, or operation constraints.
+ *
+ * @param message - Specific operation validation error description
+ * @param context - Additional context about the invalid operation
+ *
+ * @example Handling invalid operations
+ * ```typescript
+ * try {
+ *   await performSectionOperation(document, section, operation, params);
+ * } catch (error) {
+ *   if (error instanceof InvalidOperationError) {
+ *     console.error('Invalid operation:', error.message);
+ *     console.error('Operation:', error.context?.operation);
+ *     console.error('Valid operations:', error.context?.validOperations);
+ *   }
+ * }
+ * ```
+ *
+ * @example Operation validation patterns
+ * ```typescript
+ * function validateSectionOperation(
+ *   operation: string,
+ *   section: Section,
+ *   content?: string
+ * ): void {
+ *   const validOperations = ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child', 'remove'];
+ *
+ *   if (!validOperations.includes(operation)) {
+ *     throw new InvalidOperationError('Unknown section operation', {
+ *       operation,
+ *       validOperations
+ *     });
+ *   }
+ *
+ *   // Content required for most operations
+ *   if (['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child'].includes(operation)) {
+ *     if (!content || content.trim() === '') {
+ *       throw new InvalidOperationError(`Content required for operation: ${operation}`, {
+ *         operation,
+ *         hasContent: !!content
+ *       });
+ *     }
+ *   }
+ *
+ *   // Title required for creation operations
+ *   if (['insert_before', 'insert_after', 'append_child'].includes(operation)) {
+ *     if (!context?.title) {
+ *       throw new InvalidOperationError(`Title required for creation operation: ${operation}`, {
+ *         operation,
+ *         requiredFields: ['title', 'content']
+ *       });
+ *     }
+ *   }
+ * }
+ * ```
+ *
+ * @example Operation compatibility checking
+ * ```typescript
+ * async function performCompatibleOperation(
+ *   document: Document,
+ *   section: Section,
+ *   operation: string,
+ *   params: OperationParams
+ * ): Promise<OperationResult> {
+ *   try {
+ *     validateSectionOperation(operation, section, params.content);
+ *     return await executeSectionOperation(document, section, operation, params);
+ *   } catch (error) {
+ *     if (error instanceof InvalidOperationError) {
+ *       // Suggest compatible operations
+ *       const suggestions = getCompatibleOperations(section, params);
+ *       console.log('Suggested operations:', suggestions);
+ *
+ *       // Try fallback operation if available
+ *       if (suggestions.length > 0) {
+ *         console.log(`Trying fallback operation: ${suggestions[0]}`);
+ *         return await executeSectionOperation(document, section, suggestions[0], params);
+ *       }
+ *     }
+ *     throw error;
+ *   }
+ * }
+ * ```
+ *
+ * @throws {InvalidOperationError} When operation validation fails
+ * @see {@link SectionOperationError} Base class for section operation errors
+ * @see {@link SECTION_CONSTANTS.OPERATIONS} Valid operation types
+ */
 class InvalidOperationError extends SectionOperationError {
   constructor(message: string, context?: Record<string, unknown>) {
     super(message, ERROR_CODES.INVALID_OPERATION, context);
@@ -133,8 +598,16 @@ function findCandidateSections(finalSlug: string, headings: readonly Heading[]):
   });
 }
 
+// HierarchyIndex interface removed (dead code cleanup)
+
+// buildHierarchyIndex function removed (dead code cleanup)
+
+// buildHierarchicalPathOptimized function removed (dead code cleanup)
+
 /**
- * Builds the hierarchical path for a given heading by walking backwards through parent headings
+ * Legacy function - builds the hierarchical path by walking backwards through parent headings
+ *
+ * @deprecated Use buildHierarchicalPathOptimized with pre-built hierarchy index for better performance
  *
  * @param targetSection - The heading to build the path for
  * @param headings - Complete array of all headings in the document (must be in document order)
@@ -268,6 +741,27 @@ function findTargetHierarchicalHeading(targetPath: string, headings: readonly He
   return null;
 }
 
+/**
+ * Result object for hierarchical heading matching with detailed diagnostic information
+ */
+export interface HierarchicalMatchResult {
+  /** Whether a matching heading was found */
+  found: boolean;
+  /** The matched heading (only present when found is true) */
+  heading?: Heading;
+  /** Reason for match failure (only present when found is false) */
+  reason?: 'PATH_NOT_FOUND' | 'DISAMBIGUATION_FAILED' | 'INVALID_PATH';
+  /** How far the path matched before failing */
+  partialMatch?: string;
+  /** Suggested alternative paths that might match */
+  suggestions?: string[];
+  /** All available section slugs in the document */
+  availableSections?: string[];
+}
+
+// Function removed as it was unused (dead code cleanup)
+
+// findCommonPrefix function removed (dead code cleanup)
 
 /**
  * Finds the parent heading index for a given slug

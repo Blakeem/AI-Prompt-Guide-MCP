@@ -5,7 +5,6 @@
 
 import type { SessionState } from '../../session/types.js';
 import type { DocumentManager } from '../../document-manager.js';
-import type { Heading } from '../../types/core.js';
 import {
   getDocumentManager,
   performSectionEdit
@@ -14,9 +13,9 @@ import { titleToSlug } from '../../slug.js';
 import {
   ToolIntegration,
   AddressingError,
-  DocumentNotFoundError,
-  isTaskSection
+  DocumentNotFoundError
 } from '../../shared/addressing-system.js';
+import { getTaskHeadingsFromHeadings } from '../../shared/task-utilities.js';
 import type { parseDocumentAddress } from '../../shared/addressing-system.js';
 import type {
   DocumentAddress,
@@ -140,22 +139,24 @@ export async function task(
   try {
     const manager: DocumentManager = await getDocumentManager();
 
-    // Validate required parameters
-    if (typeof args['document'] !== 'string' || args['document'] === '') {
-      throw new AddressingError('Missing required parameter: document', 'MISSING_PARAMETER');
-    }
+    // Validate parameters using standardized utilities
+    const documentPath = ToolIntegration.validateDocumentParameter(args['document']);
+    const operation = ToolIntegration.validateOperation(
+      args['operation'] ?? 'list',
+      ['list', 'create', 'edit'] as const,
+      'task'
+    );
 
-    const operation = (args['operation'] as string) ?? 'list';
-    const taskSlug = args['task'] as string;
-    const content = args['content'] as string;
-    const title = args['title'] as string;
-    const statusFilter = args['status'] as string;
-    const priorityFilter = args['priority'] as string;
+    const taskSlug = ToolIntegration.validateOptionalStringParameter(args['task'], 'task');
+    const content = ToolIntegration.validateOptionalStringParameter(args['content'], 'content');
+    const title = ToolIntegration.validateOptionalStringParameter(args['title'], 'title');
+    const statusFilter = ToolIntegration.validateOptionalStringParameter(args['status'], 'status');
+    const priorityFilter = ToolIntegration.validateOptionalStringParameter(args['priority'], 'priority');
 
     // Use addressing system for validation and parsing
     const { addresses } = ToolIntegration.validateAndParse({
-      document: args['document'],
-      ...(taskSlug != null && taskSlug !== '' && { task: taskSlug })
+      document: documentPath,
+      ...(taskSlug != null && { task: taskSlug })
     });
 
     // Get document and validate existence
@@ -174,13 +175,13 @@ export async function task(
         return await listTasks(manager, addresses, statusFilter, priorityFilter, documentInfo);
 
       case 'create':
-        if (!title || !content) {
+        if (title == null || content == null) {
           throw new AddressingError('Missing required parameters for create: title and content', 'MISSING_PARAMETER');
         }
         return await createTask(manager, addresses, title, content, taskSlug, documentInfo);
 
       case 'edit':
-        if (!taskSlug || !content) {
+        if (taskSlug == null || content == null) {
           throw new AddressingError('Missing required parameters for edit: task and content', 'MISSING_PARAMETER');
         }
         if (addresses.task == null) {
@@ -189,6 +190,7 @@ export async function task(
         return await editTask(manager, addresses, content, documentInfo);
 
       default:
+        // This should never happen due to validateOperation, but keep for type safety
         throw new AddressingError(`Invalid operation: ${operation}. Must be one of: list, create, edit`, 'INVALID_OPERATION');
     }
 
@@ -239,7 +241,7 @@ async function listTasks(
     }
 
     // Find all task headings using standardized task identification logic
-    const taskHeadings = await getTaskHeadings(document, tasksSection);
+    const taskHeadings = await getTaskHeadingsFromHeadings(document, tasksSection);
 
     // Parse task details from each task heading using addressing system patterns
     // Use try-catch with cleanup for critical operations to prevent resource leaks
@@ -453,53 +455,7 @@ async function ensureTasksSection(manager: DocumentManager, docPath: string): Pr
   // Tasks section exists, nothing to do
 }
 
-/**
- * Find all task headings that are children of the Tasks section
- * Updated to use addressing system's isTaskSection for consistent task identification
- */
-async function getTaskHeadings(
-  document: { readonly headings: readonly Heading[] },
-  tasksSection: Heading
-): Promise<Heading[]> {
-  const taskHeadings: Heading[] = [];
-  const tasksIndex = document.headings.findIndex(h => h.slug === tasksSection.slug);
-
-  if (tasksIndex === -1) return taskHeadings;
-
-  const targetDepth = tasksSection.depth + 1;
-
-  // Look at headings after the Tasks section using addressing system validation
-  for (let i = tasksIndex + 1; i < document.headings.length; i++) {
-    const heading = document.headings[i];
-    if (heading == null) continue;
-
-    // If we hit a heading at the same or shallower depth as Tasks, we're done
-    if (heading.depth <= tasksSection.depth) {
-      break;
-    }
-
-    // If this is a direct child of Tasks section (depth = Tasks.depth + 1), it's a task
-    if (heading.depth === targetDepth) {
-      // Use addressing system to validate this is actually a task
-      // Convert readonly Heading[] to compatible format
-      const compatibleDocument = {
-        headings: document.headings.map(h => ({
-          slug: h.slug,
-          title: h.title,
-          depth: h.depth
-        }))
-      };
-      const isTask = await isTaskSection(heading.slug, compatibleDocument);
-      if (isTask) {
-        taskHeadings.push(heading);
-      }
-    }
-
-    // Skip deeper nested headings (they are children of tasks, not tasks themselves)
-  }
-
-  return taskHeadings;
-}
+// getTaskHeadings function moved to shared/task-utilities.ts to eliminate duplication
 
 function extractMetadata(content: string, key: string): string | undefined {
   // Support both "* Key: value" and "- Key: value" formats

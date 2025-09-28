@@ -31,13 +31,199 @@ interface CachedSectionEntry {
   generation: number;
 }
 
-export interface CachedDocument {
+/**
+ * Interface Segregation Principle: Split CachedDocument into focused interfaces
+ * to reduce coupling and allow tools to depend only on what they need.
+ *
+ * These interfaces follow the Interface Segregation Principle by breaking down
+ * the complex CachedDocument into focused contracts that tools can implement
+ * based on their specific needs, reducing unnecessary dependencies.
+ */
+
+/**
+ * Core document information interface
+ *
+ * Provides access to essential document metadata without requiring knowledge
+ * of document structure or content. Used by tools that only need basic
+ * document information like title, path, and namespace.
+ *
+ * @example Basic document info usage
+ * ```typescript
+ * function getDocumentTitle(doc: DocumentCore): string {
+ *   return doc.metadata.title;
+ * }
+ *
+ * function getDocumentNamespace(doc: DocumentCore): string {
+ *   return doc.metadata.namespace;
+ * }
+ * ```
+ *
+ * @example Tool implementation with minimal dependencies
+ * ```typescript
+ * class DocumentInfoTool {
+ *   async execute(doc: DocumentCore): Promise<DocumentInfo> {
+ *     return {
+ *       title: doc.metadata.title,
+ *       path: doc.metadata.path,
+ *       namespace: doc.metadata.namespace,
+ *       lastModified: doc.metadata.lastModified
+ *     };
+ *   }
+ * }
+ * ```
+ *
+ * @see {@link DocumentMetadata} Complete metadata interface
+ * @see {@link CachedDocument} Full document interface
+ */
+export interface DocumentCore {
+  /** Document metadata including title, path, namespace, and timestamps */
   metadata: DocumentMetadata;
-  headings: readonly Heading[];
-  toc: readonly TocNode[];
-  slugIndex: ReadonlyMap<string, number>;
-  sections?: Map<string, CachedSectionEntry>; // Lazy-loaded content with generations
 }
+
+/**
+ * Document structure interface
+ *
+ * Provides access to document structure information including headings and
+ * table of contents. Used by tools that need to navigate or analyze document
+ * hierarchy without requiring access to actual content.
+ *
+ * @example Structure navigation
+ * ```typescript
+ * function findHeadingBySlug(doc: DocumentStructure, slug: string): Heading | null {
+ *   return doc.headings.find(h => h.slug === slug) ?? null;
+ * }
+ *
+ * function getDocumentOutline(doc: DocumentStructure): TocNode[] {
+ *   return [...doc.toc]; // Return copy of TOC
+ * }
+ * ```
+ *
+ * @example Hierarchical analysis
+ * ```typescript
+ * function analyzeDocumentStructure(doc: DocumentStructure): StructureAnalysis {
+ *   const maxDepth = Math.max(...doc.headings.map(h => h.depth));
+ *   const sectionCount = doc.headings.length;
+ *   const rootSections = doc.toc.filter(node => node.depth === 1);
+ *
+ *   return {
+ *     maxDepth,
+ *     sectionCount,
+ *     rootSectionCount: rootSections.length,
+ *     avgSectionsPerLevel: sectionCount / maxDepth
+ *   };
+ * }
+ * ```
+ *
+ * @see {@link Heading} Individual heading interface
+ * @see {@link TocNode} Table of contents node interface
+ */
+export interface DocumentStructure {
+  /** Ordered list of all headings in the document */
+  headings: readonly Heading[];
+
+  /** Hierarchical table of contents structure */
+  toc: readonly TocNode[];
+}
+
+/**
+ * Document indexing interface
+ *
+ * Provides access to optimized lookup structures for fast document querying.
+ * Primarily used internally by the cache system and performance-critical
+ * operations that need O(1) heading lookups.
+ *
+ * @example Fast heading lookup
+ * ```typescript
+ * function getHeadingIndex(doc: DocumentIndex, slug: string): number | undefined {
+ *   return doc.slugIndex.get(slug);
+ * }
+ *
+ * function hasHeading(doc: DocumentIndex, slug: string): boolean {
+ *   return doc.slugIndex.has(slug);
+ * }
+ * ```
+ *
+ * @example Bulk heading operations
+ * ```typescript
+ * function validateHeadingSlugs(
+ *   doc: DocumentIndex,
+ *   requiredSlugs: string[]
+ * ): ValidationResult {
+ *   const missing = requiredSlugs.filter(slug => !doc.slugIndex.has(slug));
+ *   const existing = requiredSlugs.filter(slug => doc.slugIndex.has(slug));
+ *
+ *   return {
+ *     valid: missing.length === 0,
+ *     missing,
+ *     existing
+ *   };
+ * }
+ * ```
+ *
+ * @see {@link DocumentCache} Cache implementation that builds indices
+ */
+export interface DocumentIndex {
+  /** Map from section slug to heading index for O(1) lookups */
+  slugIndex: ReadonlyMap<string, number>;
+}
+
+/**
+ * Document content interface
+ *
+ * Provides access to actual section content with lazy loading and cache
+ * management. Used by tools that need to read or modify section content.
+ * Content is loaded on-demand to optimize memory usage.
+ *
+ * @example Lazy content access
+ * ```typescript
+ * async function getSectionContent(
+ *   doc: DocumentContent,
+ *   slug: string
+ * ): Promise<string | null> {
+ *   const sectionEntry = doc.sections?.get(slug);
+ *   return sectionEntry?.content ?? null;
+ * }
+ * ```
+ *
+ * @example Content enumeration
+ * ```typescript
+ * function getAllLoadedSections(doc: DocumentContent): string[] {
+ *   if (!doc.sections) return [];
+ *   return Array.from(doc.sections.keys());
+ * }
+ *
+ * function getContentStats(doc: DocumentContent): ContentStats {
+ *   if (!doc.sections) return { loadedSections: 0, totalContentLength: 0 };
+ *
+ *   let totalLength = 0;
+ *   for (const entry of doc.sections.values()) {
+ *     totalLength += entry.content.length;
+ *   }
+ *
+ *   return {
+ *     loadedSections: doc.sections.size,
+ *     totalContentLength: totalLength
+ *   };
+ * }
+ * ```
+ *
+ * @see {@link CachedSectionEntry} Individual section cache entry
+ * @see {@link DocumentCache} Cache implementation managing content lifecycle
+ */
+export interface DocumentContent {
+  /** Lazy-loaded section content with cache generations for invalidation */
+  sections?: Map<string, CachedSectionEntry>;
+}
+
+/**
+ * Backward compatible composed interface
+ * Maintains compatibility with existing code while allowing focused usage
+ */
+export interface CachedDocument extends
+  DocumentCore,
+  DocumentStructure,
+  DocumentIndex,
+  DocumentContent {}
 
 interface CacheOptions {
   maxCacheSize: number;

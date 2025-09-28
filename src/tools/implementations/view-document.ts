@@ -6,10 +6,10 @@ import type { SessionState } from '../../session/types.js';
 import type { CachedDocument } from '../../document-cache.js';
 import {
   loadLinkedDocumentContext,
-  getDocumentManager,
-  parseLink
+  getDocumentManager
 } from '../../shared/utilities.js';
 import { DocumentNotFoundError } from '../../shared/addressing-system.js';
+import { getTaskHeadings } from '../../shared/task-utilities.js';
 
 /**
  * Enhanced response format for view_document (supports multiple documents)
@@ -109,8 +109,7 @@ interface ViewDocumentResponse {
  * console.log(result.documents[0].statistics.word_count);
  * console.log(result.documents[0].headings.length);
  *
- * @throws {Error} When document paths are invalid or documents cannot be loaded
- * @throws {Error} When linked document context loading fails
+ * @throws {DocumentNotFoundError} When documents cannot be loaded
  */
 export async function viewDocument(
   args: Record<string, unknown>,
@@ -209,19 +208,72 @@ export async function viewDocument(
 }
 
 /**
- * Process a single document and return its data
+ * Extract document metadata including title, namespace, and file statistics
  */
-async function processDocument(
+async function extractDocumentMetadata(
+  documentPath: string,
+  document: CachedDocument
+): Promise<{
+  documentInfo: { slug: string; title: string; namespace: string };
+  lastModified: string;
+  wordCount: number;
+  headingCount: number;
+  fullContent: string;
+}> {
+  // Parse document address for standardized formatting
+  const { parseDocumentAddress, ToolIntegration } = await import('../../shared/addressing-system.js');
+  const documentAddress = parseDocumentAddress(documentPath);
+  const documentInfo = ToolIntegration.formatDocumentInfo(documentAddress, { title: document.metadata.title });
+
+  // Read file content and statistics
+  const { loadConfig } = await import('../../config.js');
+  const config = loadConfig();
+  const { readFile, stat } = await import('node:fs/promises');
+  const path_module = await import('node:path');
+  const absolutePath = path_module.join(config.docsBasePath, documentPath);
+
+  let fullContent = '';
+  let lastModified = '';
+  try {
+    fullContent = await readFile(absolutePath, 'utf-8');
+    const stats = await stat(absolutePath);
+    lastModified = stats.mtime.toISOString();
+  } catch {
+    // Handle file read errors gracefully
+    lastModified = new Date().toISOString();
+  }
+
+  // Calculate statistics
+  const wordCount = fullContent.split(/\s+/).filter(word => word.length > 0).length;
+  const headingCount = document.headings.length;
+
+  return {
+    documentInfo,
+    lastModified,
+    wordCount,
+    headingCount,
+    fullContent
+  };
+}
+
+/**
+ * Analyze document sections and build enhanced section information
+ */
+async function analyzeDocumentSections(
   manager: Awaited<ReturnType<typeof getDocumentManager>>,
   documentPath: string,
   document: CachedDocument,
   sectionSlug: string | undefined
-): Promise<ViewDocumentResponse['documents'][0]> {
-  // Parse document address for standardized formatting
-  const { parseDocumentAddress } = await import('../../shared/addressing-system.js');
-  const documentAddress = parseDocumentAddress(documentPath);
-
-  // Build enhanced sections list with hierarchical information
+): Promise<Array<{
+  slug: string;
+  title: string;
+  depth: number;
+  full_path: string;
+  parent?: string;
+  hasContent: boolean;
+  links: string[];
+}>> {
+  // Determine which sections to show
   let sectionsToShow = document.headings;
 
   // If section-specific viewing, filter sections
@@ -235,6 +287,7 @@ async function processDocument(
     }
   }
 
+  // Build enhanced sections with hierarchical information
   const enhancedSections = await Promise.all(sectionsToShow.map(async (heading: { slug: string; title: string; depth: number }) => {
     // Get section content to analyze for links
     const content = await manager.getSectionContent(documentPath, heading.slug) ?? '';
@@ -276,29 +329,25 @@ async function processDocument(
     return sectionData;
   }));
 
-  // Calculate document statistics
-  const { loadConfig } = await import('../../config.js');
-  const config = loadConfig();
-  const { readFile, stat } = await import('node:fs/promises');
-  const path_module = await import('node:path');
-  const absolutePath = path_module.join(config.docsBasePath, documentPath);
+  return enhancedSections;
+}
 
-  let fullContent = '';
-  let lastModified = '';
-  try {
-    fullContent = await readFile(absolutePath, 'utf-8');
-    const stats = await stat(absolutePath);
-    lastModified = stats.mtime.toISOString();
-  } catch {
-    // Handle file read errors gracefully
-    lastModified = new Date().toISOString();
-  }
-
-  // Calculate word count and heading count
-  const wordCount = fullContent.split(/\s+/).filter(word => word.length > 0).length;
-  const headingCount = document.headings.length;
-
-  // Analyze document links
+/**
+ * Analyze document links including internal, external, and broken links
+ */
+async function analyzeDocumentLinks(
+  manager: Awaited<ReturnType<typeof getDocumentManager>>,
+  documentPath: string,
+  document: CachedDocument,
+  fullContent: string
+): Promise<{
+  total: number;
+  internal: number;
+  external: number;
+  broken: number;
+  sectionsWithoutLinks: string[];
+}> {
+  // Extract all links from full content
   const allLinks = fullContent.match(/@(?:\/[^\s\]]+(?:#[^\s\]]*)?|#[^\s\]]*)/g) ?? [];
   const externalLinks = fullContent.match(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g) ?? [];
 
@@ -316,6 +365,7 @@ async function processDocument(
 
     // Basic broken link detection (could be enhanced with actual validation)
     for (const link of sectionLinks) {
+      const { parseLink } = await import('../../shared/link-utils.js');
       const parsed = parseLink(link, documentPath);
       if (parsed.type === 'cross-doc' && parsed.document != null && parsed.document !== '' && !parsed.document.includes('.md')) {
         brokenLinks++;
@@ -323,71 +373,119 @@ async function processDocument(
     }
   }
 
-  const documentLinks = {
+  return {
     total: allLinks.length + externalLinks.length,
     internal: allLinks.length,
     external: externalLinks.length,
     broken: brokenLinks,
     sectionsWithoutLinks
   };
+}
 
-  // Analyze tasks if present using consistent logic from task.ts
-  let tasks: ViewDocumentResponse['documents'][0]['tasks'];
+/**
+ * Analyze document tasks including counts and status information
+ */
+async function analyzeDocumentTasks(
+  manager: Awaited<ReturnType<typeof getDocumentManager>>,
+  documentPath: string,
+  document: CachedDocument
+): Promise<{
+  total: number;
+  completed: number;
+  pending: number;
+  sections_with_tasks: string[];
+} | undefined> {
+  // Find tasks section
   const taskSection = document.headings.find((h: { slug: string; title: string }) =>
     h.slug === 'tasks' || h.title.toLowerCase() === 'tasks'
   );
 
-  if (taskSection != null) {
-    // Use the same task identification logic as task.ts
-    const taskHeadings = await getTaskHeadingsForViewDocument(document, taskSection);
-
-    let completedTasks = 0;
-    let pendingTasks = 0;
-    const sectionsWithTasks: string[] = [];
-
-    // Analyze each task heading for status
-    for (const taskHeading of taskHeadings) {
-      const content = await manager.getSectionContent(documentPath, taskHeading.slug) ?? '';
-
-      // Extract status using same logic as task.ts
-      const status = extractTaskStatus(content) ?? 'pending';
-
-      if (status === 'completed') {
-        completedTasks++;
-      } else {
-        pendingTasks++;
-      }
-
-      sectionsWithTasks.push(taskHeading.slug);
-    }
-
-    const totalTasks = taskHeadings.length;
-
-    // Only include tasks object if there are actual tasks
-    if (totalTasks > 0) {
-      tasks = {
-        total: totalTasks,
-        completed: completedTasks,
-        pending: pendingTasks,
-        sections_with_tasks: sectionsWithTasks
-      };
-    }
+  if (taskSection == null) {
+    return undefined;
   }
 
-  // Return document data using standardized ToolIntegration formatting
-  const { ToolIntegration } = await import('../../shared/addressing-system.js');
-  const documentInfo = ToolIntegration.formatDocumentInfo(documentAddress, { title: document.metadata.title });
+  // Use the same task identification logic as task.ts
+  const taskHeadings = await getTaskHeadings(document, taskSection);
 
+  let completedTasks = 0;
+  let pendingTasks = 0;
+  const sectionsWithTasks: string[] = [];
+
+  // Analyze each task heading for status
+  for (const taskHeading of taskHeadings) {
+    const content = await manager.getSectionContent(documentPath, taskHeading.slug) ?? '';
+
+    // Extract status using same logic as task.ts
+    const status = extractTaskStatus(content) ?? 'pending';
+
+    if (status === 'completed') {
+      completedTasks++;
+    } else {
+      pendingTasks++;
+    }
+
+    sectionsWithTasks.push(taskHeading.slug);
+  }
+
+  const totalTasks = taskHeadings.length;
+
+  // Only return tasks object if there are actual tasks
+  if (totalTasks > 0) {
+    return {
+      total: totalTasks,
+      completed: completedTasks,
+      pending: pendingTasks,
+      sections_with_tasks: sectionsWithTasks
+    };
+  }
+
+  return undefined;
+}
+
+/**
+ * Format the final document response object
+ */
+async function formatDocumentResponse(
+  documentPath: string,
+  metadata: {
+    documentInfo: { slug: string; title: string; namespace: string };
+    lastModified: string;
+    wordCount: number;
+    headingCount: number;
+  },
+  sections: Array<{
+    slug: string;
+    title: string;
+    depth: number;
+    full_path: string;
+    parent?: string;
+    hasContent: boolean;
+    links: string[];
+  }>,
+  documentLinks: {
+    total: number;
+    internal: number;
+    external: number;
+    broken: number;
+    sectionsWithoutLinks: string[];
+  },
+  tasks?: {
+    total: number;
+    completed: number;
+    pending: number;
+    sections_with_tasks: string[];
+  }
+): Promise<ViewDocumentResponse['documents'][0]> {
   const documentData: ViewDocumentResponse['documents'][0] = {
     path: documentPath,
-    slug: documentInfo.slug,
-    title: documentInfo.title,
-    namespace: documentInfo.namespace,
-    sections: enhancedSections,
+    slug: metadata.documentInfo.slug,
+    title: metadata.documentInfo.title,
+    namespace: metadata.documentInfo.namespace,
+    sections,
     documentLinks,
-    lastModified,
-    wordCount,
-    headingCount
+    lastModified: metadata.lastModified,
+    wordCount: metadata.wordCount,
+    headingCount: metadata.headingCount
   };
 
   if (tasks != null) {
@@ -395,6 +493,31 @@ async function processDocument(
   }
 
   return documentData;
+}
+
+/**
+ * Process a single document and return its data
+ */
+async function processDocument(
+  manager: Awaited<ReturnType<typeof getDocumentManager>>,
+  documentPath: string,
+  document: CachedDocument,
+  sectionSlug: string | undefined
+): Promise<ViewDocumentResponse['documents'][0]> {
+  // Extract document metadata
+  const metadata = await extractDocumentMetadata(documentPath, document);
+
+  // Analyze document sections
+  const sections = await analyzeDocumentSections(manager, documentPath, document, sectionSlug);
+
+  // Analyze document links
+  const documentLinks = await analyzeDocumentLinks(manager, documentPath, document, metadata.fullContent);
+
+  // Analyze document tasks
+  const tasks = await analyzeDocumentTasks(manager, documentPath, document);
+
+  // Format and return response
+  return await formatDocumentResponse(documentPath, metadata, sections, documentLinks, tasks);
 }
 
 /**
@@ -437,59 +560,7 @@ async function buildSectionContext(
   };
 }
 
-/**
- * Find all task headings that are children of the Tasks section
- * COPIED FROM task.ts FOR CONSISTENCY
- */
-async function getTaskHeadingsForViewDocument(
-  document: CachedDocument,
-  tasksSection: { slug: string; title: string; depth?: number }
-): Promise<Array<{ slug: string; title: string; depth: number }>> {
-  const taskHeadings: Array<{ slug: string; title: string; depth: number }> = [];
-  const tasksIndex = document.headings.findIndex(h => h.slug === tasksSection.slug);
-
-  if (tasksIndex === -1) return taskHeadings;
-
-  const tasksSectionDepth = tasksSection.depth ?? document.headings.find(h => h.slug === tasksSection.slug)?.depth ?? 2;
-  const targetDepth = tasksSectionDepth + 1;
-
-  // Look at headings after the Tasks section
-  for (let i = tasksIndex + 1; i < document.headings.length; i++) {
-    const heading = document.headings[i];
-    if (heading == null) continue;
-
-    // If we hit a heading at the same or shallower depth as Tasks, we're done
-    if (heading.depth <= tasksSectionDepth) {
-      break;
-    }
-
-    // If this is a direct child of Tasks section (depth = Tasks.depth + 1), it's a task
-    if (heading.depth === targetDepth) {
-      // Use addressing system to validate this is actually a task
-      const compatibleDocument = {
-        headings: document.headings.map(h => ({
-          slug: h.slug,
-          title: h.title,
-          depth: h.depth
-        }))
-      };
-
-      const { isTaskSection } = await import('../../shared/addressing-system.js');
-      const isTask = await isTaskSection(heading.slug, compatibleDocument);
-      if (isTask) {
-        taskHeadings.push({
-          slug: heading.slug,
-          title: heading.title,
-          depth: heading.depth
-        });
-      }
-    }
-
-    // Skip deeper nested headings (they are children of tasks, not tasks themselves)
-  }
-
-  return taskHeadings;
-}
+// getTaskHeadingsForViewDocument function moved to shared/task-utilities.ts to eliminate duplication
 
 /**
  * Extract task status from content (same logic as task.ts)

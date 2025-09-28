@@ -64,9 +64,15 @@ async function processSectionOperation(
       });
     }
 
-    // Content validation for non-remove operations
-    const operationType = operation.operation ?? 'replace';
-    if (operationType !== 'remove' && !operation.content) {
+    // Validate operation using standardized utilities
+    const operationType = ToolIntegration.validateOperation(
+      operation.operation ?? 'replace',
+      ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child', 'remove'] as const,
+      'section'
+    );
+
+    const content = ToolIntegration.validateOptionalStringParameter(operation.content, 'content');
+    if (operationType !== 'remove' && content == null) {
       throw new AddressingError('Content is required for all operations except remove', 'MISSING_CONTENT', {
         operation: operationType
       });
@@ -77,9 +83,9 @@ async function processSectionOperation(
       manager,
       docAddress.path,
       sectionAddress.slug,
-      operation.content,
+      content ?? '',
       operationType,
-      operation.title
+      ToolIntegration.validateOptionalStringParameter(operation.title, 'title')
     );
 
     return {
@@ -227,9 +233,13 @@ async function handleSingleOperation(
     });
   }
 
-  const content = singleOp.content ?? '';
-  const operation = singleOp.operation ?? 'replace';
-  const title = singleOp.title;
+  const content = ToolIntegration.validateOptionalStringParameter(singleOp.content, 'content') ?? '';
+  const operation = ToolIntegration.validateOperation(
+    singleOp.operation ?? 'replace',
+    ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child', 'remove'] as const,
+    'section'
+  );
+  const title = ToolIntegration.validateOptionalStringParameter(singleOp.title, 'title');
 
   // Content validation for non-remove operations
   if (operation !== 'remove' && !content) {

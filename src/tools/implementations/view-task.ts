@@ -11,6 +11,7 @@ import {
   parseTaskAddress,
   type TaskAddress
 } from '../../shared/addressing-system.js';
+import { getTaskHeadings } from '../../shared/task-utilities.js';
 import {
   getParentSlug,
   getDocumentManager
@@ -127,7 +128,7 @@ export async function viewTask(
   // Import task identification logic from addressing system
   const { isTaskSection } = await import('../../shared/addressing-system.js');
 
-  // Use getTaskHeadings similar to task.ts for consistent task identification
+  // Use getTaskHeadings from shared utilities for consistent task identification
   const taskHeadings = await getTaskHeadings(document, tasksSection);
 
   // Validate all requested tasks exist and are actual tasks
@@ -290,56 +291,4 @@ function extractDependencies(content: string): string[] {
   return depsString.split(',').map(dep => dep.trim()).filter(dep => dep !== '');
 }
 
-/**
- * Find all task headings that are children of the Tasks section
- * Updated to use addressing system's isTaskSection for consistent task identification
- * COPIED FROM task.ts FOR CONSISTENCY
- */
-async function getTaskHeadings(
-  document: { readonly headings: readonly { slug: string; title: string; depth: number }[] },
-  tasksSection: { slug: string; depth: number }
-): Promise<Array<{ slug: string; title: string; depth: number }>> {
-  const taskHeadings: Array<{ slug: string; title: string; depth: number }> = [];
-  const tasksIndex = document.headings.findIndex(h => h.slug === tasksSection.slug);
-
-  if (tasksIndex === -1) return taskHeadings;
-
-  const targetDepth = tasksSection.depth + 1;
-
-  // Look at headings after the Tasks section using addressing system validation
-  for (let i = tasksIndex + 1; i < document.headings.length; i++) {
-    const heading = document.headings[i];
-    if (heading == null) continue;
-
-    // If we hit a heading at the same or shallower depth as Tasks, we're done
-    if (heading.depth <= tasksSection.depth) {
-      break;
-    }
-
-    // If this is a direct child of Tasks section (depth = Tasks.depth + 1), it's a task
-    if (heading.depth === targetDepth) {
-      // Use addressing system to validate this is actually a task
-      const compatibleDocument = {
-        headings: document.headings.map(h => ({
-          slug: h.slug,
-          title: h.title,
-          depth: h.depth
-        }))
-      };
-
-      const { isTaskSection } = await import('../../shared/addressing-system.js');
-      const isTask = await isTaskSection(heading.slug, compatibleDocument);
-      if (isTask) {
-        taskHeadings.push({
-          slug: heading.slug,
-          title: heading.title,
-          depth: heading.depth
-        });
-      }
-    }
-
-    // Skip deeper nested headings (they are children of tasks, not tasks themselves)
-  }
-
-  return taskHeadings;
-}
+// getTaskHeadings function moved to shared/task-utilities.ts to eliminate duplication
