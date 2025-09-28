@@ -3,7 +3,7 @@
  * Addresses Issue #36: Test cleanup and organization
  */
 
-import { vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+import { vi } from 'vitest';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { createSilentLogger, setGlobalLogger } from '../../../utils/logger.js';
@@ -25,19 +25,19 @@ export interface TestEnvironmentOptions {
  * Comprehensive test environment manager
  */
 export class TestEnvironment {
-  private tempDir: string;
-  private useRealFileSystem: boolean;
-  private mockFileSystem?: MockFileSystem;
-  private mockDocumentManager?: ReturnType<typeof createMockDocumentManager>;
-  private createdFiles: Set<string> = new Set();
-  private createdDirectories: Set<string> = new Set();
+  private readonly tempDir: string;
+  private readonly useRealFileSystem: boolean;
+  private readonly mockFileSystem?: MockFileSystem;
+  private readonly mockDocumentManager?: ReturnType<typeof createMockDocumentManager>;
+  private readonly createdFiles: Set<string> = new Set();
+  private readonly createdDirectories: Set<string> = new Set();
 
   constructor(options: TestEnvironmentOptions = {}) {
     this.useRealFileSystem = options.useRealFileSystem ?? false;
     this.tempDir = options.tempDir ?? path.join(process.cwd(), '.test-temp', `test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
     // Set up logging
-    if (!options.enableLogging) {
+    if (options.enableLogging !== true) {
       setGlobalLogger(createSilentLogger());
     }
 
@@ -46,7 +46,9 @@ export class TestEnvironment {
       this.mockFileSystem = createMockFileSystem(options.mockFileSystemOptions);
       this.mockDocumentManager = createMockDocumentManager({
         mockFileSystem: this.mockFileSystem,
-        initialDocuments: options.mockFileSystemOptions?.initialFiles
+        ...(options.mockFileSystemOptions?.initialFiles && {
+          initialDocuments: options.mockFileSystemOptions.initialFiles
+        })
       });
     }
   }

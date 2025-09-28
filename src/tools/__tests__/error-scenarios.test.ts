@@ -6,7 +6,7 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { section } from '../implementations/section.js';
 import { createMockDocumentManager } from './mocks/document-manager.mock.js';
-import { createMockFileSystem, createFileSystemError, ERROR_SCENARIOS } from './mocks/filesystem.mock.js';
+import { createFileSystemError } from './mocks/filesystem.mock.js';
 import type { SessionState } from '../../session/types.js';
 
 // Mock the utilities module
@@ -48,7 +48,7 @@ Configuration section content.
 
     // Mock the getDocumentManager function
     const { getDocumentManager } = await import('../../shared/utilities.js');
-    vi.mocked(getDocumentManager).mockResolvedValue(mockDocumentManager as any);
+    vi.mocked(getDocumentManager).mockResolvedValue(mockDocumentManager as unknown as Awaited<ReturnType<typeof getDocumentManager>>);
   });
 
   describe('Document Not Found Errors', () => {

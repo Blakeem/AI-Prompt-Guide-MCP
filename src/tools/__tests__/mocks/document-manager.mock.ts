@@ -4,9 +4,10 @@
  */
 
 import { vi } from 'vitest';
-import type { CachedDocument, DocumentMetadata } from '../../../document-cache.js';
-import type { HeadingInfo } from '../../../types/core.js';
-import { MockFileSystem, createMockFileSystem } from './filesystem.mock.js';
+import type { CachedDocument, DocumentMetadata, CachedSectionEntry } from '../../../document-cache.js';
+import type { Heading, HeadingDepth } from '../../../types/core.js';
+import type { MockFileSystem } from './filesystem.mock.js';
+import { createMockFileSystem } from './filesystem.mock.js';
 
 export interface MockDocumentManagerOptions {
   mockFileSystem?: MockFileSystem;
@@ -18,13 +19,13 @@ export interface MockDocumentManagerOptions {
  * Mock document manager for testing
  */
 export class MockDocumentManager {
-  private mockFileSystem: MockFileSystem;
+  private readonly mockFileSystem: MockFileSystem;
   private simulateErrors: boolean;
 
   constructor(options: MockDocumentManagerOptions = {}) {
-    this.mockFileSystem = options.mockFileSystem ?? createMockFileSystem({
-      initialFiles: options.initialDocuments
-    });
+    this.mockFileSystem = options.mockFileSystem ?? createMockFileSystem(
+      options.initialDocuments ? { initialFiles: options.initialDocuments } : {}
+    );
     this.simulateErrors = options.simulateErrors ?? false;
   }
 
@@ -37,7 +38,7 @@ export class MockDocumentManager {
     }
 
     const content = this.mockFileSystem.getFileContent(path);
-    if (!content) {
+    if (content == null || content === '') {
       throw new Error(`File not found: ${path}`);
     }
 
@@ -45,22 +46,30 @@ export class MockDocumentManager {
     const headings = this.parseHeadings(content);
 
     // Create sections map
-    const sections = new Map<string, string>();
+    const sections = new Map<string, CachedSectionEntry>();
     for (const heading of headings) {
       // Simple section extraction - just get the heading and immediate content
       const section = this.extractSection(content, heading.slug);
-      if (section) {
-        sections.set(heading.slug, section);
+      if (section != null && section !== '') {
+        sections.set(heading.slug, {
+          content: section,
+          generation: 1
+        });
       }
     }
 
+    // Create slug index
+    const slugIndex = new Map<string, number>();
+    headings.forEach((heading, index) => {
+      slugIndex.set(heading.slug, index);
+    });
+
     const document: CachedDocument = {
-      content,
-      headings,
-      sections,
       metadata: this.createMockMetadata(path, content),
-      lastModified: Date.now(),
-      cacheKey: `mock-${path}-${Date.now()}`
+      headings,
+      toc: [], // Simplified for mocking - could build actual TOC if needed
+      slugIndex,
+      sections
     };
 
     return document;
@@ -102,12 +111,15 @@ export class MockDocumentManager {
 
     // Find the section and replace its content
     const sectionContent = document.sections.get(sectionSlug);
-    if (!sectionContent) {
+    if (sectionContent == null) {
       throw new Error(`Section not found: ${sectionSlug}`);
     }
 
     // For mock purposes, just update the sections map
-    document.sections.set(sectionSlug, content);
+    document.sections.set(sectionSlug, {
+      content,
+      generation: sectionContent.generation + 1
+    });
 
     // Update the full document content (simplified)
     const updatedContent = this.rebuildDocumentContent(document);
@@ -127,7 +139,7 @@ export class MockDocumentManager {
 
     // Move content to archive
     const content = this.mockFileSystem.getFileContent(path);
-    if (content) {
+    if (content != null && content !== '') {
       await this.mockFileSystem.writeFile(archivePath, content);
       await this.mockFileSystem.writeFile(auditPath, JSON.stringify({
         originalPath: path,
@@ -143,16 +155,16 @@ export class MockDocumentManager {
   /**
    * Simple heading parser for mock purposes
    */
-  private parseHeadings(content: string): HeadingInfo[] {
-    const headings: HeadingInfo[] = [];
+  private parseHeadings(content: string): Heading[] {
+    const headings: Heading[] = [];
     const lines = content.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]?.trim();
-      if (line?.startsWith('#')) {
+      if (line != null && line !== '' && line.startsWith('#')) {
         const match = line.match(/^(#{1,6})\s+(.+)$/);
-        if (match) {
-          const depth = match[1]?.length ?? 1;
+        if (match != null) {
+          const depth = Math.min(Math.max(match[1]?.length ?? 1, 1), 6) as HeadingDepth;
           const title = match[2] ?? '';
           const slug = this.titleToSlug(title);
 
@@ -185,10 +197,10 @@ export class MockDocumentManager {
   /**
    * Find parent heading index for hierarchical structure
    */
-  private findParentIndex(headings: HeadingInfo[], currentDepth: number): number | null {
+  private findParentIndex(headings: Heading[], currentDepth: number): number | null {
     for (let i = headings.length - 1; i >= 0; i--) {
       const heading = headings[i];
-      if (heading && heading.depth < currentDepth) {
+      if (heading != null && heading.depth < currentDepth) {
         return heading.index;
       }
     }
@@ -252,14 +264,19 @@ export class MockDocumentManager {
    */
   private createMockMetadata(path: string, content: string): DocumentMetadata {
     const title = this.extractTitle(content);
+    const now = new Date();
+    const contentHash = `mock-hash-${path}-${content.length}`;
+
     return {
+      path,
       title: title ?? 'Untitled Document',
-      description: 'Mock document for testing',
-      slug: this.titleToSlug(title ?? 'untitled'),
-      namespace: this.extractNamespace(path),
-      tags: [],
-      created: new Date().toISOString(),
-      modified: new Date().toISOString()
+      lastModified: now,
+      contentHash,
+      wordCount: content.split(/\s+/).length,
+      linkCount: (content.match(/\[.*?\]\(.*?\)/g) ?? []).length,
+      codeBlockCount: (content.match(/```/g) ?? []).length / 2,
+      lastAccessed: now,
+      cacheGeneration: 1
     };
   }
 
@@ -268,19 +285,10 @@ export class MockDocumentManager {
    */
   private extractTitle(content: string): string | null {
     const firstLine = content.split('\n')[0]?.trim();
-    if (firstLine?.startsWith('# ')) {
+    if (firstLine != null && firstLine !== '' && firstLine.startsWith('# ')) {
       return firstLine.substring(2).trim();
     }
     return null;
-  }
-
-  /**
-   * Extract namespace from path
-   */
-  private extractNamespace(path: string): string {
-    const pathParts = path.split('/').filter(p => p && p !== '.');
-    pathParts.pop(); // Remove filename
-    return pathParts.length > 0 ? pathParts.join('/') : 'root';
   }
 
   /**
@@ -297,9 +305,9 @@ export class MockDocumentManager {
     // This is a simplified reconstruction - in reality this would be more complex
     let content = '';
     for (const heading of document.headings) {
-      const sectionContent = document.sections.get(heading.slug);
-      if (sectionContent) {
-        content += sectionContent + '\n\n';
+      const sectionEntry = document.sections?.get(heading.slug);
+      if (sectionEntry != null) {
+        content += `${sectionEntry.content}\n\n`;
       }
     }
     return content.trim();

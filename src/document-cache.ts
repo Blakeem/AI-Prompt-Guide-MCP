@@ -14,7 +14,7 @@ import { invalidateAddressCache } from './shared/addressing-system.js';
 
 const logger = getGlobalLogger();
 
-interface DocumentMetadata {
+export interface DocumentMetadata {
   path: string;
   title: string;
   lastModified: Date;
@@ -26,7 +26,7 @@ interface DocumentMetadata {
   cacheGeneration: number;
 }
 
-interface CachedSectionEntry {
+export interface CachedSectionEntry {
   content: string;
   generation: number;
 }
