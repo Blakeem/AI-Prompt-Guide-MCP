@@ -115,7 +115,7 @@ Configuration section content.
     test('should handle null section slug', async () => {
       const args = {
         document: '/test-document.md',
-        section: null as any,
+        section: null as unknown,
         content: 'Test content',
         operation: 'replace'
       };
@@ -132,7 +132,7 @@ Configuration section content.
         document: '/test-document.md',
         section: 'overview',
         content: 'Test content',
-        operation: 'invalid-operation' as any
+        operation: 'invalid-operation' as unknown
       };
 
       await expect(section(args, mockSessionState))
@@ -245,7 +245,7 @@ Configuration section content.
 
       for (const invalidPath of invalidPaths) {
         const args = {
-          document: invalidPath as any,
+          document: invalidPath as unknown,
           section: 'overview',
           content: 'Test content',
           operation: 'replace'
@@ -337,7 +337,7 @@ console.log("test");
       const result = await section(operations, mockSessionState);
 
       expect(result).toHaveProperty('batch_results');
-      const batchResults = (result as any).batch_results;
+      const batchResults = (result as Record<string, unknown>)['batch_results'] as Array<Record<string, unknown>>;
       expect(batchResults).toHaveLength(3);
 
       // First and third should succeed, second should fail
@@ -362,12 +362,12 @@ console.log("test");
       expect(result).toHaveProperty('batch_results');
       expect(result).toHaveProperty('total_operations', 10);
 
-      const batchResults = (result as any).batch_results;
+      const batchResults = (result as Record<string, unknown>)['batch_results'] as Array<Record<string, unknown>>;
       expect(batchResults).toHaveLength(10);
 
       // Some operations should succeed, some might fail due to error simulation
-      const successCount = batchResults.filter((r: any) => r.success).length;
-      const failureCount = batchResults.filter((r: any) => !r.success).length;
+      const successCount = batchResults.filter((r: Record<string, unknown>) => r['success'] === true).length;
+      const failureCount = batchResults.filter((r: Record<string, unknown>) => r['success'] !== true).length;
 
       expect(successCount + failureCount).toBe(10);
       expect(result).toHaveProperty('sections_modified', successCount);

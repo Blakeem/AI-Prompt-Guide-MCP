@@ -963,7 +963,6 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
 
       mockPerformSectionEdit
         .mockResolvedValueOnce({ action: 'edited', section: 'success1' })
-        .mockRejectedValueOnce(new Error('Invalid operation'))
         .mockResolvedValueOnce({ action: 'edited', section: 'success2' });
 
       // Act
@@ -973,7 +972,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       expect(result).toEqual({
         batch_results: [
           { success: true, section: 'success1', action: 'edited' },
-          { success: false, section: 'failure', error: 'Invalid operation' },
+          { success: false, section: 'failure', error: 'Invalid operation: invalid_operation. Must be one of: replace, append, prepend, insert_before, insert_after, append_child, remove' },
           { success: true, section: 'success2', action: 'edited' }
         ],
         document: '/test-doc.md',

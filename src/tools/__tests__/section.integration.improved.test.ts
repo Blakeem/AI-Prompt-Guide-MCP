@@ -46,6 +46,8 @@ describe('Section Tool - Improved Integration Tests', () => {
     // Configure the mock after environment setup
     const { getDocumentManager } = await import('../../shared/utilities.js');
     const mockDocumentManager = testSuite.getEnvironment().getMockDocumentManager();
+    // MockDocumentManager implements subset of DocumentManager for testing
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(getDocumentManager).mockResolvedValue(mockDocumentManager as any);
 
     // performSectionEdit will use the real implementation but with the mocked DocumentManager
