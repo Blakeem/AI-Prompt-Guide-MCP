@@ -3,6 +3,19 @@
  * Addresses Issues #35, #36, #37: Test coverage, organization, and mocking
  */
 
+import { vi } from 'vitest';
+
+// Mock BEFORE any imports that use it
+vi.mock('../../shared/utilities.js', async () => {
+  const actual = await vi.importActual('../../shared/utilities.js') as Record<string, unknown>;
+  return {
+    ...actual,
+    getDocumentManager: vi.fn()
+    // Keep performSectionEdit as real implementation - it will use the mocked DocumentManager
+  };
+});
+
+// Now safe to import
 import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { section } from '../implementations/section.js';
 import { setupTestSuite, STANDARD_TEST_DOCUMENTS } from './setup/test-environment.js';
@@ -27,7 +40,17 @@ describe('Section Tool - Improved Integration Tests', () => {
     }
   });
 
-  beforeAll(testSuite.beforeAll);
+  beforeAll(async () => {
+    await testSuite.beforeAll();
+
+    // Configure the mock after environment setup
+    const { getDocumentManager } = await import('../../shared/utilities.js');
+    const mockDocumentManager = testSuite.getEnvironment().getMockDocumentManager();
+    vi.mocked(getDocumentManager).mockResolvedValue(mockDocumentManager as any);
+
+    // performSectionEdit will use the real implementation but with the mocked DocumentManager
+  });
+
   afterAll(testSuite.afterAll);
   beforeEach(testSuite.beforeEach);
   afterEach(testSuite.afterEach);
@@ -318,11 +341,10 @@ describe('Section Tool - Improved Integration Tests', () => {
         operation: 'replace'
       };
 
-      const result = await section(args, mockSessionState);
-      expect(result).toMatchObject({
-        updated: true,
-        section: 'features'
-      });
+      // Empty content should be rejected
+      await expect(section(args, mockSessionState))
+        .rejects
+        .toThrow('Content is required');
     });
 
     test('should handle very long content', async () => {

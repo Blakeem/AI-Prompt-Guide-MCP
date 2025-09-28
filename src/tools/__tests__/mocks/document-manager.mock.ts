@@ -21,6 +21,7 @@ export interface MockDocumentManagerOptions {
 export class MockDocumentManager {
   private readonly mockFileSystem: MockFileSystem;
   private simulateErrors: boolean;
+  private readonly documentCache: Map<string, CachedDocument> = new Map();
 
   constructor(options: MockDocumentManagerOptions = {}) {
     this.mockFileSystem = options.mockFileSystem ?? createMockFileSystem(
@@ -35,6 +36,12 @@ export class MockDocumentManager {
   getDocument = vi.fn().mockImplementation(async (path: string): Promise<CachedDocument> => {
     if (this.simulateErrors && Math.random() < 0.1) {
       throw new Error(`Failed to load document: ${path}`);
+    }
+
+    // Check cache first
+    const cached = this.documentCache.get(path);
+    if (cached) {
+      return cached;
     }
 
     const content = this.mockFileSystem.getFileContent(path);
@@ -72,6 +79,8 @@ export class MockDocumentManager {
       sections
     };
 
+    // Cache the document
+    this.documentCache.set(path, document);
     return document;
   });
 
@@ -84,7 +93,8 @@ export class MockDocumentManager {
     }
 
     const document = await this.getDocument(docPath);
-    return document.sections.get(sectionSlug) ?? null;
+    const sectionEntry = document.sections.get(sectionSlug);
+    return sectionEntry?.content ?? null;
   });
 
   /**
@@ -106,24 +116,59 @@ export class MockDocumentManager {
       throw new Error(`Failed to update section: ${sectionSlug}`);
     }
 
-    // Get current document
-    const document = await this.getDocument(docPath);
-
-    // Find the section and replace its content
-    const sectionContent = document.sections.get(sectionSlug);
-    if (sectionContent == null) {
-      throw new Error(`Section not found: ${sectionSlug}`);
+    // Get current full document content from filesystem
+    const currentContent = this.mockFileSystem.getFileContent(docPath);
+    if (currentContent == null || currentContent === '') {
+      throw new Error(`Document not found: ${docPath}`);
     }
 
-    // For mock purposes, just update the sections map
-    document.sections.set(sectionSlug, {
-      content,
-      generation: sectionContent.generation + 1
-    });
+    // Find the section and replace its content directly in the document string
+    const updatedContent = this.replaceSectionContent(currentContent, sectionSlug, content);
 
-    // Update the full document content (simplified)
-    const updatedContent = this.rebuildDocumentContent(document);
+    // Write the updated content back to filesystem
     await this.mockFileSystem.writeFile(docPath, updatedContent);
+
+    // Clear cache so next read gets fresh content
+    this.documentCache.delete(docPath);
+  });
+
+  /**
+   * Mock insertSection implementation (required by section tool for creation operations)
+   */
+  insertSection = vi.fn().mockImplementation(async (
+    docPath: string,
+    referenceSlug: string,
+    insertMode: 'insert_before' | 'insert_after' | 'append_child',
+    depth: number | undefined,
+    title: string,
+    content: string,
+    _options?: { updateToc?: boolean }
+  ): Promise<void> => {
+    if (this.simulateErrors && Math.random() < 0.1) {
+      throw new Error(`Failed to insert section: ${title}`);
+    }
+
+    // Get current full document content from filesystem
+    const currentContent = this.mockFileSystem.getFileContent(docPath);
+    if (currentContent == null || currentContent === '') {
+      throw new Error(`Document not found: ${docPath}`);
+    }
+
+    // Insert the section directly in the document string
+    const updatedContent = this.insertSectionContent(
+      currentContent,
+      referenceSlug,
+      insertMode,
+      depth,
+      title,
+      content
+    );
+
+    // Write the updated content back to filesystem
+    await this.mockFileSystem.writeFile(docPath, updatedContent);
+
+    // Clear cache so next read gets fresh content
+    this.documentCache.delete(docPath);
   });
 
   /**
@@ -153,11 +198,12 @@ export class MockDocumentManager {
   });
 
   /**
-   * Simple heading parser for mock purposes
+   * Simple heading parser for mock purposes with duplicate handling
    */
   private parseHeadings(content: string): Heading[] {
     const headings: Heading[] = [];
     const lines = content.split('\n');
+    const seenSlugs = new Set<string>();
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]?.trim();
@@ -168,13 +214,17 @@ export class MockDocumentManager {
           const title = match[2] ?? '';
           const slug = this.titleToSlug(title);
 
-          headings.push({
-            index: i,
-            depth,
-            title,
-            slug,
-            parentIndex: this.findParentIndex(headings, depth)
-          });
+          // Skip duplicates - keep only the first occurrence
+          if (!seenSlugs.has(slug)) {
+            seenSlugs.add(slug);
+            headings.push({
+              index: i,
+              depth,
+              title,
+              slug,
+              parentIndex: this.findParentIndex(headings, depth)
+            });
+          }
         }
       }
     }
@@ -209,6 +259,7 @@ export class MockDocumentManager {
 
   /**
    * Extract section content (simplified for testing)
+   * Returns content WITHOUT the heading to maintain consistency with editSection
    */
   private extractSection(content: string, slug: string): string | null {
     const lines = content.split('\n');
@@ -219,7 +270,8 @@ export class MockDocumentManager {
     // Find section start
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]?.trim();
-      if (line?.startsWith('#')) {
+      // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+      if (line != null && line.startsWith('#')) {
         const match = line.match(/^(#{1,6})\s+(.+)$/);
         if (match) {
           const title = match[2] ?? '';
@@ -240,7 +292,8 @@ export class MockDocumentManager {
     // Find section end
     for (let i = sectionStart + 1; i < lines.length; i++) {
       const line = lines[i]?.trim();
-      if (line?.startsWith('#')) {
+      // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+      if (line != null && line.startsWith('#')) {
         const match = line.match(/^(#{1,6})\s+/);
         if (match) {
           const depth = match[1]?.length ?? 1;
@@ -256,7 +309,9 @@ export class MockDocumentManager {
       sectionEnd = lines.length - 1;
     }
 
-    return lines.slice(sectionStart, sectionEnd + 1).join('\n');
+    // Return content without the heading (skip the first line which is the heading)
+    const sectionContent = lines.slice(sectionStart + 1, sectionEnd + 1).join('\n').trim();
+    return sectionContent || null;
   }
 
   /**
@@ -298,19 +353,168 @@ export class MockDocumentManager {
     return this.mockFileSystem;
   }
 
+
   /**
-   * Rebuild document content from sections (simplified for testing)
+   * Insert section content directly in document string
    */
-  private rebuildDocumentContent(document: CachedDocument): string {
-    // This is a simplified reconstruction - in reality this would be more complex
-    let content = '';
-    for (const heading of document.headings) {
-      const sectionEntry = document.sections?.get(heading.slug);
-      if (sectionEntry != null) {
-        content += `${sectionEntry.content}\n\n`;
+  private insertSectionContent(
+    documentContent: string,
+    referenceSlug: string,
+    insertMode: 'insert_before' | 'insert_after' | 'append_child',
+    depth: number | undefined,
+    title: string,
+    content: string
+  ): string {
+    const lines = documentContent.split('\n');
+    let referenceIndex = -1;
+    let referenceDepth = 0;
+
+    // Find reference section
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]?.trim();
+      // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+      if (line != null && line.startsWith('#')) {
+        const match = line.match(/^(#{1,6})\s+(.+)$/);
+        if (match) {
+          const lineTitle = match[2] ?? '';
+          const lineSlug = this.titleToSlug(lineTitle);
+          if (lineSlug === referenceSlug) {
+            referenceIndex = i;
+            referenceDepth = match[1]?.length ?? 1;
+            break;
+          }
+        }
       }
     }
-    return content.trim();
+
+    if (referenceIndex === -1) {
+      throw new Error(`Reference section not found: ${referenceSlug}`);
+    }
+
+    // Calculate new section depth
+    let newDepth: number;
+    if (depth !== undefined) {
+      newDepth = depth;
+    } else {
+      if (insertMode === 'append_child') {
+        newDepth = Math.min(referenceDepth + 1, 6);
+      } else {
+        newDepth = referenceDepth;
+      }
+    }
+
+    // Create new section heading and content
+    const headingPrefix = '#'.repeat(newDepth);
+    const newSectionLines = [
+      `${headingPrefix} ${title}`,
+      '',
+      ...(content.trim() !== '' ? [content.trim(), ''] : [''])
+    ];
+
+    let insertIndex: number;
+    if (insertMode === 'insert_before') {
+      insertIndex = referenceIndex;
+    } else if (insertMode === 'insert_after') {
+      // Find the end of the reference section
+      insertIndex = this.findSectionEnd(lines, referenceIndex, referenceDepth) + 1;
+    } else { // append_child
+      // Find the end of all children of the reference section
+      insertIndex = this.findSectionEnd(lines, referenceIndex, referenceDepth) + 1;
+    }
+
+    // Insert the new section
+    const result = [
+      ...lines.slice(0, insertIndex),
+      ...newSectionLines,
+      ...lines.slice(insertIndex)
+    ].join('\n');
+
+    return result.replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  /**
+   * Find the end of a section (before next heading at same or higher level)
+   */
+  private findSectionEnd(lines: string[], startIndex: number, sectionDepth: number): number {
+    for (let i = startIndex + 1; i < lines.length; i++) {
+      const line = lines[i]?.trim();
+      // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+      if (line != null && line.startsWith('#')) {
+        const match = line.match(/^(#{1,6})\s+/);
+        if (match) {
+          const depth = match[1]?.length ?? 1;
+          if (depth <= sectionDepth) {
+            return i - 1;
+          }
+        }
+      }
+    }
+    return lines.length - 1;
+  }
+
+  /**
+   * Replace section content directly in document string
+   */
+  private replaceSectionContent(documentContent: string, sectionSlug: string, newContent: string): string {
+    const lines = documentContent.split('\n');
+    let sectionStart = -1;
+    let sectionEnd = -1;
+    let targetDepth = 0;
+
+    // Find section start
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]?.trim();
+      // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+      if (line != null && line.startsWith('#')) {
+        const match = line.match(/^(#{1,6})\s+(.+)$/);
+        if (match) {
+          const title = match[2] ?? '';
+          const lineSlug = this.titleToSlug(title);
+          if (lineSlug === sectionSlug) {
+            sectionStart = i;
+            targetDepth = match[1]?.length ?? 1;
+            break;
+          }
+        }
+      }
+    }
+
+    if (sectionStart === -1) {
+      throw new Error(`Section not found: ${sectionSlug}`);
+    }
+
+    // Find section end (next heading at same or higher level)
+    for (let i = sectionStart + 1; i < lines.length; i++) {
+      const line = lines[i]?.trim();
+      // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+      if (line != null && line.startsWith('#')) {
+        const match = line.match(/^(#{1,6})\s+/);
+        if (match) {
+          const depth = match[1]?.length ?? 1;
+          if (depth <= targetDepth) {
+            sectionEnd = i - 1;
+            break;
+          }
+        }
+      }
+    }
+
+    if (sectionEnd === -1) {
+      sectionEnd = lines.length - 1;
+    }
+
+    // Replace the section content (keep the heading, replace the body)
+    const beforeSection = lines.slice(0, sectionStart + 1); // Include the heading
+    const afterSection = lines.slice(sectionEnd + 1);
+
+    // Add the new content (with proper spacing)
+    const result = [
+      ...beforeSection,
+      ...(newContent.trim() !== '' ? ['', newContent.trim(), ''] : ['']),
+      ...afterSection
+    ].join('\n');
+
+    return result.replace(/\n{3,}/g, '\n\n').trim();
   }
 
   /**

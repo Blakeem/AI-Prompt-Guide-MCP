@@ -98,9 +98,8 @@ export class TestEnvironment {
       throw new Error('Mock filesystem not initialized');
     }
 
-    // Mock filesystem modules
-    await this.setupFileSystemMocks();
-    await this.setupDocumentManagerMocks();
+    // Note: Mocking is now handled at the test level using vi.mock()
+    // This method is kept for consistency but no longer sets up vi.doMock()
   }
 
   /**
@@ -138,45 +137,6 @@ export class TestEnvironment {
     this.mockFileSystem?.clear();
   }
 
-  /**
-   * Set up filesystem mocks
-   */
-  private async setupFileSystemMocks(): Promise<void> {
-    if (!this.mockFileSystem) return;
-
-    // Mock node:fs promises
-    vi.doMock('node:fs', async () => {
-      const actual = await vi.importActual('node:fs') as any;
-      return {
-        ...actual,
-        promises: {
-          ...actual.promises,
-          readFile: this.mockFileSystem!.readFile,
-          writeFile: this.mockFileSystem!.writeFile,
-          stat: this.mockFileSystem!.stat,
-          access: this.mockFileSystem!.access,
-          unlink: this.mockFileSystem!.unlink,
-          rm: this.mockFileSystem!.rm
-        }
-      };
-    });
-  }
-
-  /**
-   * Set up document manager mocks
-   */
-  private async setupDocumentManagerMocks(): Promise<void> {
-    if (!this.mockDocumentManager) return;
-
-    // Mock the utilities module
-    vi.doMock('../../../shared/utilities.js', async () => {
-      const actual = await vi.importActual('../../../shared/utilities.js') as Record<string, unknown>;
-      return {
-        ...actual,
-        getDocumentManager: vi.fn().mockResolvedValue(this.mockDocumentManager)
-      };
-    });
-  }
 
   /**
    * Create a test file (real filesystem only)
@@ -290,7 +250,7 @@ export async function cleanupTestEnvironment(): Promise<void> {
  * Test suite setup helper for consistent test organization
  */
 export function setupTestSuite(
-  suiteName: string,
+  _suiteName: string,
   options: TestEnvironmentOptions = {}
 ): {
   beforeAll: () => Promise<void>;
@@ -302,21 +262,21 @@ export function setupTestSuite(
   let testEnvironment: TestEnvironment;
 
   return {
-    beforeAll: async () => {
-      console.log(`Setting up test suite: ${suiteName}`);
+    beforeAll: async (): Promise<void> => {
+      // Setting up test suite - logging disabled for testing
       testEnvironment = setupTestEnvironment(options);
       await testEnvironment.setup();
     },
 
-    afterAll: async () => {
-      console.log(`Cleaning up test suite: ${suiteName}`);
+    afterAll: async (): Promise<void> => {
+      // Cleaning up test suite - logging disabled for testing
       await testEnvironment.cleanup();
       await cleanupTestEnvironment();
     },
 
-    beforeEach: async () => {
+    beforeEach: async (): Promise<void> => {
       // Reset any per-test state
-      if (!options.useRealFileSystem) {
+      if (options.useRealFileSystem !== true) {
         testEnvironment.getMockFileSystem().clear();
         // Re-add initial files if specified
         if (options.mockFileSystemOptions?.initialFiles) {
@@ -328,14 +288,14 @@ export function setupTestSuite(
       vi.clearAllMocks();
     },
 
-    afterEach: async () => {
+    afterEach: async (): Promise<void> => {
       // Clean up any per-test state
-      if (options.useRealFileSystem) {
+      if (options.useRealFileSystem === true) {
         // Real filesystem cleanup is handled in the main cleanup
       }
     },
 
-    getEnvironment: () => testEnvironment
+    getEnvironment: (): TestEnvironment => testEnvironment
   };
 }
 
