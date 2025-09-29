@@ -24,6 +24,10 @@
 - Reference validation duplicates parsing logic and cannot distinguish document vs. section failures.
 - Lack of module-level tests makes incremental changes risky.
 - All responsibilities sit in `document-analysis.ts`, complicating subagent ownership.
+- **Cache invalidation unclear**: No strategy for fingerprint updates when documents change externally.
+- **Interface compatibility**: Restructuring may break existing `analyzeDocumentSuggestions` callers.
+- **Performance validation missing**: No benchmarks or regression detection for claimed improvements.
+- **Edge case handling**: Undefined behavior for documents with no content, extraction failures, or concurrent access.
 
 ## Workstreams (subagent-ready)
 Each stage can be handed to a subagent. Pair behaviour changes with targeted tests under `src/shared/__tests__/`.
@@ -52,6 +56,110 @@ Each stage can be handed to a subagent. Pair behaviour changes with targeted tes
 - [ ] Add regression coverage for the create-document workflow to ensure Stage 2.5 returns both related documents and structured reference diagnostics.
 - [ ] Document the discovery pipeline in `docs/development/document-discovery.md`, including how to seed keywords deterministically for LLM authors.
 - [ ] Prune dead exports introduced during refactors and ensure lint/typecheck suites cover new modules.
+
+## Critical Implementation Requirements
+
+### Interface Compatibility & Migration
+- **Maintain backward compatibility**: Keep existing `analyzeDocumentSuggestions` signature unchanged during refactor
+- **Deprecation strategy**: Add new interfaces alongside old ones, migrate callers gradually
+- **Version detection**: Tools can detect and use enhanced features when available
+```typescript
+// Maintain this signature:
+export async function analyzeDocumentSuggestions(manager, namespace, title, overview): Promise<SmartSuggestions>
+
+// Add enhanced version:
+export async function analyzeDocumentSuggestionsV2(params: AnalysisParams): Promise<EnhancedSuggestions>
+```
+
+### Cache Invalidation Strategy
+- **File modification detection**: Fingerprints must invalidate when source documents change
+- **Multi-instance safety**: Handle concurrent MCP server instances gracefully
+- **Incremental updates**: Update only changed fingerprints, not entire cache
+```typescript
+// Add to DocumentCache:
+interface FingerprintEntry {
+  keywords: string[];
+  lastModified: Date;
+  contentHash: string;
+  namespace: string;
+}
+
+// Invalidation on file change:
+private invalidateFingerprint(docPath: string): void
+```
+
+### Performance Benchmarking
+Each stage must include performance validation:
+- **Stage 1**: Measure current filesystem read count (baseline)
+- **Stage 2**: Verify fingerprint cache hit rates (target: >80%)
+- **Stage 3**: Measure reference validation speed (target: <50ms)
+- **Stage 4**: Overall discovery response time (target: <100ms)
+
+**Benchmark harness**:
+```typescript
+// Add to test suite:
+describe('Performance Benchmarks', () => {
+  it('should complete discovery in <100ms with warm cache');
+  it('should reduce filesystem reads by >80%');
+  it('should validate references in <50ms');
+});
+```
+
+### Edge Case Requirements
+- **Empty content handling**: Documents with no extractable keywords should use title/path fallback
+- **Extraction failures**: Graceful degradation when keyword extraction fails
+- **Concurrent access**: Thread-safe fingerprint updates and cache access
+- **Large document handling**: Impose content size limits for keyword extraction (e.g., 100KB)
+- **Binary file filtering**: Skip non-markdown files early in pipeline
+
+## Enhanced Relevance Algorithm (Stage 4 Details)
+
+### Multi-Factor Scoring Formula
+```typescript
+interface RelevanceFactors {
+  keywordOverlap: number;      // 0.0-1.0: Current implementation
+  titleSimilarity: number;     // 0.0-0.3: Boost for similar title words
+  namespaceAffinity: number;   // 0.0-0.2: Boost for related namespaces
+  recencyBoost: number;        // 0.0-0.1: Boost for recently modified docs
+  linkGraphBoost: number;      // 0.0-0.3: Boost for documents that reference each other
+}
+
+// Final relevance = keywordOverlap + titleSimilarity + namespaceAffinity + recencyBoost + linkGraphBoost
+// Capped at 1.0 maximum
+```
+
+### Practical Examples
+**Creating**: `/api/guides/user-authentication.md` with keywords: `["user", "auth", "jwt", "api"]`
+
+**Document A**: `/api/specs/auth-api.md`
+- Keywords match: `auth`, `api` → **keywordOverlap: 0.5**
+- Title similarity: "auth" in both → **titleSimilarity: 0.2**
+- Same namespace family: `api/*` → **namespaceAffinity: 0.2**
+- Modified yesterday → **recencyBoost: 0.05**
+- No cross-references → **linkGraphBoost: 0.0**
+- **Total relevance: 0.95**
+
+**Document B**: `/security/jwt-implementation.md`
+- Keywords match: `jwt` → **keywordOverlap: 0.25**
+- No title similarity → **titleSimilarity: 0.0**
+- Different namespace → **namespaceAffinity: 0.0**
+- Modified last week → **recencyBoost: 0.02**
+- Referenced by auth docs → **linkGraphBoost: 0.3**
+- **Total relevance: 0.57**
+
+### Namespace Affinity Rules
+```typescript
+// Simple prefix matching with decay:
+function calculateNamespaceAffinity(sourceNamespace: string, targetNamespace: string): number {
+  if (sourceNamespace === targetNamespace) return 0.2;        // Same: api/specs === api/specs
+  if (targetNamespace.startsWith(sourceNamespace + '/')) return 0.15; // Parent: api/* contains api/guides/*
+  if (sourceNamespace.startsWith(targetNamespace + '/')) return 0.15; // Child: api/guides/* in api/*
+  if (shareCommonPrefix(sourceNamespace, targetNamespace)) return 0.1; // Sibling: api/specs vs api/guides
+  return 0.0;                                              // Unrelated: api/* vs frontend/*
+}
+```
+
+This keeps scoring **deterministic, fast, and explainable** - no black box algorithms.
 
 ## Suggested file/module restructuring
 - Split `src/shared/document-analysis.ts` into focused modules:
