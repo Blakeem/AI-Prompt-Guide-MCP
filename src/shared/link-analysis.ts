@@ -81,26 +81,29 @@ class LinkAnalysisService {
   }
 
   /**
-   * Extract links from content and validate them
+   * Extract links from content and validate them using unified ReferenceExtractor
    */
   private async extractAndValidateLinks(
     content: string,
     documentPath: string
   ): Promise<LinkInfo[]> {
     const { resolveLinkWithContext } = await import('./link-utils.js');
+    const { ReferenceExtractor } = await import('./reference-extractor.js');
+
+    const extractor = new ReferenceExtractor();
     const linksFound: LinkInfo[] = [];
 
-    // Extract potential links from content
-    const linkPattern = /@(?:\/[^\s\]]+(?:#[^\s\]]*)?|#[^\s\]]*)/g;
-    const matches = content.match(linkPattern) ?? [];
+    // Extract references using unified system
+    const refs = extractor.extractReferences(content);
+    const normalized = extractor.normalizeReferences(refs, documentPath);
 
-    // Validate each found link
-    for (const linkText of matches) {
+    // Validate each found link using existing validation logic
+    for (const normalizedRef of normalized) {
       try {
-        const resolved = await resolveLinkWithContext(linkText, documentPath, this.manager);
+        const resolved = await resolveLinkWithContext(normalizedRef.originalRef, documentPath, this.manager);
 
         const linkInfo: LinkInfo = {
-          link_text: linkText,
+          link_text: normalizedRef.originalRef,
           is_valid: resolved.validation.valid
         };
 
@@ -119,7 +122,7 @@ class LinkAnalysisService {
         linksFound.push(linkInfo);
       } catch (error) {
         linksFound.push({
-          link_text: linkText,
+          link_text: normalizedRef.originalRef,
           is_valid: false,
           validation_error: error instanceof Error ? error.message : String(error)
         });

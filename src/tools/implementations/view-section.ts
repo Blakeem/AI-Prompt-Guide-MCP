@@ -17,6 +17,7 @@ import {
   getParentSlug,
   getDocumentManager
 } from '../../shared/utilities.js';
+import { ReferenceExtractor } from '../../shared/reference-extractor.js';
 
 /**
  * Enhanced response format for view_section with hierarchical support
@@ -133,10 +134,11 @@ export async function viewSection(
     // Get section content using the normalized slug
     const content = await manager.getSectionContent(addresses.document.path, sectionAddr.slug) ?? '';
 
-    // Analyze section for links
+    // Analyze section for links using unified ReferenceExtractor
     const links: string[] = [];
-    const linkMatches = content.match(/@(?:\/[^\s\]]+(?:#[^\s\]]*)?|#[^\s\]]*)/g) ?? [];
-    links.push(...linkMatches);
+    const extractor = new ReferenceExtractor();
+    const references = extractor.extractReferences(content);
+    links.push(...references);
 
     // Calculate word count
     const wordCount = content.split(/\s+/).filter(word => word.length > 0).length;

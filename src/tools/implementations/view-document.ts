@@ -292,10 +292,10 @@ async function analyzeDocumentSections(
     // Get section content to analyze for links
     const content = await manager.getSectionContent(documentPath, heading.slug) ?? '';
 
-    // Analyze section for links
-    const links: string[] = [];
-    const linkMatches = content.match(/@(?:\/[^\s\]]+(?:#[^\s\]]*)?|#[^\s\]]*)/g) ?? [];
-    links.push(...linkMatches);
+    // Analyze section for links using unified ReferenceExtractor
+    const { ReferenceExtractor } = await import('../../shared/reference-extractor.js');
+    const extractor = new ReferenceExtractor();
+    const links = extractor.extractReferences(content);
 
     // Build hierarchical information using standardized ToolIntegration methods
     const { parseSectionAddress, ToolIntegration } = await import('../../shared/addressing-system.js');
@@ -347,8 +347,10 @@ async function analyzeDocumentLinks(
   broken: number;
   sectionsWithoutLinks: string[];
 }> {
-  // Extract all links from full content
-  const allLinks = fullContent.match(/@(?:\/[^\s\]]+(?:#[^\s\]]*)?|#[^\s\]]*)/g) ?? [];
+  // Extract all links from full content using unified ReferenceExtractor
+  const { ReferenceExtractor } = await import('../../shared/reference-extractor.js');
+  const extractor = new ReferenceExtractor();
+  const allLinks = extractor.extractReferences(fullContent);
   const externalLinks = fullContent.match(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g) ?? [];
 
   let brokenLinks = 0;
@@ -357,7 +359,7 @@ async function analyzeDocumentLinks(
   // Check for broken links and sections without links
   for (const heading of document.headings) {
     const sectionContent = await manager.getSectionContent(documentPath, heading.slug) ?? '';
-    const sectionLinks = sectionContent.match(/@(?:\/[^\s\]]+(?:#[^\s\]]*)?|#[^\s\]]*)/g) ?? [];
+    const sectionLinks = extractor.extractReferences(sectionContent);
 
     if (sectionLinks.length === 0) {
       sectionsWithoutLinks.push(heading.slug);

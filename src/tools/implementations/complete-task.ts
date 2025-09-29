@@ -13,10 +13,11 @@ import {
   AddressingError,
   DocumentNotFoundError
 } from '../../shared/addressing-system.js';
-import { getTaskHeadingsFromHeadings } from '../../shared/task-utilities.js';
-import type {
-  parseDocumentAddress
-} from '../../shared/addressing-system.js';
+import {
+  extractTaskTitle,
+  findNextAvailableTask
+} from '../../shared/task-view-utilities.js';
+import type { HierarchicalContent } from '../../shared/reference-loader.js';
 
 interface CompleteTaskResult {
   completed_task: {
@@ -30,11 +31,7 @@ interface CompleteTaskResult {
     title: string;
     priority?: string;
     link?: string;
-    linked_document?: {
-      path: string;
-      title: string;
-      content?: string;
-    };
+    referenced_documents?: HierarchicalContent[];
   };
   document_info: {
     slug: string;
@@ -104,8 +101,19 @@ export async function completeTask(
     // Update the task section with validated addresses
     await performSectionEdit(manager, addresses.document.path, addresses.task.slug, updatedContent, 'replace');
 
-    // Get next available task using addressing system
-    const nextTask = await findNextAvailableTask(manager, addresses, addresses.task.slug);
+    // Get next available task using shared utility
+    const nextTaskData = await findNextAvailableTask(manager, document, addresses.task.slug);
+
+    let nextTask: { slug: string; title: string; priority?: string; link?: string; referenced_documents?: HierarchicalContent[] } | undefined;
+    if (nextTaskData != null) {
+      nextTask = {
+        slug: nextTaskData.slug,
+        title: nextTaskData.title,
+        ...(nextTaskData.priority != null && { priority: nextTaskData.priority }),
+        ...(nextTaskData.link != null && { link: nextTaskData.link }),
+        ...(nextTaskData.referencedDocuments != null && nextTaskData.referencedDocuments.length > 0 && { referenced_documents: nextTaskData.referencedDocuments })
+      };
+    }
 
     return {
       completed_task: {
@@ -130,198 +138,11 @@ export async function completeTask(
   }
 }
 
-/**
- * Find the next available task in priority order using addressing system
- * Updated to use addressing system's isTaskSection for consistent task identification
- */
-async function findNextAvailableTask(
-  manager: Awaited<ReturnType<typeof getDocumentManager>>,
-  addresses: { document: ReturnType<typeof parseDocumentAddress> },
-  completedTaskSlug: string
-): Promise<{
-  slug: string;
-  title: string;
-  priority?: string;
-  link?: string;
-  linked_document?: {
-    path: string;
-    title: string;
-    content?: string;
-  };
-} | undefined> {
-  try {
-    // Get document to access heading structure (existence already validated in main function)
-    const document = await manager.getDocument(addresses.document.path);
-    if (document == null) return undefined;
-
-    // Find the Tasks section using consistent addressing logic
-    const tasksSection = document.headings.find(h =>
-      h.slug === 'tasks' ||
-      h.title.toLowerCase() === 'tasks'
-    );
-    if (tasksSection == null) return undefined;
-
-    // Find all task headings using standardized task identification logic
-    const taskHeadings = await getTaskHeadingsFromHeadings(document, tasksSection);
-
-    // Parse task details from each task heading using validated document path
-    // Use try-catch with cleanup for critical operations to prevent resource leaks
-    interface TaskData {
-      slug: string;
-      title: string;
-      status: string;
-      priority?: string;
-      link?: string;
-    }
-    let tasks: TaskData[] = [];
-    try {
-      tasks = await Promise.all(taskHeadings.map(async heading => {
-        const taskContent = await manager.getSectionContent(addresses.document.path, heading.slug) ?? '';
-
-        // Parse task metadata from content
-        const status = extractMetadata(taskContent, 'Status') ?? 'pending';
-        const priority = extractMetadata(taskContent, 'Priority');
-        const link = extractLinkFromContent(taskContent);
-
-        return {
-          slug: heading.slug,
-          title: heading.title,
-          status,
-          ...(priority != null && priority !== '' && { priority }),
-          ...(link != null && link !== '' && { link })
-        };
-      }));
-    } catch (error) {
-      // Critical operation failed - ensure cache consistency by invalidating document
-      // This prevents partial cache state that could cause data corruption
-      try {
-        manager['cache'].invalidateDocument(addresses.document.path);
-      } catch (cleanupError) {
-        // Log cleanup failure but don't mask original error
-        console.warn(`Cache cleanup failed after task loading error: ${cleanupError}`);
-      }
-
-      // Re-throw original error to maintain expected behavior
-      throw error;
-    }
-
-    // Filter out completed task and find available tasks
-    const availableTasks = tasks.filter(task =>
-      task.slug !== completedTaskSlug &&
-      (task.status === 'pending' || task.status === 'in_progress')
-    );
-
-    if (availableTasks.length === 0) return undefined;
-
-    // Sort by priority (high first) then by document order (top to bottom)
-    availableTasks.sort((a, b) => {
-      const priorityOrder = { high: 3, medium: 2, low: 1 };
-      const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 1;
-      const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 1;
-
-      if (bPriority !== aPriority) {
-        return bPriority - aPriority; // Higher priority first
-      }
-
-      // Same priority, maintain document order (tasks appear in order in markdown)
-      return 0;
-    });
-
-    const nextTask = availableTasks[0];
-    if (!nextTask) return undefined;
-
-    // Get linked document if available
-    let linkedDocument: { path: string; title: string; content?: string } | undefined;
-    if (nextTask.link != null && nextTask.link !== '') {
-      linkedDocument = await getLinkedDocument(manager, nextTask.link);
-    }
-
-    return {
-      slug: nextTask.slug,
-      title: nextTask.title,
-      ...(nextTask.priority != null && nextTask.priority !== '' && { priority: nextTask.priority }),
-      ...(nextTask.link != null && nextTask.link !== '' && { link: nextTask.link }),
-      ...(linkedDocument && { linked_document: linkedDocument })
-    };
-
-  } catch {
-    // Return undefined if we can't find next task
-    return undefined;
-  }
-}
+// findNextAvailableTask function moved to shared/task-view-utilities.ts to eliminate duplication
 
 /**
- * Find all task headings that are children of the Tasks section
- * Updated to use addressing system's isTaskSection for consistent task identification
+ * Helper functions for task completion
  */
-// getTaskHeadings function moved to shared/task-utilities.ts to eliminate duplication
-
-/**
- * Get linked document content using addressing system for validation
- */
-async function getLinkedDocument(
-  manager: Awaited<ReturnType<typeof getDocumentManager>>,
-  link: string
-): Promise<{ path: string; title: string; content?: string } | undefined> {
-  try {
-    // Parse link format: @/path/doc.md#section or just @/path/doc.md
-    const linkMatch = link.match(/^@?(\/[^#]+)(?:#(.+))?$/);
-    if (linkMatch == null) return undefined;
-
-    const [, docPath, sectionSlug] = linkMatch;
-    if (docPath == null || docPath === '') return undefined;
-
-    const document = await manager.getDocument(docPath);
-    if (document == null) return undefined;
-
-    let content: string | undefined;
-    if (sectionSlug != null && sectionSlug !== '') {
-      // Get specific section content using validated document path
-      const sectionContent = await manager.getSectionContent(docPath, sectionSlug);
-      content = sectionContent ?? undefined;
-    } else {
-      // Get document summary (first heading or first 500 chars from sections if available)
-      if (document.sections && document.sections.size > 0) {
-        const firstSection = Array.from(document.sections.values())[0];
-        if (firstSection != null) {
-          content = firstSection.content.slice(0, 500);
-          if (firstSection.content.length > 500) {
-            content = `${content}...`;
-          }
-        }
-      }
-      // If no content available, use document title as fallback
-      content ??= `Document: ${document.metadata.title}`;
-    }
-
-    return {
-      path: docPath,
-      title: document.metadata.title,
-      ...(content != null && { content })
-    };
-
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Helper functions
- */
-
-function extractMetadata(content: string, key: string): string | undefined {
-  // Support both "* Key: value" and "- Key: value" formats
-  const starMatch = content.match(new RegExp(`^\\* ${key}:\\s*(.+)$`, 'm'));
-  if (starMatch != null) return starMatch[1]?.trim();
-
-  const dashMatch = content.match(new RegExp(`^- ${key}:\\s*(.+)$`, 'm'));
-  return dashMatch?.[1]?.trim();
-}
-
-function extractLinkFromContent(content: string): string | undefined {
-  const match = content.match(/^→ (.+)$/m);
-  return match?.[1]?.trim() ?? undefined;
-}
 
 function updateTaskStatus(content: string, newStatus: string, note: string, completedDate: string): string {
   // Update status line
@@ -334,7 +155,4 @@ function updateTaskStatus(content: string, newStatus: string, note: string, comp
   return updated;
 }
 
-function extractTaskTitle(content: string): string {
-  const match = content.match(/^### (.+)$/m);
-  return match?.[1]?.trim() ?? 'Unknown Task';
-}
+// Other utility functions moved to shared/task-view-utilities.ts to eliminate duplication

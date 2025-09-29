@@ -76,4 +76,7 @@ export const DEFAULT_CONFIG = {
   /** Safety features - not currently implemented, defaults for future use */
   ENABLE_FILE_SAFETY_CHECKS: true,
   ENABLE_MTIME_PRECONDITION: true,
+
+  /** Reference extraction depth - controls how deep to traverse document references */
+  REFERENCE_EXTRACTION_DEPTH: 3,
 } as const;

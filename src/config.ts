@@ -60,6 +60,7 @@ const ServerConfigSchema = z.object({
   rateLimitBurstSize: z.number().int().positive(),
   enableFileSafetyChecks: z.boolean(),
   enableMtimePrecondition: z.boolean(),
+  referenceExtractionDepth: z.number().int().min(1).max(5),
 });
 
 /**
@@ -80,6 +81,9 @@ function loadEnvironmentVariables(): Record<string, string | undefined> {
 
     // Optional: Allow override of log level for debugging
     LOG_LEVEL: process.env['LOG_LEVEL'],
+
+    // Optional: Allow override of reference extraction depth
+    REFERENCE_EXTRACTION_DEPTH: process.env['REFERENCE_EXTRACTION_DEPTH'],
 
     // Required: The only setting users must configure
     DOCS_BASE_PATH: process.env['DOCS_BASE_PATH'],
@@ -103,6 +107,25 @@ function parseEnvironmentVariables(env: Record<string, string | undefined>): Rec
 
   // Optional: Log level with default
   config['logLevel'] = env['LOG_LEVEL'] ?? DEFAULT_CONFIG.LOG_LEVEL;
+
+  // Optional: Reference extraction depth with validation
+  if (env['REFERENCE_EXTRACTION_DEPTH'] != null) {
+    const depthStr = env['REFERENCE_EXTRACTION_DEPTH'].trim();
+
+    // Check for non-numeric or decimal values
+    if (!/^\d+$/.test(depthStr)) {
+      errors.push('REFERENCE_EXTRACTION_DEPTH must be a number between 1 and 5');
+    } else {
+      const depth = parseInt(depthStr, 10);
+      if (isNaN(depth) || depth < 1 || depth > 5) {
+        errors.push('REFERENCE_EXTRACTION_DEPTH must be a number between 1 and 5');
+      } else {
+        config['referenceExtractionDepth'] = depth;
+      }
+    }
+  } else {
+    config['referenceExtractionDepth'] = DEFAULT_CONFIG.REFERENCE_EXTRACTION_DEPTH;
+  }
 
   // Required: DOCS_BASE_PATH is the only setting users must provide
   if (env['DOCS_BASE_PATH'] == null || env['DOCS_BASE_PATH'].length === 0) {

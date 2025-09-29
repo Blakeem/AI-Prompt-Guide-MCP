@@ -5,6 +5,7 @@
 import type { DocumentManager } from '../document-manager.js';
 import { parseLink, validateLink } from './link-utils.js';
 import { pathToNamespace } from './utilities.js';
+import { ReferenceExtractor } from './reference-extractor.js';
 
 /**
  * Result of validating a single link
@@ -135,18 +136,18 @@ export async function validateDocumentLinks(
     recommendations: []
   };
 
-  // Extract all links from all sections
+  // Extract all links from all sections using unified ReferenceExtractor
   const allLinks: Array<{ linkText: string; sectionSlug: string }> = [];
+  const extractor = new ReferenceExtractor();
 
   for (const heading of document.headings) {
     try {
       const sectionContent = await manager.getSectionContent(documentPath, heading.slug) ?? '';
-      const linkPattern = /@(?:\/[^\s\]]+(?:#[^\s\]]*)?|#[^\s\]]*)/g;
-      const matches = sectionContent.match(linkPattern) ?? [];
+      const references = extractor.extractReferences(sectionContent);
 
-      for (const match of matches) {
+      for (const ref of references) {
         allLinks.push({
-          linkText: match,
+          linkText: ref,
           sectionSlug: heading.slug
         });
       }
@@ -303,22 +304,23 @@ export async function autoFixLinks(
     throw new Error(`Document not found: ${documentPath}`);
   }
 
-  // Analyze each section for fixable issues
+  // Analyze each section for fixable issues using unified ReferenceExtractor
+  const extractor = new ReferenceExtractor();
+
   for (const heading of document.headings) {
     try {
       const sectionContent = await manager.getSectionContent(documentPath, heading.slug) ?? '';
-      const linkPattern = /@(?:\/[^\s\]]+(?:#[^\s\]]*)?|#[^\s\]]*)/g;
-      const matches = sectionContent.match(linkPattern) ?? [];
+      const references = extractor.extractReferences(sectionContent);
 
-      for (const linkText of matches) {
-        const validation = await validateSingleLink(linkText, documentPath, manager);
+      for (const ref of references) {
+        const validation = await validateSingleLink(ref, documentPath, manager);
 
         if (!validation.is_valid && validation.suggestions) {
           for (const suggestion of validation.suggestions) {
             if (suggestion.startsWith('Try:')) {
               const suggestedFix = suggestion.replace('Try:', '').trim();
               suggestedFixes.push({
-                original_link: linkText,
+                original_link: ref,
                 suggested_fix: suggestedFix,
                 reason: validation.validation_error ?? 'Link validation failed',
                 section: heading.slug

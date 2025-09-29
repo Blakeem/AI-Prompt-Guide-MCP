@@ -16,11 +16,16 @@ import {
   DocumentNotFoundError
 } from '../../shared/addressing-system.js';
 import { getTaskHeadingsFromHeadings } from '../../shared/task-utilities.js';
+import {
+  extractTaskField,
+  extractTaskLink
+} from '../../shared/task-view-utilities.js';
 import type { parseDocumentAddress } from '../../shared/addressing-system.js';
 import type {
   DocumentAddress,
   TaskAddress
 } from '../../shared/addressing-system.js';
+import type { HierarchicalContent } from '../../shared/reference-loader.js';
 
 /**
  * Get hierarchical context for a task slug
@@ -66,7 +71,7 @@ interface TaskResult {
     status: string;
     priority?: string;
     link?: string;
-    dependencies?: string[];
+    referenced_documents?: HierarchicalContent[];
     hierarchical_context?: TaskHierarchicalContext;
   }>;
   hierarchical_summary?: {
@@ -261,10 +266,20 @@ async function listTasks(
         const taskContent = await manager.getSectionContent(addresses.document.path, heading.slug) ?? '';
 
         // Parse task metadata from content
-        const status = extractMetadata(taskContent, 'Status') ?? 'pending';
-        const priority = extractMetadata(taskContent, 'Priority');
-        const link = extractLinkFromContent(taskContent);
-        const dependencies = extractDependencies(taskContent);
+        const status = extractTaskField(taskContent, 'Status') ?? 'pending';
+        const priority = extractTaskField(taskContent, 'Priority');
+        const link = extractTaskLink(taskContent);
+
+        // Extract and load references using new system
+        const { loadConfig } = await import('../../config.js');
+        const { ReferenceExtractor } = await import('../../shared/reference-extractor.js');
+        const { ReferenceLoader } = await import('../../shared/reference-loader.js');
+        const config = loadConfig();
+        const extractor = new ReferenceExtractor();
+        const loader = new ReferenceLoader();
+        const refs = extractor.extractReferences(taskContent);
+        const normalizedRefs = extractor.normalizeReferences(refs, addresses.document.path);
+        const referencedDocuments = await loader.loadReferences(normalizedRefs, manager, config.referenceExtractionDepth);
 
         // Get hierarchical context for the task
         const hierarchicalContext = getTaskHierarchicalContext(heading.slug);
@@ -275,7 +290,7 @@ async function listTasks(
           status,
           ...(priority != null && priority !== '' && { priority }),
           ...(link != null && link !== '' && { link }),
-          ...(dependencies.length > 0 && { dependencies }),
+          ...(referencedDocuments.length > 0 && { referenced_documents: referencedDocuments }),
           ...(hierarchicalContext != null && { hierarchical_context: hierarchicalContext })
         };
       }));
@@ -457,28 +472,8 @@ async function ensureTasksSection(manager: DocumentManager, docPath: string): Pr
 
 // getTaskHeadings function moved to shared/task-utilities.ts to eliminate duplication
 
-function extractMetadata(content: string, key: string): string | undefined {
-  // Support multiple metadata formats: "* Key: value", "- Key: value", and "**Key:** value"
-  const starMatch = content.match(new RegExp(`^\\* ${key}:\\s*(.+)$`, 'm'));
-  if (starMatch != null) return starMatch[1]?.trim();
+// Metadata extraction functions moved to shared/task-view-utilities.ts to eliminate duplication
 
-  const dashMatch = content.match(new RegExp(`^- ${key}:\\s*(.+)$`, 'm'));
-  if (dashMatch != null) return dashMatch[1]?.trim();
-
-  const boldMatch = content.match(new RegExp(`^\\*\\*${key}:\\*\\*\\s*(.+)$`, 'm'));
-  return boldMatch?.[1]?.trim();
-}
-
-function extractLinkFromContent(content: string): string | undefined {
-  const match = content.match(/^→ (.+)$/m);
-  return match?.[1]?.trim();
-}
-
-function extractDependencies(content: string): string[] {
-  const match = extractMetadata(content, 'Dependencies');
-  if (match == null || match === '' || match === 'none') return [];
-  return match.split(',').map(dep => dep.trim());
-}
 
 function findNextTask(tasks: Array<{ status: string; priority?: string; slug: string; title: string; link?: string }>): {
   slug: string;

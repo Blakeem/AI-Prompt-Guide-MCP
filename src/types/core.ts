@@ -51,6 +51,7 @@ export interface ServerConfig {
   readonly rateLimitBurstSize: number;
   readonly enableFileSafetyChecks: boolean;
   readonly enableMtimePrecondition: boolean;
+  readonly referenceExtractionDepth: number;
 }
 
 /** Logger interface */

@@ -13,19 +13,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { extractTaskField } from '../../shared/task-view-utilities.js';
 
-// We need to test the extractMetadata function, but it's not exported.
-// Let's create a test version that matches the exact implementation.
+// Use the shared extractTaskField function which now supports all three formats
+// Convert null to undefined for backward compatibility with test expectations
 function extractMetadata(content: string, key: string): string | undefined {
-  // Support multiple metadata formats: "* Key: value", "- Key: value", and "**Key:** value"
-  const starMatch = content.match(new RegExp(`^\\* ${key}:\\s*(.+)$`, 'm'));
-  if (starMatch != null) return starMatch[1]?.trim();
-
-  const dashMatch = content.match(new RegExp(`^- ${key}:\\s*(.+)$`, 'm'));
-  if (dashMatch != null) return dashMatch[1]?.trim();
-
-  const boldMatch = content.match(new RegExp(`^\\*\\*${key}:\\*\\*\\s*(.+)$`, 'm'));
-  return boldMatch?.[1]?.trim();
+  return extractTaskField(content, key) ?? undefined;
 }
 
 describe('Task Status Parsing (BUG #3)', () => {

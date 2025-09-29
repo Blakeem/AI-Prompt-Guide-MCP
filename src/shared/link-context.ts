@@ -80,12 +80,14 @@ export async function loadLinkedDocumentContext(
     }
   }
 
-  // Extract all @ links from content
-  const linkPattern = /@(?:\/[^\s\]]+(?:#[^\s\]]*)?|#[^\s\]]*)/g;
-  const matches = contentToScan.match(linkPattern) ?? [];
+  // Extract all @ links from content using unified ReferenceExtractor
+  const { ReferenceExtractor } = await import('./reference-extractor.js');
+  const extractor = new ReferenceExtractor();
+
+  const refs = extractor.extractReferences(contentToScan);
 
   // Process each unique link
-  const uniqueLinks = [...new Set(matches)];
+  const uniqueLinks = [...new Set(refs)];
 
   for (const linkText of uniqueLinks) {
     const { parseLink: parseLinkFn } = await import('./link-utils.js');
@@ -219,8 +221,8 @@ export async function loadLinkedDocumentContext(
 
     // If we haven't reached max depth, scan this content for more links
     if (current.depth < linkDepth) {
-      const nestedLinks = content.match(linkPattern) ?? [];
-      const uniqueNestedLinks = [...new Set(nestedLinks)];
+      const nestedRefs = extractor.extractReferences(content);
+      const uniqueNestedLinks = [...new Set(nestedRefs)];
 
       for (const nestedLinkText of uniqueNestedLinks) {
         const { parseLink: parseLinkNestedFn } = await import('./link-utils.js');

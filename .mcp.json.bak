@@ -5,7 +5,8 @@
       "command": "node",
       "args": ["/home/blake/Development/AI-Prompt-Guide-MCP/dist/index.js"],
       "env": {
-        "DOCS_BASE_PATH": "./.ai-prompt-guide/docs"
+        "DOCS_BASE_PATH": "./.ai-prompt-guide/docs",
+        "REFERENCE_EXTRACTION_DEPTH": "3"
       }
     }
   }

@@ -12,10 +12,13 @@ import {
   type TaskAddress
 } from '../../shared/addressing-system.js';
 import { getTaskHeadings } from '../../shared/task-utilities.js';
+import { getDocumentManager } from '../../shared/utilities.js';
 import {
-  getParentSlug,
-  getDocumentManager
-} from '../../shared/utilities.js';
+  enrichTaskWithReferences,
+  calculateTaskSummary,
+  type TaskViewData
+} from '../../shared/task-view-utilities.js';
+import type { HierarchicalContent } from '../../shared/reference-loader.js';
 
 /**
  * Clean response format for view_task
@@ -32,7 +35,7 @@ interface ViewTaskResponse {
     status: string;
     priority: string;
     linked_document?: string;
-    dependencies: string[];
+    referenced_documents?: HierarchicalContent[];
     word_count: number;
   }>;
   summary: {
@@ -40,6 +43,7 @@ interface ViewTaskResponse {
     by_status: Record<string, number>;
     by_priority: Record<string, number>;
     with_links: number;
+    with_references: number;
   };
 }
 
@@ -161,7 +165,7 @@ export async function viewTask(
     }
   }
 
-  // Process each task using Promise.allSettled for graceful partial failure handling
+  // Process each task using shared utilities with Promise.allSettled for graceful partial failure handling
   const taskProcessingResults = await Promise.allSettled(taskAddresses.map(async taskAddr => {
     const heading = document.headings.find(h => h.slug === taskAddr.slug);
     if (heading == null) {
@@ -175,36 +179,39 @@ export async function viewTask(
     // Get task content using the normalized slug
     const content = await manager.getSectionContent(addresses.document.path, taskAddr.slug) ?? '';
 
-    // Parse task metadata from content
-    const status = extractTaskField(content, 'Status') ?? 'pending';
-    const priority = extractTaskField(content, 'Priority') ?? 'medium';
-    const linkedDoc = extractLinkedDocument(content);
-    const dependencies = extractDependencies(content);
-
-    // Calculate word count
-    const wordCount = content.split(/\s+/).filter(word => word.length > 0).length;
-
-    // Build hierarchical information using standardized ToolIntegration methods
-    const parent = getParentSlug(heading.slug);
-
-    const taskData: ViewTaskResponse['tasks'][0] = {
-      slug: heading.slug,
-      title: heading.title,
+    // Use shared enrichment function for consistent processing
+    const enrichedTask = await enrichTaskWithReferences(
+      manager,
+      addresses.document.path,
+      taskAddr.slug,
       content,
-      depth: heading.depth,
-      full_path: ToolIntegration.formatTaskPath(taskAddr),
-      status,
-      priority,
-      dependencies,
-      word_count: wordCount
+      heading,
+      taskAddr
+    );
+
+    // Format for view-task specific response structure
+    const taskData: ViewTaskResponse['tasks'][0] = {
+      slug: enrichedTask.slug,
+      title: enrichedTask.title,
+      content: enrichedTask.content,
+      depth: enrichedTask.depth ?? heading.depth,
+      full_path: enrichedTask.fullPath ?? ToolIntegration.formatTaskPath(taskAddr),
+      status: enrichedTask.status,
+      priority: enrichedTask.priority ?? 'medium',
+      word_count: enrichedTask.wordCount ?? 0
     };
 
-    if (parent != null && parent !== '') {
-      taskData.parent = parent;
+    // Add optional fields
+    if (enrichedTask.parent != null) {
+      taskData.parent = enrichedTask.parent;
     }
 
-    if (linkedDoc != null) {
-      taskData.linked_document = linkedDoc;
+    if (enrichedTask.linkedDocument != null) {
+      taskData.linked_document = enrichedTask.linkedDocument;
+    }
+
+    if (enrichedTask.referencedDocuments != null && enrichedTask.referencedDocuments.length > 0) {
+      taskData.referenced_documents = enrichedTask.referencedDocuments;
     }
 
     return taskData;
@@ -233,25 +240,33 @@ export async function viewTask(
     }
   }
 
-  // Calculate summary statistics
-  const statusCounts: Record<string, number> = {};
-  const priorityCounts: Record<string, number> = {};
-  let withLinks = 0;
+  // Calculate summary statistics using shared utility
+  const taskViewData: TaskViewData[] = processedTasks.map(task => {
+    const viewData: TaskViewData = {
+      slug: task.slug,
+      title: task.title,
+      content: task.content,
+      status: task.status
+    };
 
-  for (const task of processedTasks) {
-    statusCounts[task.status] = (statusCounts[task.status] ?? 0) + 1;
-    priorityCounts[task.priority] = (priorityCounts[task.priority] ?? 0) + 1;
-    if (task.linked_document != null) {
-      withLinks++;
+    // Only add priority if it's not the default 'medium'
+    if (task.priority !== 'medium') {
+      viewData.priority = task.priority;
     }
-  }
 
-  const summary = {
-    total_tasks: processedTasks.length,
-    by_status: statusCounts,
-    by_priority: priorityCounts,
-    with_links: withLinks
-  };
+    // Only add optional fields if they exist
+    if (task.linked_document != null) {
+      viewData.linkedDocument = task.linked_document;
+    }
+
+    if (task.referenced_documents != null && task.referenced_documents.length > 0) {
+      viewData.referencedDocuments = task.referenced_documents;
+    }
+
+    return viewData;
+  });
+
+  const summary = calculateTaskSummary(taskViewData);
 
   return {
     document: addresses.document.path,
@@ -260,34 +275,4 @@ export async function viewTask(
   };
 }
 
-/**
- * Extract task field value from content
- */
-function extractTaskField(content: string, fieldName: string): string | null {
-  const regex = new RegExp(`^\\s*-\\s*${fieldName}:\\s*(.+)$`, 'mi');
-  const match = content.match(regex);
-  return match?.[1]?.trim() ?? null;
-}
-
-/**
- * Extract linked document from content
- */
-function extractLinkedDocument(content: string): string | null {
-  const linkMatch = content.match(/→\s*@([^\s\n]+)/);
-  return linkMatch?.[1] ?? null;
-}
-
-/**
- * Extract dependencies from content
- */
-function extractDependencies(content: string): string[] {
-  const depsMatch = content.match(/^\\s*-\\s*Dependencies:\\s*(.+)$/mi);
-  if (depsMatch?.[1] == null) return [];
-
-  const depsString = depsMatch[1].trim();
-  if (depsString.toLowerCase() === 'none') return [];
-
-  return depsString.split(',').map(dep => dep.trim()).filter(dep => dep !== '');
-}
-
-// getTaskHeadings function moved to shared/task-utilities.ts to eliminate duplication
+// Utility functions moved to shared/task-view-utilities.ts to eliminate duplication

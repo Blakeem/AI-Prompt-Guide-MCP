@@ -456,6 +456,21 @@ async function analyzeLinksIfRequested(
     correct_examples: string[];
     common_mistakes: string[];
   };
+  referenced_documents?: Array<{
+    path: string;
+    title: string;
+    content: string;
+    depth: number;
+    namespace: string;
+    children: Array<{
+      path: string;
+      title: string;
+      content: string;
+      depth: number;
+      namespace: string;
+      children: unknown[];
+    }>;
+  }>;
 }> {
   if (!shouldAnalyze) {
     // Return minimal response when analysis is disabled for performance
@@ -474,9 +489,31 @@ async function analyzeLinksIfRequested(
     };
   }
 
-  // Perform full link analysis when requested
+  // Use unified ReferenceExtractor and ReferenceLoader
+  const { ReferenceExtractor } = await import('../../shared/reference-extractor.js');
+  const { ReferenceLoader } = await import('../../shared/reference-loader.js');
+  const { loadConfig } = await import('../../config.js');
+
+  const extractor = new ReferenceExtractor();
+  const loader = new ReferenceLoader();
+  const config = loadConfig();
+
+  // Extract and normalize references using unified system
+  const refs = extractor.extractReferences(content);
+  const normalized = extractor.normalizeReferences(refs, documentPath);
+
+  // Load hierarchical references using configured depth
+  const hierarchy = await loader.loadReferences(normalized, manager, config.referenceExtractionDepth);
+
+  // Perform existing link analysis for backward compatibility
   const { createLinkAnalysisService } = await import('../../shared/link-analysis.js');
   const linkAnalysis = createLinkAnalysisService(manager);
-  return await linkAnalysis.analyzeLinks(content, documentPath, sectionSlug);
+  const legacyAnalysis = await linkAnalysis.analyzeLinks(content, documentPath, sectionSlug);
+
+  // Return enhanced response with hierarchical references
+  return {
+    ...legacyAnalysis,
+    referenced_documents: hierarchy
+  };
 }
 

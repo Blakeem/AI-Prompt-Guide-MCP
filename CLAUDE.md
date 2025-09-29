@@ -10,10 +10,12 @@ This is a comprehensive MCP server for intelligent AI prompt and guide document 
 
 **Key Features:**
 - **Central Addressing System** - Unified, type-safe addressing for documents, sections, and tasks with LRU caching
-- **Advanced Document Linking** - Cross-document references with `@/path/doc.md#section` syntax
+- **Unified Reference Extraction** - Single source of truth for @reference pattern extraction across all tools
+- **Hierarchical Document Loading** - Recursive reference loading with configurable depth and cycle detection
+- **Advanced Document Linking** - Cross-document references with `@/path/doc.md#section` syntax in task and section content
 - **Flat Section Addressing** - Unique slug addressing with automatic duplicate handling (e.g., `#overview`, `#tasks-1`)
 - **Progressive Discovery Workflows** - Step-by-step document creation with intelligent guidance
-- **Task Management System** - Complete task lifecycle with priority, dependencies, and completion tracking
+- **Task Management System** - Complete task lifecycle with @references in content body for context loading
 - **View Tools Suite** - Clean, focused viewing for documents, sections, and tasks
 - **Unified Operations** - Single tools for related operations (section, manage_document, task)
 - **Batch Processing** - Multiple operations in single calls for efficiency
@@ -21,6 +23,33 @@ This is a comprehensive MCP server for intelligent AI prompt and guide document 
 **Package Manager**: pnpm (NOT npm or yarn)
 **Language**: TypeScript with strict mode enabled
 **Runtime**: Node.js with ES modules
+
+## CONFIGURATION
+
+### Reference Extraction Depth
+Control hierarchical reference loading depth with environment variable:
+
+```bash
+# .env or environment
+REFERENCE_EXTRACTION_DEPTH=3  # Default: 3, Range: 1-5
+```
+
+**Configuration Details:**
+- **Default**: 3 levels deep
+- **Range**: 1-5 (validated, out-of-range values default to 3)
+- **Purpose**: Controls how deep the system traverses @references when loading linked content
+- **Use Cases**:
+  - `1`: Direct references only (no recursive loading)
+  - `3`: Balanced depth for most workflows (recommended)
+  - `5`: Maximum depth for complex documentation trees
+
+**Example Usage:**
+```typescript
+import { loadConfig } from './config.js';
+
+const config = loadConfig();
+const maxDepth = config.referenceExtractionDepth; // 1-5, default 3
+```
 
 ## CRITICAL CODE QUALITY REQUIREMENTS
 
@@ -31,6 +60,7 @@ This is a comprehensive MCP server for intelligent AI prompt and guide document 
 3. Run `pnpm typecheck` - ZERO type errors allowed
 4. Run `pnpm check:dead-code` - ZERO unused exports allowed
 5. Run `pnpm check:all` - Combined quality validation (recommended)
+6. Test with MCP Inspector - `pnpm build && npx @modelcontextprotocol/inspector node dist/index.js`
 
 ### Dead Code Detection (ENABLED)
 ```bash
@@ -155,28 +185,28 @@ const metadata = document.metadata;  // DocumentMetadata
 
 ### MCP Inspector Testing (REQUIRED)
 
-#### **Essential Workflow**
-Use **ad hoc inspector sessions** - start for testing, stop immediately after:
-
 ```bash
-# Check for port conflicts first (if needed)
-lsof -i :6277,:6274  # Show what's using ports 6277/6274
+# Build first
+pnpm build
 
-# Kill conflicting processes if found
-lsof -ti :6277,:6274 | xargs -r kill
+# List tools (count varies based on enabled features)
+npx @modelcontextprotocol/inspector --cli node dist/index.js --method tools/list
 
-# Start inspector
-pnpm inspector:dev
-# 🔗 Open provided URL with pre-filled token: http://localhost:6274/?MCP_PROXY_AUTH_TOKEN=<token>
+# Test specific tool
+npx @modelcontextprotocol/inspector --cli node dist/index.js \
+  --method tools/call \
+  --tool-name test_connection \
+  --tool-arg includeServerInfo=true
 
-# Test functionality, then stop: Ctrl+C
+# Web UI
+npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
 #### **Key Testing Practices**
-- **Ad Hoc Sessions**: Start only when needed, stop immediately after testing
-- **Clean Handoffs**: Assistant stops all background inspectors before user testing
-- **Port Management**: Use one-liner to clear orphaned processes on ports 6274/6277
-- **Evidence Collection**: Capture MCP inspector sessions for issue verification
+- **Build First**: Always run `pnpm build` before MCP inspector testing
+- **CLI Testing**: Use `--cli` flag for command-line testing of individual tools
+- **Web UI**: Use web interface for interactive testing and exploration
+- **Tool Validation**: Test all tool operations including edge cases and error scenarios
 
 ### Common Development Issues & Solutions
 
@@ -220,24 +250,33 @@ return {
 };
 ```
 
-#### **Unified Task Identification**
-Use `getTaskHeadings()` for consistent task identification across all tools:
+#### **Unified Reference Extraction Pattern**
+Use the centralized ReferenceExtractor for all @reference processing:
 ```typescript
-import { getTaskHeadings } from '../tools/implementations/view-document.js';
+import { ReferenceExtractor } from '../shared/reference-extractor.js';
+import { ReferenceLoader } from '../shared/reference-loader.js';
+import { loadConfig } from '../config.js';
 
-export async function getTaskHeadings(document: CachedDocument): Promise<HeadingInfo[]> {
-  const taskHeadings: HeadingInfo[] = [];
+// Extract and load references with hierarchical context
+const config = loadConfig();
+const extractor = new ReferenceExtractor();
+const loader = new ReferenceLoader();
 
-  for (const heading of document.headings) {
-    const compatibleDocument = { content: document.sections.get(heading.slug) ?? '', headings: [] };
-    const isTask = await isTaskSection(heading.slug, compatibleDocument);
-    if (isTask) {
-      taskHeadings.push(heading);
-    }
-  }
+const refs = extractor.extractReferences(content);
+const normalized = extractor.normalizeReferences(refs, documentPath);
+const hierarchy = await loader.loadReferences(normalized, manager, config.referenceExtractionDepth);
+```
 
-  return taskHeadings;
-}
+#### **Unified Task Identification**
+Use shared utilities for consistent task processing:
+```typescript
+import { enrichTaskWithReferences, extractTaskMetadata } from '../shared/task-view-utilities.js';
+
+// Extract task metadata consistently
+const metadata = extractTaskMetadata(taskContent);
+
+// Enrich task with hierarchical references
+const enrichedTask = await enrichTaskWithReferences(manager, documentPath, taskSlug, taskContent);
 ```
 
 #### **Error Handling Patterns**
@@ -276,11 +315,11 @@ ls -la .ai-prompt-guide/archived/    # Check archive functionality
 ```
 
 ### Integration Testing Workflow
-1. **Start Inspector** → `pnpm inspector:dev`
-2. **Run Quality Gates** → `pnpm check:all` (includes lint + typecheck + dead-code)
+1. **Build & Test** → `pnpm build && pnpm check:all`
+2. **MCP Inspector** → `npx @modelcontextprotocol/inspector node dist/index.js`
 3. **Test CRUD Operations** → Use inspector interface
 4. **Verify Archive System** → Create, then archive test documents
-5. **Check Templates** → Verify `.ai-prompt-guide/templates/` accessibility
+5. **Test Reference System** → Verify @reference extraction and hierarchical loading
 
 ## Dead Code Prevention (MANDATORY)
 
@@ -329,8 +368,8 @@ The server provides a comprehensive suite of MCP tools organized by function:
 - `view_task` - Clean task data viewer with status/priority info
 
 ### **Task Management:**
-- `task` - Unified task operations: create, edit, list
-- `complete_task` - Mark completed, get next task with linked documents
+- `task` - Unified task operations: create, edit, list with @reference extraction from content
+- `complete_task` - Mark completed, get next task with hierarchical reference loading
 
 ### **Key Tool Design Principles:**
 
@@ -623,7 +662,8 @@ pnpm test:run      # ALL tests must pass
 pnpm lint          # ZERO warnings/errors
 pnpm typecheck     # ZERO type errors
 pnpm check:dead-code # ZERO unused exports
-pnpm inspector:dev # Manual testing with MCP inspector
+pnpm build         # Build for MCP testing
+npx @modelcontextprotocol/inspector node dist/index.js  # Manual testing
 ```
 
 #### **📝 Documentation and Learning**
