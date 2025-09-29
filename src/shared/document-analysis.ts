@@ -5,10 +5,7 @@
 import type { DocumentManager } from '../document-manager.js';
 import type {
   SmartSuggestions,
-  RelatedDocumentSuggestion,
-  SimilarImplementationSuggestion,
-  MissingPieceSuggestion,
-  ImplementationStep
+  RelatedDocumentSuggestion
 } from '../tools/schemas/create-document-schemas.js';
 import { pathToNamespace } from './path-utilities.js';
 import { AddressingError } from './addressing-system.js';
@@ -143,52 +140,26 @@ export async function analyzeDocumentSuggestions(
 
   // Initialize partial results for graceful degradation
   let relatedDocs: RelatedDocumentSuggestion[] = [];
-  let similarImplementations: SimilarImplementationSuggestion[] = [];
-  let missingPieces: MissingPieceSuggestion[] = [];
-  let implementationSequence: ImplementationStep[] = [];
 
   const errors: string[] = [];
   const warnings: string[] = [];
 
   try {
-    // Collect all analysis in parallel for performance, with individual error handling
-    const [relatedDocsResult, similarImplResult] = await Promise.allSettled([
-      findRelatedDocuments(manager, namespace, title, overview),
-      findSimilarImplementations(manager, namespace, title, overview)
-    ]);
-
-    // Process related documents result
-    if (relatedDocsResult.status === 'fulfilled') {
-      relatedDocs = relatedDocsResult.value;
-    } else {
-      errors.push(`Related documents analysis failed: ${relatedDocsResult.reason}`);
+    // Find related documents
+    try {
+      relatedDocs = await findRelatedDocuments(manager, namespace, title, overview);
+    } catch (error) {
+      errors.push(`Related documents analysis failed: ${error}`);
       warnings.push('Using empty related documents list');
     }
 
-    // Process similar implementations result
-    if (similarImplResult.status === 'fulfilled') {
-      similarImplementations = similarImplResult.value;
-    } else {
-      errors.push(`Similar implementations analysis failed: ${similarImplResult.reason}`);
-      warnings.push('Using empty similar implementations list');
-    }
-
-    // Identify missing pieces - more resilient to failures
+    // Detect broken references
+    let brokenReferences: string[] = [];
     try {
-      missingPieces = await identifyMissingPieces(manager, namespace, title, overview, relatedDocs);
+      brokenReferences = await detectBrokenReferences(manager, namespace, title, overview);
     } catch (error) {
-      errors.push(`Missing pieces analysis failed: ${error}`);
-      warnings.push('Using empty missing pieces list');
-      // Generate basic missing pieces as fallback
-      missingPieces = generateFallbackMissingPieces(namespace, title);
-    }
-
-    // Generate implementation sequence - always succeeds with fallback
-    try {
-      implementationSequence = generateImplementationSequence(relatedDocs, missingPieces, namespace, title);
-    } catch (error) {
-      warnings.push(`Implementation sequence generation failed: ${error}`);
-      implementationSequence = generateFallbackImplementationSequence(namespace, title);
+      errors.push(`Broken reference detection failed: ${error}`);
+      warnings.push('Using empty broken references list');
     }
 
     // Log warnings if any operations failed
@@ -198,20 +169,14 @@ export async function analyzeDocumentSuggestions(
 
     return {
       related_documents: relatedDocs,
-      similar_implementations: similarImplementations,
-      missing_pieces: missingPieces,
-      implementation_sequence: implementationSequence
+      broken_references: brokenReferences
     };
 
   } catch (error) {
     // If critical failure occurs, provide partial results in error
     const partialResults: SmartSuggestions = {
       related_documents: relatedDocs,
-      similar_implementations: similarImplementations,
-      missing_pieces: missingPieces,
-      implementation_sequence: implementationSequence.length > 0
-        ? implementationSequence
-        : generateFallbackImplementationSequence(namespace, title)
+      broken_references: []
     };
 
     throw new DocumentAnalysisError(
@@ -229,30 +194,23 @@ export async function analyzeDocumentSuggestions(
 }
 
 /**
- * Find related documents across namespaces that should be referenced or implemented
+ * Find related documents using basic keyword matching
  *
- * Analyzes documents across different namespaces to identify relationships,
- * implementation gaps, and relevant sections. Uses graceful degradation to
- * continue analysis even if individual documents fail to load.
+ * Simplified function that finds documents with similar content based on
+ * keyword overlap. Returns top 5 results regardless of namespace.
  *
  * @param manager - Document manager for accessing documents
- * @param namespace - Target namespace to exclude from related docs
- * @param title - Document title for relevance analysis
+ * @param _namespace - Target namespace (kept for compatibility, not used)
+ * @param title - Document title for keyword extraction
  * @param overview - Document overview for keyword extraction
  *
  * @returns Promise resolving to array of related document suggestions
  *
  * @throws {DocumentAnalysisError} When document listing fails or critical operations fail
- *
- * @example
- * ```typescript
- * const related = await findRelatedDocuments(manager, 'api/specs', 'Auth API', 'User authentication system');
- * console.log(`Found ${related.length} related documents`);
- * ```
  */
 async function findRelatedDocuments(
   manager: DocumentManager,
-  namespace: string,
+  _namespace: string,
   title: string,
   overview: string
 ): Promise<RelatedDocumentSuggestion[]> {
@@ -266,15 +224,6 @@ async function findRelatedDocuments(
     );
   }
 
-  if (namespace == null || namespace.trim() === '') {
-    throw new DocumentAnalysisError(
-      'Valid namespace is required',
-      'findRelatedDocuments',
-      [],
-      ['Provide a non-empty namespace string']
-    );
-  }
-
   if (title == null || title.trim() === '') {
     throw new DocumentAnalysisError(
       'Valid title is required',
@@ -284,12 +233,13 @@ async function findRelatedDocuments(
     );
   }
 
-  // Content fingerprinting - extract keywords and concepts
+  // Extract keywords from title and overview
   let keywords: string[] = [];
   try {
     keywords = extractKeywords(title, overview ?? '');
     if (keywords.length === 0) {
-      console.warn('No keywords extracted from title and overview, analysis may be limited');
+      console.warn('No keywords extracted from title and overview');
+      keywords = title.toLowerCase().split(/\s+/).filter(word => word.length > 2);
     }
   } catch (error) {
     console.warn('Keyword extraction failed, using title words as fallback:', error);
@@ -297,89 +247,47 @@ async function findRelatedDocuments(
   }
 
   const suggestions: RelatedDocumentSuggestion[] = [];
-  const processingErrors: string[] = [];
-  let processedCount = 0;
-  let skippedCount = 0;
 
   try {
-    // Get all documents across namespaces
+    // Get all documents
     const allDocuments = await manager.listDocuments();
 
     if (allDocuments.length === 0) {
-      console.warn('No documents found in document manager');
       return [];
     }
 
     for (const docInfo of allDocuments) {
       try {
-        // Skip documents in the same namespace for related docs analysis
-        const docNamespace = pathToNamespace(docInfo.path);
-        if (docNamespace === namespace) {
-          skippedCount++;
-          continue;
-        }
-
         const document = await manager.getDocument(docInfo.path);
         if (document == null) {
-          processingErrors.push(`Document not found: ${docInfo.path}`);
           continue;
         }
 
-        // For content analysis, we need to read the actual content
+        // Read document content for keyword matching
         let content = '';
         try {
           content = await manager.getSectionContent(docInfo.path, '') ?? '';
-        } catch (error) {
-          processingErrors.push(`Content reading failed for ${docInfo.path}: ${error}`);
-          // Continue with empty content rather than skipping the document
+        } catch {
+          // Continue with empty content
         }
 
-        // Calculate relevance based on title and content overlap
-        let relevance = 0;
-        try {
-          relevance = calculateContentRelevance(keywords, document.metadata.title, content);
-        } catch (error) {
-          processingErrors.push(`Relevance calculation failed for ${docInfo.path}: ${error}`);
-          continue;
+        // Calculate relevance based on keyword overlap
+        const relevance = calculateContentRelevance(keywords, document.metadata.title, content);
+
+        if (relevance > 0.2) { // Include documents with any meaningful relevance
+          const docNamespace = pathToNamespace(docInfo.path);
+          suggestions.push({
+            path: docInfo.path,
+            title: document.metadata.title,
+            namespace: docNamespace,
+            reason: `Related documentation in ${docNamespace}`,
+            relevance: Math.round(relevance * 100) / 100
+          });
         }
-
-        if (relevance > 0.3) { // Only include moderately relevant or higher
-          try {
-            // Determine relationship type and implementation gap
-            const relationship = analyzeDocumentRelationship(namespace, docNamespace, title, document.metadata.title);
-
-            const suggestion: RelatedDocumentSuggestion = {
-              path: docInfo.path,
-              title: document.metadata.title,
-              namespace: docNamespace,
-              reason: relationship.reason,
-              relevance: Math.round(relevance * 100) / 100
-            };
-
-            if (relationship.sectionsToReference != null) {
-              suggestion.sections_to_reference = relationship.sectionsToReference;
-            }
-
-            if (relationship.implementationGap != null) {
-              suggestion.implementation_gap = relationship.implementationGap;
-            }
-
-            suggestions.push(suggestion);
-          } catch (error) {
-            processingErrors.push(`Relationship analysis failed for ${docInfo.path}: ${error}`);
-          }
-        }
-
-        processedCount++;
-      } catch (error) {
-        processingErrors.push(`Document processing failed for ${docInfo.path}: ${error}`);
+      } catch {
+        // Skip failed documents silently
+        continue;
       }
-    }
-
-    // Log processing summary
-    console.warn(`Related documents analysis: processed ${processedCount}, skipped ${skippedCount}, found ${suggestions.length} relevant`);
-    if (processingErrors.length > 0) {
-      console.warn(`Processing errors (${processingErrors.length}):`, `${processingErrors.slice(0, 3).join('; ')}${processingErrors.length > 3 ? ` (and ${processingErrors.length - 3} more)` : ''}`);
     }
 
     // Sort by relevance and return top 5
@@ -388,357 +296,110 @@ async function findRelatedDocuments(
       .slice(0, 5);
 
   } catch (error) {
-    // If document listing fails, this is a critical error
     throw new DocumentAnalysisError(
-      `Failed to list documents for related analysis: ${error}`,
+      `Failed to find related documents: ${error}`,
       'findRelatedDocuments',
-      suggestions, // Return any partial results
+      [],
       [
         'Check document manager connectivity',
         'Verify file system permissions',
-        'Ensure document root directory exists',
-        'Try restarting the document service'
+        'Ensure document root directory exists'
       ]
     );
   }
 }
 
 /**
- * Find similar implementations within the same namespace
+ * Detect broken @references in document content
  *
- * Analyzes documents within the same namespace to identify similar patterns,
- * reusable implementations, and relevant approaches. Uses lower relevance
- * thresholds since documents in the same namespace are more likely to be related.
+ * Analyzes the provided content (title and overview) to find @reference patterns
+ * and checks if the referenced documents actually exist in the system.
  *
- * @param manager - Document manager for accessing documents
- * @param namespace - Target namespace to search within
- * @param title - Document title for similarity analysis
- * @param overview - Document overview for pattern matching
+ * @param manager - Document manager for checking document existence
+ * @param _namespace - Target namespace (not used in current implementation)
+ * @param title - Document title to scan for references
+ * @param overview - Document overview to scan for references
  *
- * @returns Promise resolving to array of similar implementation suggestions
+ * @returns Promise resolving to array of broken reference paths
  *
  * @throws {DocumentAnalysisError} When critical operations fail
- *
- * @example
- * ```typescript
- * const similar = await findSimilarImplementations(manager, 'api/specs', 'Auth API', 'User authentication');
- * similar.forEach(impl => console.log(`Pattern: ${impl.reusable_patterns.join(', ')}`));
- * ```
  */
-async function findSimilarImplementations(
+async function detectBrokenReferences(
   manager: DocumentManager,
-  namespace: string,
+  _namespace: string,
   title: string,
   overview: string
-): Promise<SimilarImplementationSuggestion[]> {
+): Promise<string[]> {
   // Input validation
   if (manager == null) {
     throw new DocumentAnalysisError(
       'Document manager is required',
-      'findSimilarImplementations',
+      'detectBrokenReferences',
       [],
       ['Ensure document manager is properly initialized']
     );
   }
 
-  if (namespace == null || namespace.trim() === '') {
-    throw new DocumentAnalysisError(
-      'Valid namespace is required',
-      'findSimilarImplementations',
-      [],
-      ['Provide a non-empty namespace string']
-    );
-  }
-
-  let keywords: string[] = [];
-  try {
-    keywords = extractKeywords(title ?? '', overview ?? '');
-    if (keywords.length === 0) {
-      console.warn('No keywords extracted, similarity analysis may be limited');
-    }
-  } catch (error) {
-    console.warn('Keyword extraction failed, using basic fallback:', error);
-    keywords = (title ?? '').toLowerCase().split(/\s+/).filter(word => word.length > 2);
-  }
-
-  const suggestions: SimilarImplementationSuggestion[] = [];
-  const processingErrors: string[] = [];
-  let processedCount = 0;
+  const brokenReferences: string[] = [];
+  const contentToScan = `${title ?? ''} ${overview ?? ''}`;
 
   try {
-    // Get documents in the same namespace
-    const allDocuments = await manager.listDocuments();
-    const namespaceDocuments = allDocuments.filter(docInfo => {
-      try {
-        return pathToNamespace(docInfo.path) === namespace;
-      } catch (error) {
-        processingErrors.push(`Path namespace extraction failed for ${docInfo.path}: ${error}`);
-        return false;
+    // Extract @references from content using regex
+    const referenceRegex = /@([^@\s]+(?:\.md)?(?:#[^\s]*)?)/g;
+    const matches = contentToScan.matchAll(referenceRegex);
+
+    for (const match of matches) {
+      const reference = match[1];
+      if (reference == null) {
+        continue;
       }
-    });
 
-    if (namespaceDocuments.length === 0) {
-      console.warn(`No documents found in namespace: ${namespace}`);
-      return [];
-    }
+      // Parse the reference to extract document path
+      let documentPath = reference;
 
-    for (const docInfo of namespaceDocuments) {
+      // Handle section references by extracting just the document path
+      if (reference.includes('#')) {
+        const parts = reference.split('#');
+        documentPath = parts[0] ?? reference;
+      }
+
+      // Ensure it's a markdown file
+      if (!documentPath.endsWith('.md')) {
+        documentPath = `${documentPath}.md`;
+      }
+
+      // Ensure it starts with /
+      if (!documentPath.startsWith('/')) {
+        documentPath = `/${documentPath}`;
+      }
+
       try {
-        const document = await manager.getDocument(docInfo.path);
+        // Check if the document exists
+        const document = await manager.getDocument(documentPath);
         if (document == null) {
-          processingErrors.push(`Document not found: ${docInfo.path}`);
-          continue;
+          brokenReferences.push(`@${reference}`);
         }
-
-        // For content analysis, we need to read the actual content
-        let content = '';
-        try {
-          content = await manager.getSectionContent(docInfo.path, '') ?? '';
-        } catch (error) {
-          processingErrors.push(`Content reading failed for ${docInfo.path}: ${error}`);
-          // Continue with empty content rather than skipping
-        }
-
-        // Calculate similarity based on content patterns
-        let relevance = 0;
-        try {
-          relevance = calculateContentRelevance(keywords, document.metadata.title, content);
-        } catch (error) {
-          processingErrors.push(`Relevance calculation failed for ${docInfo.path}: ${error}`);
-          continue;
-        }
-
-        if (relevance > 0.2) { // Lower threshold for same namespace
-          let patterns: string[] = [];
-          try {
-            patterns = extractReusablePatterns(content, namespace);
-          } catch (error) {
-            processingErrors.push(`Pattern extraction failed for ${docInfo.path}: ${error}`);
-            patterns = []; // Continue with empty patterns
-          }
-
-          let reason = '';
-          try {
-            reason = generateSimilarityReason(namespace, title, document.metadata.title, patterns);
-          } catch (error) {
-            processingErrors.push(`Similarity reason generation failed for ${docInfo.path}: ${error}`);
-            reason = `Similar ${namespace} document with comparable structure`;
-          }
-
-          suggestions.push({
-            path: docInfo.path,
-            title: document.metadata.title,
-            namespace,
-            reason,
-            relevance: Math.round(relevance * 100) / 100,
-            reusable_patterns: patterns
-          });
-        }
-
-        processedCount++;
-      } catch (error) {
-        processingErrors.push(`Document processing failed for ${docInfo.path}: ${error}`);
+      } catch {
+        // If we can't check the document, consider it broken
+        brokenReferences.push(`@${reference}`);
       }
     }
 
-    // Log processing summary
-    console.warn(`Similar implementations analysis: processed ${processedCount} in namespace ${namespace}, found ${suggestions.length} similar`);
-    if (processingErrors.length > 0) {
-      console.warn(`Processing errors (${processingErrors.length}):`, `${processingErrors.slice(0, 3).join('; ')}${processingErrors.length > 3 ? ` (and ${processingErrors.length - 3} more)` : ''}`);
-    }
-
-    // Sort by relevance and return top 3
-    return suggestions
-      .sort((a, b) => b.relevance - a.relevance)
-      .slice(0, 3);
+    // Remove duplicates
+    return [...new Set(brokenReferences)];
 
   } catch (error) {
     throw new DocumentAnalysisError(
-      `Failed to find similar implementations in namespace ${namespace}: ${error}`,
-      'findSimilarImplementations',
-      suggestions, // Return any partial results
+      `Broken reference detection failed: ${error}`,
+      'detectBrokenReferences',
+      [],
       [
         'Check document manager connectivity',
-        'Verify namespace exists and contains documents',
-        'Ensure file system permissions are correct',
-        'Try with a different namespace'
+        'Verify content format',
+        'Try with simpler content'
       ]
     );
   }
-}
-
-/**
- * Identify missing pieces in the documentation ecosystem
- *
- * Analyzes the document ecosystem to identify gaps in documentation,
- * missing implementation guides, troubleshooting docs, and other
- * complementary documents that would enhance the documentation set.
- *
- * @param manager - Document manager for accessing existing documents
- * @param namespace - Target namespace for analysis
- * @param title - Document title for context
- * @param overview - Document overview for analysis
- * @param relatedDocs - Previously found related documents
- *
- * @returns Promise resolving to array of missing piece suggestions
- *
- * @throws {DocumentAnalysisError} When critical analysis operations fail
- *
- * @example
- * ```typescript
- * const missing = await identifyMissingPieces(manager, 'api/specs', 'Auth API', overview, relatedDocs);
- * missing.forEach(piece => console.log(`Missing: ${piece.type} - ${piece.title}`));
- * ```
- */
-async function identifyMissingPieces(
-  manager: DocumentManager,
-  namespace: string,
-  title: string,
-  overview: string,
-  relatedDocs: RelatedDocumentSuggestion[]
-): Promise<MissingPieceSuggestion[]> {
-  // Input validation
-  if (manager == null) {
-    throw new DocumentAnalysisError(
-      'Document manager is required',
-      'identifyMissingPieces',
-      [],
-      ['Ensure document manager is properly initialized']
-    );
-  }
-
-  if (namespace == null || namespace.trim() === '') {
-    throw new DocumentAnalysisError(
-      'Valid namespace is required',
-      'identifyMissingPieces',
-      [],
-      ['Provide a non-empty namespace string']
-    );
-  }
-
-  const missingPieces: MissingPieceSuggestion[] = [];
-  const analysisErrors: string[] = [];
-
-  try {
-    // Cross-namespace gap analysis with error handling
-    try {
-      const gapAnalysis = await performGapAnalysis(manager, namespace, title ?? '', overview ?? '', relatedDocs ?? []);
-      missingPieces.push(...gapAnalysis);
-    } catch (error) {
-      analysisErrors.push(`Gap analysis failed: ${error}`);
-      console.warn('Gap analysis failed, continuing with namespace analysis:', error);
-
-      // Provide fallback gap analysis
-      const fallbackGaps = generateFallbackGapAnalysis(namespace, title ?? '');
-      missingPieces.push(...fallbackGaps);
-    }
-
-    // Namespace-specific missing pieces with error handling
-    try {
-      const namespacePieces = identifyNamespaceMissingPieces(namespace, title ?? '', relatedDocs ?? []);
-      missingPieces.push(...namespacePieces);
-    } catch (error) {
-      analysisErrors.push(`Namespace analysis failed: ${error}`);
-      console.warn('Namespace-specific analysis failed:', error);
-    }
-
-    // If no pieces found and we had errors, provide basic fallback
-    if (missingPieces.length === 0 && analysisErrors.length > 0) {
-      console.warn('No missing pieces identified, providing basic fallback suggestions');
-      missingPieces.push(...generateFallbackMissingPieces(namespace, title ?? ''));
-    }
-
-    // Sort by priority with error handling
-    try {
-      const priorityOrder = { high: 3, medium: 2, low: 1 };
-      const sortedPieces = missingPieces
-        .filter(piece => piece.priority in priorityOrder) // Filter invalid priorities
-        .sort((a, b) => priorityOrder[b.priority] - priorityOrder[a.priority])
-        .slice(0, 4); // Limit to top 4 suggestions
-
-      return sortedPieces;
-    } catch (error) {
-      analysisErrors.push(`Priority sorting failed: ${error}`);
-      console.warn('Priority sorting failed, returning unsorted results:', error);
-      return missingPieces.slice(0, 4);
-    }
-
-  } catch (error) {
-    // If everything fails, provide minimal fallback
-    const fallbackPieces = generateFallbackMissingPieces(namespace, title ?? '');
-
-    throw new DocumentAnalysisError(
-      `Missing pieces analysis failed: ${error}${analysisErrors.length > 0 ? `. Additional errors: ${analysisErrors.join('; ')}` : ''}`,
-      'identifyMissingPieces',
-      fallbackPieces,
-      [
-        'Check document manager connectivity',
-        'Verify namespace format and accessibility',
-        'Try with simpler input parameters',
-        'Check system resources and permissions'
-      ]
-    );
-  }
-}
-
-/**
- * Generate logical implementation sequence
- */
-function generateImplementationSequence(
-  relatedDocs: RelatedDocumentSuggestion[],
-  missingPieces: MissingPieceSuggestion[],
-  namespace: string,
-  title: string
-): ImplementationStep[] {
-  const steps: ImplementationStep[] = [];
-  let order = 1;
-
-  // Step 1: Always start with current document
-  steps.push({
-    order: order++,
-    action: getNamespaceAction(namespace),
-    document: `Current document (${title})`,
-    focus: getNamespaceFocus(namespace)
-  });
-
-  // Step 2: Add high-priority missing pieces
-  const highPriorityPieces = missingPieces.filter(piece => piece.priority === 'high');
-  for (const piece of highPriorityPieces.slice(0, 2)) { // Limit to 2 high priority
-    const step: ImplementationStep = {
-      order: order++,
-      action: `Create ${piece.type}`,
-      document: piece.suggested_path,
-      focus: piece.reason
-    };
-
-    const defaultSections = getDefaultSectionsForType(piece.type);
-    if (defaultSections.length > 0) {
-      step.sections = defaultSections;
-    }
-
-    steps.push(step);
-  }
-
-  // Step 3: Reference related documents
-  const topRelated = relatedDocs.slice(0, 2); // Top 2 related docs
-  for (const related of topRelated) {
-    if (related.implementation_gap != null) {
-      const step: ImplementationStep = {
-        order: order++,
-        action: 'Reference and implement',
-        document: related.path,
-        focus: related.implementation_gap ?? 'Reference for implementation patterns'
-      };
-
-      if (related.sections_to_reference != null) {
-        step.sections = related.sections_to_reference;
-      }
-
-      steps.push(step);
-    }
-  }
-
-  return steps.slice(0, 4); // Limit to 4 steps for clarity
 }
 
 // Helper functions for suggestion analysis
@@ -926,300 +587,10 @@ function calculateContentRelevance(keywords: string[], title: string, content: s
   }
 }
 
-/**
- * Analyze relationship between documents
- */
-function analyzeDocumentRelationship(
-  sourceNamespace: string,
-  targetNamespace: string,
-  _sourceTitle: string,
-  _targetTitle: string
-): { reason: string; sectionsToReference?: string[]; implementationGap?: string } {
-  // API specs → guides relationship
-  if (sourceNamespace === 'api/specs' && targetNamespace === 'api/guides') {
-    return {
-      reason: 'Related API implementation guide with proven patterns',
-      sectionsToReference: ['#setup', '#implementation', '#testing'],
-      implementationGap: 'Create implementation guide based on this API spec'
-    };
-  }
 
-  // API specs → services relationship
-  if (sourceNamespace === 'api/specs' && targetNamespace === 'backend/services') {
-    return {
-      reason: 'Backend service implementing similar API patterns',
-      sectionsToReference: ['#architecture', '#data-layer'],
-      implementationGap: 'Design service architecture for this API'
-    };
-  }
 
-  // Guides → components relationship
-  if (sourceNamespace === 'api/guides' && targetNamespace === 'frontend/components') {
-    return {
-      reason: 'Frontend component consuming this API functionality',
-      sectionsToReference: ['#usage-examples', '#props-interface']
-    };
-  }
 
-  // Default relationship
-  return {
-    reason: `Similar functionality and patterns in ${targetNamespace}`,
-    sectionsToReference: ['#overview']
-  };
-}
 
-/**
- * Extract reusable patterns from document content
- */
-function extractReusablePatterns(content: string, namespace: string): string[] {
-  const patterns: string[] = [];
-
-  // Common patterns by namespace
-  if (namespace === 'api/specs') {
-    if (content.includes('authentication')) patterns.push('Authentication patterns');
-    if (content.includes('rate limit')) patterns.push('Rate limiting');
-    if (content.includes('pagination')) patterns.push('Pagination');
-    if (content.includes('webhook')) patterns.push('Webhook handling');
-  } else if (namespace === 'api/guides') {
-    if (content.includes('step')) patterns.push('Step-by-step structure');
-    if (content.includes('test')) patterns.push('Testing approach');
-    if (content.includes('troubleshoot')) patterns.push('Troubleshooting flow');
-  } else if (namespace === 'frontend/components') {
-    if (content.includes('props')) patterns.push('Props interface design');
-    if (content.includes('accessibility')) patterns.push('Accessibility patterns');
-    if (content.includes('theme')) patterns.push('Theme integration');
-  }
-
-  return patterns;
-}
-
-/**
- * Generate similarity reason based on patterns
- */
-function generateSimilarityReason(
-  namespace: string,
-  _title: string,
-  _similarTitle: string,
-  patterns: string[]
-): string {
-  if (patterns.length === 0) {
-    return `Similar ${namespace} document with comparable structure`;
-  }
-
-  return `Shares proven patterns: ${patterns.slice(0, 2).join(', ')}`;
-}
-
-/**
- * Perform gap analysis to find missing documents
- *
- * Analyzes the documentation ecosystem to identify common patterns of
- * missing complementary documents based on namespace conventions.
- *
- * @param _manager - Document manager (currently unused but kept for future expansion)
- * @param namespace - Target namespace for gap analysis
- * @param title - Document title for generating suggestions
- * @param _overview - Document overview (currently unused but kept for future expansion)
- * @param relatedDocs - Related documents to check for existing coverage
- *
- * @returns Promise resolving to array of gap analysis suggestions
- *
- * @throws {DocumentAnalysisError} When slug generation fails or critical operations fail
- */
-async function performGapAnalysis(
-  _manager: DocumentManager,
-  namespace: string,
-  title: string,
-  _overview: string,
-  relatedDocs: RelatedDocumentSuggestion[]
-): Promise<MissingPieceSuggestion[]> {
-  // Input validation
-  if (namespace == null || namespace.trim() === '') {
-    throw new DocumentAnalysisError(
-      'Valid namespace is required for gap analysis',
-      'performGapAnalysis',
-      [],
-      ['Provide a non-empty namespace string']
-    );
-  }
-
-  if (title == null || title.trim() === '') {
-    throw new DocumentAnalysisError(
-      'Valid title is required for gap analysis',
-      'performGapAnalysis',
-      [],
-      ['Provide a non-empty title string']
-    );
-  }
-
-  const gaps: MissingPieceSuggestion[] = [];
-  const relatedDocsArray = relatedDocs ?? [];
-
-  try {
-    // API spec → implementation guide gap
-    if (namespace === 'api/specs') {
-      const guideExists = relatedDocsArray.some(doc => doc.namespace === 'api/guides');
-      if (!guideExists) {
-        try {
-          const { titleToSlug } = await import('../slug.js');
-          const slug = titleToSlug(title);
-          gaps.push({
-            type: 'guide',
-            suggested_path: `/api/guides/${slug}-implementation.md`,
-            title: `${title} Implementation Guide`,
-            reason: 'No implementation guide exists for this API specification',
-            priority: 'high'
-          });
-        } catch (error) {
-          console.warn('Failed to generate implementation guide suggestion:', error);
-          // Provide fallback without slug generation
-          gaps.push({
-            type: 'guide',
-            suggested_path: `/api/guides/implementation.md`,
-            title: `${title} Implementation Guide`,
-            reason: 'No implementation guide exists for this API specification',
-            priority: 'high'
-          });
-        }
-      }
-    }
-
-    // Guide → troubleshooting gap
-    if (namespace === 'api/guides' || namespace === 'frontend/components') {
-      const troubleshootingExists = relatedDocsArray.some(doc => doc.namespace === 'docs/troubleshooting');
-      if (!troubleshootingExists) {
-        try {
-          const { titleToSlug } = await import('../slug.js');
-          const slug = titleToSlug(title);
-          gaps.push({
-            type: 'troubleshooting',
-            suggested_path: `/docs/troubleshooting/${slug}-issues.md`,
-            title: `${title} Common Issues`,
-            reason: 'No troubleshooting documentation exists for this implementation',
-            priority: 'medium'
-          });
-        } catch (error) {
-          console.warn('Failed to generate troubleshooting suggestion:', error);
-          // Provide fallback without slug generation
-          gaps.push({
-            type: 'troubleshooting',
-            suggested_path: `/docs/troubleshooting/common-issues.md`,
-            title: `${title} Common Issues`,
-            reason: 'No troubleshooting documentation exists for this implementation',
-            priority: 'medium'
-          });
-        }
-      }
-    }
-
-    // Backend services → API spec gap
-    if (namespace === 'backend/services') {
-      const apiSpecExists = relatedDocsArray.some(doc => doc.namespace === 'api/specs');
-      if (!apiSpecExists) {
-        try {
-          const { titleToSlug } = await import('../slug.js');
-          const slug = titleToSlug(title);
-          gaps.push({
-            type: 'spec',
-            suggested_path: `/api/specs/${slug}-api.md`,
-            title: `${title} API Specification`,
-            reason: 'No API specification exists for this backend service',
-            priority: 'high'
-          });
-        } catch (error) {
-          console.warn('Failed to generate API spec suggestion:', error);
-        }
-      }
-    }
-
-    return gaps;
-
-  } catch (error) {
-    throw new DocumentAnalysisError(
-      `Gap analysis failed for namespace ${namespace}: ${error}`,
-      'performGapAnalysis',
-      gaps, // Return any partial results
-      [
-        'Check slug generation dependencies',
-        'Verify namespace format',
-        'Try with simpler title',
-        'Check system resources'
-      ]
-    );
-  }
-}
-
-/**
- * Identify namespace-specific missing pieces
- */
-function identifyNamespaceMissingPieces(
-  _namespace: string,
-  _title: string,
-  _relatedDocs: RelatedDocumentSuggestion[]
-): MissingPieceSuggestion[] {
-  // This could be expanded with more sophisticated analysis
-  // For now, return basic suggestions based on namespace patterns
-  return [];
-}
-
-/**
- * Get default sections for document type
- */
-function getDefaultSectionsForType(type: string): string[] {
-  switch (type) {
-    case 'guide':
-      return ['#prerequisites', '#step-by-step-implementation', '#testing'];
-    case 'spec':
-      return ['#overview', '#endpoints', '#authentication'];
-    case 'troubleshooting':
-      return ['#quick-diagnostics', '#common-issues', '#advanced-diagnostics'];
-    case 'component':
-      return ['#props-interface', '#usage-examples', '#styling'];
-    case 'service':
-      return ['#architecture-overview', '#components', '#deployment'];
-    default:
-      return ['#overview'];
-  }
-}
-
-/**
- * Get action name for namespace
- */
-function getNamespaceAction(namespace: string): string {
-  switch (namespace) {
-    case 'api/specs':
-      return 'Create API specification';
-    case 'api/guides':
-      return 'Create implementation guide';
-    case 'frontend/components':
-      return 'Create component documentation';
-    case 'backend/services':
-      return 'Create service documentation';
-    case 'docs/troubleshooting':
-      return 'Create troubleshooting guide';
-    default:
-      return 'Create document';
-  }
-}
-
-/**
- * Get focus description for namespace
- */
-function getNamespaceFocus(namespace: string): string {
-  switch (namespace) {
-    case 'api/specs':
-      return 'Define endpoints, schemas, and authentication requirements';
-    case 'api/guides':
-      return 'Provide step-by-step implementation with code examples';
-    case 'frontend/components':
-      return 'Document props, usage patterns, and accessibility features';
-    case 'backend/services':
-      return 'Define architecture, data flows, and integration patterns';
-    case 'docs/troubleshooting':
-      return 'Document common issues, diagnostics, and solutions';
-    default:
-      return 'Define structure and core content';
-  }
-}
 
 // Helper functions for error recovery and graceful degradation
 
@@ -1280,140 +651,4 @@ function validateAnalysisInputs(
   return errors;
 }
 
-/**
- * Generate fallback missing pieces when analysis fails
- *
- * @param namespace - Target namespace
- * @param title - Document title
- *
- * @returns Array of basic missing piece suggestions
- */
-function generateFallbackMissingPieces(namespace: string, title: string): MissingPieceSuggestion[] {
-  const fallbackPieces: MissingPieceSuggestion[] = [];
 
-  try {
-    // Basic suggestions based on namespace patterns
-    if (namespace === 'api/specs') {
-      fallbackPieces.push({
-        type: 'guide',
-        suggested_path: `/api/guides/implementation.md`,
-        title: `${title} Implementation Guide`,
-        reason: 'Implementation guide recommended for API specifications',
-        priority: 'high'
-      });
-    } else if (namespace === 'api/guides') {
-      fallbackPieces.push({
-        type: 'troubleshooting',
-        suggested_path: `/docs/troubleshooting/common-issues.md`,
-        title: `${title} Common Issues`,
-        reason: 'Troubleshooting documentation recommended for implementation guides',
-        priority: 'medium'
-      });
-    }
-
-    // Generic suggestion for all namespaces
-    fallbackPieces.push({
-      type: 'guide',
-      suggested_path: `/docs/overview.md`,
-      title: 'Documentation Overview',
-      reason: 'Central overview document for documentation navigation',
-      priority: 'low'
-    });
-
-  } catch (error) {
-    console.warn('Failed to generate fallback missing pieces:', error);
-  }
-
-  return fallbackPieces;
-}
-
-/**
- * Generate fallback gap analysis when normal analysis fails
- *
- * @param namespace - Target namespace
- * @param title - Document title
- *
- * @returns Array of basic gap analysis suggestions
- */
-function generateFallbackGapAnalysis(namespace: string, _title: string): MissingPieceSuggestion[] {
-  const fallbackGaps: MissingPieceSuggestion[] = [];
-
-  try {
-    // Basic gap patterns
-    if (namespace === 'api/specs') {
-      fallbackGaps.push({
-        type: 'guide',
-        suggested_path: `/api/guides/getting-started.md`,
-        title: 'Getting Started Guide',
-        reason: 'Basic implementation guide for API usage',
-        priority: 'high'
-      });
-    }
-
-    if (namespace.includes('api') || namespace.includes('backend')) {
-      fallbackGaps.push({
-        type: 'troubleshooting',
-        suggested_path: `/docs/troubleshooting/api-issues.md`,
-        title: 'API Troubleshooting',
-        reason: 'Common API troubleshooting documentation',
-        priority: 'medium'
-      });
-    }
-
-  } catch (error) {
-    console.warn('Failed to generate fallback gap analysis:', error);
-  }
-
-  return fallbackGaps;
-}
-
-/**
- * Generate fallback implementation sequence when normal generation fails
- *
- * @param namespace - Target namespace
- * @param title - Document title
- *
- * @returns Array of basic implementation steps
- */
-function generateFallbackImplementationSequence(namespace: string, title: string): ImplementationStep[] {
-  try {
-    const steps: ImplementationStep[] = [];
-
-    // Basic sequence always starts with current document
-    steps.push({
-      order: 1,
-      action: getNamespaceAction(namespace),
-      document: `Current document (${title})`,
-      focus: getNamespaceFocus(namespace)
-    });
-
-    // Add basic follow-up step based on namespace
-    if (namespace === 'api/specs') {
-      steps.push({
-        order: 2,
-        action: 'Create implementation guide',
-        document: 'Implementation guide',
-        focus: 'Provide step-by-step implementation instructions'
-      });
-    } else if (namespace === 'api/guides') {
-      steps.push({
-        order: 2,
-        action: 'Create troubleshooting guide',
-        document: 'Troubleshooting documentation',
-        focus: 'Document common issues and solutions'
-      });
-    }
-
-    return steps;
-
-  } catch (error) {
-    console.warn('Failed to generate fallback implementation sequence:', error);
-    // Minimal fallback
-    return [{
-      order: 1,
-      action: 'Create document',
-      document: title,
-      focus: 'Define basic structure and content'
-    }];
-  }
-}

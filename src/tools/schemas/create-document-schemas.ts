@@ -13,36 +13,10 @@ export interface RelatedDocumentSuggestion {
   implementation_gap?: string | undefined;
 }
 
-export interface SimilarImplementationSuggestion {
-  path: string;
-  title: string;
-  namespace: string;
-  reason: string;
-  relevance: number;
-  reusable_patterns: string[];
-}
-
-export interface MissingPieceSuggestion {
-  type: 'guide' | 'spec' | 'component' | 'service' | 'troubleshooting';
-  suggested_path: string;
-  title: string;
-  reason: string;
-  priority: 'high' | 'medium' | 'low';
-}
-
-export interface ImplementationStep {
-  order: number;
-  action: string;
-  document: string;
-  sections?: string[] | undefined;
-  focus: string;
-}
 
 export interface SmartSuggestions {
   related_documents: RelatedDocumentSuggestion[];
-  similar_implementations: SimilarImplementationSuggestion[];
-  missing_pieces: MissingPieceSuggestion[];
-  implementation_sequence: ImplementationStep[];
+  broken_references: string[];
 }
 
 export interface NamespacePatterns {
@@ -156,44 +130,20 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
             path: '/api/specs/user-api.md',
             title: 'User API',
             namespace: 'api/specs',
-            reason: 'Similar authentication patterns and data structures',
-            relevance: 0.85,
-            sections_to_reference: ['#authentication', '#error-handling']
-          }
-        ],
-        similar_implementations: [
-          {
-            path: '/api/guides/auth-implementation.md',
-            title: 'Authentication Implementation Guide',
-            namespace: 'api/guides',
-            reason: 'Proven implementation patterns for API authentication',
-            relevance: 0.90,
-            reusable_patterns: ['JWT handling', 'Rate limiting']
-          }
-        ],
-        missing_pieces: [
-          {
-            type: 'guide',
-            suggested_path: '/api/guides/search-implementation.md',
-            title: 'Search Implementation Guide',
-            reason: 'No implementation guide exists for search functionality',
-            priority: 'high'
-          }
-        ],
-        implementation_sequence: [
-          {
-            order: 1,
-            action: 'Create API specification',
-            document: 'Current document (Search API)',
-            focus: 'Define endpoints, schemas, and authentication'
+            reason: 'Related documentation in api/specs',
+            relevance: 0.85
           },
           {
-            order: 2,
-            action: 'Create implementation guide',
-            document: '/api/guides/search-implementation.md',
-            sections: ['#setup', '#core-logic', '#testing'],
-            focus: 'Step-by-step implementation with code examples'
+            path: '/api/guides/auth-setup.md',
+            title: 'Authentication Setup Guide',
+            namespace: 'api/guides',
+            reason: 'Related documentation in api/guides',
+            relevance: 0.72
           }
+        ],
+        broken_references: [
+          '@/missing/document.md',
+          '@/another/broken-reference.md#section'
         ]
       },
       namespace_patterns: {

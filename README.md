@@ -1,6 +1,6 @@
 # AI Prompt Guide MCP
 
-**A knowledge-process graph with memory, acting as cognitive scaffolding for LLMs.**
+**An MCP server for managing interconnected Markdown documentation with task tracking and content transclusion.**
 
 ---
 
@@ -12,7 +12,7 @@
 
 ## What Is This?
 
-AI Prompt Guide is a **multilayer knowledge-process graph system** built on Model Context Protocol (MCP) that provides cognitive scaffolding for LLMs through structured reasoning workflows.
+AI Prompt Guide MCP is a Model Context Protocol server that helps LLMs work with structured documentation. It treats your Markdown files as an interconnected graph where documents can reference each other, tasks can be tracked, and content is loaded hierarchically when needed.
 
 ### Technical Foundation
 
@@ -28,11 +28,6 @@ At its core, this is a **typed property hypergraph over Markdown** where:
 - Reusable, addressable workflow nodes with structured steps and constraints
 - Not static prompts, but graph-encoded procedures that guide LLM reasoning
 
-**Memory Layer** (Planned):
-- Agent memory store indexed by graph IDs and context (document, git commit, task sequence)
-- Episodic recall ("what happened last run?") and semantic recall ("what decisions were made for feature X?")
-- Cross-session audit trail for tracking agent work and decisions over time
-
 **Control Flow:**
 - Traversing the graph = executing adaptive reasoning paths
 - Just-in-time context injection ensures structured information, not "text soup"
@@ -40,11 +35,11 @@ At its core, this is a **typed property hypergraph over Markdown** where:
 
 ### In Plain English
 
-Think of it as **accessibility tools for LLMs** - a system that:
-- Provides go-to reasoning routines and decision-making scripts
-- Organizes knowledge as a linked graph instead of scattered documents
-- Tracks what the LLM has done across sessions (memory)
-- Guides LLMs through complex multi-step workflows with structured thinking protocols
+This system provides:
+- Structured document management with cross-references
+- Task tracking with status and priority management
+- Hierarchical content loading through document transclusion
+- Namespace organization for large documentation sets
 
 ## Current Capabilities
 
@@ -54,17 +49,17 @@ Think of it as **accessibility tools for LLMs** - a system that:
 - **Performance** - LRU caching with automatic eviction (1000 item limit)
 - **Error Handling** - Rich context with custom error types
 
-### 🔗 Knowledge Graph Features
+### 📄 Document Features
 - **Cross-Document References** - Link documents with `@/path/doc.md#section` syntax
-- **Automatic Context Loading** - Referenced documents load on-demand with cycle detection
+- **Transclusion Support** - Referenced content loads hierarchically with cycle detection
 - **Flat Section Addressing** - Unique slug addressing with automatic duplicate handling
-- **Link Validation** - Health scoring and auto-fix suggestions for broken links
+- **Reference Validation** - Checks for broken references with fix suggestions
 
 ### 📋 Available MCP Tools
 
 **Core Document Management:**
-- `create_document` - Progressive document creation with smart link guidance
-- `browse_documents` - Unified browsing and searching with namespace awareness
+- `create_document` - Progressive document creation with reference suggestions
+- `browse_documents` - Browse and search documents by namespace
 
 **Unified Content Operations:**
 - `section` - Complete section management (edit, create, delete)
@@ -136,14 +131,7 @@ Tools reveal parameters gradually to conserve context:
 
 ## Future Vision
 
-### 🧠 Memory System (Next Phase)
-- **SQLite-based memory store** with full-text search (FTS5)
-- **Git-integrated audit trail** - track decisions across commits
-- **Cross-session agent memory** - LLMs can review past work
-- **Sub-agent context sharing** - all agents share memory within the system
-- Query interface: `store_memory`, `search_memory`, `get_session_memory`
-
-### 🎯 Reasoning Protocol Library (Planned)
+### 🎯 Reasoning Protocol Library (Next Phase)
 
 Structured workflows for common LLM reasoning tasks:
 
@@ -162,12 +150,11 @@ Each protocol is a **reusable graph-encoded procedure** that guides LLMs through
 
 ### 🚀 Long-Term Architecture
 
-**Complete knowledge-process graph** with:
+**Extended features** including:
 - **Graph traversal engine** for workflow execution
 - **Prompt workflow DSL** for custom reasoning protocols
-- **Episodic memory integration** across git history
+- **Enhanced transclusion** with deeper reference chains
 - **Multi-agent coordination** with shared context
-- **Decision artifact storage** with searchable history
 
 ## Installation & Setup
 
@@ -230,16 +217,13 @@ pnpm inspector:dev
 - 253 passing tests with comprehensive coverage
 
 ### 🚧 In Progress
-- Memory system design and SQLite integration
 - Reasoning protocol library implementation
 - Workflow template system
 
 ### 📋 Planned
-- Git-integrated audit trail
-- Cross-session agent memory queries
 - Graph traversal engine for workflow execution
-- Multi-agent context sharing
-- Decision artifact search and retrieval
+- Enhanced workflow coordination
+- Advanced document relationship mapping
 
 ## Quality Standards
 
@@ -264,12 +248,12 @@ pnpm check:all     # Run all checks
 **For Development:**
 - Track architectural decisions as linked knowledge graphs
 - Guide LLMs through complex multi-step workflows
-- Maintain audit trail of AI-assisted development
+- Create interconnected documentation that loads context automatically
 
 **For AI Research:**
 - Test structured reasoning protocols vs free-form prompting
 - Build reusable workflow libraries for common tasks
-- Study agent memory and decision-making patterns
+- Study intelligent context loading and document relationship patterns
 
 **For Documentation:**
 - Create interconnected documentation ecosystems
@@ -278,10 +262,10 @@ pnpm check:all     # Run all checks
 
 ## Contributing
 
-This project is building **cognitive infrastructure for LLMs**. We're creating:
-- Structured reasoning protocols that improve AI decision-making
-- Knowledge graph systems that provide just-in-time context
-- Memory systems that enable cross-session learning
+This project is building **structured documentation tools for LLMs**. We're creating:
+- Document management with transclusion and cross-references
+- Task management systems integrated with documentation
+- Hierarchical content loading for relevant context
 
 Contributions, ideas, and feedback welcome!
 
