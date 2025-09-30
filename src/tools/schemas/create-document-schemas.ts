@@ -44,8 +44,7 @@ interface CreateDocumentSchemaStage {
  * Progressive discovery schemas for create_document tool
  * Stage 0: Discovery - no parameters (show available namespaces)
  * Stage 1: Instructions - namespace parameter (show guidance for selected namespace)
- * Stage 2.5: Smart Suggestions - namespace + title + overview (analyze and suggest, no 'create: true')
- * Stage 3: Creation - namespace + title + overview + create: true (create the document)
+ * Stage 2: Creation - namespace + title + overview (create document immediately with suggestions)
  */
 const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
   0: {
@@ -103,75 +102,9 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
     }
   },
 
-  2.5: {
-    stage: 2.5,
-    description: 'Smart Suggestions stage - call with namespace, title, and overview (without create: true) to get intelligent suggestions',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        namespace: {
-          type: 'string',
-          description: 'Document namespace (from stage 0, or custom namespace)'
-        },
-        title: {
-          type: 'string',
-          description: 'Document title (required for suggestions)'
-        },
-        overview: {
-          type: 'string',
-          description: 'Content for overview section (required for suggestions)'
-        }
-      },
-      required: ['namespace', 'title', 'overview'],
-      additionalProperties: true
-    },
-    responseExample: {
-      stage: 'smart_suggestions',
-      suggestions: {
-        related_documents: [
-          {
-            path: '/api/specs/user-api.md',
-            title: 'User API',
-            namespace: 'api/specs',
-            reason: 'Related documentation in api/specs',
-            relevance: 0.85
-          },
-          {
-            path: '/api/guides/auth-setup.md',
-            title: 'Authentication Setup Guide',
-            namespace: 'api/guides',
-            reason: 'Related documentation in api/guides',
-            relevance: 0.72
-          }
-        ],
-        broken_references: [
-          {
-            reference: '@/missing/document.md',
-            type: 'missing_document',
-            documentPath: '/missing/document.md',
-            reason: 'Document not found: /missing/document.md'
-          },
-          {
-            reference: '@/another/broken-reference.md#section',
-            type: 'missing_section',
-            documentPath: '/another/broken-reference.md',
-            sectionSlug: 'section',
-            reason: "Section 'section' not found in document /another/broken-reference.md"
-          }
-        ]
-      },
-      namespace_patterns: {
-        common_sections: ['#overview', '#authentication', '#endpoints', '#error-handling'],
-        frequent_links: ['/api/guides/auth-implementation', '/docs/troubleshooting/api-errors'],
-        typical_tasks: ['Implement endpoint validation', 'Add comprehensive error handling']
-      },
-      next_step: "Review suggestions, then call again with 'create: true' to proceed with document creation"
-    }
-  },
-
-  3: {
-    stage: 3,
-    description: 'Creation stage - call with namespace, title, overview, and create: true to create document',
+  2: {
+    stage: 2,
+    description: 'Creation stage - call with namespace, title, and overview to create document immediately',
     inputSchema: {
       type: 'object',
       properties: {
@@ -186,14 +119,9 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
         overview: {
           type: 'string',
           description: 'Content for overview section (required for creation)'
-        },
-        create: {
-          type: 'boolean',
-          description: 'Set to true to proceed with document creation after reviewing suggestions',
-          enum: [true]
         }
       },
-      required: ['namespace', 'title', 'overview', 'create'],
+      required: ['namespace', 'title', 'overview'],
       additionalProperties: true
     },
     responseExample: {
@@ -208,9 +136,27 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
         created: '2025-01-20T12:00:00Z'
       },
       sections: ['#overview', '#authentication', '#endpoints', '#error-handling'],
+      suggestions: {
+        related_documents: [
+          {
+            path: '/api/specs/user-api.md',
+            title: 'User API',
+            namespace: 'api/specs',
+            reason: 'Related documentation in api/specs',
+            relevance: 0.85
+          }
+        ],
+        broken_references: []
+      },
+      namespace_patterns: {
+        common_sections: ['#overview', '#authentication', '#endpoints'],
+        frequent_links: ['/api/guides/auth-implementation'],
+        typical_tasks: ['Implement endpoint validation']
+      },
       next_actions: [
-        'Use edit_section to add detailed content to each section',
-        'Use task tool to populate the tasks section with specific items'
+        'Use section tool with operation "edit" to add content to any section',
+        'Use task tool to populate the tasks section with specific items',
+        'Review suggestions above and use section tool to add @references to related documents'
       ]
     }
   }
@@ -239,18 +185,10 @@ export function determineCreateDocumentStage(args: Record<string, unknown>): num
   const hasNamespace = args['namespace'] != null && args['namespace'] !== '';
   const hasTitle = args['title'] != null && args['title'] !== '';
   const hasOverview = args['overview'] != null && args['overview'] !== '';
-  // Normalize create parameter to handle both boolean true and string "true"
-  const rawCreate = args['create'];
-  const hasCreate = rawCreate === true || rawCreate === 'true';
 
-  // Stage 3: Has all required parameters including create: true
-  if (hasNamespace && hasTitle && hasOverview && hasCreate) {
-    return 3;
-  }
-
-  // Stage 2.5: Has namespace, title, and overview but no create: true (suggestions stage)
+  // Stage 2: Has all required parameters (create document immediately)
   if (hasNamespace && hasTitle && hasOverview) {
-    return 2.5;
+    return 2;
   }
 
   // Stage 1: Has namespace but missing title or overview
@@ -266,11 +204,10 @@ export function determineCreateDocumentStage(args: Record<string, unknown>): num
  * Get next stage number for progression
  */
 export function getNextCreateDocumentStage(currentStage: number): number {
-  // Stage progression: 0 -> 1 -> 2.5 -> 3
+  // Stage progression: 0 -> 1 -> 2
   if (currentStage === 0) return 1;
-  if (currentStage === 1) return 2.5;
-  if (currentStage === 2.5) return 3;
-  return 3; // Max stage
+  if (currentStage === 1) return 2;
+  return 2; // Max stage
 }
 
 /**

@@ -18,11 +18,6 @@ import {
 } from './validation-processor.js';
 
 import {
-  processSuggestions,
-  type SuggestionsResult
-} from './suggestion-generator.js';
-
-import {
   processTemplate
 } from './template-processor.js';
 
@@ -37,7 +32,6 @@ import {
  */
 export type PipelineResult =
   | ValidationResult
-  | SuggestionsResult
   | DocumentCreationResult
   | CreationErrorResult;
 
@@ -65,7 +59,7 @@ export interface CreationErrorResult {
 
 /**
  * Main pipeline orchestrator function
- * Handles all stages of the progressive discovery pattern
+ * Handles all stages of the progressive discovery pattern (0, 1, 2)
  */
 export async function executeCreateDocumentPipeline(
   args: Record<string, unknown>,
@@ -76,11 +70,6 @@ export async function executeCreateDocumentPipeline(
   const namespace = args['namespace'] as string | undefined;
   const title = args['title'] as string | undefined;
   const overview = args['overview'] as string | undefined;
-
-  // Normalize create parameter to handle both boolean true and string "true"
-  // This ensures compatibility even if MCP sends string values
-  const rawCreate = args['create'];
-  const create = rawCreate === true || rawCreate === 'true';
 
   // Get the global session store singleton
   const sessionStore = getGlobalSessionStore();
@@ -126,27 +115,22 @@ export async function executeCreateDocumentPipeline(
     return processInstructions(namespace);
   }
 
-  // STAGE 2.5: Smart Suggestions - Analyze and suggest related documents
-  if (create !== true) {
-    // Update to next stage for tool list
-    const nextStage = getNextCreateDocumentStage(2.5);
-    if (nextStage !== state.createDocumentStage) {
-      sessionStore.updateSession(state.sessionId, { createDocumentStage: nextStage });
+  // STAGE 2: Creation - Create the document immediately with suggestions
+  // Update to creation stage for tool list
+  const nextStage = getNextCreateDocumentStage(2);
+  if (nextStage !== state.createDocumentStage) {
+    sessionStore.updateSession(state.sessionId, { createDocumentStage: nextStage });
 
-      if (onStageChange != null) {
-        onStageChange();
-      }
+    if (onStageChange != null) {
+      onStageChange();
     }
-
-    return await processSuggestions(namespace, title, overview);
   }
 
-  // STAGE 3: Creation - Create the actual document
   return await executeCreationStage(namespace, title, overview);
 }
 
 /**
- * Execute Stage 3: Document Creation
+ * Execute Stage 2: Document Creation
  */
 async function executeCreationStage(
   namespace: string,

@@ -3,8 +3,9 @@
  * Handles Stage 3 (Creation) file system operations and finalization
  */
 
-import { getDocumentManager } from '../../shared/utilities.js';
+import { getDocumentManager, analyzeDocumentSuggestions, analyzeNamespacePatterns } from '../../shared/utilities.js';
 import { parseDocumentAddress, AddressingError } from '../../shared/addressing-system.js';
+import type { SmartSuggestions, NamespacePatterns } from '../schemas/create-document-schemas.js';
 
 /**
  * Document creation result
@@ -21,6 +22,8 @@ export interface DocumentCreationResult {
     created: string;
   };
   sections: string[];
+  suggestions?: SmartSuggestions;
+  namespace_patterns?: NamespacePatterns;
   next_actions: string[];
 }
 
@@ -92,7 +95,22 @@ export async function createDocumentFile(
     const document = await manager.getDocument(docPath);
     const headings = document?.headings ?? [];
 
-    return {
+    // Generate suggestions and namespace patterns for context
+    let suggestions: SmartSuggestions | undefined;
+    let namespacePatterns: NamespacePatterns | undefined;
+
+    try {
+      [suggestions, namespacePatterns] = await Promise.all([
+        analyzeDocumentSuggestions(manager, namespace, title, overview),
+        analyzeNamespacePatterns(manager, namespace)
+      ]);
+    } catch (error) {
+      // If suggestions fail, just continue without them - not critical
+      console.error('Failed to generate suggestions:', error);
+    }
+
+    // Build result with proper optional property handling
+    const result: DocumentCreationResult = {
       stage: 'creation',
       success: true,
       created: docPath,
@@ -105,12 +123,23 @@ export async function createDocumentFile(
       },
       sections: headings.map(h => `#${h.slug}`),
       next_actions: [
-        'Use edit_section to add detailed content to each section',
+        'Use section tool with operation "edit" to add content to any section',
         'Use task tool to populate the tasks section with specific items',
-        'Use insert_section to add additional sections as needed',
-        'Use search_documents to research related content and add references'
+        'Use section tool with operation "insert_after" to add new sections as needed',
+        'Review suggestions above and use section tool to add @references to related documents'
       ]
     };
+
+    // Only add suggestions if they exist (exactOptionalPropertyTypes compliance)
+    if (suggestions != null) {
+      result.suggestions = suggestions;
+    }
+
+    if (namespacePatterns != null) {
+      result.namespace_patterns = namespacePatterns;
+    }
+
+    return result;
 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
