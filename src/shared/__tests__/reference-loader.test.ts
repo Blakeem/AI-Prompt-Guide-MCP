@@ -26,7 +26,10 @@ const createMockDocumentManager = (): DocumentManager => {
       linkCount: 1,
       codeBlockCount: 0,
       lastAccessed: new Date(),
-      cacheGeneration: 1
+      cacheGeneration: 1,
+      namespace: 'api',
+      keywords: ['auth', 'authentication'],
+      fingerprintGenerated: new Date()
     },
     headings: [
       { index: 0, depth: 2, title: 'Overview', slug: 'overview', parentIndex: null },
@@ -54,7 +57,10 @@ const createMockDocumentManager = (): DocumentManager => {
       linkCount: 1,
       codeBlockCount: 0,
       lastAccessed: new Date(),
-      cacheGeneration: 1
+      cacheGeneration: 1,
+      namespace: 'api',
+      keywords: ['token', 'management'],
+      fingerprintGenerated: new Date()
     },
     headings: [
       { index: 0, depth: 2, title: 'Token Types', slug: 'token-types', parentIndex: null }
@@ -79,7 +85,10 @@ const createMockDocumentManager = (): DocumentManager => {
       linkCount: 0,
       codeBlockCount: 0,
       lastAccessed: new Date(),
-      cacheGeneration: 1
+      cacheGeneration: 1,
+      namespace: 'api',
+      keywords: ['error', 'handling'],
+      fingerprintGenerated: new Date()
     },
     headings: [
       { index: 0, depth: 2, title: 'Error Codes', slug: 'error-codes', parentIndex: null }
@@ -104,7 +113,10 @@ const createMockDocumentManager = (): DocumentManager => {
       linkCount: 1,
       codeBlockCount: 0,
       lastAccessed: new Date(),
-      cacheGeneration: 1
+      cacheGeneration: 1,
+      namespace: 'circular',
+      keywords: ['document', 'circular'],
+      fingerprintGenerated: new Date()
     },
     headings: [],
     toc: [],
@@ -124,7 +136,10 @@ const createMockDocumentManager = (): DocumentManager => {
       linkCount: 1,
       codeBlockCount: 0,
       lastAccessed: new Date(),
-      cacheGeneration: 1
+      cacheGeneration: 1,
+      namespace: 'circular',
+      keywords: ['document', 'circular'],
+      fingerprintGenerated: new Date()
     },
     headings: [],
     toc: [],

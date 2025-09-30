@@ -44,7 +44,10 @@ const createMockDocumentManager = (): Partial<DocumentManager> => ({
       linkCount: 5,
       codeBlockCount: 2,
       lastAccessed: new Date(),
-      cacheGeneration: 1
+      cacheGeneration: 1,
+      namespace: 'root',
+      keywords: ['test', 'document'],
+      fingerprintGenerated: new Date()
     },
     headings: [],
     toc: [],

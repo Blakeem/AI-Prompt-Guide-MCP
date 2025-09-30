@@ -2,6 +2,9 @@
  * Central schema repository for create_document tool progressive discovery
  */
 
+// Import BrokenReference from document-analysis
+import type { BrokenReference } from '../../shared/document-analysis.js';
+
 // Suggestion interface definitions for Stage 2.5
 export interface RelatedDocumentSuggestion {
   path: string;
@@ -16,7 +19,7 @@ export interface RelatedDocumentSuggestion {
 
 export interface SmartSuggestions {
   related_documents: RelatedDocumentSuggestion[];
-  broken_references: string[];
+  broken_references: BrokenReference[];
 }
 
 export interface NamespacePatterns {
@@ -142,8 +145,19 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
           }
         ],
         broken_references: [
-          '@/missing/document.md',
-          '@/another/broken-reference.md#section'
+          {
+            reference: '@/missing/document.md',
+            type: 'missing_document',
+            documentPath: '/missing/document.md',
+            reason: 'Document not found: /missing/document.md'
+          },
+          {
+            reference: '@/another/broken-reference.md#section',
+            type: 'missing_section',
+            documentPath: '/another/broken-reference.md',
+            sectionSlug: 'section',
+            reason: "Section 'section' not found in document /another/broken-reference.md"
+          }
         ]
       },
       namespace_patterns: {

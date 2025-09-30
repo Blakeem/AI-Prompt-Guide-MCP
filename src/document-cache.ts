@@ -11,6 +11,7 @@ import { listHeadings, buildToc } from './parse.js';
 import type { Heading, TocNode } from './types/index.js';
 import { getGlobalLogger } from './utils/logger.js';
 import { invalidateAddressCache } from './shared/addressing-system.js';
+import { pathToNamespace } from './shared/path-utilities.js';
 
 const logger = getGlobalLogger();
 
@@ -24,11 +25,35 @@ export interface DocumentMetadata {
   codeBlockCount: number;
   lastAccessed: Date;
   cacheGeneration: number;
+  /** Document namespace derived from path for categorization */
+  namespace: string;
+  /** Lightweight keyword fingerprints for document discovery */
+  keywords: string[];
+  /** Timestamp when fingerprints were generated */
+  fingerprintGenerated: Date;
 }
 
 export interface CachedSectionEntry {
   content: string;
   generation: number;
+}
+
+/**
+ * Fingerprint entry interface for document discovery improvements
+ *
+ * Stores lightweight metadata for fast document discovery without requiring
+ * full document parsing. Used for efficient relevance scoring and cache
+ * invalidation detection.
+ */
+export interface FingerprintEntry {
+  /** Keywords extracted from document content for discovery */
+  keywords: string[];
+  /** Last modification time for cache invalidation */
+  lastModified: Date;
+  /** Content hash for change detection */
+  contentHash: string;
+  /** Document namespace for categorization */
+  namespace: string;
 }
 
 /**
@@ -347,6 +372,71 @@ export class DocumentCache extends EventEmitter {
   }
 
   /**
+   * Extract lightweight keywords from document content for fingerprinting
+   *
+   * Optimized for cache operations - extracts meaningful keywords from
+   * title and content while being lightweight enough for frequent use.
+   *
+   * @param title - Document title
+   * @param content - Full document content
+   * @returns Array of keywords limited to 20 items for performance
+   */
+  private extractKeywordsForFingerprint(title: string, content: string): string[] {
+    try {
+      // Handle null/undefined inputs gracefully
+      const safeTitle = title ?? '';
+      const safeContent = content ?? '';
+
+      // Focus on title and first few paragraphs for performance
+      const textForAnalysis = `${safeTitle} ${safeContent.slice(0, 1000)}`;
+      const text = textForAnalysis.toLowerCase();
+
+      if (text.trim().length === 0) {
+        return [];
+      }
+
+      // Split into words and filter by length
+      const words = text
+        .split(/\s+/)
+        .map(word => word.trim())
+        .filter(word => word.length > 2);
+
+      if (words.length === 0) {
+        return [];
+      }
+
+      // Remove common stop words
+      const stopWords = new Set([
+        'the', 'and', 'for', 'with', 'this', 'that', 'will', 'can', 'are', 'you',
+        'how', 'what', 'when', 'where', 'why', 'who', 'which', 'was', 'were',
+        'been', 'have', 'has', 'had', 'should', 'would', 'could', 'may', 'might',
+        'must', 'shall', 'not', 'but', 'however', 'therefore', 'thus', 'also',
+        'such', 'very', 'more', 'most', 'much', 'many', 'some', 'any', 'all'
+      ]);
+
+      const keywords = words.filter(word => {
+        // Remove stop words
+        if (stopWords.has(word)) {
+          return false;
+        }
+        // Remove words that are just punctuation or numbers
+        if (/^[\d\W]+$/.test(word)) {
+          return false;
+        }
+        return true;
+      });
+
+      // Remove duplicates and limit for performance
+      const uniqueKeywords = [...new Set(keywords)];
+      return uniqueKeywords.slice(0, 20);
+
+    } catch (error) {
+      logger.warn('Keyword extraction failed during fingerprinting', { error });
+      return [];
+    }
+  }
+
+  /**
    * Extract metadata from markdown content
    */
   private extractMetadata(content: string, filePath: string, stats: { mtime: Date }): DocumentMetadata {
@@ -359,8 +449,18 @@ export class DocumentCache extends EventEmitter {
     const linkMatches = content.match(/\[([^\]]+)\]\([^)]+\)/g) ?? [];
     const codeBlockMatches = content.match(/```[\s\S]*?```/g) ?? [];
 
+    // Generate namespace from path
+    const relativePath = this.getRelativePath(filePath);
+    const namespace = pathToNamespace(relativePath);
+
+    // Extract keywords for fingerprinting
+    const keywords = this.extractKeywordsForFingerprint(title, content);
+
+    // Current timestamp for fingerprint generation
+    const fingerprintGenerated = new Date();
+
     return {
-      path: this.getRelativePath(filePath),
+      path: relativePath,
       title,
       lastModified: stats.mtime,
       contentHash: this.calculateHash(content),
@@ -368,7 +468,10 @@ export class DocumentCache extends EventEmitter {
       linkCount: linkMatches.length,
       codeBlockCount: codeBlockMatches.length,
       lastAccessed: new Date(),
-      cacheGeneration: ++this.cacheGenerationCounter
+      cacheGeneration: ++this.cacheGenerationCounter,
+      namespace,
+      keywords,
+      fingerprintGenerated
     };
   }
 
@@ -648,8 +751,145 @@ export class DocumentCache extends EventEmitter {
     this.cache.clear();
     this.accessOrder.clear();
     this.accessCounter = 0;
-    
+
     logger.info('Cache cleared', { previousSize: size });
+  }
+
+  /**
+   * Create a fingerprint entry from document metadata
+   *
+   * Extracts the fingerprint-relevant information from cached metadata
+   * for use in document discovery and cache invalidation operations.
+   *
+   * @param metadata - Document metadata containing fingerprint information
+   * @returns FingerprintEntry with extracted data
+   */
+  createFingerprintEntry(metadata: DocumentMetadata): FingerprintEntry {
+    return {
+      keywords: [...metadata.keywords], // Create defensive copy
+      lastModified: metadata.lastModified,
+      contentHash: metadata.contentHash,
+      namespace: metadata.namespace
+    };
+  }
+
+  /**
+   * Check if a document's fingerprint is stale compared to file system
+   *
+   * Compares the cached fingerprint timestamp and content hash with the
+   * actual file modification time to determine if the cache needs updating.
+   *
+   * @param docPath - Relative path to the document
+   * @returns Promise resolving to true if fingerprint is stale, false if current
+   *
+   * @example
+   * ```typescript
+   * const isStale = await cache.isFingerprintStale('/api/auth.md');
+   * if (isStale) {
+   *   cache.invalidateDocument('/api/auth.md');
+   *   // Fingerprint will be regenerated on next getDocument call
+   * }
+   * ```
+   */
+  async isFingerprintStale(docPath: string): Promise<boolean> {
+    try {
+      const cached = this.cache.get(docPath);
+      if (!cached) {
+        // No cached version means we need to load (not stale in the traditional sense)
+        return false;
+      }
+
+      const absolutePath = this.getAbsolutePath(docPath);
+      const stats = await fs.stat(absolutePath);
+
+      // Check if file modification time is newer than our fingerprint generation
+      const fileModified = stats.mtime;
+      const fingerprintGenerated = cached.metadata.fingerprintGenerated;
+
+      if (fileModified > fingerprintGenerated) {
+        logger.debug('Fingerprint is stale - file modified after fingerprint generation', {
+          path: docPath,
+          fileModified: fileModified.toISOString(),
+          fingerprintGenerated: fingerprintGenerated.toISOString()
+        });
+        return true;
+      }
+
+      // Additional check: compare content hash if we can read the file efficiently
+      // This is optional but provides extra safety against race conditions
+      try {
+        const content = await fs.readFile(absolutePath, 'utf8');
+        const currentHash = this.calculateHash(content);
+
+        if (currentHash !== cached.metadata.contentHash) {
+          logger.debug('Fingerprint is stale - content hash mismatch', {
+            path: docPath,
+            cachedHash: cached.metadata.contentHash,
+            currentHash
+          });
+          return true;
+        }
+      } catch (error) {
+        // If we can't read the file for hash comparison, rely on modification time
+        logger.warn('Could not verify content hash for fingerprint staleness check', {
+          path: docPath,
+          error
+        });
+      }
+
+      return false;
+
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        // File no longer exists - consider stale for cleanup
+        logger.debug('File no longer exists for fingerprint staleness check', { path: docPath });
+        return true;
+      }
+
+      logger.warn('Error checking fingerprint staleness', { path: docPath, error });
+      // On error, assume not stale to avoid unnecessary cache invalidation
+      return false;
+    }
+  }
+
+  /**
+   * Read the complete content of a document from the filesystem
+   *
+   * Provides direct access to the full document content without going through
+   * the section-based cache system. Used for operations that need the entire
+   * document content like relevance analysis and keyword extraction.
+   *
+   * @param docPath - Relative path to the document (e.g., "api/auth.md")
+   * @returns Promise resolving to full document content or null if file doesn't exist
+   *
+   * @example
+   * const content = await cache.readDocumentContent("api/authentication.md");
+   * if (content) {
+   *   console.log(`Document length: ${content.length} characters`);
+   * }
+   *
+   * @throws {Error} When file access fails due to permissions or other filesystem errors
+   */
+  async readDocumentContent(docPath: string): Promise<string | null> {
+    try {
+      const absolutePath = this.getAbsolutePath(docPath);
+      const content = await fs.readFile(absolutePath, 'utf8');
+
+      logger.debug('Read full document content', {
+        path: docPath,
+        length: content.length
+      });
+
+      return content;
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        logger.debug('Document not found for content read', { path: docPath });
+        return null; // File not found
+      }
+
+      logger.error('Failed to read document content', { path: docPath, error });
+      throw error;
+    }
   }
 
   /**
@@ -661,10 +901,10 @@ export class DocumentCache extends EventEmitter {
       this.watcher = undefined;
       logger.debug('File watcher closed');
     }
-    
+
     this.clear();
     this.removeAllListeners();
-    
+
     logger.info('DocumentCache destroyed');
   }
 }

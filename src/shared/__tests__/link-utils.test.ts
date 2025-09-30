@@ -34,7 +34,10 @@ const createSampleDocument = (): CachedDocument => ({
     linkCount: 10,
     codeBlockCount: 5,
     lastAccessed: new Date(),
-    cacheGeneration: 1
+    cacheGeneration: 1,
+    namespace: 'api',
+    keywords: ['user', 'api', 'management'],
+    fingerprintGenerated: new Date()
   },
   headings: [
     { index: 0, depth: 1, title: 'User Management API', slug: 'user-management-api', parentIndex: null },

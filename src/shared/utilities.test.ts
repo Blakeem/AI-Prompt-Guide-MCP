@@ -39,7 +39,10 @@ const createSampleDocument = (): CachedDocument => ({
     linkCount: 0,
     codeBlockCount: 0,
     lastAccessed: new Date(),
-    cacheGeneration: 1
+    cacheGeneration: 1,
+    namespace: 'root',
+    keywords: ['test', 'document'],
+    fingerprintGenerated: new Date()
   },
   headings: [
     { index: 0, depth: 1, title: 'Test Document', slug: 'test-document', parentIndex: null },

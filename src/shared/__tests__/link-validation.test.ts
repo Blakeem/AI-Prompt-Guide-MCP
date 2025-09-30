@@ -53,7 +53,10 @@ const createSampleDocument = (path: string = '/api/users.md'): CachedDocument =>
     linkCount: 10,
     codeBlockCount: 5,
     lastAccessed: new Date('2024-01-01'),
-    cacheGeneration: 1
+    cacheGeneration: 1,
+    namespace: path.startsWith('/api/') ? 'api' : 'root',
+    keywords: path === '/api/users.md' ? ['user', 'api', 'management'] : ['auth', 'api'],
+    fingerprintGenerated: new Date('2024-01-01')
   },
   headings: [
     { index: 0, depth: 1, title: 'API Documentation', slug: 'api-documentation', parentIndex: null },

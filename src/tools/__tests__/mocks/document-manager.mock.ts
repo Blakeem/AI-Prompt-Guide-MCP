@@ -323,6 +323,13 @@ class MockDocumentManager {
     const now = new Date();
     const contentHash = `mock-hash-${path}-${content.length}`;
 
+    // Extract namespace from path (e.g., '/api/auth.md' -> 'api')
+    const pathParts = path.split('/').filter(part => part !== '' && part !== '.');
+    const namespace = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : 'root';
+
+    // Simple keyword extraction for mocking
+    const keywords = this.extractMockKeywords(title ?? 'Untitled Document', content);
+
     return {
       path,
       title: title ?? 'Untitled Document',
@@ -332,8 +339,30 @@ class MockDocumentManager {
       linkCount: (content.match(/\[.*?\]\(.*?\)/g) ?? []).length,
       codeBlockCount: (content.match(/```/g) ?? []).length / 2,
       lastAccessed: now,
-      cacheGeneration: 1
+      cacheGeneration: 1,
+      namespace,
+      keywords,
+      fingerprintGenerated: now
     };
+  }
+
+  /**
+   * Extract mock keywords for testing
+   */
+  private extractMockKeywords(title: string, content: string): string[] {
+    // Simple keyword extraction for testing purposes
+    const text = `${title} ${content}`.toLowerCase();
+    const words = text
+      .split(/\s+/)
+      .map(word => word.replace(/[^\w]/g, ''))
+      .filter(word => word.length > 2);
+
+    // Remove common stop words
+    const stopWords = new Set(['the', 'and', 'for', 'with', 'this', 'that']);
+    const keywords = words.filter(word => !stopWords.has(word));
+
+    // Return unique keywords, limited to 10 for testing
+    return [...new Set(keywords)].slice(0, 10);
   }
 
   /**

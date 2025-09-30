@@ -11,7 +11,7 @@ import { ensureDirectoryExists, writeFileIfUnchanged, readFileSnapshot, fileExis
 import { getGlobalLogger } from './utils/logger.js';
 import { PathHandler } from './utils/path-handler.js';
 import type { TocNode, HeadingDepth, InsertMode } from './types/index.js';
-import type { CachedDocument } from './document-cache.js';
+import type { CachedDocument, FingerprintEntry } from './document-cache.js';
 
 const logger = getGlobalLogger();
 
@@ -498,6 +498,142 @@ export class DocumentManager {
   }
 
   /**
+   * List document fingerprints for efficient discovery operations
+   *
+   * Returns lightweight fingerprint data for all documents without triggering
+   * full document parsing. Uses cached fingerprints when available and fresh.
+   *
+   * @param options - Configuration options
+   * @returns Promise resolving to array of valid fingerprint entries
+   *
+   * @example
+   * // Get all document fingerprints
+   * const fingerprints = await manager.listDocumentFingerprints();
+   * console.log(`Found ${fingerprints.length} documents with fingerprints`);
+   *
+   * @example
+   * // Get fingerprints for specific namespace with stale refresh
+   * const apiFingerprints = await manager.listDocumentFingerprints({
+   *   namespace: 'api',
+   *   refreshStale: true
+   * });
+   *
+   * @example
+   * // Use for efficient discovery without full parsing
+   * const fingerprints = await manager.listDocumentFingerprints();
+   * const relevantDocs = fingerprints.filter(fp =>
+   *   fp.keywords.some(keyword => targetKeywords.includes(keyword))
+   * );
+   */
+  async listDocumentFingerprints(options?: {
+    /** Whether to refresh stale fingerprints (default: false) */
+    refreshStale?: boolean;
+    /** Optional namespace filter to limit results */
+    namespace?: string;
+  }): Promise<FingerprintEntry[]> {
+    const startTime = performance.now();
+    const fingerprints: FingerprintEntry[] = [];
+    const staleDocuments: string[] = [];
+
+    // Default options
+    const refreshStale = options?.refreshStale ?? false;
+    const namespaceFilter = options?.namespace;
+
+    const processMarkdownFiles = async (dir: string, basePath = ''): Promise<void> => {
+      try {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          const docPath = path.join(basePath, entry.name);
+
+          if (entry.isDirectory() && !entry.name.startsWith('.')) {
+            await processMarkdownFiles(fullPath, docPath);
+          } else if (entry.isFile() && entry.name.endsWith('.md')) {
+            const normalizedDocPath = `/${docPath}`;
+
+            try {
+              // First check if we have a cached document with valid fingerprint
+              const cachedDocument = this.cache.getCachedPaths().includes(normalizedDocPath)
+                ? await this.cache.getDocument(normalizedDocPath)
+                : null;
+
+              if (cachedDocument != null) {
+                // Check if fingerprint is stale
+                const isStale = await this.cache.isFingerprintStale(normalizedDocPath);
+
+                if (isStale) {
+                  staleDocuments.push(normalizedDocPath);
+
+                  if (refreshStale) {
+                    // Invalidate and reload to get fresh fingerprint
+                    this.cache.invalidateDocument(normalizedDocPath);
+                    const freshDocument = await this.cache.getDocument(normalizedDocPath);
+                    if (freshDocument != null) {
+                      const fingerprint = this.cache.createFingerprintEntry(freshDocument.metadata);
+
+                      // Apply namespace filter if specified
+                      if (namespaceFilter == null || fingerprint.namespace === namespaceFilter) {
+                        fingerprints.push(fingerprint);
+                      }
+                    }
+                  }
+                  // If not refreshing stale, skip this document
+                } else {
+                  // Use cached fingerprint
+                  const fingerprint = this.cache.createFingerprintEntry(cachedDocument.metadata);
+
+                  // Apply namespace filter if specified
+                  if (namespaceFilter == null || fingerprint.namespace === namespaceFilter) {
+                    fingerprints.push(fingerprint);
+                  }
+                }
+              } else {
+                // No cached version - need to load to get fingerprint
+                // This is efficient since we only load metadata, not sections
+                const document = await this.cache.getDocument(normalizedDocPath);
+                if (document != null) {
+                  const fingerprint = this.cache.createFingerprintEntry(document.metadata);
+
+                  // Apply namespace filter if specified
+                  if (namespaceFilter == null || fingerprint.namespace === namespaceFilter) {
+                    fingerprints.push(fingerprint);
+                  }
+                }
+              }
+            } catch (error) {
+              logger.warn('Failed to process document for fingerprint listing', {
+                path: normalizedDocPath,
+                error
+              });
+            }
+          }
+        }
+      } catch (error) {
+        logger.warn('Failed to read directory for fingerprint listing', { dir, error });
+      }
+    };
+
+    await processMarkdownFiles(this.docsRoot);
+
+    const endTime = performance.now();
+    const durationMs = Math.round(endTime - startTime);
+
+    logger.debug('Listed document fingerprints', {
+      totalFingerprints: fingerprints.length,
+      staleDocuments: staleDocuments.length,
+      refreshStale,
+      namespaceFilter,
+      durationMs
+    });
+
+    // Sort by last modified descending for consistency with listDocuments
+    fingerprints.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+
+    return fingerprints;
+  }
+
+  /**
    * Search documents
    */
   async searchDocuments(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
@@ -612,6 +748,31 @@ export class DocumentManager {
    */
   async getSectionContent(docPath: string, slug: string): Promise<string | null> {
     return await this.cache.getSectionContent(docPath, slug);
+  }
+
+  /**
+   * Get complete document content
+   *
+   * Retrieves the full content of a document from the filesystem.
+   * This method provides direct access to the entire document content
+   * without going through the section-based cache system, making it
+   * ideal for operations that need the complete document like relevance
+   * analysis and keyword extraction.
+   *
+   * @param docPath - Relative path to the document (e.g., "api/auth.md")
+   * @returns Promise resolving to full document content or null if file doesn't exist
+   *
+   * @example
+   * const content = await manager.getDocumentContent("api/authentication.md");
+   * if (content) {
+   *   const keywords = extractKeywords(content);
+   *   console.log(`Found keywords: ${keywords.join(', ')}`);
+   * }
+   *
+   * @throws {Error} When file access fails due to permissions or other filesystem errors
+   */
+  async getDocumentContent(docPath: string): Promise<string | null> {
+    return await this.cache.readDocumentContent(docPath);
   }
 
   /**

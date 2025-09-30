@@ -1,12 +1,5 @@
 # Test Document
 
-## Overview
-Test overview content
+## Table of Contents
 
-## Additional Content
-Add sections relevant to your specific use case.
-
-## Tasks
-- [ ] Review and expand content
-- [ ] Add specific examples
-- [ ] Include relevant details
+<!-- TOC will be generated here -->
