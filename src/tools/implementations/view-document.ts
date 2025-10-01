@@ -156,7 +156,12 @@ export async function viewDocument(
       throw new DocumentNotFoundError(addresses.document.path);
     }
 
-    const processedDoc = await processDocument(manager, documentPath, document, sectionSlug);
+    const processedDoc = await processDocument({
+      manager,
+      documentPath,
+      document,
+      sectionSlug
+    });
     processedDocuments.push(processedDoc);
 
     // Load linked context if requested (only for first document to avoid overwhelming response)
@@ -257,13 +262,20 @@ async function extractDocumentMetadata(
 }
 
 /**
+ * Parameters for analyzing document sections
+ */
+interface AnalyzeDocumentSectionsParams {
+  manager: Awaited<ReturnType<typeof getDocumentManager>>;
+  documentPath: string;
+  document: CachedDocument;
+  sectionSlug: string | undefined;
+}
+
+/**
  * Analyze document sections and build enhanced section information
  */
 async function analyzeDocumentSections(
-  manager: Awaited<ReturnType<typeof getDocumentManager>>,
-  documentPath: string,
-  document: CachedDocument,
-  sectionSlug: string | undefined
+  params: AnalyzeDocumentSectionsParams
 ): Promise<Array<{
   slug: string;
   title: string;
@@ -273,6 +285,7 @@ async function analyzeDocumentSections(
   hasContent: boolean;
   links: string[];
 }>> {
+  const { manager, documentPath, document, sectionSlug } = params;
   // Determine which sections to show
   let sectionsToShow = document.headings;
 
@@ -333,13 +346,20 @@ async function analyzeDocumentSections(
 }
 
 /**
+ * Parameters for analyzing document links
+ */
+interface AnalyzeDocumentLinksParams {
+  manager: Awaited<ReturnType<typeof getDocumentManager>>;
+  documentPath: string;
+  document: CachedDocument;
+  fullContent: string;
+}
+
+/**
  * Analyze document links including internal, external, and broken links
  */
 async function analyzeDocumentLinks(
-  manager: Awaited<ReturnType<typeof getDocumentManager>>,
-  documentPath: string,
-  document: CachedDocument,
-  fullContent: string
+  params: AnalyzeDocumentLinksParams
 ): Promise<{
   total: number;
   internal: number;
@@ -347,6 +367,7 @@ async function analyzeDocumentLinks(
   broken: number;
   sectionsWithoutLinks: string[];
 }> {
+  const { manager, documentPath, document, fullContent } = params;
   // Extract all links from full content using unified ReferenceExtractor
   const { ReferenceExtractor } = await import('../../shared/reference-extractor.js');
   const extractor = new ReferenceExtractor();
@@ -445,16 +466,16 @@ async function analyzeDocumentTasks(
 }
 
 /**
- * Format the final document response object
+ * Parameters for formatting document response
  */
-async function formatDocumentResponse(
-  documentPath: string,
+interface FormatDocumentResponseParams {
+  documentPath: string;
   metadata: {
     documentInfo: { slug: string; title: string; namespace: string };
     lastModified: string;
     wordCount: number;
     headingCount: number;
-  },
+  };
   sections: Array<{
     slug: string;
     title: string;
@@ -463,21 +484,29 @@ async function formatDocumentResponse(
     parent?: string;
     hasContent: boolean;
     links: string[];
-  }>,
+  }>;
   documentLinks: {
     total: number;
     internal: number;
     external: number;
     broken: number;
     sectionsWithoutLinks: string[];
-  },
+  };
   tasks?: {
     total: number;
     completed: number;
     pending: number;
     sections_with_tasks: string[];
-  }
+  } | undefined;
+}
+
+/**
+ * Format the final document response object
+ */
+async function formatDocumentResponse(
+  params: FormatDocumentResponseParams
 ): Promise<ViewDocumentResponse['documents'][0]> {
+  const { documentPath, metadata, sections, documentLinks, tasks } = params;
   const documentData: ViewDocumentResponse['documents'][0] = {
     path: documentPath,
     slug: metadata.documentInfo.slug,
@@ -498,28 +527,52 @@ async function formatDocumentResponse(
 }
 
 /**
+ * Parameters for processing a single document
+ */
+interface ProcessDocumentParams {
+  manager: Awaited<ReturnType<typeof getDocumentManager>>;
+  documentPath: string;
+  document: CachedDocument;
+  sectionSlug: string | undefined;
+}
+
+/**
  * Process a single document and return its data
  */
 async function processDocument(
-  manager: Awaited<ReturnType<typeof getDocumentManager>>,
-  documentPath: string,
-  document: CachedDocument,
-  sectionSlug: string | undefined
+  params: ProcessDocumentParams
 ): Promise<ViewDocumentResponse['documents'][0]> {
+  const { manager, documentPath, document, sectionSlug } = params;
   // Extract document metadata
   const metadata = await extractDocumentMetadata(documentPath, document);
 
   // Analyze document sections
-  const sections = await analyzeDocumentSections(manager, documentPath, document, sectionSlug);
+  const sections = await analyzeDocumentSections({
+    manager,
+    documentPath,
+    document,
+    sectionSlug
+  });
 
   // Analyze document links
-  const documentLinks = await analyzeDocumentLinks(manager, documentPath, document, metadata.fullContent);
+  const documentLinks = await analyzeDocumentLinks({
+    manager,
+    documentPath,
+    document,
+    fullContent: metadata.fullContent
+  });
 
   // Analyze document tasks
   const tasks = await analyzeDocumentTasks(manager, documentPath, document);
 
   // Format and return response
-  return await formatDocumentResponse(documentPath, metadata, sections, documentLinks, tasks);
+  return await formatDocumentResponse({
+    documentPath,
+    metadata,
+    sections,
+    documentLinks,
+    tasks
+  });
 }
 
 /**
