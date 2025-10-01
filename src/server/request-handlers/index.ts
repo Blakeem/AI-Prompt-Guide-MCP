@@ -3,3 +3,4 @@
  */
 
 export { registerToolHandlers } from './tool-handlers.js';
+export { registerPromptHandlers } from './prompt-handlers.js';

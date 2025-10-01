@@ -20,7 +20,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "check:dead-code": "ts-unused-exports tsconfig.analysis.json --excludePathsFromReport=dist/ --allowUnusedTypes --searchNamespaces --ignoreFiles='.*\\/(schemas|__tests__\\/setup|__tests__\\/mocks)\\/.*\\.ts$|.*\\/link-analysis\\.ts$'",
+    "check:dead-code": "ts-unused-exports tsconfig.analysis.json --excludePathsFromReport=dist/ --allowUnusedTypes --searchNamespaces --ignoreFiles='.*\\/(schemas|prompts|__tests__\\/setup|__tests__\\/mocks)\\/.*\\.ts$|.*\\/link-analysis\\.ts$'",
     "check:all": "pnpm lint && pnpm typecheck && pnpm check:dead-code",
     "prepare": "pnpm build",
     "inspector": "npx --yes @modelcontextprotocol/inspector node dist/index.js",

@@ -88,6 +88,7 @@ export async function createMCPServer(
 
   // Register all handlers through dependency
   dependencies.handlers.registerToolHandlers(server, sessionStore, serverConfig);
+  dependencies.handlers.registerPromptHandlers(server, serverConfig);
 
   // Create transport through dependency
   const transport = dependencies.server.createTransport();
