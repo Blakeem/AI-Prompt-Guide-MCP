@@ -34,17 +34,17 @@ describe('create_document Progressive Discovery Stages', () => {
       expect(stage).toBe(1);
     });
 
-    it('should determine stage 2.5 when namespace, title, and overview provided but no create', () => {
+    it('should determine stage 2 when namespace, title, and overview provided', () => {
       const args = {
         namespace: 'api/guides',
         title: 'Test Document',
         overview: 'Test overview content'
       };
       const stage = determineCreateDocumentStage(args);
-      expect(stage).toBe(2.5);
+      expect(stage).toBe(2);
     });
 
-    it('should determine stage 3 when all parameters including create: true (boolean)', () => {
+    it('should determine stage 2 when all parameters provided (create parameter ignored)', () => {
       const args = {
         namespace: 'api/guides',
         title: 'Test Document',
@@ -52,10 +52,10 @@ describe('create_document Progressive Discovery Stages', () => {
         create: true
       };
       const stage = determineCreateDocumentStage(args);
-      expect(stage).toBe(3);
+      expect(stage).toBe(2);
     });
 
-    it('should determine stage 3 when all parameters including create: "true" (string)', () => {
+    it('should determine stage 2 regardless of create parameter value (string)', () => {
       const args = {
         namespace: 'api/guides',
         title: 'Test Document',
@@ -63,10 +63,10 @@ describe('create_document Progressive Discovery Stages', () => {
         create: 'true'
       };
       const stage = determineCreateDocumentStage(args);
-      expect(stage).toBe(3);
+      expect(stage).toBe(2);
     });
 
-    it('should NOT determine stage 3 when create is false', () => {
+    it('should determine stage 2 even when create is false (parameter no longer used)', () => {
       const args = {
         namespace: 'api/guides',
         title: 'Test Document',
@@ -74,10 +74,10 @@ describe('create_document Progressive Discovery Stages', () => {
         create: false
       };
       const stage = determineCreateDocumentStage(args);
-      expect(stage).toBe(2.5);
+      expect(stage).toBe(2);
     });
 
-    it('should NOT determine stage 3 when create is "false"', () => {
+    it('should determine stage 2 regardless of create parameter (string false)', () => {
       const args = {
         namespace: 'api/guides',
         title: 'Test Document',
@@ -85,10 +85,10 @@ describe('create_document Progressive Discovery Stages', () => {
         create: 'false'
       };
       const stage = determineCreateDocumentStage(args);
-      expect(stage).toBe(2.5);
+      expect(stage).toBe(2);
     });
 
-    it('should NOT determine stage 3 when create is other truthy value', () => {
+    it('should determine stage 2 with any create parameter value', () => {
       const args = {
         namespace: 'api/guides',
         title: 'Test Document',
@@ -96,7 +96,7 @@ describe('create_document Progressive Discovery Stages', () => {
         create: 'yes'
       };
       const stage = determineCreateDocumentStage(args);
-      expect(stage).toBe(2.5);
+      expect(stage).toBe(2);
     });
   });
 
@@ -120,7 +120,7 @@ describe('create_document Progressive Discovery Stages', () => {
       expect(result).toHaveProperty('namespace', 'api/guides');
     });
 
-    it('should return smart_suggestions stage (2.5) when namespace, title, overview but no create', async () => {
+    it('should proceed to creation stage (2) when namespace, title, and overview provided', async () => {
       const args = {
         namespace: 'api/guides',
         title: 'Test Document',
@@ -128,12 +128,12 @@ describe('create_document Progressive Discovery Stages', () => {
       };
       const result = await executeCreateDocumentPipeline(args, sessionState);
 
-      expect(result).toHaveProperty('stage', 'smart_suggestions');
-      // The key test is that it returns smart_suggestions stage, not creation
-      // Specific field names may vary but the stage is what matters for the bug fix
+      // Stage 2 now creates immediately - should return either 'creation' or 'error_fallback'
+      expect(result).toHaveProperty('stage');
+      expect(['creation', 'error_fallback']).toContain((result as { stage: string }).stage);
     });
 
-    it('should proceed to creation stage (3) with create: true (boolean)', async () => {
+    it('should proceed to creation stage (2) regardless of create parameter (boolean)', async () => {
       const args = {
         namespace: 'test', // Use test namespace to avoid actual file creation issues
         title: 'Test Document',
@@ -141,25 +141,14 @@ describe('create_document Progressive Discovery Stages', () => {
         create: true
       };
 
-      try {
-        const result = await executeCreateDocumentPipeline(args, sessionState);
+      const result = await executeCreateDocumentPipeline(args, sessionState);
 
-        // Should attempt creation (stage 3)
-        // Result structure depends on success/failure, but should not return stage 2.5
-        expect(result).not.toHaveProperty('stage', 'smart_suggestions');
-
-        // Should either succeed with creation result or fail with error
-        if ('stage' in result) {
-          expect(result.stage).toBe('creation');
-        }
-        // Error is acceptable for test namespace - the key is it didn't stick at stage 2.5
-      } catch (error) {
-        // Creation errors are acceptable in tests - the key is we proceeded past stage 2.5
-        expect(error).toBeDefined();
-      }
+      // Stage 2 creates immediately - create parameter is ignored
+      expect(result).toHaveProperty('stage');
+      expect(['creation', 'error_fallback']).toContain((result as { stage: string }).stage);
     });
 
-    it('should proceed to creation stage (3) with create: "true" (string)', async () => {
+    it('should proceed to creation stage (2) regardless of create parameter (string)', async () => {
       const args = {
         namespace: 'test', // Use test namespace to avoid actual file creation issues
         title: 'Test Document',
@@ -167,24 +156,14 @@ describe('create_document Progressive Discovery Stages', () => {
         create: 'true' as unknown as boolean // Cast to bypass TypeScript checking for test
       };
 
-      try {
-        const result = await executeCreateDocumentPipeline(args, sessionState);
+      const result = await executeCreateDocumentPipeline(args, sessionState);
 
-        // Should attempt creation (stage 3)
-        // Result structure depends on success/failure, but should not return stage 2.5
-        expect(result).not.toHaveProperty('stage', 'smart_suggestions');
-
-        // Should either succeed with creation result or fail with error
-        if ('stage' in result) {
-          expect(result.stage).toBe('creation');
-        }
-      } catch (error) {
-        // Creation errors are acceptable in tests - the key is we proceeded past stage 2.5
-        expect(error).toBeDefined();
-      }
+      // Stage 2 creates immediately - create parameter is ignored
+      expect(result).toHaveProperty('stage');
+      expect(['creation', 'error_fallback']).toContain((result as { stage: string }).stage);
     });
 
-    it('should stay at stage 2.5 with create: false', async () => {
+    it('should proceed to creation stage (2) even with create: false (parameter ignored)', async () => {
       const args = {
         namespace: 'api/guides',
         title: 'Test Document',
@@ -193,7 +172,9 @@ describe('create_document Progressive Discovery Stages', () => {
       };
       const result = await executeCreateDocumentPipeline(args, sessionState);
 
-      expect(result).toHaveProperty('stage', 'smart_suggestions');
+      // Stage 2 creates immediately - create:false is ignored
+      expect(result).toHaveProperty('stage');
+      expect(['creation', 'error_fallback']).toContain((result as { stage: string }).stage);
     });
   });
 });
