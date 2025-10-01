@@ -6,6 +6,7 @@ import type { DocumentManager } from '../document-manager.js';
 import { parseLink, validateLink } from './link-utils.js';
 import { pathToNamespace } from './utilities.js';
 import { ReferenceExtractor } from './reference-extractor.js';
+import { DocumentNotFoundError } from './addressing-system.js';
 
 /**
  * Result of validating a single link
@@ -118,8 +119,8 @@ export async function validateDocumentLinks(
   manager: DocumentManager
 ): Promise<DocumentLinkReport> {
   const document = await manager.getDocument(documentPath);
-  if (!document) {
-    throw new Error(`Document not found: ${documentPath}`);
+  if (document == null) {
+    throw new DocumentNotFoundError(documentPath);
   }
 
   const report: DocumentLinkReport = {
@@ -207,7 +208,11 @@ export async function validateSystemLinks(
       ? allDocuments.filter(doc => doc.path.startsWith(pathFilter))
       : allDocuments;
   } catch (error) {
-    throw new Error(`Failed to get document list: ${error instanceof Error ? error.message : String(error)}`);
+    const { AddressingError } = await import('./addressing-system.js');
+    throw new AddressingError(
+      `Failed to get document list: ${error instanceof Error ? error.message : String(error)}`,
+      'DOCUMENT_LIST_FAILED'
+    );
   }
 
   const documentReports: DocumentLinkReport[] = [];
@@ -300,8 +305,8 @@ export async function autoFixLinks(
   }> = [];
 
   const document = await manager.getDocument(documentPath);
-  if (!document) {
-    throw new Error(`Document not found: ${documentPath}`);
+  if (document == null) {
+    throw new DocumentNotFoundError(documentPath);
   }
 
   // Analyze each section for fixable issues using unified ReferenceExtractor

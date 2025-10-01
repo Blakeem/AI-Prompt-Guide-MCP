@@ -348,7 +348,7 @@ async function formatCreatedResponse(
   const hierarchicalContext = ToolIntegration.formatHierarchicalContext(sectionAddress);
 
   // Analyze links in the created content (optional for performance)
-  const linkAssistance = await analyzeLinksIfRequested(content, docAddress.path, result.section, manager, analyzeLinks);
+  const linkAssistance = await analyzeLinksIfRequested(content, docAddress.path, manager, analyzeLinks);
 
   return {
     created: true,
@@ -413,7 +413,7 @@ async function formatUpdatedResponse(
   const hierarchicalContext = ToolIntegration.formatHierarchicalContext(sectionAddress);
 
   // Analyze links in the updated content (optional for performance)
-  const linkAssistance = await analyzeLinksIfRequested(content, docAddress.path, result.section, manager, analyzeLinks);
+  const linkAssistance = await analyzeLinksIfRequested(content, docAddress.path, manager, analyzeLinks);
 
   return {
     updated: true,
@@ -434,7 +434,6 @@ async function formatUpdatedResponse(
 async function analyzeLinksIfRequested(
   content: string,
   documentPath: string,
-  sectionSlug: string,
   manager: Awaited<ReturnType<typeof getDocumentManager>>,
   shouldAnalyze: boolean = false
 ): Promise<{
@@ -473,17 +472,16 @@ async function analyzeLinksIfRequested(
   }>;
 }> {
   if (!shouldAnalyze) {
+    // Import shared constant for consistency
+    const { LINK_SYNTAX_EXAMPLES } = await import('../../shared/link-analysis.js');
+
     // Return minimal response when analysis is disabled for performance
     return {
       links_found: [],
       link_suggestions: [],
       syntax_help: {
         detected_patterns: [],
-        correct_examples: [
-          '@/api/specs/user-api.md - Link to entire document',
-          '@/api/guides/setup.md#configuration - Link to specific section',
-          '@#implementation - Link to section in current document'
-        ],
+        correct_examples: [...LINK_SYNTAX_EXAMPLES],
         common_mistakes: []
       }
     };
@@ -508,7 +506,7 @@ async function analyzeLinksIfRequested(
   // Perform existing link analysis for backward compatibility
   const { createLinkAnalysisService } = await import('../../shared/link-analysis.js');
   const linkAnalysis = createLinkAnalysisService(manager);
-  const legacyAnalysis = await linkAnalysis.analyzeLinks(content, documentPath, sectionSlug);
+  const legacyAnalysis = await linkAnalysis.analyzeLinks(content, documentPath);
 
   // Return enhanced response with hierarchical references
   return {

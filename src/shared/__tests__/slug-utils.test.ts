@@ -566,7 +566,13 @@ describe('validateSlugPath Function', () => {
       'user-management',
       'api/users',
       'api/v1/authentication',
-      'docs/getting-started/installation'
+      'docs/getting-started/installation',
+      // GitHub Slugger patterns with underscores and multiple hyphens
+      'api_endpoint',
+      'user_management',
+      'multiple---hyphens',
+      'api/auth_tokens',
+      'mixed-underscore_test'
     ];
 
     for (const slug of validSlugs) {
@@ -606,11 +612,13 @@ describe('validateSlugPath Function', () => {
   test('should reject invalid slug components', () => {
     const invalidSlugs = [
       'API-Reference',  // Uppercase
-      'user_management', // Underscore
       'api/users!',     // Special character
-      'api/users/',     // Trailing slash should be normalized
-      'api//users',     // Multiple slashes should be normalized
-      'api/users@home'  // Special character
+      'api/users@home', // Special character
+      'api/user$name',  // Special character
+      '-leading',       // Leading hyphen
+      'trailing-',      // Trailing hyphen
+      '_leading',       // Leading underscore
+      'trailing_'       // Trailing underscore
     ];
 
     for (const slug of invalidSlugs) {

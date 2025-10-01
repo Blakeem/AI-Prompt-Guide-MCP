@@ -309,11 +309,15 @@ export function validateSlugPath(slugPath: string): SlugPathOperation {
   const parts = splitSlugPath(normalized);
 
   // Check each part is a valid slug
+  // Pattern matches GitHub Slugger output: lowercase letters, numbers, underscores, hyphens
+  // - Must start/end with alphanumeric
+  // - Can contain underscores and single/multiple hyphens
+  // - Examples: 'api_endpoint', 'test-slug', 'multiple---hyphens'
   for (const part of parts) {
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(part)) {
+    if (!/^[a-z0-9]+[a-z0-9_-]*[a-z0-9]+$|^[a-z0-9]$/.test(part)) {
       return {
         success: false,
-        error: `Invalid slug component: ${part}. Must contain only lowercase letters, numbers, and hyphens`,
+        error: `Invalid slug component: ${part}. Must contain only lowercase letters, numbers, underscores, and hyphens`,
         context: { slugPath, invalidPart: part }
       };
     }

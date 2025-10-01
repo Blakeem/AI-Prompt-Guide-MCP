@@ -48,21 +48,15 @@ export async function completeTask(
   try {
     const manager = await getDocumentManager();
 
-    // Validate required parameters
-    if (typeof args['document'] !== 'string' || args['document'] === '') {
-      throw new AddressingError('Missing required parameter: document', 'MISSING_PARAMETER');
-    }
-    if (typeof args['task'] !== 'string' || args['task'] === '') {
-      throw new AddressingError('Missing required parameter: task', 'MISSING_PARAMETER');
-    }
-    if (typeof args['note'] !== 'string' || args['note'] === '') {
-      throw new AddressingError('Missing required parameter: note', 'MISSING_PARAMETER');
-    }
+    // Validate required parameters using standardized ToolIntegration helpers
+    const documentPath = ToolIntegration.validateStringParameter(args['document'], 'document');
+    const taskSlug = ToolIntegration.validateStringParameter(args['task'], 'task');
+    const note = ToolIntegration.validateStringParameter(args['note'], 'note');
 
     // Use addressing system for validation and parsing
     const { addresses } = ToolIntegration.validateAndParse({
-      document: args['document'],
-      task: args['task']
+      document: documentPath,
+      task: taskSlug
     });
 
     // Get document and validate existence
@@ -95,7 +89,6 @@ export async function completeTask(
 
     // Update task status to completed and add completion note
     const completedDate = new Date().toISOString().substring(0, 10);  // YYYY-MM-DD format
-    const note = args['note'] as string;
     const updatedContent = updateTaskStatus(currentContent, 'completed', note, completedDate);
 
     // Update the task section with validated addresses

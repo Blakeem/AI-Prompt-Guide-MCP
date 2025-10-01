@@ -16,6 +16,16 @@ import type { DocumentManager } from '../document-manager.js';
 import { parseDocumentAddress } from './addressing-system.js';
 
 /**
+ * Standard link syntax examples for consistent documentation
+ * Shared across link analysis and section operations
+ */
+export const LINK_SYNTAX_EXAMPLES = [
+  '@/api/specs/user-api.md - Link to entire document',
+  '@/api/guides/setup.md#configuration - Link to specific section',
+  '@#implementation - Link to section in current document'
+] as const;
+
+/**
  * Result of link analysis operation
  */
 export interface LinkAnalysisResult {
@@ -61,8 +71,7 @@ class LinkAnalysisService {
    */
   async analyzeLinks(
     content: string,
-    documentPath: string,
-    _sectionSlug: string
+    documentPath: string
   ): Promise<LinkAnalysisResult> {
     // Extract and validate links
     const linksFound = await this.extractAndValidateLinks(content, documentPath);
@@ -153,11 +162,7 @@ class LinkAnalysisService {
 
     return {
       detected_patterns: detectedPatterns,
-      correct_examples: [
-        '@/api/specs/user-api.md - Link to entire document',
-        '@/api/guides/setup.md#configuration - Link to specific section',
-        '@#implementation - Link to section in current document'
-      ],
+      correct_examples: [...LINK_SYNTAX_EXAMPLES],
       common_mistakes: commonMistakes
     };
   }

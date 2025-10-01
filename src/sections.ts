@@ -590,9 +590,9 @@ function matchHeadingBySlug(slug: string, headings?: readonly Heading[]) {
  *
  * @example
  * // For slug "overview", finds headings with slugs: "overview", "overview-1", "overview-2", etc.
- * const candidates = findCandidateSections("overview", headings);
+ * const candidateHeadings = findCandidateHeadings("overview", headings);
  */
-function findCandidateSections(finalSlug: string, headings: readonly Heading[]): Heading[] {
+function findCandidateHeadings(finalSlug: string, headings: readonly Heading[]): Heading[] {
   return headings.filter(h => {
     return h.slug === finalSlug || h.slug.startsWith(`${finalSlug}-`);
   });
@@ -609,7 +609,7 @@ function findCandidateSections(finalSlug: string, headings: readonly Heading[]):
  *
  * @deprecated Use buildHierarchicalPathOptimized with pre-built hierarchy index for better performance
  *
- * @param targetSection - The heading to build the path for
+ * @param targetHeading - The heading to build the path for
  * @param headings - Complete array of all headings in the document (must be in document order)
  * @returns Array of slugs representing the hierarchical path from root to target
  *
@@ -618,22 +618,22 @@ function findCandidateSections(finalSlug: string, headings: readonly Heading[]):
  * // ["api", "authentication", "jwt-tokens"]
  * const path = buildHierarchicalPath(jwtHeading, allHeadings);
  */
-function buildHierarchicalPath(targetSection: Heading, headings: readonly Heading[]): string[] {
-  const actualPath: string[] = [];
-  let currentDepth = targetSection.depth;
-  const currentIndex = targetSection.index;
+function buildHierarchicalPath(targetHeading: Heading, headings: readonly Heading[]): string[] {
+  const pathSegments: string[] = [];
+  let currentDepth = targetHeading.depth;
+  const currentIndex = targetHeading.index;
 
-  // Walk backwards through headings to build the actual path
+  // Walk backwards through headings to build the hierarchical path
   for (let i = currentIndex - 1; i >= 0; i--) {
     const heading = headings[i];
     if (heading != null && heading.depth < currentDepth) {
-      actualPath.unshift(heading.slug);
+      pathSegments.unshift(heading.slug);
       currentDepth = heading.depth;
     }
   }
-  actualPath.push(targetSection.slug);
+  pathSegments.push(targetHeading.slug);
 
-  return actualPath;
+  return pathSegments;
 }
 
 /**
@@ -651,11 +651,11 @@ function buildHierarchicalPath(targetSection: Heading, headings: readonly Headin
  * matchesPathPattern(["docs", "api", "auth"], ["api", "auth"]) // → true
  */
 function matchesPathPattern(actualPath: string[], expectedParts: string[]): boolean {
-  const actualPathStr = actualPath.join('/');
-  const expectedPathStr = expectedParts.join('/');
+  const actualPathString = actualPath.join('/');
+  const expectedPathString = expectedParts.join('/');
 
   // For hierarchical matching, check if the expected path is a suffix of the actual path
-  return actualPathStr === expectedPathStr || actualPathStr.endsWith(`/${expectedPathStr}`);
+  return actualPathString === expectedPathString || actualPathString.endsWith(`/${expectedPathString}`);
 }
 
 /**
@@ -694,6 +694,14 @@ function tryDisambiguationMatching(actualPath: string[], expectedParts: string[]
 /**
  * Finds the specific heading that matches the hierarchical path
  *
+ * This function implements a three-stage matching algorithm to handle both flat and hierarchical
+ * section addressing with automatic disambiguation support (e.g., "overview", "overview-1", "overview-2").
+ *
+ * Algorithm stages:
+ * 1. Exact/suffix matching: Direct path comparison for simple hierarchical paths
+ * 2. Intermediate disambiguation: Handles disambiguation in parent path components
+ * 3. Final slug disambiguation: Handles disambiguation in the target section itself
+ *
  * @param targetPath - Hierarchical path to match (e.g., "api/auth/jwt-tokens")
  * @param headings - Complete array of all headings in the document (must be in document order)
  * @returns The matching heading or null if no match found
@@ -708,6 +716,7 @@ function tryDisambiguationMatching(actualPath: string[], expectedParts: string[]
  * @throws Never throws - returns null for invalid input or no match
  */
 function findTargetHierarchicalHeading(targetPath: string, headings: readonly Heading[]): Heading | null {
+  // Step 1: Parse target path into components
   const pathParts = targetPath.toLowerCase().split('/');
   const finalSlug = pathParts[pathParts.length - 1];
 
@@ -715,29 +724,38 @@ function findTargetHierarchicalHeading(targetPath: string, headings: readonly He
     return null; // Empty path parts, should not happen due to validation
   }
 
-  const candidateSections = findCandidateSections(finalSlug, headings);
+  // Step 2: Find all headings that could match the target slug
+  // This includes exact matches ("overview") and disambiguated versions ("overview-1", "overview-2")
+  const candidateHeadings = findCandidateHeadings(finalSlug, headings);
 
-  // For each candidate, check if its hierarchy matches the expected path
-  for (const targetSection of candidateSections) {
-    const actualPath = buildHierarchicalPath(targetSection, headings);
+  // Step 3: Test each candidate heading against the target path using three matching strategies
+  for (const candidateHeading of candidateHeadings) {
+    // Build the actual hierarchical path for this candidate by walking up the document structure
+    const actualPath = buildHierarchicalPath(candidateHeading, headings);
 
-    // Try exact or suffix matching first
+    // Strategy 1: Try exact or suffix matching first
+    // Example: ["api", "auth"] matches ["api", "auth"] or ["docs", "api", "auth"]
     if (matchesPathPattern(actualPath, pathParts)) {
-      return targetSection;
+      return candidateHeading;
     }
 
-    // Try disambiguation matching for intermediate path components
+    // Strategy 2: Try disambiguation matching for intermediate path components
+    // This handles cases where parent sections have disambiguation suffixes
+    // Example: User searches for "api/auth" but actual path is "api-1/auth-1"
     if (tryDisambiguationMatching(actualPath, pathParts)) {
-      return targetSection;
+      return candidateHeading;
     }
 
-    // Also check if we can match by replacing the final slug with the disambiguated version
-    const expectedWithDisambiguated = pathParts.slice(0, -1).concat([targetSection.slug]);
+    // Strategy 3: Check if we can match by replacing the final slug with the disambiguated version
+    // This handles cases where the target section itself has a disambiguation suffix
+    // Example: User searches for "api/auth/jwt" but actual slug is "jwt-tokens-1"
+    const expectedWithDisambiguated = pathParts.slice(0, -1).concat([candidateHeading.slug]);
     if (matchesPathPattern(actualPath, expectedWithDisambiguated)) {
-      return targetSection;
+      return candidateHeading;
     }
   }
 
+  // Step 4: No match found after trying all strategies
   return null;
 }
 

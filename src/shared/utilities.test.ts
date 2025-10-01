@@ -342,7 +342,7 @@ describe('performSectionEdit Utility Function', () => {
           'invalid_operation'
         )
       ).rejects.toThrow(
-        'Invalid operation: invalid_operation. Must be one of: replace, append, prepend, insert_before, insert_after, append_child'
+        'Invalid operation: invalid_operation'
       );
     });
   });
@@ -519,7 +519,7 @@ describe('performSectionEdit Utility Function', () => {
       const content = 'Content for new section.';
       const title = 'New Section';
 
-      // Act & Assert
+      // Act & Assert - Error message changed to DocumentNotFoundError format
       await expect(
         performSectionEdit(
           mockDocumentManager as unknown as DocumentManager,
@@ -529,7 +529,7 @@ describe('performSectionEdit Utility Function', () => {
           'insert_before',
           title
         )
-      ).rejects.toThrow('Failed to retrieve updated document');
+      ).rejects.toThrow('Document not found: /test-doc.md');
     });
 
     test('should handle creation when new section is not found in updated document', async () => {

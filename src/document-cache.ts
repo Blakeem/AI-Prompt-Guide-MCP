@@ -15,6 +15,13 @@ import { pathToNamespace } from './shared/path-utilities.js';
 
 const logger = getGlobalLogger();
 
+/**
+ * Pre-compiled regex patterns for metadata extraction
+ * These patterns are created once at module load time for optimal performance
+ */
+const MARKDOWN_LINK_PATTERN = /\[([^\]]+)\]\([^)]+\)/g;
+const CODE_BLOCK_PATTERN = /```[\s\S]*?```/g;
+
 export interface DocumentMetadata {
   path: string;
   title: string;
@@ -444,10 +451,10 @@ export class DocumentCache extends EventEmitter {
     const firstHeading = lines.find(line => line.startsWith('#'));
     const title = firstHeading?.replace(/^#+\s*/, '') ?? path.basename(filePath, '.md');
 
-    // Simple content analysis
+    // Simple content analysis using pre-compiled regex patterns
     const wordCount = content.split(/\s+/).length;
-    const linkMatches = content.match(/\[([^\]]+)\]\([^)]+\)/g) ?? [];
-    const codeBlockMatches = content.match(/```[\s\S]*?```/g) ?? [];
+    const linkMatches = content.match(MARKDOWN_LINK_PATTERN) ?? [];
+    const codeBlockMatches = content.match(CODE_BLOCK_PATTERN) ?? [];
 
     // Generate namespace from path
     const relativePath = this.getRelativePath(filePath);

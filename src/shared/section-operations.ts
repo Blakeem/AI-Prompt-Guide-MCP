@@ -5,6 +5,7 @@
 import type { DocumentManager } from '../document-manager.js';
 import type { InsertMode } from '../types/index.js';
 import { getSectionContentForRemoval, deleteSection } from '../sections.js';
+import { DocumentNotFoundError, AddressingError } from './addressing-system.js';
 
 /**
  * Helper function to perform a single section edit operation
@@ -19,8 +20,8 @@ export async function performSectionEdit(
 ): Promise<{ action: 'edited' | 'created' | 'removed'; section: string; depth?: number; removedContent?: string }> {
   // Check if document exists
   const document = await manager.getDocument(normalizedPath);
-  if (!document) {
-    throw new Error(`Document not found: ${normalizedPath}`);
+  if (document == null) {
+    throw new DocumentNotFoundError(normalizedPath);
   }
 
   const creationOperations = ['insert_before', 'insert_after', 'append_child'];
@@ -30,8 +31,16 @@ export async function performSectionEdit(
   if (removeOperations.includes(operation)) {
     // Remove operations - delete section
     const section = document.headings.find(h => h.slug === sectionSlug);
-    if (!section) {
-      throw new Error(`Section not found: ${sectionSlug}. Available sections: ${document.headings.map(h => h.slug).join(', ')}`);
+    if (section == null) {
+      throw new AddressingError(
+        `Section not found: ${sectionSlug}`,
+        'SECTION_NOT_FOUND',
+        {
+          slug: sectionSlug,
+          documentPath: normalizedPath,
+          availableSections: document.headings.map(h => h.slug)
+        }
+      );
     }
 
     // Get the actual content that will be removed (excluding boundary markers)
@@ -59,7 +68,11 @@ export async function performSectionEdit(
   } else if (creationOperations.includes(operation)) {
     // Creation operations - create new section
     if (title == null || title === '') {
-      throw new Error(`Title is required for creation operation: ${operation}`);
+      throw new AddressingError(
+        `Title is required for creation operation: ${operation}`,
+        'MISSING_PARAMETER',
+        { operation, requiredParameter: 'title' }
+      );
     }
 
     // Map operation to InsertMode
@@ -81,8 +94,8 @@ export async function performSectionEdit(
 
     // Get the created section's slug and depth
     const updatedDocument = await manager.getDocument(normalizedPath);
-    if (!updatedDocument) {
-      throw new Error('Failed to retrieve updated document');
+    if (updatedDocument == null) {
+      throw new DocumentNotFoundError(normalizedPath);
     }
 
     // Find the newly created section
@@ -100,8 +113,16 @@ export async function performSectionEdit(
     // Edit operations - modify existing section
     if (operation === 'replace') {
       const section = document.headings.find(h => h.slug === sectionSlug);
-      if (!section) {
-        throw new Error(`Section not found: ${sectionSlug}. Available sections: ${document.headings.map(h => h.slug).join(', ')}`);
+      if (section == null) {
+        throw new AddressingError(
+          `Section not found: ${sectionSlug}`,
+          'SECTION_NOT_FOUND',
+          {
+            slug: sectionSlug,
+            documentPath: normalizedPath,
+            availableSections: document.headings.map(h => h.slug)
+          }
+        );
       }
 
       await manager.updateSection(normalizedPath, sectionSlug, content, {
@@ -118,7 +139,11 @@ export async function performSectionEdit(
       } else if (operation === 'prepend') {
         newContent = currentContent.trim() !== '' ? `${content}\n\n${currentContent}` : content;
       } else {
-        throw new Error(`Invalid operation: ${operation}. Must be 'replace', 'append', or 'prepend'`);
+        throw new AddressingError(
+          `Invalid operation: ${operation}`,
+          'INVALID_OPERATION',
+          { operation, validOperations: ['replace', 'append', 'prepend'] }
+        );
       }
 
       await manager.updateSection(normalizedPath, sectionSlug, newContent, {
@@ -133,6 +158,11 @@ export async function performSectionEdit(
     };
 
   } else {
-    throw new Error(`Invalid operation: ${operation}. Must be one of: ${[...editOperations, ...creationOperations, ...removeOperations].join(', ')}`);
+    const validOperations = [...editOperations, ...creationOperations, ...removeOperations];
+    throw new AddressingError(
+      `Invalid operation: ${operation}`,
+      'INVALID_OPERATION',
+      { operation, validOperations }
+    );
   }
 }

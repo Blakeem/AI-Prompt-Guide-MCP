@@ -434,53 +434,29 @@ function normalizeHierarchicalSlug(slug: string): string {
  * Supports formats: "section", "#section", "/doc.md#section"
  */
 export function parseSectionAddress(sectionRef: string, contextDoc?: string): SectionAddress {
+  // Input validation - early return for invalid type
   if (typeof sectionRef !== 'string') {
     throw new InvalidAddressError(String(sectionRef), 'Section reference must be a string');
   }
 
-  // Create cache key
+  // Check cache first - early return if cached
   const cacheKey = `${sectionRef}|${contextDoc ?? ''}`;
   const cached = cache.getSection(cacheKey);
   if (cached != null) {
     return cached;
   }
 
-  let documentPath: string;
-  let sectionSlug: string;
+  // Parse section reference into document path and section slug
+  const { documentPath, sectionSlug } = parseSectionReference(sectionRef, contextDoc);
 
-  if (sectionRef.includes('#')) {
-    // Format: "/doc.md#section" or "#section"
-    const [docPart, ...slugParts] = sectionRef.split('#');
-    sectionSlug = slugParts.join('#'); // Handle edge case of multiple # in slug
-
-    if (docPart === '' || docPart == null) {
-      // Format: "#section" - use context document
-      if (contextDoc == null || contextDoc === '') {
-        throw new InvalidAddressError(sectionRef, 'Section reference "#section" requires context document');
-      }
-      documentPath = contextDoc;
-    } else {
-      // Format: "/doc.md#section"
-      documentPath = docPart;
-    }
-  } else {
-    // Format: "section" - use context document
-    if (contextDoc == null || contextDoc === '') {
-      throw new InvalidAddressError(sectionRef, 'Section reference requires context document or full path');
-    }
-    documentPath = contextDoc;
-    sectionSlug = sectionRef;
-  }
-
-  // Enhanced slug normalization for hierarchical paths
+  // Normalize slug - early validation for empty slug
   const normalizedSlug = normalizeHierarchicalSlug(sectionSlug);
-
   if (normalizedSlug === '') {
     throw new InvalidAddressError(sectionRef, 'Section slug cannot be empty');
   }
 
+  // Build and cache section address
   const document = parseDocumentAddress(documentPath);
-
   const address: SectionAddress = {
     document,
     slug: normalizedSlug,
@@ -490,6 +466,49 @@ export function parseSectionAddress(sectionRef: string, contextDoc?: string): Se
 
   cache.setSection(cacheKey, address);
   return address;
+}
+
+/**
+ * Parse section reference string into document path and section slug
+ * Handles three formats: "section", "#section", "/doc.md#section"
+ */
+function parseSectionReference(
+  sectionRef: string,
+  contextDoc?: string
+): { documentPath: string; sectionSlug: string } {
+  // Format detection: does reference include # separator?
+  if (!sectionRef.includes('#')) {
+    // Format: "section" - requires context document
+    if (contextDoc == null || contextDoc === '') {
+      throw new InvalidAddressError(sectionRef, 'Section reference requires context document or full path');
+    }
+    return {
+      documentPath: contextDoc,
+      sectionSlug: sectionRef
+    };
+  }
+
+  // Format: "/doc.md#section" or "#section"
+  const [docPart, ...slugParts] = sectionRef.split('#');
+  const sectionSlug = slugParts.join('#'); // Handle edge case of multiple # in slug
+
+  // Check if document part is empty (indicates #section format)
+  if (docPart === '' || docPart == null) {
+    // Format: "#section" - requires context document
+    if (contextDoc == null || contextDoc === '') {
+      throw new InvalidAddressError(sectionRef, 'Section reference "#section" requires context document');
+    }
+    return {
+      documentPath: contextDoc,
+      sectionSlug
+    };
+  }
+
+  // Format: "/doc.md#section" - document path provided
+  return {
+    documentPath: docPart,
+    sectionSlug
+  };
 }
 
 /**
