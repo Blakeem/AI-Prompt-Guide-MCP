@@ -4,10 +4,8 @@
  */
 
 import type { SessionState } from '../../session/types.js';
-import {
-  getDocumentManager,
-  performSectionEdit
-} from '../../shared/utilities.js';
+import type { DocumentManager } from '../../document-manager.js';
+import { performSectionEdit } from '../../shared/utilities.js';
 import {
   ToolIntegration,
   AddressingError,
@@ -46,10 +44,10 @@ interface CompleteTaskResult {
 
 export async function completeTask(
   args: Record<string, unknown>,
-  _state: SessionState
+  _state: SessionState,
+  manager: DocumentManager
 ): Promise<CompleteTaskResult> {
   try {
-    const manager = await getDocumentManager();
 
     // Validate required parameters using standardized validation utilities
     const documentPath = validateRequiredString(args['document'], 'document');

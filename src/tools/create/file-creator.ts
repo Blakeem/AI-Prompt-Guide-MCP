@@ -3,7 +3,8 @@
  * Handles Stage 3 (Creation) file system operations and finalization
  */
 
-import { getDocumentManager, analyzeDocumentSuggestions, analyzeNamespacePatterns } from '../../shared/utilities.js';
+import type { DocumentManager } from '../../document-manager.js';
+import { analyzeDocumentSuggestions, analyzeNamespacePatterns } from '../../shared/utilities.js';
 import { parseDocumentAddress, AddressingError } from '../../shared/addressing-system.js';
 import type { SmartSuggestions, NamespacePatterns } from '../schemas/create-document-schemas.js';
 
@@ -47,6 +48,7 @@ export async function createDocumentFile(
   namespace: string,
   title: string,
   overview: string,
+  manager: DocumentManager,
   content: string,
   docPath: string,
   slug: string
@@ -69,8 +71,6 @@ export async function createDocumentFile(
       }
       throw error; // Re-throw non-addressing errors
     }
-
-    const manager = await getDocumentManager();
 
     // Create the document with basic structure first
     await manager.createDocument(docPath, {
@@ -184,7 +184,8 @@ async function refreshDocumentCache(docPath: string): Promise<void> {
 export async function validateCreationPrerequisites(
   namespace: string,
   title: string,
-  overview: string
+  overview: string,
+  _manager: DocumentManager
 ): Promise<string | null> {
   // Basic input validation
   if (namespace.trim() === '') {
@@ -199,13 +200,7 @@ export async function validateCreationPrerequisites(
     return 'Overview cannot be empty';
   }
 
-  try {
-    // Validate document manager is available
-    await getDocumentManager();
-    return null; // No validation errors
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return `Document manager unavailable: ${message}`;
-  }
+  // Manager is already validated at the pipeline level
+  return null; // No validation errors
 }
 

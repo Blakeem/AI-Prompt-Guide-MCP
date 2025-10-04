@@ -349,19 +349,15 @@ export class DocumentManager {
     if (isFolder) {
       // Get relative archive path for return value
       const relativeArchivePath = path.relative(this.docsRoot, uniqueArchivePath);
-      
+
       // Invalidate all cached documents that were in this folder
-      // We'll use cache internals temporarily - this should be refactored to use a proper method
-      const cacheInternal = this.cache as unknown as { cache?: Map<string, unknown> };
-      if (cacheInternal.cache != null) {
-        for (const cachedPath of cacheInternal.cache.keys()) {
-          if (typeof cachedPath === 'string' && cachedPath.startsWith(normalizedPath)) {
-            this.cache.invalidateDocument(cachedPath);
-          }
-        }
-      }
-      
-      logger.info('Archived folder', { originalPath: normalizedPath, archivePath: relativeArchivePath });
+      const invalidatedCount = this.cache.invalidateDocumentsByPrefix(normalizedPath);
+
+      logger.info('Archived folder', {
+        originalPath: normalizedPath,
+        archivePath: relativeArchivePath,
+        invalidatedDocuments: invalidatedCount
+      });
       
       return {
         originalPath: normalizedPath,

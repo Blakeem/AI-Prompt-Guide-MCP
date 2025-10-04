@@ -4,6 +4,7 @@
  */
 
 import type { SessionState } from '../../session/types.js';
+import type { DocumentManager } from '../../document-manager.js';
 import type { HierarchicalContext } from '../../shared/addressing-system.js';
 import {
   ToolIntegration,
@@ -13,10 +14,7 @@ import {
   parseSectionAddress,
   type SectionAddress
 } from '../../shared/addressing-system.js';
-import {
-  getParentSlug,
-  getDocumentManager
-} from '../../shared/utilities.js';
+import { getParentSlug } from '../../shared/utilities.js';
 import { ReferenceExtractor } from '../../shared/reference-extractor.js';
 
 /**
@@ -53,10 +51,9 @@ interface ViewSectionResponse {
  */
 export async function viewSection(
   args: Record<string, unknown>,
-  _state: SessionState
+  _state: SessionState,
+  manager: DocumentManager
 ): Promise<ViewSectionResponse> {
-  // Initialize document manager
-  const manager = await getDocumentManager();
 
   // Import helper functions (now handled by standardized validation)
   // const { parseSections, validateSectionCount } = await import('../schemas/view-section-schemas.js');

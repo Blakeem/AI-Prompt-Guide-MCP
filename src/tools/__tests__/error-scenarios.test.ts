@@ -3,20 +3,12 @@
  * Addresses Issue #35: Inadequate test coverage for error scenarios
  */
 
-import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { section } from '../implementations/section.js';
 import { createMockDocumentManager } from './mocks/document-manager.mock.js';
 import { createFileSystemError } from './mocks/filesystem.mock.js';
 import type { SessionState } from '../../session/types.js';
-
-// Mock the utilities module
-vi.mock('../../shared/utilities.js', async () => {
-  const actual = await vi.importActual('../../shared/utilities.js') as Record<string, unknown>;
-  return {
-    ...actual,
-    getDocumentManager: vi.fn()
-  };
-});
+import type { DocumentManager } from '../../document-manager.js';
 
 describe('Error Scenario Testing', () => {
   let mockDocumentManager: ReturnType<typeof createMockDocumentManager>;
@@ -25,10 +17,7 @@ describe('Error Scenario Testing', () => {
     createDocumentStage: 0
   };
 
-  beforeEach(async () => {
-    // Reset all mocks
-    vi.clearAllMocks();
-
+  beforeEach(() => {
     // Create mock document manager with test documents
     mockDocumentManager = createMockDocumentManager({
       initialDocuments: {
@@ -45,10 +34,6 @@ Configuration section content.
 `
       }
     });
-
-    // Mock the getDocumentManager function
-    const { getDocumentManager } = await import('../../shared/utilities.js');
-    vi.mocked(getDocumentManager).mockResolvedValue(mockDocumentManager as unknown as Awaited<ReturnType<typeof getDocumentManager>>);
   });
 
   describe('Document Not Found Errors', () => {
@@ -60,7 +45,7 @@ Configuration section content.
         operation: 'replace'
       };
 
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
         .rejects
         .toThrow('File not found: /non-existent.md');
     });
@@ -74,7 +59,7 @@ Configuration section content.
       };
 
       try {
-        await section(args, mockSessionState);
+        await section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager);
         expect.fail('Should have thrown an error');
       } catch (error) {
         expect(error).toBeInstanceOf(Error);
@@ -94,7 +79,7 @@ Configuration section content.
         operation: 'replace'
       };
 
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
         .rejects
         .toThrow(); // Should throw an error for non-existent section
     });
@@ -107,7 +92,7 @@ Configuration section content.
         operation: 'replace'
       };
 
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
         .rejects
         .toThrow();
     });
@@ -120,7 +105,7 @@ Configuration section content.
         operation: 'replace'
       };
 
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
         .rejects
         .toThrow();
     });
@@ -135,7 +120,7 @@ Configuration section content.
         operation: 'invalid-operation' as unknown
       };
 
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
         .rejects
         .toThrow();
     });
@@ -149,7 +134,7 @@ Configuration section content.
         // Missing title
       };
 
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
         .rejects
         .toThrow();
     });
@@ -163,7 +148,7 @@ Configuration section content.
       };
 
       // Empty content is not allowed for replace operations
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
         .rejects
         .toThrow('Content is required for all operations except remove');
     });
@@ -187,7 +172,7 @@ Configuration section content.
         operation: 'replace'
       };
 
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
         .rejects
         .toThrow();
     });
@@ -205,7 +190,7 @@ Configuration section content.
         operation: 'replace'
       };
 
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
         .rejects
         .toThrow();
     });
@@ -223,7 +208,7 @@ Configuration section content.
         operation: 'replace'
       };
 
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
         .rejects
         .toThrow();
 
@@ -251,7 +236,7 @@ Configuration section content.
           operation: 'replace'
         };
 
-        await expect(section(args, mockSessionState))
+        await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
           .rejects
           .toThrow();
       }
@@ -269,7 +254,7 @@ Configuration section content.
 
       // Should either succeed or fail gracefully
       try {
-        const result = await section(args, mockSessionState);
+        const result = await section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager);
         expect(result).toBeDefined();
       } catch (error) {
         expect(error).toBeInstanceOf(Error);
@@ -305,7 +290,7 @@ console.log("test");
         operation: 'replace'
       };
 
-      const result = await section(args, mockSessionState);
+      const result = await section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager);
       expect(result).toBeDefined();
       expect(result).toHaveProperty('updated', true);
     });
@@ -334,7 +319,7 @@ console.log("test");
         }
       ];
 
-      const result = await section(operations, mockSessionState);
+      const result = await section(operations, mockSessionState, mockDocumentManager as unknown as DocumentManager);
 
       expect(result).toHaveProperty('batch_results');
       const batchResults = (result as Record<string, unknown>)['batch_results'] as Array<Record<string, unknown>>;
@@ -357,7 +342,7 @@ console.log("test");
         operation: 'replace' as const
       }));
 
-      const result = await section(operations, mockSessionState);
+      const result = await section(operations, mockSessionState, mockDocumentManager as unknown as DocumentManager);
 
       expect(result).toHaveProperty('batch_results');
       expect(result).toHaveProperty('total_operations', 10);
@@ -384,7 +369,7 @@ console.log("test");
           operation: 'replace' as const
         };
 
-        return section(args, mockSessionState);
+        return section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager);
       });
 
       // All operations should complete without crashing
@@ -413,14 +398,14 @@ console.log("test");
       };
 
       // First operation should work
-      const result1 = await section(args, mockSessionState);
+      const result1 = await section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager);
       expect(result1).toHaveProperty('updated', true);
 
       // Clear the mock filesystem to simulate cache inconsistency
       mockDocumentManager.getFileSystem().clear();
 
       // Second operation should handle missing document gracefully
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
         .rejects
         .toThrow();
     });

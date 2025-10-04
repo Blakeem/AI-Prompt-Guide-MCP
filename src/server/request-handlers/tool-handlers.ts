@@ -18,10 +18,11 @@ import {
   createErrorResponse,
   formatLogError,
 } from '../../utils/error-formatter.js';
+import { createDocumentManager } from '../../shared/utilities.js';
 
 
 /**
- * Registers tool-related request handlers
+ * Registers tool-related request handlers with dependency injection
  */
 export function registerToolHandlers(
   server: Server,
@@ -29,6 +30,10 @@ export function registerToolHandlers(
   _serverConfig: ServerConfig
 ): void {
   const logger = getGlobalLogger();
+
+  // Create DocumentManager instance once for all tool calls (dependency injection)
+  const documentManager = createDocumentManager();
+  logger.debug('DocumentManager created for tool handlers');
 
   // List available tools (dynamic based on session state)
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -69,6 +74,7 @@ export function registerToolHandlers(
           name,
           args ?? {},
           sessionState,
+          documentManager,
           () => {
             // Send list_changed notifications for tool list updates
             void server.notification({

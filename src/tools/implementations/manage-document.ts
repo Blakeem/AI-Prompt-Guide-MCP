@@ -4,19 +4,25 @@
  */
 
 import type { SessionState } from '../../session/types.js';
-import { getDocumentManager } from '../../shared/utilities.js';
+import type { DocumentManager } from '../../document-manager.js';
 import {
   ToolIntegration,
   AddressingError,
   DocumentNotFoundError
 } from '../../shared/addressing-system.js';
 
+/**
+ * Maximum number of operations allowed in a single batch request
+ * Prevents performance issues and potential DoS attacks
+ */
+const MAX_BATCH_SIZE = 100;
+
 export async function manageDocument(
   args: Record<string, unknown> | Array<Record<string, unknown>>,
-  _state: SessionState
+  _state: SessionState,
+  manager: DocumentManager
 ): Promise<unknown> {
   try {
-    const manager = await getDocumentManager();
 
     // Detect if this is a batch operation (array input) or single operation
     const isBatch = Array.isArray(args);
@@ -31,8 +37,40 @@ export async function manageDocument(
         confirm?: boolean;
       }>;
 
+      // Comprehensive array validation
+      if (!Array.isArray(operations)) {
+        throw new AddressingError(
+          'Operations parameter must be an array',
+          'INVALID_BATCH',
+          { receivedType: typeof operations }
+        );
+      }
+
       if (operations.length === 0) {
-        throw new AddressingError('Batch operations array cannot be empty', 'EMPTY_BATCH');
+        throw new AddressingError(
+          'Batch operations array cannot be empty',
+          'EMPTY_BATCH'
+        );
+      }
+
+      if (operations.length > MAX_BATCH_SIZE) {
+        throw new AddressingError(
+          `Batch size ${operations.length} exceeds maximum of ${MAX_BATCH_SIZE}`,
+          'BATCH_TOO_LARGE',
+          { batchSize: operations.length, maxSize: MAX_BATCH_SIZE }
+        );
+      }
+
+      // Validate array contents
+      for (let i = 0; i < operations.length; i++) {
+        const op = operations[i];
+        if (op == null || typeof op !== 'object' || Array.isArray(op)) {
+          throw new AddressingError(
+            `Invalid operation at index ${i}: must be a non-null object`,
+            'INVALID_BATCH_ITEM',
+            { index: i, value: op, type: typeof op }
+          );
+        }
       }
 
       const batchResults: Array<{success: boolean; action?: string; document?: string; error?: string}> = [];
@@ -111,7 +149,7 @@ export async function manageDocument(
  * Perform a single document management operation
  */
 async function performDocumentOperation(
-  manager: Awaited<ReturnType<typeof getDocumentManager>>,
+  manager: DocumentManager,
   operation: string,
   docPath: string,
   options: {

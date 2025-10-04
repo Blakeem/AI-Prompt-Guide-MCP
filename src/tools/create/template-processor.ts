@@ -3,6 +3,7 @@
  * Handles template processing and content generation
  */
 
+import type { DocumentManager } from '../../document-manager.js';
 import { parseDocumentAddress, AddressingError } from '../../shared/addressing-system.js';
 
 /**
@@ -249,7 +250,8 @@ When and how to escalate unresolved issues.
 export async function processTemplate(
   namespace: string,
   title: string,
-  overview: string
+  overview: string,
+  _manager: DocumentManager
 ): Promise<TemplateProcessingResult | TemplateProcessingError> {
   try {
     // Import slug utilities

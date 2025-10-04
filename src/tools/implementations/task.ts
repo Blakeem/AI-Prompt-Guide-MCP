@@ -5,10 +5,7 @@
 
 import type { SessionState } from '../../session/types.js';
 import type { DocumentManager } from '../../document-manager.js';
-import {
-  getDocumentManager,
-  performSectionEdit
-} from '../../shared/utilities.js';
+import { performSectionEdit } from '../../shared/utilities.js';
 import { titleToSlug } from '../../slug.js';
 import {
   ToolIntegration,
@@ -143,10 +140,10 @@ interface TaskResult {
  */
 export async function task(
   args: Record<string, unknown>,
-  _state: SessionState
+  _state: SessionState,
+  manager: DocumentManager
 ): Promise<TaskResult> {
   try {
-    const manager: DocumentManager = await getDocumentManager();
 
     // Validate parameters using standardized validation utilities
     const documentPath = validateRequiredString(args['document'], 'document');

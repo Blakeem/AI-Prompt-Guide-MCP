@@ -4,7 +4,7 @@
  */
 
 import type { SessionState } from '../../session/types.js';
-import { getDocumentManager } from '../../shared/utilities.js';
+import type { DocumentManager } from '../../document-manager.js';
 import {
   AddressingError,
   DocumentNotFoundError,
@@ -60,19 +60,59 @@ interface BrowseResponse {
 }
 
 /**
- * Browse documents implementation
+ * Validates a numeric parameter with range constraints
+ * @param value - The value to validate
+ * @param paramName - Name of the parameter for error messages
+ * @param min - Minimum allowed value (inclusive)
+ * @param max - Maximum allowed value (inclusive)
+ * @param defaultValue - Default value if parameter is null/undefined
+ * @returns Validated integer value
+ * @throws AddressingError if value is not a finite number or out of range
+ */
+function validateNumericParameter(
+  value: unknown,
+  paramName: string,
+  min: number,
+  max: number,
+  defaultValue: number
+): number {
+  if (value == null) return defaultValue;
+
+  const num = Number(value);
+
+  if (!Number.isFinite(num)) {
+    throw new AddressingError(
+      `${paramName} must be a finite number`,
+      'INVALID_PARAMETER',
+      { value, paramName }
+    );
+  }
+
+  if (num < min || num > max) {
+    throw new AddressingError(
+      `${paramName} must be between ${min} and ${max}`,
+      'INVALID_PARAMETER',
+      { value: num, min, max, paramName }
+    );
+  }
+
+  return Math.floor(num); // Ensure integer
+}
+
+/**
+ * Browse documents implementation with dependency injection
  */
 export async function browseDocuments(
   args: Record<string, unknown>,
-  _state: SessionState
+  _state: SessionState,
+  manager: DocumentManager
 ): Promise<BrowseResponse> {
   try {
-    const manager = await getDocumentManager();
     const requestedPath = (args['path'] as string) ?? '/';
     const query = args['query'] as string | undefined;
     const includeRelated = (args['include_related'] as boolean) ?? false;
-    const linkDepth = Math.max(1, Math.min(6, Number(args['link_depth']) || 2));
-    const limit = Math.max(1, Math.min(50, Number(args['limit']) || 10));
+    const linkDepth = validateNumericParameter(args['link_depth'], 'link_depth', 1, 6, 2);
+    const limit = validateNumericParameter(args['limit'], 'limit', 1, 50, 10);
 
     // Normalize path
     const normalizedPath = requestedPath.startsWith('/') ? requestedPath : `/${requestedPath}`;

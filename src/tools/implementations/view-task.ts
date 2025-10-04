@@ -4,6 +4,7 @@
  */
 
 import type { SessionState } from '../../session/types.js';
+import type { DocumentManager } from '../../document-manager.js';
 import {
   ToolIntegration,
   DocumentNotFoundError,
@@ -12,7 +13,6 @@ import {
   type TaskAddress
 } from '../../shared/addressing-system.js';
 import { getTaskHeadings } from '../../shared/task-utilities.js';
-import { getDocumentManager } from '../../shared/utilities.js';
 import {
   enrichTaskWithReferences,
   calculateTaskSummary,
@@ -52,10 +52,9 @@ interface ViewTaskResponse {
  */
 export async function viewTask(
   args: Record<string, unknown>,
-  _state: SessionState
+  _state: SessionState,
+  manager: DocumentManager
 ): Promise<ViewTaskResponse> {
-  // Initialize document manager
-  const manager = await getDocumentManager();
 
   // Import helper functions (now handled by standardized validation)
   // const { parseTasks, validateTaskCount } = await import('../schemas/view-task-schemas.js');

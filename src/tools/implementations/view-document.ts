@@ -3,11 +3,9 @@
  */
 
 import type { SessionState } from '../../session/types.js';
+import type { DocumentManager } from '../../document-manager.js';
 import type { CachedDocument } from '../../document-cache.js';
-import {
-  loadLinkedDocumentContext,
-  getDocumentManager
-} from '../../shared/utilities.js';
+import { loadLinkedDocumentContext } from '../../shared/utilities.js';
 import { DocumentNotFoundError } from '../../shared/addressing-system.js';
 import { getTaskHeadings } from '../../shared/task-utilities.js';
 
@@ -113,10 +111,9 @@ interface ViewDocumentResponse {
  */
 export async function viewDocument(
   args: Record<string, unknown>,
-  _state: SessionState
+  _state: SessionState,
+  manager: DocumentManager
 ): Promise<ViewDocumentResponse> {
-  // Initialize document manager
-  const manager = await getDocumentManager();
 
   // Import helper functions (validation now handled by ToolIntegration)
   const {
@@ -265,7 +262,7 @@ async function extractDocumentMetadata(
  * Parameters for analyzing document sections
  */
 interface AnalyzeDocumentSectionsParams {
-  manager: Awaited<ReturnType<typeof getDocumentManager>>;
+  manager: DocumentManager;
   documentPath: string;
   document: CachedDocument;
   sectionSlug: string | undefined;
@@ -349,7 +346,7 @@ async function analyzeDocumentSections(
  * Parameters for analyzing document links
  */
 interface AnalyzeDocumentLinksParams {
-  manager: Awaited<ReturnType<typeof getDocumentManager>>;
+  manager: DocumentManager;
   documentPath: string;
   document: CachedDocument;
   fullContent: string;
@@ -409,7 +406,7 @@ async function analyzeDocumentLinks(
  * Analyze document tasks including counts and status information
  */
 async function analyzeDocumentTasks(
-  manager: Awaited<ReturnType<typeof getDocumentManager>>,
+  manager: DocumentManager,
   documentPath: string,
   document: CachedDocument
 ): Promise<{
@@ -530,7 +527,7 @@ async function formatDocumentResponse(
  * Parameters for processing a single document
  */
 interface ProcessDocumentParams {
-  manager: Awaited<ReturnType<typeof getDocumentManager>>;
+  manager: DocumentManager;
   documentPath: string;
   document: CachedDocument;
   sectionSlug: string | undefined;

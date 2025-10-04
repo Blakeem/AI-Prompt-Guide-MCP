@@ -3,10 +3,13 @@ import { determineCreateDocumentStage } from '../schemas/create-document-schemas
 import { executeCreateDocumentPipeline } from '../create/pipeline.js';
 import { getGlobalSessionStore } from '../../session/session-store.js';
 import type { SessionState } from '../../session/types.js';
+import { createDocumentManager } from '../../shared/utilities.js';
+import type { DocumentManager } from '../../document-manager.js';
 
 describe('create_document Progressive Discovery Stages', () => {
   let sessionState: SessionState;
   let sessionId: string;
+  let manager: DocumentManager;
 
   beforeEach(() => {
     // Create a unique session for each test
@@ -15,6 +18,9 @@ describe('create_document Progressive Discovery Stages', () => {
       sessionId,
       createDocumentStage: 0
     };
+
+    // Create DocumentManager for dependency injection
+    manager = createDocumentManager();
 
     // Clear session state
     const sessionStore = getGlobalSessionStore();
@@ -103,7 +109,7 @@ describe('create_document Progressive Discovery Stages', () => {
   describe('Pipeline Stage Processing', () => {
     it('should return discovery stage (0) response when no parameters', async () => {
       const args = {};
-      const result = await executeCreateDocumentPipeline(args, sessionState);
+      const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
       expect(result).toHaveProperty('stage', 'discovery');
       // Check that it has either available_namespaces or namespaces property
@@ -114,7 +120,7 @@ describe('create_document Progressive Discovery Stages', () => {
 
     it('should return instructions stage (1) response when only namespace provided', async () => {
       const args = { namespace: 'api/guides' };
-      const result = await executeCreateDocumentPipeline(args, sessionState);
+      const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
       expect(result).toHaveProperty('stage', 'instructions');
       expect(result).toHaveProperty('namespace', 'api/guides');
@@ -126,7 +132,7 @@ describe('create_document Progressive Discovery Stages', () => {
         title: 'Test Document',
         overview: 'Test overview content'
       };
-      const result = await executeCreateDocumentPipeline(args, sessionState);
+      const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
       // Stage 2 now creates immediately - should return either 'creation' or 'error_fallback'
       expect(result).toHaveProperty('stage');
@@ -141,7 +147,7 @@ describe('create_document Progressive Discovery Stages', () => {
         create: true
       };
 
-      const result = await executeCreateDocumentPipeline(args, sessionState);
+      const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
       // Stage 2 creates immediately - create parameter is ignored
       expect(result).toHaveProperty('stage');
@@ -156,7 +162,7 @@ describe('create_document Progressive Discovery Stages', () => {
         create: 'true' as unknown as boolean // Cast to bypass TypeScript checking for test
       };
 
-      const result = await executeCreateDocumentPipeline(args, sessionState);
+      const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
       // Stage 2 creates immediately - create parameter is ignored
       expect(result).toHaveProperty('stage');
@@ -170,7 +176,7 @@ describe('create_document Progressive Discovery Stages', () => {
         overview: 'Test overview content',
         create: false
       };
-      const result = await executeCreateDocumentPipeline(args, sessionState);
+      const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
       // Stage 2 creates immediately - create:false is ignored
       expect(result).toHaveProperty('stage');

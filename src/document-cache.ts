@@ -311,7 +311,9 @@ export class DocumentCache extends EventEmitter {
         invalidateAddressCache(docPath);
         logger.debug('Invalidated addressing cache for changed document', { path: docPath });
       } catch (error) {
-        logger.warn('Failed to invalidate addressing cache', { path: docPath, error });
+        logger.error('CRITICAL: Failed to invalidate addressing cache for changed document', { path: docPath, error });
+        // Re-throw to prevent cache inconsistency
+        throw error;
       }
     });
 
@@ -320,7 +322,9 @@ export class DocumentCache extends EventEmitter {
         invalidateAddressCache(docPath);
         logger.debug('Invalidated addressing cache for deleted document', { path: docPath });
       } catch (error) {
-        logger.warn('Failed to invalidate addressing cache', { path: docPath, error });
+        logger.error('CRITICAL: Failed to invalidate addressing cache for deleted document', { path: docPath, error });
+        // Re-throw to prevent cache inconsistency
+        throw error;
       }
     });
   }
@@ -339,21 +343,40 @@ export class DocumentCache extends EventEmitter {
       }
     });
 
+    // Critical: Handle watcher errors to prevent silent cache staleness
+    this.watcher.on('error', (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('CRITICAL: File watcher error - cache may become stale', {
+        error: errorMessage,
+        docsRoot: this.docsRoot
+      });
+      this.emit('watcher:error', error);
+      // Consider implementing fallback polling mechanism
+    });
+
     this.watcher.on('change', (filePath: string) => {
-      const relativePath = this.getRelativePath(filePath);
-      this.invalidateDocument(relativePath);
-      this.emit('document:changed', relativePath);
-      logger.debug('Document changed', { path: relativePath });
+      try {
+        const relativePath = this.getRelativePath(filePath);
+        this.invalidateDocument(relativePath);
+        this.emit('document:changed', relativePath);
+        logger.debug('Document changed', { path: relativePath });
+      } catch (error) {
+        logger.error('Error handling file change', { filePath, error });
+      }
     });
 
     this.watcher.on('unlink', (filePath: string) => {
-      const relativePath = this.getRelativePath(filePath);
-      this.invalidateDocument(relativePath);
-      this.emit('document:deleted', relativePath);
-      logger.debug('Document deleted', { path: relativePath });
+      try {
+        const relativePath = this.getRelativePath(filePath);
+        this.invalidateDocument(relativePath);
+        this.emit('document:deleted', relativePath);
+        logger.debug('Document deleted', { path: relativePath });
+      } catch (error) {
+        logger.error('Error handling file deletion', { filePath, error });
+      }
     });
 
-    logger.debug('File watcher initialized');
+    logger.info('File watcher initialized', { docsRoot: this.docsRoot });
   }
 
   /**
@@ -531,29 +554,35 @@ export class DocumentCache extends EventEmitter {
    * This prevents race conditions by ensuring both keys are set with the same generation
    */
   private atomicCacheUpdate(document: CachedDocument, slug: string, content: string): void {
+    // Build all updates first in a temporary Map
     const generation = ++this.cacheGenerationCounter;
     const entry: CachedSectionEntry = { content, generation };
+    const updates = new Map<string, CachedSectionEntry>();
 
-    // Initialize sections map if not present
-    document.sections ??= new Map();
+    // Add primary hierarchical slug
+    updates.set(slug, entry);
 
-    // Atomic operation: update both keys with same generation
-    document.sections.set(slug, entry);
-
-    // If hierarchical slug, also cache under flat key
+    // If hierarchical slug, also add flat key
     if (slug.includes('/')) {
       const parts = slug.split('/');
       const flatKey = parts.pop();
       if (flatKey != null && flatKey !== '') {
-        document.sections.set(flatKey, entry); // Same entry object, same generation
+        updates.set(flatKey, entry); // Same entry object, same generation
       }
+    }
+
+    // Initialize sections map if not present
+    document.sections ??= new Map();
+
+    // Apply all updates atomically in a single operation loop
+    for (const [key, value] of updates.entries()) {
+      document.sections.set(key, value);
     }
 
     logger.debug('Atomic cache update completed', {
       slug,
       generation,
-      hierarchicalKey: slug,
-      flatKey: slug.includes('/') ? slug.split('/').pop() : null
+      keysUpdated: Array.from(updates.keys())
     });
   }
 
@@ -714,7 +743,9 @@ export class DocumentCache extends EventEmitter {
         invalidateAddressCache(docPath);
         logger.debug('Invalidated addressing cache for manually invalidated document', { path: docPath });
       } catch (error) {
-        logger.warn('Failed to invalidate addressing cache during manual invalidation', { path: docPath, error });
+        logger.error('CRITICAL: Failed to invalidate addressing cache during manual invalidation', { path: docPath, error });
+        // Re-throw to prevent cache inconsistency
+        throw error;
       }
     }
 
@@ -726,6 +757,63 @@ export class DocumentCache extends EventEmitter {
    */
   getCachedPaths(): string[] {
     return Array.from(this.cache.keys());
+  }
+
+  /**
+   * Get all cached document paths (alias for getCachedPaths)
+   *
+   * Provides explicit API for retrieving cached document paths without
+   * requiring access to cache internals. Preferred over direct cache access.
+   *
+   * @returns Array of document paths currently in cache
+   *
+   * @example
+   * ```typescript
+   * const paths = cache.getCachedDocumentPaths();
+   * console.log(`Currently caching ${paths.length} documents`);
+   * paths.forEach(path => console.log(`  - ${path}`));
+   * ```
+   */
+  getCachedDocumentPaths(): string[] {
+    return this.getCachedPaths();
+  }
+
+  /**
+   * Invalidate all documents matching a path prefix
+   *
+   * Useful for invalidating entire folders when archiving or moving documents.
+   * Uses proper encapsulation instead of accessing cache internals directly.
+   *
+   * @param prefix - Path prefix to match (e.g., '/api/' to invalidate all /api/* documents)
+   * @returns Number of documents invalidated
+   *
+   * @example Invalidate all documents in a folder
+   * ```typescript
+   * const count = cache.invalidateDocumentsByPrefix('/api/');
+   * console.log(`Invalidated ${count} documents in /api/ folder`);
+   * ```
+   *
+   * @example Invalidate documents before archiving
+   * ```typescript
+   * // Before moving folder to archive
+   * const invalidated = cache.invalidateDocumentsByPrefix('/old-docs/');
+   * logger.info('Prepared folder for archival', { invalidated });
+   * ```
+   */
+  invalidateDocumentsByPrefix(prefix: string): number {
+    let count = 0;
+    for (const docPath of this.cache.keys()) {
+      if (docPath.startsWith(prefix)) {
+        this.invalidateDocument(docPath);
+        count++;
+      }
+    }
+
+    if (count > 0) {
+      logger.debug('Invalidated documents by prefix', { prefix, count });
+    }
+
+    return count;
   }
 
   /**
@@ -801,49 +889,56 @@ export class DocumentCache extends EventEmitter {
   async isFingerprintStale(docPath: string): Promise<boolean> {
     try {
       const cached = this.cache.get(docPath);
-      if (!cached) {
+      if (cached == null) {
         // No cached version means we need to load (not stale in the traditional sense)
         return false;
       }
 
       const absolutePath = this.getAbsolutePath(docPath);
       const stats = await fs.stat(absolutePath);
+      const currentMtime = stats.mtimeMs;
 
-      // Check if file modification time is newer than our fingerprint generation
-      const fileModified = stats.mtime;
-      const fingerprintGenerated = cached.metadata.fingerprintGenerated;
+      // Fast path: Use stored mtime from metadata if available
+      // This avoids reading file content in most cases
+      if (cached.metadata.lastModified != null) {
+        const cachedMtime = cached.metadata.lastModified.getTime();
 
-      if (fileModified > fingerprintGenerated) {
-        logger.debug('Fingerprint is stale - file modified after fingerprint generation', {
+        if (currentMtime === cachedMtime) {
+          // mtime matches exactly - cache is fresh (no file content read needed!)
+          logger.debug('Fingerprint is fresh - mtime unchanged (fast path)', {
+            path: docPath,
+            mtime: new Date(currentMtime).toISOString()
+          });
+          return false;
+        }
+
+        logger.debug('mtime changed, verifying with content hash (slow path)', {
           path: docPath,
-          fileModified: fileModified.toISOString(),
-          fingerprintGenerated: fingerprintGenerated.toISOString()
+          cachedMtime: new Date(cachedMtime).toISOString(),
+          currentMtime: new Date(currentMtime).toISOString()
+        });
+      }
+
+      // Slow path: mtime changed or missing from fingerprint
+      // Verify staleness with content hash comparison
+      // This only happens when file has been modified or on legacy cache entries
+      const content = await fs.readFile(absolutePath, 'utf8');
+      const currentHash = this.calculateHash(content);
+
+      if (currentHash !== cached.metadata.contentHash) {
+        logger.debug('Fingerprint is stale - content hash mismatch', {
+          path: docPath,
+          cachedHash: cached.metadata.contentHash,
+          currentHash
         });
         return true;
       }
 
-      // Additional check: compare content hash if we can read the file efficiently
-      // This is optional but provides extra safety against race conditions
-      try {
-        const content = await fs.readFile(absolutePath, 'utf8');
-        const currentHash = this.calculateHash(content);
-
-        if (currentHash !== cached.metadata.contentHash) {
-          logger.debug('Fingerprint is stale - content hash mismatch', {
-            path: docPath,
-            cachedHash: cached.metadata.contentHash,
-            currentHash
-          });
-          return true;
-        }
-      } catch (error) {
-        // If we can't read the file for hash comparison, rely on modification time
-        logger.warn('Could not verify content hash for fingerprint staleness check', {
-          path: docPath,
-          error
-        });
-      }
-
+      // Hash matches despite mtime change (rare case - e.g., file touched but not modified)
+      logger.debug('Content unchanged despite mtime change', {
+        path: docPath,
+        hash: currentHash
+      });
       return false;
 
     } catch (error) {
@@ -854,8 +949,8 @@ export class DocumentCache extends EventEmitter {
       }
 
       logger.warn('Error checking fingerprint staleness', { path: docPath, error });
-      // On error, assume not stale to avoid unnecessary cache invalidation
-      return false;
+      // On error, assume stale to trigger refresh on next access
+      return true;
     }
   }
 

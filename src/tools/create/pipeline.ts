@@ -4,6 +4,7 @@
  */
 
 import type { SessionState } from '../../session/types.js';
+import type { DocumentManager } from '../../document-manager.js';
 import {
   determineCreateDocumentStage,
   getNextCreateDocumentStage
@@ -64,6 +65,7 @@ export interface CreationErrorResult {
 export async function executeCreateDocumentPipeline(
   args: Record<string, unknown>,
   state: SessionState,
+  manager: DocumentManager,
   onStageChange?: () => void
 ): Promise<PipelineResult> {
   // Extract parameters
@@ -126,7 +128,7 @@ export async function executeCreateDocumentPipeline(
     }
   }
 
-  return await executeCreationStage(namespace, title, overview);
+  return await executeCreationStage(namespace, title, overview, manager);
 }
 
 /**
@@ -135,11 +137,12 @@ export async function executeCreateDocumentPipeline(
 async function executeCreationStage(
   namespace: string,
   title: string,
-  overview: string
+  overview: string,
+  manager: DocumentManager
 ): Promise<DocumentCreationResult | CreationErrorResult> {
   try {
     // Validate prerequisites
-    const validationError = await validateCreationPrerequisites(namespace, title, overview);
+    const validationError = await validateCreationPrerequisites(namespace, title, overview, manager);
     if (validationError != null) {
       return createCreationErrorResult(
         'Prerequisites validation failed',
@@ -163,7 +166,7 @@ async function executeCreationStage(
     }
 
     // Process template
-    const templateResult = await processTemplate(namespace, title, overview);
+    const templateResult = await processTemplate(namespace, title, overview, manager);
     if ('error' in templateResult) {
       return createCreationErrorResult(
         templateResult.error,
@@ -179,6 +182,7 @@ async function executeCreationStage(
       namespace,
       title,
       overview,
+      manager,
       templateResult.content,
       templateResult.docPath,
       templateResult.slug

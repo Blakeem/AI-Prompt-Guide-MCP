@@ -3,23 +3,11 @@
  * Addresses Issues #35, #36, #37: Test coverage, organization, and mocking
  */
 
-import { vi } from 'vitest';
-
-// Mock BEFORE any imports that use it
-vi.mock('../../shared/utilities.js', async () => {
-  const actual = await vi.importActual('../../shared/utilities.js') as Record<string, unknown>;
-  return {
-    ...actual,
-    getDocumentManager: vi.fn()
-    // Keep performSectionEdit as real implementation - it will use the mocked DocumentManager
-  };
-});
-
-// Now safe to import
 import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { section } from '../implementations/section.js';
 import { setupTestSuite, STANDARD_TEST_DOCUMENTS } from './setup/test-environment.js';
 import type { SessionState } from '../../session/types.js';
+import type { DocumentManager } from '../../document-manager.js';
 
 const mockSessionState: SessionState = {
   sessionId: 'improved-integration-test',
@@ -27,6 +15,8 @@ const mockSessionState: SessionState = {
 };
 
 describe('Section Tool - Improved Integration Tests', () => {
+  let mockDocumentManager: DocumentManager;
+
   const testSuite = setupTestSuite('Section Integration', {
     useRealFileSystem: false,
     enableLogging: false,
@@ -43,14 +33,8 @@ describe('Section Tool - Improved Integration Tests', () => {
   beforeAll(async () => {
     await testSuite.beforeAll();
 
-    // Configure the mock after environment setup
-    const { getDocumentManager } = await import('../../shared/utilities.js');
-    const mockDocumentManager = testSuite.getEnvironment().getMockDocumentManager();
-    // MockDocumentManager implements subset of DocumentManager for testing
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(getDocumentManager).mockResolvedValue(mockDocumentManager as any);
-
-    // performSectionEdit will use the real implementation but with the mocked DocumentManager
+    // Get the mock document manager from environment (dependency injection)
+    mockDocumentManager = testSuite.getEnvironment().getMockDocumentManager() as unknown as DocumentManager;
   });
 
   afterAll(testSuite.afterAll);
@@ -66,7 +50,7 @@ describe('Section Tool - Improved Integration Tests', () => {
         operation: 'replace'
       };
 
-      const result = await section(args, mockSessionState);
+      const result = await section(args, mockSessionState, mockDocumentManager);
 
       // Verify response structure
       expect(result).toMatchObject({
@@ -92,7 +76,7 @@ describe('Section Tool - Improved Integration Tests', () => {
         operation: 'append'
       };
 
-      const result = await section(args, mockSessionState);
+      const result = await section(args, mockSessionState, mockDocumentManager);
 
       expect(result).toMatchObject({
         updated: true,
@@ -117,7 +101,7 @@ describe('Section Tool - Improved Integration Tests', () => {
         title: 'Installation'
       };
 
-      const result = await section(args, mockSessionState);
+      const result = await section(args, mockSessionState, mockDocumentManager);
 
       expect(result).toMatchObject({
         created: true,
@@ -148,7 +132,7 @@ describe('Section Tool - Improved Integration Tests', () => {
         operation: 'replace'
       };
 
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager))
         .rejects
         .toThrow('Failed to edit section');
     });
@@ -168,7 +152,7 @@ describe('Section Tool - Improved Integration Tests', () => {
 
       // Some operations might fail due to simulated errors
       try {
-        const result = await section(args, mockSessionState);
+        const result = await section(args, mockSessionState, mockDocumentManager);
         // If it succeeds, verify it's a valid result
         expect(result).toBeDefined();
       } catch (error) {
@@ -188,7 +172,7 @@ describe('Section Tool - Improved Integration Tests', () => {
         operation: 'replace'
       };
 
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager))
         .rejects
         .toThrow();
     });
@@ -202,7 +186,7 @@ describe('Section Tool - Improved Integration Tests', () => {
         // Missing title for creation operation
       };
 
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager))
         .rejects
         .toThrow();
     });
@@ -232,7 +216,7 @@ describe('Section Tool - Improved Integration Tests', () => {
         }
       ];
 
-      const result = await section(operations, mockSessionState);
+      const result = await section(operations, mockSessionState, mockDocumentManager);
 
       expect(result).toMatchObject({
         total_operations: 3,
@@ -267,7 +251,7 @@ describe('Section Tool - Improved Integration Tests', () => {
         }
       ];
 
-      const result = await section(operations, mockSessionState);
+      const result = await section(operations, mockSessionState, mockDocumentManager);
 
       expect(result).toMatchObject({
         total_operations: 3,
@@ -298,7 +282,7 @@ describe('Section Tool - Improved Integration Tests', () => {
         operation: 'replace'
       };
 
-      const result = await section(args, mockSessionState);
+      const result = await section(args, mockSessionState, mockDocumentManager);
 
       expect(result).toMatchObject({
         updated: true,
@@ -319,7 +303,7 @@ describe('Section Tool - Improved Integration Tests', () => {
         title: 'New Child Section'
       };
 
-      const result = await section(args, mockSessionState);
+      const result = await section(args, mockSessionState, mockDocumentManager);
 
       expect(result).toMatchObject({
         created: true,
@@ -344,7 +328,7 @@ describe('Section Tool - Improved Integration Tests', () => {
       };
 
       // Empty content should be rejected
-      await expect(section(args, mockSessionState))
+      await expect(section(args, mockSessionState, mockDocumentManager))
         .rejects
         .toThrow('Content is required');
     });
@@ -359,7 +343,7 @@ describe('Section Tool - Improved Integration Tests', () => {
         operation: 'replace'
       };
 
-      const result = await section(args, mockSessionState);
+      const result = await section(args, mockSessionState, mockDocumentManager);
       expect(result).toMatchObject({
         updated: true,
         section: 'features'
@@ -399,7 +383,7 @@ console.log("Hello, world!");
         operation: 'replace'
       };
 
-      const result = await section(args, mockSessionState);
+      const result = await section(args, mockSessionState, mockDocumentManager);
       expect(result).toMatchObject({
         updated: true,
         section: 'features'
@@ -423,7 +407,7 @@ console.log("Hello, world!");
           operation: 'replace' as const
         };
 
-        return section(args, mockSessionState);
+        return section(args, mockSessionState, mockDocumentManager);
       });
 
       const results = await Promise.allSettled(concurrentOperations);

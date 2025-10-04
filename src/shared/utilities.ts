@@ -9,7 +9,7 @@
 export { performSectionEdit } from './section-operations.js';
 
 // Re-export document manager factory
-export { getDocumentManager } from './document-manager-factory.js';
+export { getDocumentManager, createDocumentManager } from './document-manager-factory.js';
 
 // Re-export path utilities
 export { pathToNamespace, pathToSlug } from './path-utilities.js';
