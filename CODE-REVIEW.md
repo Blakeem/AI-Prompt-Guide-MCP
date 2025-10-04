@@ -161,7 +161,3 @@ A successful code review will:
 
 ---
 
-## Review Findings
-
-*Agents should append findings below in their assigned category section*
-*Use the standard finding format with severity, description, impact, and recommendations*
