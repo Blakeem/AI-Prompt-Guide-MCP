@@ -62,6 +62,18 @@ const MAX_PATH_LENGTH = 4096;
 const ALLOWED_EXTENSIONS = new Set(['.md', '.markdown', '.txt']);
 
 /**
+ * Minimum valid timestamp (2020-01-01) for mtime validation
+ * This prevents unreasonably old timestamps that might indicate invalid data
+ */
+const MIN_VALID_TIMESTAMP = new Date('2020-01-01').getTime();
+
+/**
+ * Maximum valid timestamp (1 year in the future from now)
+ * This prevents unreasonably large timestamps (e.g., year 9999)
+ */
+const MAX_VALID_TIMESTAMP = Date.now() + (365 * 24 * 60 * 60 * 1000);
+
+/**
  * Dangerous characters that should be removed from file names
  * Includes null bytes, control characters, and OS-specific dangerous chars
  * Note: Forward slash (/) is allowed for path separators
@@ -324,11 +336,21 @@ export async function writeFileIfUnchanged(
   validateContentLength(content, operation, safePath);
 
   // Validate expectedMtimeMs parameter
-  if (typeof expectedMtimeMs !== 'number' || expectedMtimeMs < 0 || !Number.isFinite(expectedMtimeMs)) {
+  if (typeof expectedMtimeMs !== 'number' ||
+      !Number.isFinite(expectedMtimeMs) ||
+      expectedMtimeMs < MIN_VALID_TIMESTAMP ||
+      expectedMtimeMs > MAX_VALID_TIMESTAMP) {
     throw createError(
-      `Invalid expectedMtimeMs: ${expectedMtimeMs}`,
+      `Invalid expectedMtimeMs: ${expectedMtimeMs}. Must be a valid timestamp.`,
       ERROR_CODES.INVALID_OPERATION,
-      { operation, expectedMtimeMs }
+      {
+        operation,
+        expectedMtimeMs,
+        validRange: {
+          min: MIN_VALID_TIMESTAMP,
+          max: MAX_VALID_TIMESTAMP
+        }
+      }
     );
   }
 

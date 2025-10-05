@@ -5,9 +5,10 @@
 
 import { vi } from 'vitest';
 import type { CachedDocument, DocumentMetadata, CachedSectionEntry } from '../../../document-cache.js';
-import type { Heading, HeadingDepth } from '../../../types/core.js';
+import type { Heading } from '../../../types/core.js';
 import type { MockFileSystem } from './filesystem.mock.js';
 import { createMockFileSystem } from './filesystem.mock.js';
+import { validateHeadingDepth } from '../../../shared/validation-utils.js';
 
 export interface MockDocumentManagerOptions {
   mockFileSystem?: MockFileSystem;
@@ -211,7 +212,8 @@ class MockDocumentManager {
       if (line != null && line !== '' && line.startsWith('#')) {
         const match = line.match(/^(#{1,6})\s+(.+)$/);
         if (match != null) {
-          const depth = Math.min(Math.max(match[1]?.length ?? 1, 1), 6) as HeadingDepth;
+          const rawDepth = match[1]?.length ?? 1;
+          const depth = validateHeadingDepth(rawDepth);
           const title = match[2] ?? '';
           const slug = this.titleToSlug(title);
 

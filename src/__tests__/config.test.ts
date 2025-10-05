@@ -79,7 +79,7 @@ describe('loadConfig', () => {
       } catch (error) {
         const specError = error as SpecDocsError;
         expect(specError.code).toBe(ERROR_CODES.ENVIRONMENT_ERROR);
-        expect(specError.message).toContain('REFERENCE_EXTRACTION_DEPTH must be a number between 1 and 5');
+        expect(specError.message).toContain('REFERENCE_EXTRACTION_DEPTH must be a valid integer between 1 and 5');
       }
     });
 
@@ -95,7 +95,7 @@ describe('loadConfig', () => {
       } catch (error) {
         const specError = error as SpecDocsError;
         expect(specError.code).toBe(ERROR_CODES.ENVIRONMENT_ERROR);
-        expect(specError.message).toContain('REFERENCE_EXTRACTION_DEPTH must be a number between 1 and 5');
+        expect(specError.message).toContain('REFERENCE_EXTRACTION_DEPTH must be a valid integer between 1 and 5');
       }
     });
 

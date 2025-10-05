@@ -1,109 +1,67 @@
 /**
- * Standardized parameter validation utilities
+ * Domain-specific parameter validation utilities
  *
- * Provides consistent parameter validation across all MCP tools to ensure
- * uniform error handling and type safety.
+ * Provides validation for domain-specific types like HeadingDepth.
+ * For general parameter validation (strings, arrays, etc.), use ToolIntegration from addressing-system.
  *
  * @module validation-utils
  */
 
-/**
- * Validate required string parameter
- *
- * Ensures parameter is a non-null, non-empty string with consistent error messaging.
- * Throws on null, undefined, empty strings, or wrong types.
- *
- * @param value - Value to validate
- * @param paramName - Parameter name for error messages
- * @returns Validated, trimmed string
- * @throws {Error} When value is null, undefined, empty string, or wrong type
- *
- * @example Valid string
- * ```typescript
- * const title = validateRequiredString('Task Title', 'title');
- * // Returns: 'Task Title'
- * ```
- *
- * @example Empty string (throws)
- * ```typescript
- * try {
- *   validateRequiredString('', 'title');
- * } catch (error) {
- *   // Error: "title is required and cannot be empty"
- * }
- * ```
- *
- * @example Wrong type (throws)
- * ```typescript
- * try {
- *   validateRequiredString(123, 'title');
- * } catch (error) {
- *   // Error: "title must be a string"
- * }
- * ```
- */
-export function validateRequiredString(value: unknown, paramName: string): string {
-  if (value == null || value === '') {
-    throw new Error(`${paramName} is required and cannot be empty`);
-  }
-  if (typeof value !== 'string') {
-    throw new Error(`${paramName} must be a string`);
-  }
-  const trimmed = value.trim();
-  if (trimmed === '') {
-    throw new Error(`${paramName} is required and cannot be empty`);
-  }
-  return trimmed;
-}
+import type { HeadingDepth } from '../types/index.js';
 
 /**
- * Validate optional string parameter
+ * Validate and sanitize heading depth to ensure it's a valid HeadingDepth (1-6)
  *
- * Ensures parameter is a string if provided, returns undefined for null/undefined/empty.
- * Allows graceful handling of optional parameters with consistent type checking.
+ * Ensures depth is a valid integer between 1 and 6, clamping to valid range and
+ * using Math.floor() to handle non-integer inputs safely.
  *
- * @param value - Value to validate
- * @param paramName - Parameter name for error messages
- * @returns Validated, trimmed string or undefined if not provided
- * @throws {Error} When value is wrong type (but not null/undefined/empty)
+ * @param depth - The depth value to validate (can be any number)
+ * @returns Valid HeadingDepth between 1 and 6
+ * @throws {Error} If depth is not a finite number
  *
- * @example Valid optional string
+ * @example Valid depth
  * ```typescript
- * const note = validateOptionalString('Completion note', 'note');
- * // Returns: 'Completion note'
+ * const depth = validateHeadingDepth(3);
+ * // Returns: 3
  * ```
  *
- * @example Null/undefined (returns undefined)
+ * @example Out of range (clamped to valid range)
  * ```typescript
- * const note = validateOptionalString(null, 'note');
- * // Returns: undefined
+ * const depth = validateHeadingDepth(10);
+ * // Returns: 6 (clamped to max)
  *
- * const note2 = validateOptionalString(undefined, 'note');
- * // Returns: undefined
+ * const depth2 = validateHeadingDepth(0);
+ * // Returns: 1 (clamped to min)
  * ```
  *
- * @example Empty string (returns undefined)
+ * @example Non-integer (floored to integer)
  * ```typescript
- * const note = validateOptionalString('', 'note');
- * // Returns: undefined
+ * const depth = validateHeadingDepth(2.7);
+ * // Returns: 2 (floored to integer)
  * ```
  *
- * @example Wrong type (throws)
+ * @example Invalid input (throws)
  * ```typescript
  * try {
- *   validateOptionalString(123, 'note');
+ *   validateHeadingDepth(NaN);
  * } catch (error) {
- *   // Error: "note must be a string if provided"
+ *   // Error: "Invalid depth: NaN. Must be a finite number."
+ * }
+ *
+ * try {
+ *   validateHeadingDepth(Infinity);
+ * } catch (error) {
+ *   // Error: "Invalid depth: Infinity. Must be a finite number."
  * }
  * ```
  */
-export function validateOptionalString(value: unknown, paramName: string): string | undefined {
-  if (value == null) {
-    return undefined;
+export function validateHeadingDepth(depth: number): HeadingDepth {
+  if (typeof depth !== 'number' || !Number.isFinite(depth)) {
+    throw new Error(`Invalid depth: ${String(depth)}. Must be a finite number.`);
   }
-  if (typeof value !== 'string') {
-    throw new Error(`${paramName} must be a string if provided`);
-  }
-  const trimmed = value.trim();
-  return trimmed === '' ? undefined : trimmed;
+
+  // Floor to integer and clamp to valid range (1-6)
+  const validated = Math.floor(Math.max(1, Math.min(6, depth)));
+
+  return validated as HeadingDepth;
 }

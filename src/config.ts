@@ -117,8 +117,8 @@ function parseEnvironmentVariables(env: Record<string, string | undefined>): Rec
       errors.push('REFERENCE_EXTRACTION_DEPTH must be a number between 1 and 5');
     } else {
       const depth = parseInt(depthStr, 10);
-      if (isNaN(depth) || depth < 1 || depth > 5) {
-        errors.push('REFERENCE_EXTRACTION_DEPTH must be a number between 1 and 5');
+      if (!Number.isSafeInteger(depth) || depth < 1 || depth > 5) {
+        errors.push('REFERENCE_EXTRACTION_DEPTH must be a valid integer between 1 and 5');
       } else {
         config['referenceExtractionDepth'] = depth;
       }

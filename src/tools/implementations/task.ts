@@ -23,10 +23,6 @@ import type {
   TaskAddress
 } from '../../shared/addressing-system.js';
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
-import {
-  validateRequiredString,
-  validateOptionalString
-} from '../../shared/validation-utils.js';
 
 /**
  * Get hierarchical context for a task slug
@@ -145,8 +141,8 @@ export async function task(
 ): Promise<TaskResult> {
   try {
 
-    // Validate parameters using standardized validation utilities
-    const documentPath = validateRequiredString(args['document'], 'document');
+    // Validate parameters using ToolIntegration utilities
+    const documentPath = ToolIntegration.validateStringParameter(args['document'], 'document');
     const operationRaw = args['operation'] ?? 'list';
     const operation = ToolIntegration.validateOperation(
       operationRaw,
@@ -154,11 +150,11 @@ export async function task(
       'task'
     );
 
-    const taskSlug = validateOptionalString(args['task'], 'task');
-    const content = validateOptionalString(args['content'], 'content');
-    const title = validateOptionalString(args['title'], 'title');
-    const statusFilter = validateOptionalString(args['status'], 'status');
-    const priorityFilter = validateOptionalString(args['priority'], 'priority');
+    const taskSlug = ToolIntegration.validateOptionalStringParameter(args['task'], 'task');
+    const content = ToolIntegration.validateOptionalStringParameter(args['content'], 'content');
+    const title = ToolIntegration.validateOptionalStringParameter(args['title'], 'title');
+    const statusFilter = ToolIntegration.validateOptionalStringParameter(args['status'], 'status');
+    const priorityFilter = ToolIntegration.validateOptionalStringParameter(args['priority'], 'priority');
 
     // Use addressing system for validation and parsing
     const { addresses } = ToolIntegration.validateAndParse({

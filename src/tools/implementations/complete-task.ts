@@ -16,9 +16,6 @@ import {
   findNextAvailableTask
 } from '../../shared/task-view-utilities.js';
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
-import {
-  validateRequiredString
-} from '../../shared/validation-utils.js';
 
 interface CompleteTaskResult {
   completed_task: {
@@ -49,10 +46,10 @@ export async function completeTask(
 ): Promise<CompleteTaskResult> {
   try {
 
-    // Validate required parameters using standardized validation utilities
-    const documentPath = validateRequiredString(args['document'], 'document');
-    const taskSlug = validateRequiredString(args['task'], 'task');
-    const note = validateRequiredString(args['note'], 'note');
+    // Validate required parameters using ToolIntegration utilities
+    const documentPath = ToolIntegration.validateStringParameter(args['document'], 'document');
+    const taskSlug = ToolIntegration.validateStringParameter(args['task'], 'task');
+    const note = ToolIntegration.validateStringParameter(args['note'], 'note');
 
     // Use addressing system for validation and parsing
     const { addresses } = ToolIntegration.validateAndParse({

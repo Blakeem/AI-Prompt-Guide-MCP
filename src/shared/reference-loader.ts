@@ -185,12 +185,14 @@ export class ReferenceLoader {
       let title: string;
 
       if (ref.sectionSlug != null) {
-        // Load specific section
-        const sectionContent = document.sections?.get(ref.sectionSlug)?.content;
+        // Load specific section using DocumentManager to ensure proper loading
+        const sectionContent = await manager.getSectionContent(ref.documentPath, ref.sectionSlug);
+
         if (sectionContent == null) {
-          console.warn(`Section not found: ${ref.sectionSlug} in ${ref.documentPath}`);
+          console.warn(`Section "${ref.sectionSlug}" not found in ${ref.documentPath}`);
           return null;
         }
+
         content = sectionContent;
 
         // Find section title from headings

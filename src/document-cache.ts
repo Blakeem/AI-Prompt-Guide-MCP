@@ -22,6 +22,18 @@ const logger = getGlobalLogger();
 const MARKDOWN_LINK_PATTERN = /\[([^\]]+)\]\([^)]+\)/g;
 const CODE_BLOCK_PATTERN = /```[\s\S]*?```/g;
 
+/**
+ * Stop words Set for keyword extraction
+ * Created once at module load time for optimal performance
+ */
+const STOP_WORDS = new Set([
+  'the', 'and', 'for', 'with', 'this', 'that', 'will', 'can', 'are', 'you',
+  'how', 'what', 'when', 'where', 'why', 'who', 'which', 'was', 'were',
+  'been', 'have', 'has', 'had', 'should', 'would', 'could', 'may', 'might',
+  'must', 'shall', 'not', 'but', 'however', 'therefore', 'thus', 'also',
+  'such', 'very', 'more', 'most', 'much', 'many', 'some', 'any', 'all'
+]);
+
 export interface DocumentMetadata {
   path: string;
   title: string;
@@ -435,18 +447,10 @@ export class DocumentCache extends EventEmitter {
         return [];
       }
 
-      // Remove common stop words
-      const stopWords = new Set([
-        'the', 'and', 'for', 'with', 'this', 'that', 'will', 'can', 'are', 'you',
-        'how', 'what', 'when', 'where', 'why', 'who', 'which', 'was', 'were',
-        'been', 'have', 'has', 'had', 'should', 'would', 'could', 'may', 'might',
-        'must', 'shall', 'not', 'but', 'however', 'therefore', 'thus', 'also',
-        'such', 'very', 'more', 'most', 'much', 'many', 'some', 'any', 'all'
-      ]);
-
+      // Filter out stop words and non-meaningful content
       const keywords = words.filter(word => {
-        // Remove stop words
-        if (stopWords.has(word)) {
+        // Remove stop words using module-level constant
+        if (STOP_WORDS.has(word)) {
           return false;
         }
         // Remove words that are just punctuation or numbers

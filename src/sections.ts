@@ -13,6 +13,7 @@ import { titleToSlug } from './slug.js';
 import { listHeadings } from './parse.js';
 import { ERROR_CODES, DEFAULT_LIMITS } from './constants/defaults.js';
 import { AddressingError } from './shared/addressing-system.js';
+import { validateHeadingDepth } from './shared/validation-utils.js';
 import type {
   HeadingDepth,
   InsertMode,
@@ -1256,9 +1257,10 @@ class AppendChildStrategy implements SectionInsertionStrategy {
       throw new HeadingNotFoundError(context.refSlug);
     }
 
+    const calculatedDepth = refHeading.node.depth + 1;
     return {
       parentIndex: refHeading.index,
-      finalDepth: Math.min(6, refHeading.node.depth + 1) as HeadingDepth
+      finalDepth: validateHeadingDepth(calculatedDepth)
     };
   }
 
@@ -1438,7 +1440,8 @@ export function renameHeading(markdown: string, slug: string, newTitle: string):
   }
 
   // Ensure uniqueness among siblings
-  ensureUniqueAmongSiblings(tree, parentIndex, targetHeading.depth as HeadingDepth, newTitle);
+  const validatedDepth = validateHeadingDepth(targetHeading.depth);
+  ensureUniqueAmongSiblings(tree, parentIndex, validatedDepth, newTitle);
 
   // Update the heading's text
   targetHeading.children = [{ type: 'text', value: newTitle }];

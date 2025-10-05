@@ -10,7 +10,8 @@ import { listHeadings, buildToc } from './parse.js';
 import { ensureDirectoryExists, writeFileIfUnchanged, readFileSnapshot, fileExists } from './fsio.js';
 import { getGlobalLogger } from './utils/logger.js';
 import { PathHandler } from './utils/path-handler.js';
-import type { TocNode, HeadingDepth, InsertMode } from './types/index.js';
+import type { TocNode, InsertMode } from './types/index.js';
+import { validateHeadingDepth } from './shared/validation-utils.js';
 import type { CachedDocument, FingerprintEntry } from './document-cache.js';
 
 const logger = getGlobalLogger();
@@ -384,34 +385,37 @@ export class DocumentManager {
     docPath: string,
     referenceSlug: string,
     insertMode: InsertMode,
-    depth: HeadingDepth | undefined,
+    depth: number | undefined,
     title: string,
     content: string,
     options: UpdateSectionOptions = {}
   ): Promise<void> {
     const absolutePath = this.getAbsolutePath(docPath);
     const snapshot = await readFileSnapshot(absolutePath);
-    
+
     // Determine depth if not specified
-    let finalDepth: HeadingDepth;
+    let calculatedDepth: number;
     if (depth != null) {
-      finalDepth = Math.max(1, Math.min(6, depth)) as HeadingDepth;
+      calculatedDepth = depth;
     } else {
       // Auto-determine depth based on insertion mode
       const document = await this.cache.getDocument(docPath);
       if (!document) {
         throw new Error(`Document not found: ${docPath}`);
       }
-      
+
       const refHeading = document.headings.find(h => h.slug === referenceSlug);
       if (!refHeading) {
         throw new Error(`Reference section not found: ${referenceSlug}`);
       }
-      
-      finalDepth = insertMode === 'append_child' 
-        ? Math.min(6, refHeading.depth + 1) as HeadingDepth
+
+      calculatedDepth = insertMode === 'append_child'
+        ? refHeading.depth + 1
         : refHeading.depth;
     }
+
+    // Validate and sanitize depth to ensure it's a valid HeadingDepth (1-6)
+    const finalDepth = validateHeadingDepth(calculatedDepth);
     
     const updated = insertRelative(snapshot.content, referenceSlug, insertMode, finalDepth, title, content);
     await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated);

@@ -10,6 +10,7 @@ import type { Heading as MdHeading, Root } from 'mdast';
 import GithubSlugger from 'github-slugger';
 import { DEFAULT_LIMITS, ERROR_CODES } from './constants/defaults.js';
 import type { Heading, TocNode, HeadingDepth, SpecDocsError } from './types/index.js';
+import { validateHeadingDepth } from './shared/validation-utils.js';
 
 /**
  * Creates a custom error with code and context
@@ -21,10 +22,10 @@ function createError(message: string, code: string, context?: Record<string, unk
 
 /**
  * Validates heading depth and normalizes it to valid range
+ * @deprecated Use validateHeadingDepth from validation-utils.ts instead
  */
 function normalizeHeadingDepth(depth: number): HeadingDepth {
-  const normalized = Math.max(1, Math.min(6, depth)) as HeadingDepth;
-  return normalized;
+  return validateHeadingDepth(depth);
 }
 
 /**

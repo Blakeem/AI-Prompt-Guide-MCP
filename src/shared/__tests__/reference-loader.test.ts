@@ -152,6 +152,14 @@ const createMockDocumentManager = (): DocumentManager => {
   return {
     async getDocument(path: string) {
       return mockDocs.get(path) ?? null;
+    },
+    async getSectionContent(path: string, slug: string) {
+      const doc = mockDocs.get(path);
+      if (doc == null) {
+        return null;
+      }
+      const section = doc.sections?.get(slug);
+      return section?.content ?? null;
     }
   } as DocumentManager;
 };
@@ -228,7 +236,7 @@ describe('ReferenceLoader', () => {
 
       expect(hierarchy).toHaveLength(0);
       expect(warnMock).toHaveBeenCalledWith(
-        expect.stringContaining('Section not found: nonexistent')
+        expect.stringContaining('Section "nonexistent" not found in')
       );
 
       console.warn = originalWarn;
@@ -629,8 +637,12 @@ describe('ReferenceLoader', () => {
             } as any;
           }
           return null;
+        },
+        async getSectionContent(_path: string, _slug: string) {
+          return null;
         }
-      } as DocumentManager;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any as DocumentManager;
 
       const refs: NormalizedReference[] = [
         {
