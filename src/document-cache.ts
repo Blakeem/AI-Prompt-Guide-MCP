@@ -534,7 +534,7 @@ export class DocumentCache extends EventEmitter {
       return;
     }
 
-    const entriesToRemove = this.cache.size - this.options.maxCacheSize + 1;
+    const entriesToRemove = this.cache.size - this.options.maxCacheSize;
 
     // Calculate eviction scores (lower score = evict first)
     const scoredPaths = Array.from(this.accessMetadata.entries())
