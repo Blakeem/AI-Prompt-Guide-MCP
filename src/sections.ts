@@ -1056,6 +1056,21 @@ function validateSlugSecurity(slug: string): string {
  * @throws {Error} When hierarchical path validation fails (too long, dangerous chars, etc.)
  */
 export function readSection(markdown: string, slug: string): string | null {
+  // Validate markdown parameter
+  if (typeof markdown !== 'string') {
+    throw new InvalidSectionContentError(
+      'Markdown content must be a string',
+      { type: typeof markdown }
+    );
+  }
+
+  if (markdown.trim() === '') {
+    throw new InvalidSectionContentError(
+      'Markdown content cannot be empty',
+      { length: markdown.length }
+    );
+  }
+
   if (!slug || typeof slug !== 'string') {
     throw new InvalidSlugError(
       'Slug must be a non-empty string',

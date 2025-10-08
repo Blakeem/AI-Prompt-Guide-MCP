@@ -412,9 +412,14 @@ describe('ReferenceLoader', () => {
         2
       );
 
-      expect(hierarchy).toHaveLength(2);
+      // With proper cycle prevention, /api/tokens.md is loaded as child of /api/auth.md
+      // and won't be loaded again at top level (prevents exponential growth)
+      expect(hierarchy).toHaveLength(1);
       expect(hierarchy[0]?.path).toBe('/api/auth.md');
-      expect(hierarchy[1]?.path).toBe('/api/tokens.md');
+
+      // Verify /api/tokens.md is loaded as a child instead
+      expect(hierarchy[0]?.children).toHaveLength(1);
+      expect(hierarchy[0]?.children[0]?.path).toBe('/api/tokens.md');
     });
 
     it('should handle content with no references', async () => {
@@ -622,20 +627,20 @@ describe('ReferenceLoader', () => {
         } as NormalizedReference
       ];
 
-      // Mock console.warn to verify error handling
-      const originalWarn = console.warn;
-      const warnMock = vi.fn();
-      console.warn = warnMock;
+      // Import and mock the logger
+      const { getGlobalLogger } = await import('../../utils/logger.js');
+      const logger = getGlobalLogger();
+      const warnMock = vi.spyOn(logger, 'warn');
 
       const hierarchy = await loader.loadReferences(refs, brokenManager, 1, 0);
 
       expect(hierarchy).toEqual([]);
       expect(warnMock).toHaveBeenCalledWith(
         expect.stringContaining('Failed to load reference'),
-        expect.any(Error)
+        expect.objectContaining({ error: expect.any(String) })
       );
 
-      console.warn = originalWarn;
+      warnMock.mockRestore();
     });
 
     it('should handle documents with malformed headings', async () => {

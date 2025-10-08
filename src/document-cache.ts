@@ -8,12 +8,28 @@ import path from 'node:path';
 import { watch } from 'chokidar';
 import { EventEmitter } from 'node:events';
 import { listHeadings, buildToc } from './parse.js';
-import type { Heading, TocNode } from './types/index.js';
+import type { Heading, TocNode, SpecDocsError } from './types/index.js';
 import { getGlobalLogger } from './utils/logger.js';
 import { invalidateAddressCache } from './shared/addressing-system.js';
 import { pathToNamespace } from './shared/path-utilities.js';
+import { ERROR_CODES, DEFAULT_LIMITS } from './constants/defaults.js';
+import { createRequire } from 'node:module';
 
 const logger = getGlobalLogger();
+
+const require = createRequire(import.meta.url);
+const packageJson = require('../package.json') as { version: string };
+
+/**
+ * Creates a custom error with code, context, and version information
+ */
+function createError(message: string, code: string, context?: Record<string, unknown>): SpecDocsError {
+  const error = new Error(message) as SpecDocsError;
+  return Object.assign(error, {
+    code,
+    context: { ...context, version: packageJson.version }
+  });
+}
 
 /**
  * Access context for cache operations
@@ -21,7 +37,14 @@ const logger = getGlobalLogger();
  * Tracks the purpose of document access to apply appropriate caching strategies.
  * Different contexts receive different eviction resistance (boost factors).
  */
-export type AccessContext = 'search' | 'direct' | 'reference';
+export enum AccessContext {
+  /** Search operations (lowest eviction resistance) */
+  SEARCH = 'search',
+  /** Direct document access (standard eviction resistance) */
+  DIRECT = 'direct',
+  /** Reference loading (highest eviction resistance, 2x boost) */
+  REFERENCE = 'reference'
+}
 
 /**
  * Access metadata for boost-aware eviction
@@ -289,6 +312,10 @@ export class DocumentCache extends EventEmitter {
   private watcher: ReturnType<typeof watch> | undefined;
   private accessCounter = 0;
   private readonly boostFactors: { search: number; direct: number; reference: number };
+  private watcherErrorCount = 0;
+  private readonly MAX_WATCHER_ERRORS = 3;
+  private pollingInterval: NodeJS.Timeout | undefined;
+  private totalHeadingsLoaded = 0;
 
   constructor(docsRoot: string, options: Partial<CacheOptions> = {}) {
     super();
@@ -325,9 +352,14 @@ export class DocumentCache extends EventEmitter {
         invalidateAddressCache(docPath);
         logger.debug('Invalidated addressing cache for changed document', { path: docPath });
       } catch (error) {
-        logger.error('CRITICAL: Failed to invalidate addressing cache for changed document', { path: docPath, error });
-        // Re-throw to prevent cache inconsistency
-        throw error;
+        logger.error('CRITICAL: Failed to invalidate addressing cache - MANUAL INTERVENTION REQUIRED', {
+          path: docPath,
+          error,
+          remedy: 'Restart server or manually clear caches'
+        });
+        // Don't re-throw - log for monitoring but continue operation
+        // Emit a separate critical error event for alerting
+        this.emit('cache:inconsistency:critical', { docPath, error });
       }
     });
 
@@ -336,9 +368,14 @@ export class DocumentCache extends EventEmitter {
         invalidateAddressCache(docPath);
         logger.debug('Invalidated addressing cache for deleted document', { path: docPath });
       } catch (error) {
-        logger.error('CRITICAL: Failed to invalidate addressing cache for deleted document', { path: docPath, error });
-        // Re-throw to prevent cache inconsistency
-        throw error;
+        logger.error('CRITICAL: Failed to invalidate addressing cache - MANUAL INTERVENTION REQUIRED', {
+          path: docPath,
+          error,
+          remedy: 'Restart server or manually clear caches'
+        });
+        // Don't re-throw - log for monitoring but continue operation
+        // Emit a separate critical error event for alerting
+        this.emit('cache:inconsistency:critical', { docPath, error });
       }
     });
   }
@@ -357,15 +394,30 @@ export class DocumentCache extends EventEmitter {
       }
     });
 
-    // Critical: Handle watcher errors to prevent silent cache staleness
+    // Critical: Handle watcher errors with recovery mechanism
     this.watcher.on('error', (error: unknown) => {
+      this.watcherErrorCount++;
       const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error('CRITICAL: File watcher error - cache may become stale', {
+
+      logger.error('File watcher error - attempting recovery', {
         error: errorMessage,
+        errorCount: this.watcherErrorCount,
+        maxErrors: this.MAX_WATCHER_ERRORS,
         docsRoot: this.docsRoot
       });
+
       this.emit('watcher:error', error);
-      // Consider implementing fallback polling mechanism
+
+      // After MAX_WATCHER_ERRORS, switch to polling mode
+      if (this.watcherErrorCount >= this.MAX_WATCHER_ERRORS) {
+        logger.error('Maximum watcher errors reached - switching to polling mode', {
+          errorCount: this.watcherErrorCount
+        });
+        this.switchToPollingMode();
+      } else {
+        // Attempt to reinitialize with exponential backoff
+        this.reinitializeWatcher();
+      }
     });
 
     this.watcher.on('change', (filePath: string) => {
@@ -391,6 +443,105 @@ export class DocumentCache extends EventEmitter {
     });
 
     logger.info('File watcher initialized', { docsRoot: this.docsRoot });
+  }
+
+  /**
+   * Reinitialize file watcher with exponential backoff after error
+   */
+  private reinitializeWatcher(): void {
+    if (this.watcher != null) {
+      this.watcher.close().catch((error: unknown) => {
+        logger.warn('Error closing watcher during reinitialize', { error });
+      });
+      this.watcher = undefined;
+    }
+
+    const backoffDelay = 5000 * this.watcherErrorCount;
+    logger.info('Scheduling watcher reinitialize with backoff', {
+      errorCount: this.watcherErrorCount,
+      delayMs: backoffDelay
+    });
+
+    setTimeout(() => {
+      logger.info('Attempting to reinitialize file watcher');
+      this.initializeWatcher();
+    }, backoffDelay);
+  }
+
+  /**
+   * Switch to polling mode after repeated watcher failures
+   *
+   * Implements fallback polling mechanism that validates cache consistency
+   * every 30 seconds by checking file modification times. This ensures the
+   * cache stays synchronized even when the file watcher is unavailable.
+   */
+  private switchToPollingMode(): void {
+    if (this.watcher != null) {
+      this.watcher.close().catch((error: unknown) => {
+        logger.warn('Error closing watcher during switch to polling', { error });
+      });
+      this.watcher = undefined;
+    }
+
+    logger.warn('Switching to polling mode after repeated watcher failures', {
+      errorCount: this.watcherErrorCount,
+      pollingInterval: 30000
+    });
+
+    this.pollingInterval = setInterval(() => {
+      this.validateCacheConsistency().catch((error: unknown) => {
+        logger.error('Error during cache validation in polling mode', { error });
+      });
+    }, 30000);
+
+    this.emit('watcher:polling-mode');
+  }
+
+  /**
+   * Validate cache consistency by checking file modification times
+   *
+   * Used in polling mode to detect file changes when the watcher is unavailable.
+   * Compares cached modification times with current file stats and invalidates
+   * stale entries.
+   */
+  private async validateCacheConsistency(): Promise<void> {
+    const cachedPaths = Array.from(this.cache.keys());
+
+    for (const docPath of cachedPaths) {
+      try {
+        const absolutePath = this.getAbsolutePath(docPath);
+        const stats = await fs.stat(absolutePath);
+        const cached = this.cache.get(docPath);
+
+        if (cached != null) {
+          const cachedMtime = cached.metadata.lastModified.getTime();
+          const currentMtime = stats.mtimeMs;
+
+          if (currentMtime !== cachedMtime) {
+            logger.debug('Detected stale document in polling mode', {
+              path: docPath,
+              cachedMtime: new Date(cachedMtime).toISOString(),
+              currentMtime: new Date(currentMtime).toISOString()
+            });
+
+            this.invalidateDocument(docPath);
+            this.emit('document:changed', docPath);
+          }
+        }
+      } catch (error) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+          // File was deleted
+          logger.debug('Detected deleted document in polling mode', { path: docPath });
+          this.invalidateDocument(docPath);
+          this.emit('document:deleted', docPath);
+        } else {
+          logger.warn('Error validating document in polling mode', {
+            path: docPath,
+            error
+          });
+        }
+      }
+    }
   }
 
   /**
@@ -537,25 +688,42 @@ export class DocumentCache extends EventEmitter {
     const entriesToRemove = this.cache.size - this.options.maxCacheSize;
 
     // Calculate eviction scores (lower score = evict first)
+    // Use normalized scoring to prevent integer overflow
     const scoredPaths = Array.from(this.accessMetadata.entries())
-      .map(([path, metadata]) => ({
-        path,
-        score: this.options.evictionPolicy === 'lru'
-          ? metadata.timestamp * metadata.boostFactor  // Boost search-accessed docs
-          : -metadata.timestamp * metadata.boostFactor // MRU with boost
-      }))
+      .map(([path, metadata]) => {
+        // Normalize timestamp to prevent overflow when multiplying by boost factor
+        const normalizedTimestamp = metadata.timestamp / this.accessCounter;
+        const score = this.options.evictionPolicy === 'lru'
+          ? normalizedTimestamp * metadata.boostFactor  // Boost search-accessed docs
+          : -normalizedTimestamp * metadata.boostFactor; // MRU with boost
+
+        return { path, score };
+      })
       .sort((a, b) => a.score - b.score)  // Lowest score first
       .slice(0, entriesToRemove)
       .map(entry => entry.path);
 
     for (const docPath of scoredPaths) {
+      // Get document before deletion to track heading count
+      const doc = this.cache.get(docPath);
+
       this.cache.delete(docPath);
       this.accessOrder.delete(docPath);
       this.accessMetadata.delete(docPath);
 
-      logger.debug('Evicted document from cache', {
-        path: docPath
-      });
+      // Decrement total heading count for evicted document
+      if (doc != null) {
+        this.totalHeadingsLoaded -= doc.headings.length;
+        logger.debug('Evicted document from cache', {
+          path: docPath,
+          headingsRemoved: doc.headings.length,
+          totalHeadingsRemaining: this.totalHeadingsLoaded
+        });
+      } else {
+        logger.debug('Evicted document from cache', {
+          path: docPath
+        });
+      }
     }
   }
 
@@ -565,7 +733,7 @@ export class DocumentCache extends EventEmitter {
    * @param docPath - Document path
    * @param context - Access context (search, direct, reference)
    */
-  private updateAccess(docPath: string, context: AccessContext = 'direct'): void {
+  private updateAccess(docPath: string, context: AccessContext = AccessContext.DIRECT): void {
     this.accessCounter++;
     this.accessOrder.set(docPath, this.accessCounter);
 
@@ -595,14 +763,14 @@ export class DocumentCache extends EventEmitter {
    * }
    *
    * @example Search context (3x eviction resistance)
-   * const doc = await cache.getDocument("api/authentication.md", "search");
+   * const doc = await cache.getDocument("api/authentication.md", AccessContext.SEARCH);
    *
    * @example Reference context (2x eviction resistance)
-   * const doc = await cache.getDocument("api/tokens.md", "reference");
+   * const doc = await cache.getDocument("api/tokens.md", AccessContext.REFERENCE);
    *
    * @throws {Error} When file access fails due to permissions or other filesystem errors
    */
-  async getDocument(docPath: string, context: AccessContext = 'direct'): Promise<CachedDocument | null> {
+  async getDocument(docPath: string, context: AccessContext = AccessContext.DIRECT): Promise<CachedDocument | null> {
     // Check cache first
     const cached = this.cache.get(docPath);
     if (cached) {
@@ -621,6 +789,30 @@ export class DocumentCache extends EventEmitter {
 
       // Parse content
       const headings = listHeadings(content);
+
+      // Check global heading limit to prevent DoS via heading accumulation
+      const newTotal = this.totalHeadingsLoaded + headings.length;
+      if (newTotal > DEFAULT_LIMITS.MAX_TOTAL_HEADINGS) {
+        logger.error('Global heading limit exceeded', {
+          currentTotal: this.totalHeadingsLoaded,
+          newDocument: headings.length,
+          maxTotal: DEFAULT_LIMITS.MAX_TOTAL_HEADINGS,
+          docPath
+        });
+        throw createError(
+          'Global heading limit exceeded. Clear cache or increase limit.',
+          ERROR_CODES.RESOURCE_EXHAUSTED,
+          {
+            currentTotal: this.totalHeadingsLoaded,
+            newDocument: headings.length,
+            maxTotal: DEFAULT_LIMITS.MAX_TOTAL_HEADINGS
+          }
+        );
+      }
+
+      // Update total heading count
+      this.totalHeadingsLoaded = newTotal;
+
       const toc = buildToc(content);
       const slugIndex = this.buildSlugIndex(headings);
       const metadata = this.extractMetadata(content, absolutePath, stats);
@@ -724,21 +916,39 @@ export class DocumentCache extends EventEmitter {
    * Invalidate a document in the cache
    */
   invalidateDocument(docPath: string): boolean {
+    // Get the cached document to track heading count before deletion
+    const cachedDoc = this.cache.get(docPath);
+
     const existed = this.cache.delete(docPath);
     this.accessOrder.delete(docPath);
     this.accessMetadata.delete(docPath);
 
     if (existed) {
-      logger.debug('Invalidated cached document', { path: docPath });
+      // Decrement total heading count when removing a document
+      if (cachedDoc != null) {
+        this.totalHeadingsLoaded -= cachedDoc.headings.length;
+        logger.debug('Invalidated cached document', {
+          path: docPath,
+          headingsRemoved: cachedDoc.headings.length,
+          totalHeadingsRemaining: this.totalHeadingsLoaded
+        });
+      } else {
+        logger.debug('Invalidated cached document', { path: docPath });
+      }
 
       // Also invalidate addressing cache for consistency
       try {
         invalidateAddressCache(docPath);
         logger.debug('Invalidated addressing cache for manually invalidated document', { path: docPath });
       } catch (error) {
-        logger.error('CRITICAL: Failed to invalidate addressing cache during manual invalidation', { path: docPath, error });
-        // Re-throw to prevent cache inconsistency
-        throw error;
+        logger.error('CRITICAL: Failed to invalidate addressing cache - MANUAL INTERVENTION REQUIRED', {
+          path: docPath,
+          error,
+          remedy: 'Restart server or manually clear caches'
+        });
+        // Don't re-throw - log for monitoring but continue operation
+        // Emit a separate critical error event for alerting
+        this.emit('cache:inconsistency:critical', { docPath, error });
       }
     }
 
@@ -857,6 +1067,7 @@ export class DocumentCache extends EventEmitter {
     this.accessOrder.clear();
     this.accessMetadata.clear();
     this.accessCounter = 0;
+    this.totalHeadingsLoaded = 0;
 
     logger.info('Cache cleared', { previousSize: size });
   }
@@ -1009,16 +1220,36 @@ export class DocumentCache extends EventEmitter {
    * Cleanup resources
    */
   async destroy(): Promise<void> {
-    if (this.watcher) {
+    if (this.watcher != null) {
       await this.watcher.close();
       this.watcher = undefined;
       logger.debug('File watcher closed');
     }
 
+    if (this.pollingInterval != null) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = undefined;
+      logger.debug('Polling interval cleared');
+    }
+
+    // Invalidate all addressing cache entries for cached documents
+    let documentsInvalidated = 0;
+    for (const docPath of this.getCachedPaths()) {
+      try {
+        invalidateAddressCache(docPath);
+        documentsInvalidated++;
+      } catch (error) {
+        logger.warn('Failed to invalidate address cache during destroy', {
+          path: docPath,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
     this.clear();
     this.removeAllListeners();
 
-    logger.info('DocumentCache destroyed');
+    logger.info('DocumentCache destroyed', { documentsInvalidated });
   }
 }
 

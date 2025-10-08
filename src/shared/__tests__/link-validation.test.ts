@@ -70,29 +70,31 @@ const createSampleDocument = (path: string = '/api/users.md'): CachedDocument =>
   slugIndex: new Map()
 });
 
-const createDocumentList = (): Array<{ path: string; title: string; lastModified: Date; headingCount: number; wordCount: number }> => [
-  {
-    path: '/api/users.md',
-    title: 'User Management API',
-    lastModified: new Date('2024-01-01'),
-    headingCount: 6,
-    wordCount: 500
-  },
-  {
-    path: '/api/auth.md',
-    title: 'Authentication API',
-    lastModified: new Date('2024-01-02'),
-    headingCount: 4,
-    wordCount: 300
-  },
-  {
-    path: '/docs/overview.md',
-    title: 'Documentation Overview',
-    lastModified: new Date('2024-01-03'),
-    headingCount: 3,
-    wordCount: 200
-  }
-];
+const createDocumentList = (): { documents: Array<{ path: string; title: string; lastModified: Date; headingCount: number; wordCount: number }> } => ({
+  documents: [
+    {
+      path: '/api/users.md',
+      title: 'User Management API',
+      lastModified: new Date('2024-01-01'),
+      headingCount: 6,
+      wordCount: 500
+    },
+    {
+      path: '/api/auth.md',
+      title: 'Authentication API',
+      lastModified: new Date('2024-01-02'),
+      headingCount: 4,
+      wordCount: 300
+    },
+    {
+      path: '/docs/overview.md',
+      title: 'Documentation Overview',
+      lastModified: new Date('2024-01-03'),
+      headingCount: 3,
+      wordCount: 200
+    }
+  ]
+});
 
 describe('validateSingleLink Function', () => {
   let mockDocumentManager: MockedDocumentManager;
@@ -188,9 +190,11 @@ describe('validateSingleLink Function', () => {
       });
 
       // Mock the suggestion generation by mocking listDocuments
-      mockDocumentManager.listDocuments.mockResolvedValue([
-        { path: '/api/users.md', title: 'Users', lastModified: new Date(), headingCount: 5, wordCount: 100 }
-      ]);
+      mockDocumentManager.listDocuments.mockResolvedValue({
+        documents: [
+          { path: '/api/users.md', title: 'Users', lastModified: new Date(), headingCount: 5, wordCount: 100 }
+        ]
+      });
 
       const result = await validateSingleLink(
         '@/api/missing.md',
@@ -500,10 +504,12 @@ describe('validateSystemLinks Function', () => {
   });
 
   test('should handle individual document validation errors gracefully', async () => {
-    const documentList = [
-      { path: '/api/users.md', title: 'Users', lastModified: new Date(), headingCount: 5, wordCount: 100 },
-      { path: '/api/broken.md', title: 'Broken', lastModified: new Date(), headingCount: 0, wordCount: 0 }
-    ];
+    const documentList = {
+      documents: [
+        { path: '/api/users.md', title: 'Users', lastModified: new Date(), headingCount: 5, wordCount: 100 },
+        { path: '/api/broken.md', title: 'Broken', lastModified: new Date(), headingCount: 0, wordCount: 0 }
+      ]
+    };
     mockDocumentManager.listDocuments.mockResolvedValue(documentList);
 
     // First document succeeds
@@ -527,7 +533,9 @@ describe('validateSystemLinks Function', () => {
   });
 
   test('should categorize common issues correctly', async () => {
-    const documentList = [{ path: '/test.md', title: 'Test', lastModified: new Date(), headingCount: 1, wordCount: 10 }];
+    const documentList = {
+      documents: [{ path: '/test.md', title: 'Test', lastModified: new Date(), headingCount: 1, wordCount: 10 }]
+    };
     mockDocumentManager.listDocuments.mockResolvedValue(documentList);
     mockDocumentManager.getDocument.mockResolvedValue(createSampleDocument());
 
@@ -580,9 +588,11 @@ describe('autoFixLinks Function', () => {
     });
 
     // Mock the suggestion generation in validateSingleLink
-    mockDocumentManager.listDocuments.mockResolvedValue([
-      { path: '/api/users.md', title: 'Users', lastModified: new Date(), headingCount: 5, wordCount: 100 }
-    ]);
+    mockDocumentManager.listDocuments.mockResolvedValue({
+      documents: [
+        { path: '/api/users.md', title: 'Users', lastModified: new Date(), headingCount: 5, wordCount: 100 }
+      ]
+    });
 
     const result = await autoFixLinks(
       '/api/users.md',

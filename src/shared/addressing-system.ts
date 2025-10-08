@@ -15,6 +15,9 @@
 
 import { pathToNamespace, pathToSlug } from './path-utilities.js';
 import { normalizeSlugPath } from './slug-utils.js';
+import { getGlobalLogger } from '../utils/logger.js';
+
+const logger = getGlobalLogger();
 
 /**
  * Custom error types for addressing system
@@ -218,6 +221,22 @@ export interface BatchCacheStats {
  */
 class AddressCache {
   private readonly batchCache = new Map<string, DocumentAddress | SectionAddress>();
+  private batchStartTime: number | null = null;
+  private readonly BATCH_TIMEOUT_MS = 60000; // 1 minute
+
+  /**
+   * Check if batch cache has timed out and clear if needed
+   */
+  private checkBatchTimeout(): void {
+    if (this.batchStartTime !== null && Date.now() - this.batchStartTime > this.BATCH_TIMEOUT_MS) {
+      logger.warn('Batch cache auto-cleared due to timeout', {
+        elapsedMs: Date.now() - this.batchStartTime,
+        timeoutMs: this.BATCH_TIMEOUT_MS,
+        cacheSize: this.batchCache.size
+      });
+      this.clearBatch();
+    }
+  }
 
   /**
    * Get document address from batch cache
@@ -234,6 +253,8 @@ class AddressCache {
    * Set document address in batch cache
    */
   setDocument(path: string, address: DocumentAddress): void {
+    this.batchStartTime ??= Date.now();
+    this.checkBatchTimeout();
     this.batchCache.set(path, address);
   }
 
@@ -263,6 +284,7 @@ class AddressCache {
    */
   clearBatch(): void {
     this.batchCache.clear();
+    this.batchStartTime = null;
   }
 
   /**

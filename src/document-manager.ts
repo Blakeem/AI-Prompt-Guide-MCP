@@ -5,6 +5,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { DocumentCache } from './document-cache.js';
+import { AccessContext } from './document-cache.js';
 import type { FingerprintIndex } from './fingerprint-index.js';
 import { replaceSectionBody, insertRelative, renameHeading, deleteSection } from './sections.js';
 import { listHeadings, buildToc } from './parse.js';
@@ -16,6 +17,12 @@ import { validateHeadingDepth } from './shared/validation-utils.js';
 import type { CachedDocument, FingerprintEntry } from './document-cache.js';
 
 const logger = getGlobalLogger();
+
+/**
+ * Debounce delay in milliseconds for TOC updates.
+ * Prevents race conditions from multiple rapid document updates.
+ */
+const TOC_UPDATE_DEBOUNCE_MS = 100;
 
 interface CreateDocumentOptions {
   title: string;
@@ -66,6 +73,7 @@ export class DocumentManager {
   public readonly cache: DocumentCache;
   private readonly pathHandler: PathHandler;
   private readonly fingerprintIndex: FingerprintIndex | undefined;
+  private readonly pendingTocUpdates = new Map<string, NodeJS.Timeout>();
 
   constructor(docsRoot: string, cache: DocumentCache, fingerprintIndex?: FingerprintIndex) {
     this.docsRoot = path.resolve(docsRoot);
@@ -89,6 +97,63 @@ export class DocumentManager {
     }
 
     return lines.join('\n');
+  }
+
+  /**
+   * Load template content with fallback to default content
+   *
+   * Attempts to load template from ../templates/${template}.md.
+   * Returns default content on any error (file not found, permissions, etc).
+   *
+   * @param template - Template name (without .md extension)
+   * @param title - Document title for default content and template variable replacement
+   * @returns Promise resolving to template content or default content
+   */
+  private async loadTemplateWithFallback(template: string, title: string): Promise<string> {
+    const defaultContent = `# ${title}\n\n`;
+
+    if (template === '') {
+      return defaultContent;
+    }
+
+    try {
+      const templatePath = path.join(this.docsRoot, '../templates', `${template}.md`);
+      const content = await fs.readFile(templatePath, 'utf8');
+      // Replace template variables
+      return content.replace(/\{\{title\}\}/g, title);
+    } catch (error) {
+      logger.warn('Template load failed, using default content', {
+        template,
+        severity: 'OPTIONAL',
+        error
+      });
+      return defaultContent;
+    }
+  }
+
+  /**
+   * Schedule a table of contents update with debouncing
+   *
+   * Cancels any pending TOC update for the same document and schedules a new one
+   * with configurable debounce delay. This prevents race conditions from multiple rapid updates.
+   *
+   * @param docPath - Relative path to the document
+   */
+  private scheduleTocUpdate(docPath: string): void {
+    // Cancel any pending update for this document
+    const existingTimeout = this.pendingTocUpdates.get(docPath);
+    if (existingTimeout != null) {
+      clearTimeout(existingTimeout);
+    }
+
+    // Schedule new update with debounce
+    const timeoutId = setTimeout(() => {
+      this.pendingTocUpdates.delete(docPath);
+      void this.updateTableOfContents(docPath);
+    }, TOC_UPDATE_DEBOUNCE_MS);
+
+    // Store timeout ID
+    this.pendingTocUpdates.set(docPath, timeoutId);
   }
 
   /**
@@ -129,22 +194,10 @@ export class DocumentManager {
     }
 
     // Build initial content
-    let content = '';
-    
-    if (options.template != null && options.template !== '') {
-      // Load template content
-      try {
-        const templatePath = path.join(this.docsRoot, '../templates', `${options.template}.md`);
-        content = await fs.readFile(templatePath, 'utf8');
-        // Replace template variables
-        content = content.replace(/\{\{title\}\}/g, options.title);
-      } catch {
-        // Template not found, use basic content
-        content = `# ${options.title}\n\n`;
-      }
-    } else {
-      content = `# ${options.title}\n\n`;
-    }
+    let content = await this.loadTemplateWithFallback(
+      options.template ?? '',
+      options.title
+    );
 
     // Add table of contents if requested
     if (options.features?.toc === true) {
@@ -227,23 +280,20 @@ export class DocumentManager {
    * Update a document section
    */
   async updateSection(
-    docPath: string, 
-    slug: string, 
-    newContent: string, 
+    docPath: string,
+    slug: string,
+    newContent: string,
     options: UpdateSectionOptions = {}
   ): Promise<void> {
     const absolutePath = this.getAbsolutePath(docPath);
     const snapshot = await readFileSnapshot(absolutePath);
-    
+
     const updated = replaceSectionBody(snapshot.content, slug, newContent);
     await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated);
 
     // Update TOC if requested
     if (options.updateToc === true) {
-      // Wait a bit for file watcher to invalidate cache
-      setTimeout(() => {
-        void this.updateTableOfContents(docPath);
-      }, 100);
+      this.scheduleTocUpdate(docPath);
     }
 
     logger.info('Updated document section', { path: docPath, slug });
@@ -254,22 +304,20 @@ export class DocumentManager {
    * Rename a heading
    */
   async renameSection(
-    docPath: string, 
-    slug: string, 
+    docPath: string,
+    slug: string,
     newTitle: string,
     options: UpdateSectionOptions = {}
   ): Promise<void> {
     const absolutePath = this.getAbsolutePath(docPath);
     const snapshot = await readFileSnapshot(absolutePath);
-    
+
     const updated = renameHeading(snapshot.content, slug, newTitle);
     await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated);
 
     // Update TOC if requested
     if (options.updateToc === true) {
-      setTimeout(() => {
-        void this.updateTableOfContents(docPath);
-      }, 100);
+      this.scheduleTocUpdate(docPath);
     }
 
     logger.info('Renamed document section', { path: docPath, slug, newTitle });
@@ -281,15 +329,13 @@ export class DocumentManager {
   async deleteSection(docPath: string, slug: string, options: UpdateSectionOptions = {}): Promise<void> {
     const absolutePath = this.getAbsolutePath(docPath);
     const snapshot = await readFileSnapshot(absolutePath);
-    
+
     const updated = deleteSection(snapshot.content, slug);
     await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated);
 
     // Update TOC if requested
     if (options.updateToc === true) {
-      setTimeout(() => {
-        void this.updateTableOfContents(docPath);
-      }, 100);
+      this.scheduleTocUpdate(docPath);
     }
 
     logger.info('Deleted document section', { path: docPath, slug });
@@ -419,15 +465,13 @@ export class DocumentManager {
 
     // Validate and sanitize depth to ensure it's a valid HeadingDepth (1-6)
     const finalDepth = validateHeadingDepth(calculatedDepth);
-    
+
     const updated = insertRelative(snapshot.content, referenceSlug, insertMode, finalDepth, title, content);
     await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated);
 
     // Update TOC if requested
     if (options.updateToc === true) {
-      setTimeout(() => {
-        void this.updateTableOfContents(docPath);
-      }, 100);
+      this.scheduleTocUpdate(docPath);
     }
 
     logger.info('Inserted section', { path: docPath, referenceSlug, title, mode: insertMode });
@@ -445,13 +489,16 @@ export class DocumentManager {
   /**
    * List all documents
    */
-  async listDocuments(): Promise<Array<{
-    path: string;
-    title: string;
-    lastModified: Date;
-    headingCount: number;
-    wordCount: number;
-  }>> {
+  async listDocuments(): Promise<{
+    documents: Array<{
+      path: string;
+      title: string;
+      lastModified: Date;
+      headingCount: number;
+      wordCount: number;
+    }>;
+    errors?: Array<{ path: string; error: string }>;
+  }> {
     const documents: Array<{
       path: string;
       title: string;
@@ -459,6 +506,7 @@ export class DocumentManager {
       headingCount: number;
       wordCount: number;
     }> = [];
+    const errors: Array<{ path: string; error: string }> = [];
 
     const findMarkdownFiles = async (dir: string, basePath = ''): Promise<void> => {
       try {
@@ -483,21 +531,28 @@ export class DocumentManager {
                 });
               }
             } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              errors.push({ path: `/${docPath}`, error: errorMessage });
               logger.warn('Failed to load document for listing', { path: docPath, error });
             }
           }
         }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        errors.push({ path: dir, error: errorMessage });
         logger.warn('Failed to read directory', { dir, error });
       }
     };
 
     await findMarkdownFiles(this.docsRoot);
-    
+
     // Sort by last modified descending
     documents.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
-    
-    return documents;
+
+    return {
+      documents,
+      ...(errors.length > 0 && { errors })
+    };
   }
 
   /**
@@ -660,7 +715,7 @@ export class DocumentManager {
       const candidates = this.fingerprintIndex.findCandidates(query);
       documentsToSearch = candidates;
 
-      const allDocuments = await this.listDocuments();
+      const { documents: allDocuments } = await this.listDocuments();
       logger.debug('Search candidates filtered', {
         query,
         totalDocuments: allDocuments.length,
@@ -671,7 +726,7 @@ export class DocumentManager {
       });
     } else {
       // Slow path: Search all documents
-      const allDocs = await this.listDocuments();
+      const { documents: allDocs } = await this.listDocuments();
       documentsToSearch = allDocs.map(d => d.path);
 
       logger.debug('Search without fingerprint index', {
@@ -682,7 +737,7 @@ export class DocumentManager {
 
     // Deep search only in candidates - use 'search' context for boost
     for (const docPath of documentsToSearch) {
-      const document = await this.cache.getDocument(docPath, 'search');
+      const document = await this.cache.getDocument(docPath, AccessContext.SEARCH);
       if (!document) continue;
 
       const matches: SearchResult['matches'] = [];

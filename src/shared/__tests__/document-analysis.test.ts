@@ -99,7 +99,7 @@ describe('Document Analysis', () => {
       });
 
       // Setup mocks
-      listDocumentsMock.mockResolvedValue(mockDocuments);
+      listDocumentsMock.mockResolvedValue({ documents: mockDocuments });
       getDocumentMock
         .mockResolvedValueOnce(authDoc)
         .mockResolvedValueOnce(usersDoc);
@@ -137,7 +137,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle empty document list gracefully', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
 
       const result = await analyzeDocumentSuggestions(
         mockManager,
@@ -184,7 +184,7 @@ describe('Document Analysis', () => {
     });
 
     it('should detect broken references in content', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
 
       // Create overview with @references
       const overview = 'See @/api/nonexistent.md and @missing-doc for details';
@@ -227,7 +227,7 @@ describe('Document Analysis', () => {
         metadata: createMockDocumentMetadata({ title: 'Test Document' })
       });
 
-      listDocumentsMock.mockResolvedValue(mockDocuments);
+      listDocumentsMock.mockResolvedValue({ documents: mockDocuments });
       getDocumentMock.mockResolvedValue(testDoc);
       getDocumentContentMock.mockRejectedValue(new Error('Content read failed'));
 
@@ -268,7 +268,7 @@ describe('Document Analysis', () => {
         })
       });
 
-      listDocumentsMock.mockResolvedValue(mockDocuments);
+      listDocumentsMock.mockResolvedValue({ documents: mockDocuments });
       getDocumentMock
         .mockResolvedValueOnce(highDoc)
         .mockResolvedValueOnce(lowDoc)
@@ -311,7 +311,7 @@ describe('Document Analysis', () => {
         metadata: createMockDocumentMetadata({ title: 'User Authentication' })
       });
 
-      listDocumentsMock.mockResolvedValue(mockDocuments);
+      listDocumentsMock.mockResolvedValue({ documents: mockDocuments });
       getDocumentMock.mockResolvedValue(mockDoc);
       getDocumentContentMock.mockResolvedValue('user authentication guide');
 
@@ -341,7 +341,7 @@ describe('Document Analysis', () => {
         })
       });
 
-      listDocumentsMock.mockResolvedValue(mockDocuments);
+      listDocumentsMock.mockResolvedValue({ documents: mockDocuments });
       getDocumentMock.mockResolvedValue(authDoc);
       getDocumentContentMock.mockResolvedValue('JWT token authentication system');
 
@@ -367,7 +367,7 @@ describe('Document Analysis', () => {
         metadata: createMockDocumentMetadata({ title: 'Test' })
       });
 
-      listDocumentsMock.mockResolvedValue(mockDocuments);
+      listDocumentsMock.mockResolvedValue({ documents: mockDocuments });
       getDocumentMock.mockResolvedValue(testDoc);
       getDocumentContentMock.mockResolvedValue('');
 
@@ -403,7 +403,7 @@ describe('Document Analysis', () => {
         })
       });
 
-      listDocumentsMock.mockResolvedValue(mockDocuments);
+      listDocumentsMock.mockResolvedValue({ documents: mockDocuments });
       getDocumentMock
         .mockResolvedValueOnce(exactDoc)
         .mockResolvedValueOnce(partialDoc);
@@ -440,7 +440,7 @@ describe('Document Analysis', () => {
         metadata: createMockDocumentMetadata({ title: 'Test Document' })
       });
 
-      listDocumentsMock.mockResolvedValue(mockDocuments);
+      listDocumentsMock.mockResolvedValue({ documents: mockDocuments });
       getDocumentMock.mockResolvedValue(testDoc);
       getDocumentContentMock.mockResolvedValue(null);
 
@@ -458,7 +458,7 @@ describe('Document Analysis', () => {
 
   describe('broken reference detection', () => {
     it('should detect various @reference formats', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null); // All references are broken
 
       const overview = `
@@ -500,7 +500,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle all supported @reference formats comprehensively', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null); // All references are broken
 
       const overview = `
@@ -559,7 +559,7 @@ describe('Document Analysis', () => {
         metadata: createMockDocumentMetadata({ title: 'Existing Document' })
       });
 
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockImplementation((path: string) => {
         if (path === '/api/existing.md') {
           return Promise.resolve(existingDoc);
@@ -592,7 +592,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle malformed references gracefully', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
 
       const overview = 'Check @ and @@ and @/valid/ref.md';
 
@@ -620,7 +620,7 @@ describe('Document Analysis', () => {
     });
 
     it('should deduplicate broken references', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null);
 
       const overview = 'See @/api/missing.md and @/api/missing.md again';
@@ -648,7 +648,7 @@ describe('Document Analysis', () => {
         ])
       });
 
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockImplementation((path: string) => {
         if (path === '/api/existing.md') {
           return Promise.resolve(existingDoc);
@@ -706,7 +706,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle section references with missing documents correctly', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null); // All documents are missing
 
       const overview = 'See @/missing/doc.md#some-section for details';
@@ -732,7 +732,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle relative references that resolve to missing documents', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null);
 
       const overview = 'Check @relative-doc and @another-relative#section';
@@ -767,7 +767,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle extensive malformed reference patterns', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null);
 
       const overview = `
@@ -807,7 +807,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle references in various content contexts', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null);
 
       const overview = `
@@ -874,7 +874,7 @@ describe('Document Analysis', () => {
         ])
       });
 
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockImplementation((path: string) => {
         switch (path) {
           case '/api/docs.md':
@@ -929,7 +929,7 @@ describe('Document Analysis', () => {
         { path: '/api/test.md', title: 'Test Document', lastModified: new Date(), headingCount: 1, wordCount: 50 }
       ];
 
-      listDocumentsMock.mockResolvedValue(mockDocuments);
+      listDocumentsMock.mockResolvedValue({ documents: mockDocuments });
       getDocumentMock.mockRejectedValue(new Error('Document read failed'));
 
       const result = await analyzeDocumentSuggestions(
@@ -948,7 +948,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle extreme edge cases for reference validation', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null);
 
       // Test with various edge case inputs - valid cases only (empty title would fail validation)
@@ -978,7 +978,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle validation edge cases that should throw errors', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
 
       // Test cases that should fail validation
       const invalidCases = [
@@ -1001,7 +1001,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle concurrent reference validation calls', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null);
 
       // Run multiple analyses concurrently
@@ -1028,7 +1028,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle document manager failures during reference validation', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
 
       // Mock getDocument to fail intermittently
       let callCount = 0;
@@ -1073,7 +1073,7 @@ describe('Document Analysis', () => {
         metadata: createMockDocumentMetadata({ title: 'Test' })
       });
 
-      listDocumentsMock.mockResolvedValue(mockDocuments);
+      listDocumentsMock.mockResolvedValue({ documents: mockDocuments });
       getDocumentMock.mockResolvedValue(testDoc);
       getDocumentContentMock.mockResolvedValue(null);
 
@@ -1097,7 +1097,7 @@ describe('Document Analysis', () => {
         metadata: createMockDocumentMetadata({ title: 'Completely Unrelated Topic' })
       });
 
-      listDocumentsMock.mockResolvedValue(mockDocuments);
+      listDocumentsMock.mockResolvedValue({ documents: mockDocuments });
       getDocumentMock.mockResolvedValue(irrelevantDoc);
       getDocumentContentMock.mockResolvedValue('database configuration settings backup');
 
@@ -1115,7 +1115,7 @@ describe('Document Analysis', () => {
 
   describe('performance and scalability', () => {
     it('should handle large numbers of references efficiently', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null); // All references are broken
 
       // Generate content with many references
@@ -1150,7 +1150,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle complex reference patterns with good performance', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null);
 
       // Generate content with mixed reference patterns
@@ -1194,7 +1194,7 @@ describe('Document Analysis', () => {
     });
 
     it('should handle stress test with many concurrent validations', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null);
 
       const stressTestPromises = Array.from({ length: 50 }, (_, i) => {
@@ -1225,7 +1225,7 @@ describe('Document Analysis', () => {
     });
 
     it('should maintain performance with ReferenceExtractor integration', async () => {
-      listDocumentsMock.mockResolvedValue([]);
+      listDocumentsMock.mockResolvedValue({ documents: [] });
       getDocumentMock.mockResolvedValue(null);
 
       // Test that the shared ReferenceExtractor doesn't add significant overhead

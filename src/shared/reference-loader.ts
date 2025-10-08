@@ -16,6 +16,10 @@ import type { DocumentManager } from '../document-manager.js';
 import type { NormalizedReference } from './reference-extractor.js';
 import { ReferenceExtractor } from './reference-extractor.js';
 import { pathToNamespace } from './path-utilities.js';
+import { getGlobalLogger } from '../utils/logger.js';
+import { AccessContext } from '../document-cache.js';
+
+const logger = getGlobalLogger();
 
 /**
  * Hierarchical content structure for nested reference loading
@@ -64,6 +68,8 @@ export interface HierarchicalContent {
  */
 export class ReferenceLoader {
   private readonly extractor: ReferenceExtractor;
+  private readonly MAX_TOTAL_NODES = 1000;
+  private readonly DEFAULT_TIMEOUT_MS = 30000; // 30 seconds
 
   constructor() {
     this.extractor = new ReferenceExtractor();
@@ -80,6 +86,8 @@ export class ReferenceLoader {
    * @param maxDepth - Maximum recursion depth (default: 3)
    * @param currentDepth - Current recursion depth (default: 0)
    * @param visitedPaths - Set of visited paths for cycle detection (internal use)
+   * @param totalNodesLoaded - Node count tracker across all branches (internal use)
+   * @param startTime - Operation start timestamp for timeout tracking (internal use)
    * @returns Promise resolving to hierarchical content array
    *
    * @example Basic reference loading
@@ -100,7 +108,9 @@ export class ReferenceLoader {
     manager: DocumentManager,
     maxDepth: number = 3,
     currentDepth: number = 0,
-    visitedPaths?: Set<string>
+    visitedPaths?: Set<string>,
+    totalNodesLoaded?: { count: number },
+    startTime?: number
   ): Promise<HierarchicalContent[]> {
     // Input validation
     if (!Array.isArray(refs)) {
@@ -113,6 +123,26 @@ export class ReferenceLoader {
 
     if (typeof currentDepth !== 'number' || currentDepth < 0) {
       throw new Error('currentDepth must be a non-negative number');
+    }
+
+    // Initialize operation start time on first call
+    const operationStart = startTime ?? Date.now();
+
+    // Check for timeout
+    if (Date.now() - operationStart > this.DEFAULT_TIMEOUT_MS) {
+      throw new Error(
+        `Reference loading operation exceeded timeout of ${this.DEFAULT_TIMEOUT_MS}ms. ` +
+        'This may indicate a very large or deeply nested reference tree.'
+      );
+    }
+
+    // Initialize node tracker on first call
+    const nodeTracker = totalNodesLoaded ?? { count: 0 };
+
+    // Check total node count limit to prevent exponential growth
+    if (nodeTracker.count >= this.MAX_TOTAL_NODES) {
+      logger.error(`Total node limit (${this.MAX_TOTAL_NODES}) exceeded. Stopping reference loading to prevent memory exhaustion.`);
+      return [];
     }
 
     // Check depth limit
@@ -131,7 +161,9 @@ export class ReferenceLoader {
           manager,
           maxDepth,
           currentDepth,
-          pathsToTrack
+          pathsToTrack,
+          nodeTracker,
+          operationStart
         );
 
         if (content != null) {
@@ -139,7 +171,9 @@ export class ReferenceLoader {
         }
       } catch (error) {
         // Log error but continue processing other references
-        console.warn(`Failed to load reference "${ref.originalRef}":`, error);
+        logger.warn(`Failed to load reference "${ref.originalRef}"`, {
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
     }
 
@@ -154,6 +188,8 @@ export class ReferenceLoader {
    * @param maxDepth - Maximum recursion depth
    * @param currentDepth - Current recursion depth
    * @param visitedPaths - Set of already visited paths for cycle detection
+   * @param nodeTracker - Node count tracker across all branches
+   * @param startTime - Operation start timestamp for timeout tracking
    * @returns Promise resolving to hierarchical content or null if skipped
    */
   private async loadSingleReference(
@@ -161,24 +197,28 @@ export class ReferenceLoader {
     manager: DocumentManager,
     maxDepth: number,
     currentDepth: number,
-    visitedPaths: Set<string>
+    visitedPaths: Set<string>,
+    nodeTracker: { count: number },
+    startTime: number
   ): Promise<HierarchicalContent | null> {
     // Check for cycles (should not happen due to filtering, but keeping as safety check)
     if (visitedPaths.has(ref.documentPath)) {
-      console.warn(`Unexpected cycle detected for path: ${ref.documentPath}`);
+      logger.warn(`Unexpected cycle detected for path: ${ref.documentPath}`);
       return null;
     }
 
     // Add to visited set
     visitedPaths.add(ref.documentPath);
 
-    try {
-      // Load the document with 'reference' context for 2x eviction resistance
-      const document = await manager.cache.getDocument(ref.documentPath, 'reference');
-      if (document == null) {
-        console.warn(`Document not found: ${ref.documentPath}`);
-        return null;
-      }
+    // Increment node counter to track total nodes across all branches
+    nodeTracker.count++;
+
+    // Load the document with 'reference' context for 2x eviction resistance
+    const document = await manager.cache.getDocument(ref.documentPath, AccessContext.REFERENCE);
+    if (document == null) {
+      logger.warn(`Document not found: ${ref.documentPath}`);
+      return null;
+    }
 
       // Get content (section-specific or full document)
       let content: string;
@@ -189,7 +229,7 @@ export class ReferenceLoader {
         const sectionContent = await manager.getSectionContent(ref.documentPath, ref.sectionSlug);
 
         if (sectionContent == null) {
-          console.warn(`Section "${ref.sectionSlug}" not found in ${ref.documentPath}`);
+          logger.warn(`Section "${ref.sectionSlug}" not found in ${ref.documentPath}`);
           return null;
         }
 
@@ -215,7 +255,7 @@ export class ReferenceLoader {
       const filteredNestedRefs = normalizedNestedRefs.filter(
         nestedRef => {
           if (visitedPaths.has(nestedRef.documentPath)) {
-            console.warn(`Cycle detected for path: ${nestedRef.documentPath}`);
+            logger.warn(`Cycle detected for path: ${nestedRef.documentPath}`);
             return false;
           }
           return true;
@@ -228,7 +268,9 @@ export class ReferenceLoader {
         manager,
         maxDepth,
         currentDepth + 1,
-        visitedPaths
+        visitedPaths,
+        nodeTracker,
+        startTime
       );
 
       // Build hierarchical content
@@ -242,10 +284,6 @@ export class ReferenceLoader {
       };
 
       return hierarchicalContent;
-    } finally {
-      // Remove from visited set when done (allows same document at different branches)
-      visitedPaths.delete(ref.documentPath);
-    }
   }
 
   /**

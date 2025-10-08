@@ -337,7 +337,7 @@ async function findRelatedDocuments(
 
         if (fingerprints.length > 0) {
           // Get all documents to match with fingerprints
-          const allDocuments = await manager.listDocuments();
+          const { documents: allDocuments } = await manager.listDocuments();
           const pathToFingerprint = new Map<string, FingerprintEntry>();
 
           // Create mapping of paths to fingerprints by matching metadata
@@ -389,7 +389,7 @@ async function findRelatedDocuments(
     // Fallback: If fingerprint filtering not available or failed, use original approach
     if (!usedFingerprintFiltering) {
       logger.debug('Using fallback: original algorithm (no fingerprint filtering)');
-      const allDocuments = await manager.listDocuments();
+      const { documents: allDocuments } = await manager.listDocuments();
 
       if (allDocuments.length === 0) {
         logger.debug('No documents available, returning empty results');

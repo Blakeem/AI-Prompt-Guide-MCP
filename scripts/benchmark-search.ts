@@ -49,7 +49,7 @@ async function benchmarkSearch(): Promise<void> {
   const managerWithoutIndex = new DocumentManager(docsRoot, cacheWithoutIndex);
 
   // Get stats
-  const allDocs = await managerWithIndex.listDocuments();
+  const { documents: allDocs } = await managerWithIndex.listDocuments();
   const stats = fingerprintIndex.getStats();
 
   console.log('📊 Index Statistics:');

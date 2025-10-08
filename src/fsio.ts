@@ -17,13 +17,21 @@ import { ERROR_CODES, DEFAULT_LIMITS } from './constants/defaults.js';
 import type { FileSnapshot, SpecDocsError } from './types/index.js';
 import { PathHandler } from './utils/path-handler.js';
 import { loadConfig } from './config.js';
+import { SecurityAuditLogger } from './utils/security-audit-logger.js';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const packageJson = require('../package.json') as { version: string };
 
 /**
- * Creates a custom error with code and context
+ * Creates a custom error with code, context, and version information
  */
 function createError(message: string, code: string, context?: Record<string, unknown>): SpecDocsError {
   const error = new Error(message) as SpecDocsError;
-  return Object.assign(error, { code, context });
+  return Object.assign(error, {
+    code,
+    context: { ...context, version: packageJson.version }
+  });
 }
 
 /**
@@ -31,24 +39,47 @@ function createError(message: string, code: string, context?: Record<string, unk
  * Initialized lazily when first needed
  */
 let pathHandler: PathHandler | null = null;
+let initializationPromise: Promise<PathHandler> | null = null;
+
+/**
+ * Global security audit logger instance
+ */
+const securityAuditLogger = new SecurityAuditLogger();
 
 /**
  * Initialize path handler with current configuration
+ * Uses promise-based synchronization to prevent race conditions
  */
-function getPathHandler(): PathHandler {
-  if (pathHandler === null) {
+async function getPathHandler(): Promise<PathHandler> {
+  // Return existing instance if available
+  if (pathHandler !== null) {
+    return pathHandler;
+  }
+
+  // Wait for in-progress initialization
+  if (initializationPromise !== null) {
+    return await initializationPromise;
+  }
+
+  // Start initialization
+  initializationPromise = (async (): Promise<PathHandler> => {
     try {
       const config = loadConfig();
       pathHandler = new PathHandler(config.docsBasePath);
+      return pathHandler;
     } catch {
       // During tests or when config is not available, use a default base path
       // This allows tests to run while still providing security in production
       const envPath = process.env['DOCS_BASE_PATH'];
       const defaultBasePath = envPath != null && envPath !== '' ? envPath : './.ai-prompt-guide/docs';
       pathHandler = new PathHandler(defaultBasePath);
+      return pathHandler;
+    } finally {
+      initializationPromise = null;
     }
-  }
-  return pathHandler;
+  })();
+
+  return await initializationPromise;
 }
 
 /**
@@ -62,10 +93,10 @@ const MAX_PATH_LENGTH = 4096;
 const ALLOWED_EXTENSIONS = new Set(['.md', '.markdown', '.txt']);
 
 /**
- * Minimum valid timestamp (2020-01-01) for mtime validation
- * This prevents unreasonably old timestamps that might indicate invalid data
+ * Minimum valid timestamp (Unix epoch) for mtime validation
+ * Allows all valid Unix timestamps including archived documents and legacy systems
  */
-const MIN_VALID_TIMESTAMP = new Date('2020-01-01').getTime();
+const MIN_VALID_TIMESTAMP = 0;
 
 /**
  * Maximum valid timestamp (1 year in the future from now)
@@ -89,7 +120,7 @@ const DANGEROUS_CHARS_REGEX = /[\x00-\x1f\x7f\\:*?"<>|]/g;
  * @returns Sanitized absolute path
  * @throws SpecDocsError if path is invalid or unsafe
  */
-function validateAndSanitizePath(filePath: string, operation: string): string {
+async function validateAndSanitizePath(filePath: string, operation: string): Promise<string> {
   // Input validation
   if (typeof filePath !== 'string') {
     throw createError(
@@ -124,7 +155,7 @@ function validateAndSanitizePath(filePath: string, operation: string): string {
   }
 
   // Use PathHandler for comprehensive path validation
-  const handler = getPathHandler();
+  const handler = await getPathHandler();
 
   try {
     // This validates against directory traversal and normalizes the path
@@ -136,6 +167,15 @@ function validateAndSanitizePath(filePath: string, operation: string): string {
     const docsBasePath = resolve(handler.getDocsBasePath());
 
     if (resolvedPath.startsWith(docsBasePath) === false) {
+      // Log security violation for audit trail
+      securityAuditLogger.logSecurityViolation({
+        type: 'PATH_TRAVERSAL',
+        operation,
+        attemptedPath: filePath,
+        resolvedPath: relative(docsBasePath, resolvedPath),
+        timestamp: new Date().toISOString()
+      });
+
       throw createError(
         'Path traversal attempt detected',
         ERROR_CODES.INVALID_OPERATION,
@@ -151,6 +191,15 @@ function validateAndSanitizePath(filePath: string, operation: string): string {
     // Validate file extension
     const extension = extname(resolvedPath).toLowerCase();
     if (extension !== '' && !ALLOWED_EXTENSIONS.has(extension)) {
+      // Log security violation for audit trail
+      securityAuditLogger.logSecurityViolation({
+        type: 'INVALID_EXTENSION',
+        operation,
+        attemptedPath: filePath,
+        resolvedPath: relative(docsBasePath, resolvedPath),
+        timestamp: new Date().toISOString()
+      });
+
       throw createError(
         `File extension not allowed: ${extension}`,
         ERROR_CODES.INVALID_OPERATION,
@@ -238,7 +287,7 @@ export async function readFileSnapshot(path: string): Promise<FileSnapshot> {
   const operation = 'readFileSnapshot';
 
   // Validate and sanitize the path
-  const safePath = validateAndSanitizePath(path, operation);
+  const safePath = await validateAndSanitizePath(path, operation);
 
   try {
     const [stat, buffer] = await Promise.all([
@@ -330,7 +379,7 @@ export async function writeFileIfUnchanged(
   const operation = 'writeFileIfUnchanged';
 
   // Validate and sanitize the path
-  const safePath = validateAndSanitizePath(path, operation);
+  const safePath = await validateAndSanitizePath(path, operation);
 
   // Validate content size before attempting to write
   validateContentLength(content, operation, safePath);
@@ -341,7 +390,7 @@ export async function writeFileIfUnchanged(
       expectedMtimeMs < MIN_VALID_TIMESTAMP ||
       expectedMtimeMs > MAX_VALID_TIMESTAMP) {
     throw createError(
-      `Invalid expectedMtimeMs: ${expectedMtimeMs}. Must be a valid timestamp.`,
+      `Invalid expectedMtimeMs: ${expectedMtimeMs}. Must be a valid timestamp between Unix epoch (0) and 1 year in the future.`,
       ERROR_CODES.INVALID_OPERATION,
       {
         operation,
@@ -459,7 +508,7 @@ export async function fileExists(path: string): Promise<boolean> {
 
   try {
     // Validate and sanitize the path
-    const safePath = validateAndSanitizePath(path, operation);
+    const safePath = await validateAndSanitizePath(path, operation);
 
     // Check if file exists and is readable
     await fs.access(safePath, fs.constants.R_OK);

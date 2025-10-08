@@ -15,7 +15,7 @@ export async function analyzeNamespacePatterns(
 ): Promise<NamespacePatterns> {
   try {
     // Get all documents in the namespace
-    const allDocuments = await manager.listDocuments();
+    const { documents: allDocuments } = await manager.listDocuments();
     const namespaceDocuments = allDocuments.filter(docInfo => pathToNamespace(docInfo.path) === namespace);
 
     const sectionCounts = new Map<string, number>();

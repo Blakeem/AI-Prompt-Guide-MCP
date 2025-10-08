@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { DocumentCache } from './document-cache.js';
+import { DocumentCache, AccessContext } from './document-cache.js';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -334,9 +334,9 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
 
       // All these should work without throwing
       const doc1 = await cache.getDocument('/test.md'); // Default DIRECT
-      const doc2 = await cache.getDocument('/test.md', 'direct');
-      const doc3 = await cache.getDocument('/test.md', 'search');
-      const doc4 = await cache.getDocument('/test.md', 'reference');
+      const doc2 = await cache.getDocument('/test.md', AccessContext.DIRECT);
+      const doc3 = await cache.getDocument('/test.md', AccessContext.SEARCH);
+      const doc4 = await cache.getDocument('/test.md', AccessContext.REFERENCE);
 
       expect(doc1).toBeTruthy();
       expect(doc2).toBeTruthy();
@@ -374,16 +374,16 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
 
       // Fill cache with direct-access documents (1-5)
       for (let i = 1; i <= 5; i++) {
-        await cache.getDocument(`/doc${i}.md`, 'direct');
+        await cache.getDocument(`/doc${i}.md`, AccessContext.DIRECT);
       }
 
       // Access one document via SEARCH context (should get 3x boost)
-      await cache.getDocument('/doc3.md', 'search');
+      await cache.getDocument('/doc3.md', AccessContext.SEARCH);
 
       // Now add 3 more documents with DIRECT access to trigger eviction
-      await cache.getDocument('/doc6.md', 'direct');
-      await cache.getDocument('/doc7.md', 'direct');
-      await cache.getDocument('/doc8.md', 'direct');
+      await cache.getDocument('/doc6.md', AccessContext.DIRECT);
+      await cache.getDocument('/doc7.md', AccessContext.DIRECT);
+      await cache.getDocument('/doc8.md', AccessContext.DIRECT);
 
       // doc3 (search-accessed) should still be in cache due to boost
       const cachedPaths = cache.getCachedPaths();
@@ -409,15 +409,15 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
 
       // Fill cache with direct-access documents
       for (let i = 1; i <= 5; i++) {
-        await cache.getDocument(`/doc${i}.md`, 'direct');
+        await cache.getDocument(`/doc${i}.md`, AccessContext.DIRECT);
       }
 
       // Access one via REFERENCE context (2x boost)
-      await cache.getDocument('/doc3.md', 'reference');
+      await cache.getDocument('/doc3.md', AccessContext.REFERENCE);
 
       // Add more direct-access documents
-      await cache.getDocument('/doc6.md', 'direct');
-      await cache.getDocument('/doc7.md', 'direct');
+      await cache.getDocument('/doc6.md', AccessContext.DIRECT);
+      await cache.getDocument('/doc7.md', AccessContext.DIRECT);
 
       // doc3 (reference-loaded) should still be cached
       const cachedPaths = cache.getCachedPaths();
@@ -434,9 +434,9 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
       await fs.writeFile(docPath, '# Test\nContent', 'utf8');
 
       // Access with different contexts
-      await cache.getDocument('/test.md', 'direct');
-      await cache.getDocument('/test.md', 'search');
-      await cache.getDocument('/test.md', 'reference');
+      await cache.getDocument('/test.md', AccessContext.DIRECT);
+      await cache.getDocument('/test.md', AccessContext.SEARCH);
+      await cache.getDocument('/test.md', AccessContext.REFERENCE);
 
       // All should work - exact boost verification requires internal inspection
       expect(cache.getCachedPaths()).toContain('/test.md');
@@ -457,16 +457,16 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
       }
 
       // Load doc1, doc2, doc3 with DIRECT access
-      await cache.getDocument('/doc1.md', 'direct');
-      await cache.getDocument('/doc2.md', 'direct');
-      await cache.getDocument('/doc3.md', 'direct');
+      await cache.getDocument('/doc1.md', AccessContext.DIRECT);
+      await cache.getDocument('/doc2.md', AccessContext.DIRECT);
+      await cache.getDocument('/doc3.md', AccessContext.DIRECT);
 
       // Re-access doc2 with SEARCH context (boost it)
-      await cache.getDocument('/doc2.md', 'search');
+      await cache.getDocument('/doc2.md', AccessContext.SEARCH);
 
       // Add new documents to trigger eviction
-      await cache.getDocument('/doc4.md', 'direct');
-      await cache.getDocument('/doc5.md', 'direct');
+      await cache.getDocument('/doc4.md', AccessContext.DIRECT);
+      await cache.getDocument('/doc5.md', AccessContext.DIRECT);
 
       const cachedPaths = cache.getCachedPaths();
 
@@ -494,7 +494,7 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
       await fs.writeFile(docPath, '# Test\nContent', 'utf8');
 
       // Should accept custom boost configuration
-      const doc = await cache.getDocument('/test.md', 'search');
+      const doc = await cache.getDocument('/test.md', AccessContext.SEARCH);
       expect(doc).toBeTruthy();
     });
 
@@ -508,7 +508,7 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
       const docPath = path.join(tempDir, 'test.md');
       await fs.writeFile(docPath, '# Test\nContent', 'utf8');
 
-      const doc = await cache.getDocument('/test.md', 'search');
+      const doc = await cache.getDocument('/test.md', AccessContext.SEARCH);
       expect(doc).toBeTruthy();
       // Default: search=3.0, direct=1.0, reference=2.0
     });
@@ -525,7 +525,7 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
       const docPath = path.join(tempDir, 'test.md');
       await fs.writeFile(docPath, '# Test\nContent', 'utf8');
 
-      const doc = await cache.getDocument('/test.md', 'search');
+      const doc = await cache.getDocument('/test.md', AccessContext.SEARCH);
       expect(doc).toBeTruthy();
     });
   });
@@ -543,11 +543,11 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
         await fs.writeFile(docPath, `# Doc ${i}\nContent ${i}`, 'utf8');
       }
 
-      await cache.getDocument('/doc1.md', 'direct');
-      await cache.getDocument('/doc2.md', 'search');
-      await cache.getDocument('/doc3.md', 'reference');
-      await cache.getDocument('/doc4.md', 'direct');
-      await cache.getDocument('/doc5.md', 'search');
+      await cache.getDocument('/doc1.md', AccessContext.DIRECT);
+      await cache.getDocument('/doc2.md', AccessContext.SEARCH);
+      await cache.getDocument('/doc3.md', AccessContext.REFERENCE);
+      await cache.getDocument('/doc4.md', AccessContext.DIRECT);
+      await cache.getDocument('/doc5.md', AccessContext.SEARCH);
 
       const stats = cache.getStats();
 
@@ -654,13 +654,13 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
       // Simulate search operation - access 20 documents with SEARCH context
       const searchResults = [];
       for (let i = 1; i <= 20; i++) {
-        await cache.getDocument(`/doc${i}.md`, 'search');
+        await cache.getDocument(`/doc${i}.md`, AccessContext.SEARCH);
         searchResults.push(`/doc${i}.md`);
       }
 
       // Now access 15 more documents with DIRECT context (should trigger eviction)
       for (let i = 21; i <= 30; i++) {
-        await cache.getDocument(`/doc${i}.md`, 'direct');
+        await cache.getDocument(`/doc${i}.md`, AccessContext.DIRECT);
       }
 
       // Verify: Many search-accessed docs should still be in cache
@@ -686,12 +686,12 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
 
       // Simulate search accessing 10 documents
       for (let i = 1; i <= 10; i++) {
-        await cache.getDocument(`/doc${i}.md`, 'search');
+        await cache.getDocument(`/doc${i}.md`, AccessContext.SEARCH);
       }
 
       // Add 5 more direct-access documents
       for (let i = 11; i <= 15; i++) {
-        await cache.getDocument(`/doc${i}.md`, 'direct');
+        await cache.getDocument(`/doc${i}.md`, AccessContext.DIRECT);
       }
 
       // Now user wants to read a search result - should still be cached
@@ -711,10 +711,10 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
       await fs.writeFile(docPath, '# Test\nContent', 'utf8');
 
       // Rapidly access with different contexts
-      await cache.getDocument('/test.md', 'direct');
-      await cache.getDocument('/test.md', 'search');
-      await cache.getDocument('/test.md', 'reference');
-      await cache.getDocument('/test.md', 'direct');
+      await cache.getDocument('/test.md', AccessContext.DIRECT);
+      await cache.getDocument('/test.md', AccessContext.SEARCH);
+      await cache.getDocument('/test.md', AccessContext.REFERENCE);
+      await cache.getDocument('/test.md', AccessContext.DIRECT);
 
       // Should handle gracefully, doc should remain cached
       expect(cache.getCachedPaths()).toContain('/test.md');
@@ -734,7 +734,7 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
 
       // Load all with SEARCH context (all boosted)
       for (let i = 1; i <= 5; i++) {
-        await cache.getDocument(`/doc${i}.md`, 'search');
+        await cache.getDocument(`/doc${i}.md`, AccessContext.SEARCH);
       }
 
       // Even with all boosted, should respect cache size
@@ -757,7 +757,7 @@ describe('DocumentCache - Search-Aware Cache Optimization', () => {
       await fs.writeFile(docPath, '# Test\nContent', 'utf8');
 
       // Should handle zero boost without crashing
-      const doc = await cache.getDocument('/test.md', 'direct');
+      const doc = await cache.getDocument('/test.md', AccessContext.DIRECT);
       expect(doc).toBeTruthy();
     });
   });

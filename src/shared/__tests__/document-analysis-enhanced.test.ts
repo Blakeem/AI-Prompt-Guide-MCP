@@ -58,9 +58,9 @@ const createMockDocumentManager = (
   const documentMap = new Map(documents.map(d => [d.path, d.document]));
 
   const mockManager = {
-    listDocuments: vi.fn().mockResolvedValue(
-      documents.map(d => ({ path: d.path, title: d.document.metadata.title }))
-    ),
+    listDocuments: vi.fn().mockResolvedValue({
+      documents: documents.map(d => ({ path: d.path, title: d.document.metadata.title, lastModified: d.document.metadata.lastModified, headingCount: d.document.headings.length, wordCount: d.document.metadata.wordCount }))
+    }),
     getDocument: vi.fn().mockImplementation(async (path: string) => {
       return documentMap.get(path) ?? null;
     }),

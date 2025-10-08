@@ -20,6 +20,9 @@ export const DEFAULT_LIMITS = {
   
   /** Maximum number of headings in a single document */
   MAX_HEADINGS_PER_DOCUMENT: 1000,
+
+  /** Maximum total headings loaded across all cached documents (DoS protection) */
+  MAX_TOTAL_HEADINGS: 100000,
 } as const;
 
 export const ERROR_CODES = {
@@ -42,6 +45,9 @@ export const ERROR_CODES = {
   /** Configuration errors */
   CONFIG_VALIDATION_ERROR: 'CONFIG_VALIDATION_ERROR',
   ENVIRONMENT_ERROR: 'ENVIRONMENT_ERROR',
+
+  /** Resource exhaustion errors */
+  RESOURCE_EXHAUSTED: 'RESOURCE_EXHAUSTED',
 } as const;
 
 export const LOG_LEVELS = {

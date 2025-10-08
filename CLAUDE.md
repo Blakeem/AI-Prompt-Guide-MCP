@@ -81,6 +81,64 @@ pnpm check:all          # Runs all checks: lint + typecheck + dead-code
 - `pnpm test:all` - Run tests and all quality gates
 - **Unit Testing**: ALL new features must include unit tests following `docs/UNIT-TEST-STRATEGY.md`
 
+## ERROR HANDLING STANDARDS
+
+### Error Handling Consistency
+
+All errors in the codebase follow a standardized pattern with **code**, **context**, and **version** information:
+
+```typescript
+function createError(message: string, code: string, context?: Record<string, unknown>): SpecDocsError {
+  const error = new Error(message) as SpecDocsError;
+  return Object.assign(error, {
+    code,
+    context: { ...context, version: packageJson.version }
+  });
+}
+```
+
+**Error Severity Classification:**
+- **CRITICAL**: Operation cannot continue, throw error (e.g., path traversal, resource exhaustion)
+- **IMPORTANT**: Log error, return error result (e.g., cache invalidation failure)
+- **OPTIONAL**: Log warning, use fallback (e.g., template loading failure)
+
+**Security Event Logging:**
+All security violations are logged using `SecurityAuditLogger` for audit trail:
+```typescript
+import { SecurityAuditLogger } from './utils/security-audit-logger.js';
+
+const securityAuditLogger = new SecurityAuditLogger();
+securityAuditLogger.logSecurityViolation({
+  type: 'PATH_TRAVERSAL',
+  operation: 'read',
+  attemptedPath: filePath,
+  resolvedPath: relative(docsBasePath, resolvedPath),
+  timestamp: new Date().toISOString()
+});
+```
+
+### Resource Management Patterns
+
+**Session Cleanup:**
+- TTL: 24 hours
+- LRU eviction at 1000 sessions
+- Periodic cleanup every hour
+
+**Cache Management:**
+- Global heading limit: 100,000 total headings
+- Document limit enforced via LRU eviction
+- Automatic cleanup in destroy() methods
+
+**File Watcher Recovery:**
+- Error count tracking with exponential backoff
+- Automatic fallback to polling mode after 3 failures
+- 30-second polling interval for cache consistency
+
+**Reference Loading Protection:**
+- Maximum 1000 total nodes across all branches
+- 30-second timeout for entire operation
+- Cycle detection prevents exponential growth
+
 ## COMMON ESLINT ISSUES & SOLUTIONS
 
 Based on practical experience implementing this system, here are the most common linting issues encountered and their proper solutions:
@@ -679,6 +737,63 @@ npx @modelcontextprotocol/inspector node dist/index.js  # Manual testing
 - **Knowledge Preservation** - Systematic documentation enables learning from every issue resolution
 - **Sustained Productivity** - Clear structure allows extended work sessions (1+ hour) without degradation
 
+## TYPE SAFETY AND CODE CONVENTIONS
+
+### Enum Usage for Type Safety
+
+**AccessContext Enum:**
+Use the `AccessContext` enum (not string literals) for cache access context:
+```typescript
+import { AccessContext } from './document-cache.js';
+
+// ✅ Correct - type-safe enum
+const doc = await cache.getDocument(path, AccessContext.SEARCH);
+
+// ❌ Wrong - string literal (will not compile)
+const doc = await cache.getDocument(path, 'search');
+```
+
+**Available contexts:**
+- `AccessContext.DIRECT` - Standard access (default)
+- `AccessContext.SEARCH` - Search operations (3x eviction resistance)
+- `AccessContext.REFERENCE` - Reference loading (2x eviction resistance)
+
+### Nullish Coalescing Standard
+
+Always use `??` operator for null/undefined checks:
+```typescript
+// ✅ Correct - only null/undefined trigger fallback
+const value = param ?? 'default';
+
+// ❌ Wrong - treats 0, '', false as falsy
+const value = param || 'default';
+```
+
+### Structured Logging
+
+Use structured logger (NOT console.log/warn/error):
+```typescript
+import { getGlobalLogger } from './utils/logger.js';
+const logger = getGlobalLogger();
+
+logger.warn('Failed to load reference', {
+  reference: ref.originalRef,
+  error: error instanceof Error ? error.message : String(error)
+});
+```
+
+### Constants for Magic Numbers
+
+Define constants for configuration values:
+```typescript
+// ✅ Correct - named constant with documentation
+const TOC_UPDATE_DEBOUNCE_MS = 100;
+
+setTimeout(() => {
+  void this.updateTableOfContents(docPath);
+}, TOC_UPDATE_DEBOUNCE_MS);
+```
+
 ## Key Principles
 
 1. **Follow Established Patterns** - The codebase has mature patterns, use them
@@ -689,6 +804,8 @@ npx @modelcontextprotocol/inspector node dist/index.js  # Manual testing
 6. **MCP Compliance** - Use proper MCP patterns and error handling
 7. **Production Ready** - Every change must pass ALL quality gates
 8. **Systematic Workflow** - Use the proven ALPHA-TEST-WORKFLOW.md approach for complex issue resolution
+9. **Type Safety** - Use enums and strong typing (AccessContext, error types)
+10. **Resource Management** - Always implement cleanup in destroy() methods
 
 ## DEBUGGING PRINCIPLES
 

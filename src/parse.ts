@@ -9,24 +9,24 @@ import { visitParents } from 'unist-util-visit-parents';
 import type { Heading as MdHeading, Root } from 'mdast';
 import GithubSlugger from 'github-slugger';
 import { DEFAULT_LIMITS, ERROR_CODES } from './constants/defaults.js';
-import type { Heading, TocNode, HeadingDepth, SpecDocsError } from './types/index.js';
+import type { Heading, TocNode, SpecDocsError } from './types/index.js';
 import { validateHeadingDepth } from './shared/validation-utils.js';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const packageJson = require('../package.json') as { version: string };
 
 /**
- * Creates a custom error with code and context
+ * Creates a custom error with code, context, and version information
  */
 function createError(message: string, code: string, context?: Record<string, unknown>): SpecDocsError {
   const error = new Error(message) as SpecDocsError;
-  return Object.assign(error, { code, context });
+  return Object.assign(error, {
+    code,
+    context: { ...context, version: packageJson.version }
+  });
 }
 
-/**
- * Validates heading depth and normalizes it to valid range
- * @deprecated Use validateHeadingDepth from validation-utils.ts instead
- */
-function normalizeHeadingDepth(depth: number): HeadingDepth {
-  return validateHeadingDepth(depth);
-}
 
 /**
  * Parses markdown text into an AST
@@ -97,7 +97,7 @@ export function listHeadings(markdown: string): readonly Heading[] {
 
     // Use stateful slugger to handle duplicates automatically
     const slug = slugger.slug(title);
-    const depth = normalizeHeadingDepth(node.depth);
+    const depth = validateHeadingDepth(node.depth);
 
     // Find parent heading (nearest previous heading with smaller depth)
     let parentIndex: number | null = null;

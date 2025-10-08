@@ -203,7 +203,7 @@ export async function validateSystemLinks(
   let documentsToCheck: Array<{ path: string; title: string; lastModified: Date; headingCount: number; wordCount: number }>;
 
   try {
-    const allDocuments = await manager.listDocuments();
+    const { documents: allDocuments } = await manager.listDocuments();
     documentsToCheck = pathFilter != null && pathFilter !== ''
       ? allDocuments.filter(doc => doc.path.startsWith(pathFilter))
       : allDocuments;
@@ -367,7 +367,7 @@ async function generateLinkSuggestions(
   if (validation.error?.includes('Document not found') === true) {
     // Try to find similar document paths
     try {
-      const allDocuments = await manager.listDocuments();
+      const { documents: allDocuments } = await manager.listDocuments();
       const cleanedLinkText = linkText.replace('@', '').replace(/^\//, '');
       const similarDocs = allDocuments.filter(doc =>
         doc.path.toLowerCase().includes(cleanedLinkText.toLowerCase()) ||

@@ -9,13 +9,20 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { ERROR_CODES, DEFAULT_CONFIG } from './constants/defaults.js';
 import type { ServerConfig, SpecDocsError } from './types/index.js';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const packageJson = require('../package.json') as { version: string };
 
 /**
- * Creates a custom error with code and context
+ * Creates a custom error with code, context, and version information
  */
 function createError(message: string, code: string, context?: Record<string, unknown>): SpecDocsError {
   const error = new Error(message) as SpecDocsError;
-  return Object.assign(error, { code, context });
+  return Object.assign(error, {
+    code,
+    context: { ...context, version: packageJson.version }
+  });
 }
 
 /**
