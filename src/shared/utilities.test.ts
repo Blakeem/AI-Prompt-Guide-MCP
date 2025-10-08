@@ -55,8 +55,7 @@ const createSampleDocument = (): CachedDocument => ({
     { index: 7, depth: 3, title: 'Authentication', slug: 'authentication', parentIndex: 6 }
   ],
   toc: [],
-  slugIndex: new Map(),
-  sections: new Map()
+  slugIndex: new Map()
 });
 
 describe('performSectionEdit Utility Function', () => {

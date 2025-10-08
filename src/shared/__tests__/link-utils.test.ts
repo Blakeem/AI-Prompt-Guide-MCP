@@ -48,8 +48,7 @@ const createSampleDocument = (): CachedDocument => ({
     { index: 5, depth: 3, title: 'Create User', slug: 'create-user', parentIndex: 3 }
   ],
   toc: [],
-  slugIndex: new Map(),
-  sections: new Map()
+  slugIndex: new Map()
 });
 
 describe('parseLink Function', () => {

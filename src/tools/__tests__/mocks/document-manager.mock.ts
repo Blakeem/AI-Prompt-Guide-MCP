@@ -4,7 +4,7 @@
  */
 
 import { vi } from 'vitest';
-import type { CachedDocument, DocumentMetadata, CachedSectionEntry } from '../../../document-cache.js';
+import type { CachedDocument, DocumentMetadata } from '../../../document-cache.js';
 import type { Heading } from '../../../types/core.js';
 import type { MockFileSystem } from './filesystem.mock.js';
 import { createMockFileSystem } from './filesystem.mock.js';
@@ -54,19 +54,6 @@ class MockDocumentManager {
     // Parse headings from content
     const headings = this.parseHeadings(content);
 
-    // Create sections map
-    const sections = new Map<string, CachedSectionEntry>();
-    for (const heading of headings) {
-      // Simple section extraction - just get the heading and immediate content
-      const section = this.extractSection(content, heading.slug);
-      if (section != null && section !== '') {
-        sections.set(heading.slug, {
-          content: section,
-          generation: 1
-        });
-      }
-    }
-
     // Create slug index
     const slugIndex = new Map<string, number>();
     headings.forEach((heading, index) => {
@@ -77,8 +64,7 @@ class MockDocumentManager {
       metadata: this.createMockMetadata(path, content),
       headings,
       toc: [], // Simplified for mocking - could build actual TOC if needed
-      slugIndex,
-      sections
+      slugIndex
     };
 
     // Cache the document
@@ -94,9 +80,12 @@ class MockDocumentManager {
       throw new Error(`Failed to load section: ${sectionSlug}`);
     }
 
-    const document = await this.getDocument(docPath);
-    const sectionEntry = document.sections.get(sectionSlug);
-    return sectionEntry?.content ?? null;
+    const content = this.mockFileSystem.getFileContent(docPath);
+    if (content == null || content === '') {
+      return null;
+    }
+
+    return this.extractSection(content, sectionSlug);
   });
 
   /**

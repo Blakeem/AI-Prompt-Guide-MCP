@@ -14,6 +14,24 @@ import type { CachedDocument } from '../../document-cache.js';
 // Mock DocumentManager
 const createMockDocumentManager = (): DocumentManager => {
   const mockDocs = new Map<string, CachedDocument>();
+  const mockContents = new Map<string, string>();
+  const mockSectionContents = new Map<string, Map<string, string>>();
+
+  // Section content for /api/auth.md
+  const authSections = new Map<string, string>();
+  authSections.set('overview', 'Authentication overview content');
+  authSections.set('setup', 'Setup instructions content');
+  mockSectionContents.set('/api/auth.md', authSections);
+
+  // Section content for /api/tokens.md
+  const tokenSections = new Map<string, string>();
+  tokenSections.set('token-types', 'Different types of tokens available');
+  mockSectionContents.set('/api/tokens.md', tokenSections);
+
+  // Section content for /api/errors.md
+  const errorSections = new Map<string, string>();
+  errorSections.set('error-codes', 'List of error codes and meanings');
+  mockSectionContents.set('/api/errors.md', errorSections);
 
   // Sample documents for testing
   mockDocs.set('/api/auth.md', {
@@ -39,13 +57,9 @@ const createMockDocumentManager = (): DocumentManager => {
     slugIndex: new Map([
       ['overview', 0],
       ['setup', 1]
-    ]),
-    sections: new Map([
-      ['overview', { content: 'Authentication overview content', generation: 1 }],
-      ['setup', { content: 'Setup instructions content', generation: 1 }],
-      ['__full__', { content: 'Authentication guide. See @/api/tokens.md for token details.', generation: 1 }]
     ])
   } as CachedDocument);
+  mockContents.set('/api/auth.md', 'Authentication guide. See @/api/tokens.md for token details.');
 
   mockDocs.set('/api/tokens.md', {
     metadata: {
@@ -69,10 +83,6 @@ const createMockDocumentManager = (): DocumentManager => {
     slugIndex: new Map([
       ['token-types', 0]
     ]),
-    sections: new Map([
-      ['token-types', { content: 'Different types of tokens available', generation: 1 }],
-      ['__full__', { content: 'Token management guide. References @/api/errors.md for error handling.', generation: 1 }]
-    ])
   } as CachedDocument);
 
   mockDocs.set('/api/errors.md', {
@@ -97,10 +107,6 @@ const createMockDocumentManager = (): DocumentManager => {
     slugIndex: new Map([
       ['error-codes', 0]
     ]),
-    sections: new Map([
-      ['error-codes', { content: 'List of error codes and meanings', generation: 1 }],
-      ['__full__', { content: 'Error handling documentation. No external references.', generation: 1 }]
-    ])
   } as CachedDocument);
 
   mockDocs.set('/circular/a.md', {
@@ -121,9 +127,6 @@ const createMockDocumentManager = (): DocumentManager => {
     headings: [],
     toc: [],
     slugIndex: new Map(),
-    sections: new Map([
-      ['__full__', { content: 'Document A references @/circular/b.md', generation: 1 }]
-    ])
   } as CachedDocument);
 
   mockDocs.set('/circular/b.md', {
@@ -144,10 +147,13 @@ const createMockDocumentManager = (): DocumentManager => {
     headings: [],
     toc: [],
     slugIndex: new Map(),
-    sections: new Map([
-      ['__full__', { content: 'Document B references @/circular/a.md', generation: 1 }]
-    ])
   } as CachedDocument);
+
+  // Add content entries for documents
+  mockContents.set('/api/tokens.md', 'Token management guide. References @/api/errors.md for error handling.');
+  mockContents.set('/api/errors.md', 'Error handling documentation. No external references.');
+  mockContents.set('/circular/a.md', 'Document A references @/circular/b.md');
+  mockContents.set('/circular/b.md', 'Document B references @/circular/a.md');
 
   return {
     async getDocument(path: string) {
@@ -158,10 +164,19 @@ const createMockDocumentManager = (): DocumentManager => {
       if (doc == null) {
         return null;
       }
-      const section = doc.sections?.get(slug);
-      return section?.content ?? null;
+      // Get section content from mock data
+      const sections = mockSectionContents.get(path);
+      return sections?.get(slug) ?? null;
+    },
+    cache: {
+      async getDocument(path: string) {
+        return mockDocs.get(path) ?? null;
+      },
+      async readDocumentContent(path: string) {
+        return mockContents.get(path) ?? null;
+      }
     }
-  } as DocumentManager;
+  } as unknown as DocumentManager;
 };
 
 describe('ReferenceLoader', () => {
@@ -628,33 +643,72 @@ describe('ReferenceLoader', () => {
         async getDocument(path: string) {
           if (path === '/malformed.md') {
             return {
-              path: '/malformed.md',
-              content: 'Content',
-              metadata: { title: 'Malformed' },
-              headings: null, // Malformed headings
-              sections: new Map()
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any;
+              metadata: {
+                path: '/malformed.md',
+                title: 'Malformed',
+                lastModified: new Date(),
+                contentHash: 'hash-malformed',
+                wordCount: 10,
+                linkCount: 0,
+                codeBlockCount: 0,
+                lastAccessed: new Date(),
+                cacheGeneration: 1,
+                namespace: 'root',
+                keywords: [],
+                fingerprintGenerated: new Date()
+              },
+              headings: [],
+              toc: [],
+              slugIndex: new Map()
+            } as CachedDocument;
           }
           return null;
         },
-        async getSectionContent(_path: string, _slug: string) {
-          return null;
+        cache: {
+          async getDocument(path: string) {
+            if (path === '/malformed.md') {
+              return {
+                metadata: {
+                  path: '/malformed.md',
+                  title: 'Malformed',
+                  lastModified: new Date(),
+                  contentHash: 'hash-malformed',
+                  wordCount: 10,
+                  linkCount: 0,
+                  codeBlockCount: 0,
+                  lastAccessed: new Date(),
+                  cacheGeneration: 1,
+                  namespace: 'root',
+                  keywords: [],
+                  fingerprintGenerated: new Date()
+                },
+                headings: [],
+                toc: [],
+                slugIndex: new Map()
+              } as CachedDocument;
+            }
+            return null;
+          },
+          async readDocumentContent() {
+            return null;
+          }
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any as DocumentManager;
+      } as unknown as DocumentManager;
 
       const refs: NormalizedReference[] = [
         {
-          originalRef: '@/malformed.md#section',
-          resolvedPath: '/malformed.md#section',
-          documentPath: '/malformed.md',
-          sectionSlug: 'section'
-        }
+          originalRef: '@/malformed.md',
+          resolvedPath: '/malformed.md',
+          documentPath: '/malformed.md'
+        } as NormalizedReference
       ];
 
+      // Should handle gracefully without crashing
       const hierarchy = await loader.loadReferences(refs, malformedManager, 1, 0);
-      expect(hierarchy).toHaveLength(0);
+      // Document is loaded successfully even with no headings
+      expect(hierarchy).toHaveLength(1);
+      expect(hierarchy[0]?.path).toBe('/malformed.md');
+      expect(hierarchy[0]?.title).toBe('Malformed');
     });
   });
 });

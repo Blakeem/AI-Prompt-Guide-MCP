@@ -67,8 +67,7 @@ const createSampleDocument = (path: string = '/api/users.md'): CachedDocument =>
     { index: 5, depth: 3, title: 'Create User', slug: 'create-user', parentIndex: 3 }
   ],
   toc: [],
-  slugIndex: new Map(),
-  sections: new Map()
+  slugIndex: new Map()
 });
 
 const createDocumentList = (): Array<{ path: string; title: string; lastModified: Date; headingCount: number; wordCount: number }> => [

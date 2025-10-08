@@ -699,9 +699,9 @@ async function detectBrokenReferences(
             continue;
           }
 
-          // If reference includes a section, check section existence
+          // If reference includes a section, check section existence using slugIndex
           if (ref.sectionSlug != null) {
-            const sectionExists = document.sections?.has(ref.sectionSlug) ?? false;
+            const sectionExists = document.slugIndex.has(ref.sectionSlug);
             if (!sectionExists) {
               // Section doesn't exist - this is a broken reference
               brokenReferences.push({

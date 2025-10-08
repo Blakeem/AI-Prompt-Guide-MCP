@@ -173,8 +173,8 @@ export class ReferenceLoader {
     visitedPaths.add(ref.documentPath);
 
     try {
-      // Load the document
-      const document = await manager.getDocument(ref.documentPath);
+      // Load the document with 'reference' context for 2x eviction resistance
+      const document = await manager.cache.getDocument(ref.documentPath, 'reference');
       if (document == null) {
         console.warn(`Document not found: ${ref.documentPath}`);
         return null;
@@ -199,17 +199,8 @@ export class ReferenceLoader {
         const heading = document.headings.find(h => h.slug === ref.sectionSlug);
         title = heading?.title ?? `Section: ${ref.sectionSlug}`;
       } else {
-        // Load full document content from the __full__ section or construct from sections
-        const fullContent = document.sections?.get('__full__')?.content;
-        if (fullContent != null) {
-          content = fullContent;
-        } else {
-          // Fallback: construct content from all sections
-          const allSections = Array.from(document.sections?.values() ?? [])
-            .map(entry => entry.content)
-            .join('\n\n');
-          content = allSections;
-        }
+        // Load full document content directly
+        content = await manager.cache.readDocumentContent(ref.documentPath) ?? '';
         title = document.metadata.title;
       }
 

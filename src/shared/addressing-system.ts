@@ -197,133 +197,131 @@ export class InvalidAddressError extends AddressingError {
 }
 
 /**
- * Cache configuration constants
+ * Batch cache statistics for debugging and monitoring
  */
-const DEFAULT_ADDRESS_CACHE_SIZE = 1000; // Chosen for high-traffic MCP server operations with document/section reuse
-
-/**
- * Cache configuration interface for different eviction strategies
- */
-interface CacheConfig {
-  readonly maxSize: number;
-  readonly evictionStrategy?: 'lru';
+export interface BatchCacheStats {
+  readonly size: number;
+  readonly keys: string[];
 }
 
 /**
- * Cache factory for creating configurable address caches
- */
-class CacheFactory {
-  static createCache(config: CacheConfig = { maxSize: DEFAULT_ADDRESS_CACHE_SIZE }): AddressCache {
-    return new AddressCache(config);
-  }
-}
-
-/**
- * Address parsing cache for performance optimization with proper LRU implementation
+ * Address parsing cache optimized for batch operations
+ *
+ * This cache uses a simple Map for batch-scoped caching instead of persistent LRU caching.
+ * Cache entries are only valid for the current batch operation and are cleared after each batch.
+ *
+ * Benefits of batch-scoped caching:
+ * - Simpler implementation (no LRU logic needed)
+ * - Lower memory footprint (no persistent 1000-entry cache)
+ * - Same performance for batch operations (addresses cached within batch)
+ * - Clearer memory model (cache lifecycle tied to batch lifecycle)
  */
 class AddressCache {
-  private readonly documentCache = new Map<string, DocumentAddress>();
-  private readonly sectionCache = new Map<string, SectionAddress>();
-  private readonly maxSize: number;
+  private readonly batchCache = new Map<string, DocumentAddress | SectionAddress>();
 
-  constructor(config: CacheConfig) {
-    this.maxSize = config.maxSize;
-  }
-
+  /**
+   * Get document address from batch cache
+   */
   getDocument(path: string): DocumentAddress | undefined {
-    const address = this.documentCache.get(path);
-    if (address != null) {
-      // Touch for LRU: re-insert to maintain access order
-      this.touch(this.documentCache, path, address);
+    const address = this.batchCache.get(path);
+    if (address != null && 'slug' in address && 'namespace' in address) {
+      return address as DocumentAddress;
     }
-    return address;
-  }
-
-  setDocument(path: string, address: DocumentAddress): void {
-    if (this.documentCache.size >= this.maxSize && !this.documentCache.has(path)) {
-      // Proper LRU: remove least recently used (first in iteration order)
-      const firstKey = this.documentCache.keys().next().value;
-      if (firstKey != null) {
-        this.documentCache.delete(firstKey);
-      }
-    }
-    this.documentCache.set(path, address);
-  }
-
-  getSection(key: string): SectionAddress | undefined {
-    const address = this.sectionCache.get(key);
-    if (address != null) {
-      // Touch for LRU: re-insert to maintain access order
-      this.touch(this.sectionCache, key, address);
-    }
-    return address;
-  }
-
-  setSection(key: string, address: SectionAddress): void {
-    if (this.sectionCache.size >= this.maxSize && !this.sectionCache.has(key)) {
-      // Proper LRU: remove least recently used (first in iteration order)
-      const firstKey = this.sectionCache.keys().next().value;
-      if (firstKey != null) {
-        this.sectionCache.delete(firstKey);
-      }
-    }
-    this.sectionCache.set(key, address);
+    return undefined;
   }
 
   /**
-   * Touch method to maintain true LRU order by re-inserting accessed items
+   * Set document address in batch cache
    */
-  private touch<T>(cache: Map<string, T>, key: string, value: T): void {
-    cache.delete(key);
-    cache.set(key, value);
+  setDocument(path: string, address: DocumentAddress): void {
+    this.batchCache.set(path, address);
   }
 
-  clear(): void {
-    this.documentCache.clear();
-    this.sectionCache.clear();
+  /**
+   * Get section address from batch cache
+   */
+  getSection(key: string): SectionAddress | undefined {
+    const address = this.batchCache.get(key);
+    if (address != null && 'document' in address && !('isTask' in address)) {
+      return address as SectionAddress;
+    }
+    return undefined;
+  }
+
+  /**
+   * Set section address in batch cache
+   */
+  setSection(key: string, address: SectionAddress): void {
+    this.batchCache.set(key, address);
+  }
+
+  /**
+   * Clear all batch cache entries
+   *
+   * This should be called after completing a batch operation to free memory
+   * and ensure fresh parsing for the next batch.
+   */
+  clearBatch(): void {
+    this.batchCache.clear();
+  }
+
+  /**
+   * Get batch cache statistics for debugging
+   *
+   * Returns the current size and all cache keys for monitoring and debugging
+   * batch caching behavior.
+   */
+  getBatchStats(): BatchCacheStats {
+    return {
+      size: this.batchCache.size,
+      keys: Array.from(this.batchCache.keys())
+    };
   }
 
   /**
    * Invalidate all cached addresses for a specific document
-   * This should be called when a document changes to ensure cache consistency
+   *
+   * This clears the batch cache entries for a document and its sections.
+   * Called when a document changes to ensure cache consistency.
    */
   invalidateDocument(docPath: string): void {
     // Remove the document itself
-    this.documentCache.delete(docPath);
+    this.batchCache.delete(docPath);
 
     // Remove all sections that belong to this document
-    // Section cache keys can be either hierarchical (docPath#section) or flat (section)
-    // We need to remove entries that reference this document
     const keysToRemove: string[] = [];
-    for (const [key, address] of this.sectionCache.entries()) {
-      if (address.document.path === docPath) {
+    for (const [key, address] of this.batchCache.entries()) {
+      if ('document' in address && address.document.path === docPath) {
         keysToRemove.push(key);
       }
     }
 
     for (const key of keysToRemove) {
-      this.sectionCache.delete(key);
+      this.batchCache.delete(key);
     }
-  }
-
-  getDocumentCacheSize(): number {
-    return this.documentCache.size;
-  }
-
-  getSectionCacheSize(): number {
-    return this.sectionCache.size;
-  }
-
-  getMaxSize(): number {
-    return this.maxSize;
   }
 }
 
-const cache = CacheFactory.createCache();
+const cache = new AddressCache();
+
+/**
+ * Get global address cache instance for testing and batch management
+ *
+ * This allows external code to clear the batch cache and access statistics.
+ * Primarily used for:
+ * - Testing batch cache behavior
+ * - Clearing cache after batch operations
+ * - Monitoring cache statistics
+ */
+export function getGlobalAddressCache(): AddressCache {
+  return cache;
+}
 
 /**
  * Invalidate addressing cache entries for a specific document
- * This should be called when a document changes to maintain cache consistency
+ *
+ * This should be called when a document changes to maintain cache consistency.
+ * Clears both the document entry and all section entries for that document.
  */
 export function invalidateAddressCache(docPath: string): void {
   cache.invalidateDocument(docPath);
@@ -884,6 +882,33 @@ export class ToolIntegration {
       typeof context.slug === 'string' &&
       typeof context.documentPath === 'string'
     );
+  }
+
+  /**
+   * Clear batch cache after batch operations
+   *
+   * This helper provides a standardized way for tools to clear the batch cache
+   * after completing multi-item operations. Clearing the cache frees memory
+   * and ensures fresh parsing for the next batch.
+   *
+   * @example Clearing cache after batch section operations
+   * ```typescript
+   * // Process multiple section operations
+   * for (const op of operations) {
+   *   const { addresses } = ToolIntegration.validateAndParse({
+   *     document: op.document,
+   *     section: op.section
+   *   });
+   *   // ... process operation
+   * }
+   *
+   * // Clear batch cache after all operations complete
+   * ToolIntegration.clearBatchCache();
+   * ```
+   */
+  static clearBatchCache(): void {
+    const cache = getGlobalAddressCache();
+    cache.clearBatch();
   }
 
   /**

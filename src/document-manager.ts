@@ -5,6 +5,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { DocumentCache } from './document-cache.js';
+import type { FingerprintIndex } from './fingerprint-index.js';
 import { replaceSectionBody, insertRelative, renameHeading, deleteSection } from './sections.js';
 import { listHeadings, buildToc } from './parse.js';
 import { ensureDirectoryExists, writeFileIfUnchanged, readFileSnapshot, fileExists } from './fsio.js';
@@ -62,13 +63,15 @@ interface SearchResult {
  */
 export class DocumentManager {
   private readonly docsRoot: string;
-  private readonly cache: DocumentCache;
+  public readonly cache: DocumentCache;
   private readonly pathHandler: PathHandler;
+  private readonly fingerprintIndex: FingerprintIndex | undefined;
 
-  constructor(docsRoot: string, cache: DocumentCache) {
+  constructor(docsRoot: string, cache: DocumentCache, fingerprintIndex?: FingerprintIndex) {
     this.docsRoot = path.resolve(docsRoot);
     this.cache = cache;
     this.pathHandler = new PathHandler(this.docsRoot);
+    this.fingerprintIndex = fingerprintIndex;
   }
 
   /**
@@ -648,10 +651,38 @@ export class DocumentManager {
 
     const results: SearchResult[] = [];
     const queryLower = query.toLowerCase();
-    const documents = await this.listDocuments();
 
-    for (const docInfo of documents) {
-      const document = await this.cache.getDocument(docInfo.path);
+    // OPTIMIZATION: Use fingerprint index if available
+    let documentsToSearch: string[];
+
+    if (this.fingerprintIndex?.isInitialized() === true) {
+      // Fast path: Filter candidates using fingerprint index
+      const candidates = this.fingerprintIndex.findCandidates(query);
+      documentsToSearch = candidates;
+
+      const allDocuments = await this.listDocuments();
+      logger.debug('Search candidates filtered', {
+        query,
+        totalDocuments: allDocuments.length,
+        candidates: candidates.length,
+        reduction: allDocuments.length > 0
+          ? `${Math.round((1 - candidates.length / allDocuments.length) * 100)}%`
+          : '0%'
+      });
+    } else {
+      // Slow path: Search all documents
+      const allDocs = await this.listDocuments();
+      documentsToSearch = allDocs.map(d => d.path);
+
+      logger.debug('Search without fingerprint index', {
+        query,
+        totalDocuments: documentsToSearch.length
+      });
+    }
+
+    // Deep search only in candidates - use 'search' context for boost
+    for (const docPath of documentsToSearch) {
+      const document = await this.cache.getDocument(docPath, 'search');
       if (!document) continue;
 
       const matches: SearchResult['matches'] = [];
@@ -688,16 +719,16 @@ export class DocumentManager {
         try {
           // Search within each section using our readSection tool
           for (const heading of document.headings) {
-            const sectionContent = await this.cache.getSectionContent(docInfo.path, heading.slug);
+            const sectionContent = await this.cache.getSectionContent(docPath, heading.slug);
             // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
             if (sectionContent != null && sectionContent.toLowerCase().includes(queryLower)) {
               // Extract a meaningful snippet from the section
-              const lines = sectionContent.split('\n').filter(line => 
-                line.trim() !== '' && 
+              const lines = sectionContent.split('\n').filter(line =>
+                line.trim() !== '' &&
                 !line.trim().startsWith('#') &&
                 line.toLowerCase().includes(queryLower)
               );
-              
+
               if (lines.length > 0) {
                 const firstLine = lines[0];
                 if (firstLine != null) {
@@ -713,13 +744,13 @@ export class DocumentManager {
             }
           }
         } catch (error) {
-          logger.warn('Failed to search content', { path: docInfo.path, error });
+          logger.warn('Failed to search content', { path: docPath, error });
         }
       }
 
       if (matches.length > 0) {
         results.push({
-          documentPath: docInfo.path,
+          documentPath: docPath,
           documentTitle: document.metadata.title,
           matches: matches.sort((a, b) => b.score - a.score)
         });

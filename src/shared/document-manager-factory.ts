@@ -10,6 +10,10 @@ import { DocumentManager as Manager } from '../document-manager.js';
 import { loadConfig } from '../config.js';
 import { createDocumentCache } from '../document-cache.js';
 import type { DocumentCache } from '../document-cache.js';
+import { FingerprintIndex } from '../fingerprint-index.js';
+import { getGlobalLogger } from '../utils/logger.js';
+
+const logger = getGlobalLogger();
 
 /**
  * Create a new DocumentManager instance with proper dependency injection
@@ -37,7 +41,27 @@ export function createDocumentManager(docsRoot?: string): DocumentManager {
     evictionPolicy: 'lru'
   });
 
-  return new Manager(root, cache);
+  // Create and initialize fingerprint index for fast search filtering
+  const fingerprintIndex = new FingerprintIndex(root);
+
+  // Start async initialization (non-blocking)
+  void fingerprintIndex.initialize().catch((error: unknown) => {
+    logger.warn('Failed to initialize fingerprint index', { error });
+  });
+
+  // Integrate with cache's file watcher for auto-invalidation
+  // The cache creates its watcher asynchronously, so we need to access it
+  // after a short delay or via an event
+  setTimeout(() => {
+    // Access the watcher if it exists
+    const watcher = (cache as unknown as { watcher?: unknown }).watcher;
+    if (watcher != null) {
+      fingerprintIndex.watchFiles(watcher as Parameters<typeof fingerprintIndex.watchFiles>[0]);
+      logger.debug('FingerprintIndex integrated with cache file watcher');
+    }
+  }, 100);
+
+  return new Manager(root, cache, fingerprintIndex);
 }
 
 /**

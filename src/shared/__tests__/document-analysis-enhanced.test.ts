@@ -40,9 +40,6 @@ const createMockDocument = (overrides: Partial<CachedDocument> = {}): CachedDocu
   headings: [],
   toc: [],
   slugIndex: new Map(),
-  sections: new Map([
-    ['overview', { content: '# Test Document\n\nThis is test content.', generation: 1 }]
-  ]),
   ...overrides
 });
 
@@ -68,10 +65,8 @@ const createMockDocumentManager = (
       return documentMap.get(path) ?? null;
     }),
     getDocumentContent: vi.fn().mockImplementation(async (path: string) => {
-      const doc = documentMap.get(path);
-      if (!doc?.sections) return null;
-      // Concatenate all section content for full document content
-      return Array.from(doc.sections.values()).map(entry => entry.content).join('\n\n');
+      // Return simple mock content for testing
+      return `Mock content for ${path}`;
     }),
     listDocumentFingerprints: vi.fn().mockResolvedValue(fingerprints),
     getSectionContent: vi.fn(),
@@ -107,12 +102,6 @@ describe('Enhanced Document Analysis Integration', () => {
           keywords: ['oauth', 'authentication', 'api', 'security'],
           fingerprintGenerated: new Date()
         },
-        sections: new Map([
-          ['overview', {
-            content: '---\nkeywords: [authentication, oauth, api, security]\n---\n\n# OAuth Authentication\n\nComplete OAuth implementation guide.',
-            generation: 1
-          }]
-        ])
       });
 
       const jwtDoc = createMockDocument({
@@ -130,9 +119,6 @@ describe('Enhanced Document Analysis Integration', () => {
           keywords: ['jwt', 'token', 'authentication'],
           fingerprintGenerated: new Date()
         },
-        sections: new Map([
-          ['overview', { content: '# JWT Token Management\n\nJWT token handling for **authentication** systems.', generation: 1 }]
-        ])
       });
 
       const securityDoc = createMockDocument({
@@ -150,9 +136,6 @@ describe('Enhanced Document Analysis Integration', () => {
           keywords: ['security', 'best', 'practices'],
           fingerprintGenerated: new Date()
         },
-        sections: new Map([
-          ['overview', { content: '# Security Best Practices\n\nSecurity guidelines for API authentication.', generation: 1 }]
-        ])
       });
 
       const manager = createMockDocumentManager([
@@ -278,9 +261,6 @@ describe('Enhanced Document Analysis Integration', () => {
           keywords: ['oauth', 'authentication', 'api'],
           fingerprintGenerated: new Date()
         },
-        sections: new Map([
-          ['overview', { content: '# OAuth Authentication\n\nOAuth implementation with authentication features.', generation: 1 }]
-        ])
       });
 
       const manager = createMockDocumentManager([
@@ -332,10 +312,6 @@ describe('Enhanced Document Analysis Integration', () => {
 
     it('should detect missing sections in existing documents', async () => {
       const existingDoc = createMockDocument({
-        sections: new Map([
-          ['overview', { content: '# Overview\n\nOverview content', generation: 1 }],
-          ['setup', { content: '# Setup\n\nSetup instructions', generation: 1 }]
-        ])
       });
 
       const manager = createMockDocumentManager([

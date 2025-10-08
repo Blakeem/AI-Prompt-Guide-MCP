@@ -16,6 +16,29 @@ import { pathToNamespace } from './shared/path-utilities.js';
 const logger = getGlobalLogger();
 
 /**
+ * Access context for cache operations
+ *
+ * Tracks the purpose of document access to apply appropriate caching strategies.
+ * Different contexts receive different eviction resistance (boost factors).
+ */
+export type AccessContext = 'search' | 'direct' | 'reference';
+
+/**
+ * Access metadata for boost-aware eviction
+ *
+ * Tracks when a document was accessed and with what context to calculate
+ * eviction scores that prioritize certain access patterns.
+ */
+interface AccessMetadata {
+  /** Access timestamp (incremental counter) */
+  timestamp: number;
+  /** Access context (search, direct, reference) */
+  context: AccessContext;
+  /** Boost factor for eviction resistance */
+  boostFactor: number;
+}
+
+/**
  * Pre-compiled regex patterns for metadata extraction
  * These patterns are created once at module load time for optimal performance
  */
@@ -52,10 +75,6 @@ export interface DocumentMetadata {
   fingerprintGenerated: Date;
 }
 
-export interface CachedSectionEntry {
-  content: string;
-  generation: number;
-}
 
 /**
  * Fingerprint entry interface for document discovery improvements
@@ -214,49 +233,14 @@ export interface DocumentIndex {
 /**
  * Document content interface
  *
- * Provides access to actual section content with lazy loading and cache
- * management. Used by tools that need to read or modify section content.
- * Content is loaded on-demand to optimize memory usage.
+ * Placeholder interface for future content-related functionality.
+ * Section content is not cached - it's parsed on-demand from the document.
  *
- * @example Lazy content access
- * ```typescript
- * async function getSectionContent(
- *   doc: DocumentContent,
- *   slug: string
- * ): Promise<string | null> {
- *   const sectionEntry = doc.sections?.get(slug);
- *   return sectionEntry?.content ?? null;
- * }
- * ```
- *
- * @example Content enumeration
- * ```typescript
- * function getAllLoadedSections(doc: DocumentContent): string[] {
- *   if (!doc.sections) return [];
- *   return Array.from(doc.sections.keys());
- * }
- *
- * function getContentStats(doc: DocumentContent): ContentStats {
- *   if (!doc.sections) return { loadedSections: 0, totalContentLength: 0 };
- *
- *   let totalLength = 0;
- *   for (const entry of doc.sections.values()) {
- *     totalLength += entry.content.length;
- *   }
- *
- *   return {
- *     loadedSections: doc.sections.size,
- *     totalContentLength: totalLength
- *   };
- * }
- * ```
- *
- * @see {@link CachedSectionEntry} Individual section cache entry
  * @see {@link DocumentCache} Cache implementation managing content lifecycle
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface DocumentContent {
-  /** Lazy-loaded section content with cache generations for invalidation */
-  sections?: Map<string, CachedSectionEntry>;
+  // Reserved for future content-related features
 }
 
 /**
@@ -274,13 +258,23 @@ interface CacheOptions {
   enableWatching: boolean;
   watchIgnorePatterns: string[];
   evictionPolicy: 'lru' | 'mru';
+  boostFactors?: {
+    search?: number;
+    direct?: number;
+    reference?: number;
+  };
 }
 
 const DEFAULT_OPTIONS: CacheOptions = {
   maxCacheSize: 100,
   enableWatching: true,
   watchIgnorePatterns: ['**/node_modules/**', '**/.git/**', '**/dist/**'],
-  evictionPolicy: 'lru'
+  evictionPolicy: 'lru',
+  boostFactors: {
+    search: 3.0,
+    direct: 1.0,
+    reference: 2.0
+  }
 };
 
 /**
@@ -289,16 +283,24 @@ const DEFAULT_OPTIONS: CacheOptions = {
 export class DocumentCache extends EventEmitter {
   private readonly cache = new Map<string, CachedDocument>();
   private readonly accessOrder = new Map<string, number>();
+  private readonly accessMetadata = new Map<string, AccessMetadata>();
   private readonly options: CacheOptions;
   private readonly docsRoot: string;
   private watcher: ReturnType<typeof watch> | undefined;
   private accessCounter = 0;
-  private cacheGenerationCounter = 0;
+  private readonly boostFactors: { search: number; direct: number; reference: number };
 
   constructor(docsRoot: string, options: Partial<CacheOptions> = {}) {
     super();
     this.docsRoot = path.resolve(docsRoot);
     this.options = { ...DEFAULT_OPTIONS, ...options };
+
+    // Merge boost factors with defaults
+    this.boostFactors = {
+      search: options.boostFactors?.search ?? DEFAULT_OPTIONS.boostFactors?.search ?? 3.0,
+      direct: options.boostFactors?.direct ?? DEFAULT_OPTIONS.boostFactors?.direct ?? 1.0,
+      reference: options.boostFactors?.reference ?? DEFAULT_OPTIONS.boostFactors?.reference ?? 2.0
+    };
 
     if (this.options.enableWatching) {
       this.initializeWatcher();
@@ -502,7 +504,7 @@ export class DocumentCache extends EventEmitter {
       linkCount: linkMatches.length,
       codeBlockCount: codeBlockMatches.length,
       lastAccessed: new Date(),
-      cacheGeneration: ++this.cacheGenerationCounter,
+      cacheGeneration: 0, // No longer used, kept for backward compatibility
       namespace,
       keywords,
       fingerprintGenerated
@@ -521,7 +523,11 @@ export class DocumentCache extends EventEmitter {
   }
 
   /**
-   * Enforce cache size limits with LRU/MRU eviction
+   * Enforce cache size limits with boost-aware LRU/MRU eviction
+   *
+   * Uses access metadata to calculate eviction scores that incorporate
+   * both access time and boost factors. Documents with higher boost factors
+   * (e.g., search-accessed) are less likely to be evicted.
    */
   private enforceCacheSize(): void {
     if (this.cache.size <= this.options.maxCacheSize) {
@@ -529,90 +535,78 @@ export class DocumentCache extends EventEmitter {
     }
 
     const entriesToRemove = this.cache.size - this.options.maxCacheSize + 1;
-    const sortedPaths = Array.from(this.accessOrder.entries())
-      .sort((a, b) => {
-        return this.options.evictionPolicy === 'lru' 
-          ? a[1] - b[1]  // Oldest first
-          : b[1] - a[1]; // Newest first
-      })
-      .slice(0, entriesToRemove)
-      .map(([path]) => path);
 
-    for (const docPath of sortedPaths) {
+    // Calculate eviction scores (lower score = evict first)
+    const scoredPaths = Array.from(this.accessMetadata.entries())
+      .map(([path, metadata]) => ({
+        path,
+        score: this.options.evictionPolicy === 'lru'
+          ? metadata.timestamp * metadata.boostFactor  // Boost search-accessed docs
+          : -metadata.timestamp * metadata.boostFactor // MRU with boost
+      }))
+      .sort((a, b) => a.score - b.score)  // Lowest score first
+      .slice(0, entriesToRemove)
+      .map(entry => entry.path);
+
+    for (const docPath of scoredPaths) {
       this.cache.delete(docPath);
       this.accessOrder.delete(docPath);
-      logger.debug('Evicted document from cache', { path: docPath });
+      this.accessMetadata.delete(docPath);
+
+      logger.debug('Evicted document from cache', {
+        path: docPath
+      });
     }
   }
 
   /**
-   * Update access tracking for cache policies
+   * Update access tracking for cache policies with context-aware boost
+   *
+   * @param docPath - Document path
+   * @param context - Access context (search, direct, reference)
    */
-  private updateAccess(docPath: string): void {
+  private updateAccess(docPath: string, context: AccessContext = 'direct'): void {
     this.accessCounter++;
     this.accessOrder.set(docPath, this.accessCounter);
-  }
 
-  /**
-   * Atomically update cache with both hierarchical and flat keys
-   * This prevents race conditions by ensuring both keys are set with the same generation
-   */
-  private atomicCacheUpdate(document: CachedDocument, slug: string, content: string): void {
-    // Build all updates first in a temporary Map
-    const generation = ++this.cacheGenerationCounter;
-    const entry: CachedSectionEntry = { content, generation };
-    const updates = new Map<string, CachedSectionEntry>();
-
-    // Add primary hierarchical slug
-    updates.set(slug, entry);
-
-    // If hierarchical slug, also add flat key
-    if (slug.includes('/')) {
-      const parts = slug.split('/');
-      const flatKey = parts.pop();
-      if (flatKey != null && flatKey !== '') {
-        updates.set(flatKey, entry); // Same entry object, same generation
-      }
-    }
-
-    // Initialize sections map if not present
-    document.sections ??= new Map();
-
-    // Apply all updates atomically in a single operation loop
-    for (const [key, value] of updates.entries()) {
-      document.sections.set(key, value);
-    }
-
-    logger.debug('Atomic cache update completed', {
-      slug,
-      generation,
-      keysUpdated: Array.from(updates.keys())
+    // Track access metadata with boost factor
+    this.accessMetadata.set(docPath, {
+      timestamp: this.accessCounter,
+      context,
+      boostFactor: this.boostFactors[context]
     });
   }
 
   /**
    * Retrieves a document from cache or loads it from the filesystem
    *
-   * Uses LRU eviction policy and automatic cache invalidation on file changes.
+   * Uses boost-aware LRU eviction policy and automatic cache invalidation on file changes.
    * Documents are parsed to extract headings, table of contents, and metadata.
    *
    * @param docPath - Relative path to the document (e.g., "api/auth.md")
+   * @param context - Access context for boost-aware caching (search, direct, reference)
    * @returns Cached document with metadata and structure, or null if file doesn't exist
    *
-   * @example
+   * @example Basic usage (default DIRECT context)
    * const doc = await cache.getDocument("api/authentication.md");
    * if (doc) {
    *   console.log(`Title: ${doc.metadata.title}`);
    *   console.log(`Headings: ${doc.headings.length}`);
    * }
    *
+   * @example Search context (3x eviction resistance)
+   * const doc = await cache.getDocument("api/authentication.md", "search");
+   *
+   * @example Reference context (2x eviction resistance)
+   * const doc = await cache.getDocument("api/tokens.md", "reference");
+   *
    * @throws {Error} When file access fails due to permissions or other filesystem errors
    */
-  async getDocument(docPath: string): Promise<CachedDocument | null> {
+  async getDocument(docPath: string, context: AccessContext = 'direct'): Promise<CachedDocument | null> {
     // Check cache first
     const cached = this.cache.get(docPath);
     if (cached) {
-      this.updateAccess(docPath);
+      this.updateAccess(docPath, context);
       cached.metadata.lastAccessed = new Date();
       return cached;
     }
@@ -637,18 +631,18 @@ export class DocumentCache extends EventEmitter {
         headings,
         toc,
         slugIndex
-        // sections will be lazy-loaded on demand
       };
 
       // Add to cache
       this.cache.set(docPath, document);
-      this.updateAccess(docPath);
+      this.updateAccess(docPath, context);
       this.enforceCacheSize();
 
-      logger.debug('Loaded document into cache', { 
-        path: docPath, 
+      logger.debug('Loaded document into cache', {
+        path: docPath,
+        context,
         headings: headings.length,
-        size: this.cache.size 
+        size: this.cache.size
       });
 
       return document;
@@ -661,11 +655,10 @@ export class DocumentCache extends EventEmitter {
   }
 
   /**
-   * Retrieves the content of a specific section from a document with atomic cache operations
+   * Retrieves the content of a specific section from a document
    *
-   * Supports both hierarchical and flat addressing with lazy-loading section cache.
-   * Uses generation-based cache consistency to prevent race conditions between
-   * hierarchical and flat cache keys.
+   * Uses slugIndex for O(1) validation before parsing section content.
+   * No caching of section content (sections typically accessed once).
    *
    * @param docPath - Relative path to the document
    * @param slug - Section slug (flat or hierarchical path)
@@ -686,33 +679,18 @@ export class DocumentCache extends EventEmitter {
       return null;
     }
 
-    // Check if sections are already loaded
-    document.sections ??= new Map();
-
-    // Check cache for both flat and hierarchical keys
-    const cacheKeys = [slug];
-    if (slug.includes('/')) {
-      // Also try the final component as a fallback
-      const parts = slug.split('/');
-      const lastPart = parts.pop();
-      if (lastPart != null && lastPart !== '') {
-        cacheKeys.push(lastPart);
+    // OPTIMIZATION: Fast validation using slugIndex (O(1))
+    // Skip validation for hierarchical paths as they need special handling
+    if (!slug.includes('/')) {
+      const headingIndex = document.slugIndex.get(slug);
+      if (headingIndex === undefined) {
+        logger.debug('Section not found (invalid slug)', { docPath, slug });
+        return null; // Invalid slug - fail fast
       }
     }
 
-    for (const key of cacheKeys) {
-      const entry = document.sections.get(key);
-      if (entry) {
-        logger.debug('Cache hit for section', {
-          key,
-          generation: entry.generation,
-          slug
-        });
-        return entry.content;
-      }
-    }
-
-    // Load section from file with hierarchical support
+    // Parse section content from full document (no caching needed)
+    // readSection handles both flat and hierarchical slugs
     try {
       const absolutePath = this.getAbsolutePath(docPath);
       const content = await fs.readFile(absolutePath, 'utf8');
@@ -720,14 +698,24 @@ export class DocumentCache extends EventEmitter {
       const { readSection } = await import('./sections.js');
       const sectionContent = readSection(content, slug);
 
-      if (sectionContent != null) {
-        // Use atomic cache update to prevent race conditions
-        this.atomicCacheUpdate(document, slug, sectionContent);
+      if (sectionContent == null) {
+        logger.debug('Section content not found', { docPath, slug });
+        return null;
       }
+
+      logger.debug('Section content loaded', {
+        docPath,
+        slug,
+        length: sectionContent.length
+      });
 
       return sectionContent;
     } catch (error) {
-      logger.error('Failed to load section content', { path: docPath, slug, error });
+      logger.error('Failed to read section content', {
+        docPath,
+        slug,
+        error
+      });
       return null;
     }
   }
@@ -738,6 +726,7 @@ export class DocumentCache extends EventEmitter {
   invalidateDocument(docPath: string): boolean {
     const existed = this.cache.delete(docPath);
     this.accessOrder.delete(docPath);
+    this.accessMetadata.delete(docPath);
 
     if (existed) {
       logger.debug('Invalidated cached document', { path: docPath });
@@ -821,7 +810,7 @@ export class DocumentCache extends EventEmitter {
   }
 
   /**
-   * Get cache statistics
+   * Get cache statistics including boost information
    */
   getStats(): {
     size: number;
@@ -829,16 +818,33 @@ export class DocumentCache extends EventEmitter {
     hitRate: number;
     oldestAccess: Date | null;
     newestAccess: Date | null;
+    boostedDocuments?: {
+      search: number;
+      reference: number;
+      direct: number;
+    };
   } {
     const documents = Array.from(this.cache.values());
     const accessTimes = documents.map(doc => doc.metadata.lastAccessed);
-    
+
+    // Count documents by access context
+    const contextCounts = {
+      search: 0,
+      reference: 0,
+      direct: 0
+    };
+
+    for (const metadata of this.accessMetadata.values()) {
+      contextCounts[metadata.context]++;
+    }
+
     return {
       size: this.cache.size,
       maxSize: this.options.maxCacheSize,
       hitRate: 0, // Would need request tracking to calculate
       oldestAccess: accessTimes.length > 0 ? new Date(Math.min(...accessTimes.map(d => d.getTime()))) : null,
-      newestAccess: accessTimes.length > 0 ? new Date(Math.max(...accessTimes.map(d => d.getTime()))) : null
+      newestAccess: accessTimes.length > 0 ? new Date(Math.max(...accessTimes.map(d => d.getTime()))) : null,
+      boostedDocuments: contextCounts
     };
   }
 
@@ -849,6 +855,7 @@ export class DocumentCache extends EventEmitter {
     const size = this.cache.size;
     this.cache.clear();
     this.accessOrder.clear();
+    this.accessMetadata.clear();
     this.accessCounter = 0;
 
     logger.info('Cache cleared', { previousSize: size });

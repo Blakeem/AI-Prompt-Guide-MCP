@@ -57,7 +57,6 @@ const createMockCachedDocument = (overrides: Partial<CachedDocument> = {}): Cach
   headings: [],
   toc: [],
   slugIndex: new Map(),
-  sections: new Map(),
   ...overrides
 });
 
@@ -643,9 +642,9 @@ describe('Document Analysis', () => {
       // Create a document that exists but is missing a section
       const existingDoc = createMockCachedDocument({
         metadata: createMockDocumentMetadata({ title: 'Existing Document' }),
-        sections: new Map([
-          ['overview', { content: 'Content for overview section', generation: 1 }],
-          ['getting-started', { content: 'Content for getting started section', generation: 1 }]
+        slugIndex: new Map([
+          ['overview', 0],
+          ['getting-started', 1]
         ])
       });
 
@@ -860,18 +859,18 @@ describe('Document Analysis', () => {
       // Create multiple existing documents
       const apiDoc = createMockCachedDocument({
         metadata: createMockDocumentMetadata({ title: 'API Documentation' }),
-        sections: new Map([
-          ['overview', { content: 'API overview content', generation: 1 }],
-          ['getting-started', { content: 'Getting started content', generation: 1 }],
-          ['examples', { content: 'Examples content', generation: 1 }]
+        slugIndex: new Map([
+          ['overview', 0],
+          ['getting-started', 1],
+          ['examples', 2]
         ])
       });
 
       const guideDoc = createMockCachedDocument({
         metadata: createMockDocumentMetadata({ title: 'User Guide' }),
-        sections: new Map([
-          ['introduction', { content: 'Introduction content', generation: 1 }],
-          ['usage', { content: 'Usage content', generation: 1 }]
+        slugIndex: new Map([
+          ['introduction', 0],
+          ['usage', 1]
         ])
       });
 

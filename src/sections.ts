@@ -606,9 +606,15 @@ function findCandidateHeadings(finalSlug: string, headings: readonly Heading[]):
 // buildHierarchicalPathOptimized function removed (dead code cleanup)
 
 /**
- * Legacy function - builds the hierarchical path by walking backwards through parent headings
+ * Build hierarchical path using parent pointers - O(depth) instead of O(n)
  *
- * @deprecated Use buildHierarchicalPathOptimized with pre-built hierarchy index for better performance
+ * Leverages existing parentIndex field to follow parent chain upward.
+ * Typical performance: 1-6 iterations for standard markdown heading depths.
+ *
+ * Performance improvement: For a 100-heading document with target at index 50:
+ * - Old: ~50 iterations (walks back from index 50 to 0)
+ * - New: ~3 iterations (follows 3 parent pointers for depth-3 heading)
+ * - Result: 10-30x faster
  *
  * @param targetHeading - The heading to build the path for
  * @param headings - Complete array of all headings in the document (must be in document order)
@@ -621,18 +627,20 @@ function findCandidateHeadings(finalSlug: string, headings: readonly Heading[]):
  */
 function buildHierarchicalPath(targetHeading: Heading, headings: readonly Heading[]): string[] {
   const pathSegments: string[] = [];
-  let currentDepth = targetHeading.depth;
-  const currentIndex = targetHeading.index;
+  let current: Heading | null = targetHeading;
 
-  // Walk backwards through headings to build the hierarchical path
-  for (let i = currentIndex - 1; i >= 0; i--) {
-    const heading = headings[i];
-    if (heading != null && heading.depth < currentDepth) {
-      pathSegments.unshift(heading.slug);
-      currentDepth = heading.depth;
+  // Follow parent pointers backward - O(depth) typically 1-6 iterations
+  while (current != null) {
+    pathSegments.unshift(current.slug);
+
+    // Move to parent using parentIndex
+    if (current.parentIndex !== null) {
+      const parent: Heading | undefined = headings[current.parentIndex];
+      current = parent ?? null; // Handle case where parent index is invalid
+    } else {
+      current = null; // Reached root (depth 1 heading has parentIndex: null)
     }
   }
-  pathSegments.push(targetHeading.slug);
 
   return pathSegments;
 }
