@@ -54,6 +54,7 @@
     "chokidar": "^4.0.3",
     "dotenv": "^16.4.7",
     "github-slugger": "^2.0.0",
+    "gray-matter": "^4.0.3",
     "mdast-util-heading-range": "^4.0.0",
     "mdast-util-to-markdown": "^2.1.2",
     "mdast-util-to-string": "^4.0.0",

@@ -13,7 +13,7 @@ import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { getGlobalLogger } from '../../utils/logger.js';
 import type { ServerConfig } from '../../types/index.js';
 import {
-  WORKFLOW_PROMPTS,
+  getWorkflowPrompts,
   getWorkflowPrompt,
   type WorkflowPrompt
 } from '../../prompts/workflow-prompts.js';
@@ -48,13 +48,20 @@ export function registerPromptHandlers(
   server.setRequestHandler(ListPromptsRequestSchema, async () => {
     logger.debug('Listing available workflow prompts');
 
-    const prompts = WORKFLOW_PROMPTS.map(convertToMCPPrompt);
+    try {
+      const workflowPrompts = getWorkflowPrompts();
+      const prompts = workflowPrompts.map(convertToMCPPrompt);
 
-    logger.debug('Returning workflow prompts', {
-      promptCount: prompts.length
-    });
+      logger.debug('Returning workflow prompts', {
+        promptCount: prompts.length
+      });
 
-    return { prompts };
+      return { prompts };
+    } catch (error) {
+      logger.error('Failed to get workflow prompts', formatLogError(error, 'list_prompts'));
+      // Return empty list on error to avoid breaking the inspector
+      return { prompts: [] };
+    }
   });
 
   // Get specific prompt

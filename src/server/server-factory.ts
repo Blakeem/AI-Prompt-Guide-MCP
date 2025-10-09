@@ -77,6 +77,11 @@ export async function createMCPServer(
   await dependencies.fileSystem.ensureDirectoryExists(serverConfig.docsBasePath);
   logger.debug('Docs directory ready', { path: serverConfig.docsBasePath });
 
+  // Load workflow prompts from filesystem
+  const { loadWorkflowPrompts } = await import('../prompts/workflow-prompts.js');
+  const prompts = await loadWorkflowPrompts();
+  logger.debug('Workflow prompts loaded', { count: prompts.length });
+
   // Create server instance through dependency
   const server = dependencies.server.createServer(
     serverConfig.serverName,
