@@ -1,7 +1,6 @@
 ---
 title: "Interface Diff & Adaptation Protocol"
 description: "🔄 DEPENDENCY UPGRADE: Safely adapt to API/contract changes"
-tags: ["upgrade", "migration", "api", "dependency", "compatibility"]
 whenToUse:
   - "Major framework or library upgrades"
   - "Protocol or contract changes between services"
@@ -11,8 +10,6 @@ whenToUse:
 ---
 
 # Interface Diff & Adaptation Protocol (IDAP)
-
-**USE THIS WHEN:** Upgrading dependencies or crossing API/contract boundaries.
 
 ## Process
 

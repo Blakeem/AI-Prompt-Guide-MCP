@@ -1,7 +1,6 @@
 ---
 title: "Guardrailed Rollout Protocol"
 description: "🚀 RISKY DEPLOYMENT: Deploy changes safely with automatic rollback criteria"
-tags: ["deployment", "rollout", "safety", "monitoring", "production"]
 whenToUse:
   - "Schema changes, index changes, or database migrations"
   - "Dependency upgrades in critical paths"
@@ -11,8 +10,6 @@ whenToUse:
 ---
 
 # Guardrailed Rollout Protocol (GRP)
-
-**USE THIS TO:** Deploy risky changes safely with pre-defined exit criteria.
 
 ## Process
 

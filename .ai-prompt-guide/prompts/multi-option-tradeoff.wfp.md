@@ -1,7 +1,6 @@
 ---
 title: "Multi-Option Trade-off Protocol"
 description: "⚖️ DECISION NEEDED: Choose between multiple approaches with structured trade-off analysis"
-tags: ["decision", "tradeoff", "comparison", "architecture", "design"]
 whenToUse:
   - "Choosing between multiple refactoring approaches (extract function vs Strategy pattern vs module split)"
   - "Selecting performance optimizations (caching strategies, algorithm selection, data structures)"
@@ -11,8 +10,6 @@ whenToUse:
 ---
 
 # Multi-Option Trade-off Protocol
-
-**USE THIS WHEN:** You face multiple plausible paths and need to justify your choice systematically.
 
 ## Process
 

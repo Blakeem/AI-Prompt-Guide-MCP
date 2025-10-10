@@ -1,7 +1,6 @@
 ---
 title: "Failure Triage & Minimal Repro Protocol"
 description: "🐛 BUG REPORT: Convert symptoms into minimal reproduction and actionable fix"
-tags: ["debugging", "bug", "reproduce", "triage", "fix"]
 whenToUse:
   - "Bug reports without clear reproduction steps"
   - "Flaky tests that fail inconsistently"
@@ -11,8 +10,6 @@ whenToUse:
 ---
 
 # Failure Triage & Minimal Repro Protocol (FTR)
-
-**USE THIS TO:** Convert a symptom into an actionable fix fast.
 
 ## Process
 

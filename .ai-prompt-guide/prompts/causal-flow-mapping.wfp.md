@@ -1,7 +1,6 @@
 ---
 title: "Causal Flow Mapping Protocol"
 description: "🔍 DEBUGGING COMPLEX ISSUE: Map cause-effect chains to understand system behavior"
-tags: ["debugging", "analysis", "causality", "investigation", "troubleshooting"]
 whenToUse:
   - "Investigating intermittent failures, race conditions, or resource pressure"
   - "Understanding behavior regressions across deployments"
@@ -11,8 +10,6 @@ whenToUse:
 ---
 
 # Causal Flow Mapping Protocol (CFM)
-
-**USE THIS TO:** Unpack cause → effect chains, debug issues, explain system dynamics.
 
 ## Process
 

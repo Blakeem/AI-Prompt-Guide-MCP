@@ -1,7 +1,6 @@
 ---
 title: "Spec-First Integration Protocol"
 description: "📋 INTEGRATION TASK: Ensure correctness before implementing new features or API integrations"
-tags: ["integration", "api", "spec", "design", "compliance"]
 whenToUse:
   - "Integrating new SDKs, webhooks, or authentication flows"
   - "Implementing features that touch persistence or concurrency"
@@ -11,8 +10,6 @@ whenToUse:
 ---
 
 # Spec-First Integration Protocol (SFI)
-
-**USE THIS BEFORE:** Adding features or crossing system boundaries to ensure correctness and currency.
 
 ## Process
 

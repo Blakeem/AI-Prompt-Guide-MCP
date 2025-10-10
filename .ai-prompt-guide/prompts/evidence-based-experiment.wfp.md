@@ -1,7 +1,6 @@
 ---
 title: "Evidence-Based Experiment Protocol"
 description: "🔬 DATA-DRIVEN DECISION: Run structured experiment to learn with data instead of debate"
-tags: ["experiment", "ab-test", "data", "metrics", "validation"]
 whenToUse:
   - "Selecting between algorithm or threshold options"
   - "Tuning cache TTLs, retry policies, or timeout values"
@@ -11,8 +10,6 @@ whenToUse:
 ---
 
 # Evidence-Based Experiment Protocol (EBE)
-
-**USE THIS WHEN:** You can learn with data instead of debate.
 
 ## Process
 

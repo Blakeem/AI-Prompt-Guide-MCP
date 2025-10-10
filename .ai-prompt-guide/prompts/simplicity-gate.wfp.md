@@ -1,7 +1,6 @@
 ---
 title: "Simplicity Gate & Complexity Budget"
 description: "✂️ COMPLEXITY CHECK: Keep solutions simple once requirements are met"
-tags: ["simplicity", "complexity", "design", "yagni", "refactoring"]
 whenToUse:
   - "Introducing new third-party libraries"
   - "Choosing between framework features vs hand-rolled solutions"
@@ -11,8 +10,6 @@ whenToUse:
 ---
 
 # Simplicity Gate & Complexity Budget (SGC)
-
-**USE THIS TO:** Keep solutions simple once non-negotiables are met.
 
 ## Process
 
