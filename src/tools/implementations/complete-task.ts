@@ -16,6 +16,7 @@ import {
   findNextAvailableTask
 } from '../../shared/task-view-utilities.js';
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
+import { enrichTaskWithWorkflow } from '../../shared/workflow-prompt-utilities.js';
 
 interface CompleteTaskResult {
   completed_task: {
@@ -29,6 +30,15 @@ interface CompleteTaskResult {
     title: string;
     priority?: string;
     link?: string;
+
+    // Task-specific workflow ONLY (no main workflow)
+    workflow?: {
+      name: string;
+      description: string;
+      content: string;
+      whenToUse: string[];
+    };
+
     referenced_documents?: HierarchicalContent[];
   };
   document_info: {
@@ -95,14 +105,58 @@ export async function completeTask(
     // Get next available task using shared utility
     const nextTaskData = await findNextAvailableTask(manager, document, addresses.task.slug);
 
-    let nextTask: { slug: string; title: string; priority?: string; link?: string; referenced_documents?: HierarchicalContent[] } | undefined;
+    let nextTask: {
+      slug: string;
+      title: string;
+      priority?: string;
+      link?: string;
+      workflow?: {
+        name: string;
+        description: string;
+        content: string;
+        whenToUse: string[];
+      };
+      referenced_documents?: HierarchicalContent[];
+    } | undefined;
+
     if (nextTaskData != null) {
+      // Get next task content for workflow extraction
+      const nextTaskContent = await manager.getSectionContent(
+        addresses.document.path,
+        nextTaskData.slug
+      ) ?? '';
+
+      // Enrich with task-specific workflow ONLY (no main workflow)
+      const enrichedNext = enrichTaskWithWorkflow(
+        {
+          slug: nextTaskData.slug,
+          title: nextTaskData.title,
+          content: nextTaskContent,
+          status: nextTaskData.status
+        },
+        nextTaskContent
+      );
+
+      // Build next_task response
       nextTask = {
-        slug: nextTaskData.slug,
-        title: nextTaskData.title,
+        slug: enrichedNext.slug,
+        title: enrichedNext.title,
         ...(nextTaskData.priority != null && { priority: nextTaskData.priority }),
         ...(nextTaskData.link != null && { link: nextTaskData.link }),
-        ...(nextTaskData.referencedDocuments != null && nextTaskData.referencedDocuments.length > 0 && { referenced_documents: nextTaskData.referencedDocuments })
+
+        // Add workflow if present (FULL object, not just name)
+        ...(enrichedNext.workflow != null && {
+          workflow: {
+            name: enrichedNext.workflow.name,
+            description: enrichedNext.workflow.description,
+            content: enrichedNext.workflow.content,
+            whenToUse: enrichedNext.workflow.whenToUse
+          }
+        }),
+
+        ...(nextTaskData.referencedDocuments != null && nextTaskData.referencedDocuments.length > 0 && {
+          referenced_documents: nextTaskData.referencedDocuments
+        })
       };
     }
 

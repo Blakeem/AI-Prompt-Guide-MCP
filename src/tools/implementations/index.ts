@@ -11,3 +11,4 @@ export { viewSection } from './view-section.js';
 export { viewTask } from './view-task.js';
 export { task } from './task.js';
 export { completeTask } from './complete-task.js';
+export { continueTask } from './continue-task.js';

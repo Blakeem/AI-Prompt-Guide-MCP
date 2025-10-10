@@ -19,6 +19,7 @@ import {
   type TaskViewData
 } from '../../shared/task-view-utilities.js';
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
+import { extractWorkflowName, extractMainWorkflowName } from '../../shared/workflow-prompt-utilities.js';
 
 /**
  * Clean response format for view_task
@@ -37,6 +38,9 @@ interface ViewTaskResponse {
     linked_document?: string;
     referenced_documents?: HierarchicalContent[];
     word_count: number;
+    workflow_name?: string;
+    main_workflow_name?: string;
+    has_workflow: boolean;
   }>;
   summary: {
     total_tasks: number;
@@ -44,6 +48,8 @@ interface ViewTaskResponse {
     by_priority: Record<string, number>;
     with_links: number;
     with_references: number;
+    tasks_with_workflows: number;
+    tasks_with_main_workflow: number;
   };
 }
 
@@ -164,6 +170,19 @@ export async function viewTask(
     }
   }
 
+  // Extract main workflow name from first task (if present)
+  let mainWorkflowName: string | null = null;
+  const firstTask = taskHeadings[0];
+  if (firstTask != null) {
+    const firstTaskContent = await manager.getSectionContent(addresses.document.path, firstTask.slug);
+    if (firstTaskContent != null) {
+      const extractedMainWorkflow = extractMainWorkflowName(firstTaskContent);
+      if (extractedMainWorkflow != null && extractedMainWorkflow !== '') {
+        mainWorkflowName = extractedMainWorkflow;
+      }
+    }
+  }
+
   // Process each task using shared utilities with Promise.allSettled for graceful partial failure handling
   const taskProcessingResults = await Promise.allSettled(taskAddresses.map(async taskAddr => {
     const heading = document.headings.find(h => h.slug === taskAddr.slug);
@@ -188,6 +207,11 @@ export async function viewTask(
       taskAddr
     );
 
+    // Extract workflow name from task content
+    const workflowName = extractWorkflowName(content);
+    // Workflow field exists and has a non-empty value
+    const hasWorkflow = workflowName != null && workflowName !== '';
+
     // Format for view-task specific response structure
     const taskData: ViewTaskResponse['tasks'][0] = {
       slug: enrichedTask.slug,
@@ -197,8 +221,19 @@ export async function viewTask(
       full_path: enrichedTask.fullPath ?? ToolIntegration.formatTaskPath(taskAddr),
       status: enrichedTask.status,
       priority: enrichedTask.priority ?? 'medium',
-      word_count: enrichedTask.wordCount ?? 0
+      word_count: enrichedTask.wordCount ?? 0,
+      has_workflow: hasWorkflow
     };
+
+    // Add optional workflow name (only if present and non-empty)
+    if (hasWorkflow) {
+      taskData.workflow_name = workflowName;
+    }
+
+    // Add main workflow name (only if present and non-empty)
+    if (mainWorkflowName != null && mainWorkflowName !== '') {
+      taskData.main_workflow_name = mainWorkflowName;
+    }
 
     // Add optional fields
     if (enrichedTask.parent != null) {
@@ -265,12 +300,20 @@ export async function viewTask(
     return viewData;
   });
 
-  const summary = calculateTaskSummary(taskViewData);
+  const baseSummary = calculateTaskSummary(taskViewData);
+
+  // Calculate workflow-specific counts
+  const tasksWithWorkflows = processedTasks.filter(task => task.has_workflow).length;
+  const tasksWithMainWorkflow = processedTasks.filter(task => task.main_workflow_name != null).length;
 
   return {
     document: addresses.document.path,
     tasks: processedTasks,
-    summary
+    summary: {
+      ...baseSummary,
+      tasks_with_workflows: tasksWithWorkflows,
+      tasks_with_main_workflow: tasksWithMainWorkflow
+    }
   };
 }
 

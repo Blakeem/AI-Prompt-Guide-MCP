@@ -15,7 +15,8 @@ import {
   viewSection,
   viewTask,
   task,
-  completeTask
+  completeTask,
+  continueTask
 } from './implementations/index.js';
 
 /**
@@ -41,7 +42,8 @@ const TOOL_REGISTRY: Record<string, ToolImplementation> = {
   'view_section': viewSection,
   'view_task': viewTask,
   task,
-  'complete_task': completeTask
+  'complete_task': completeTask,
+  'continue_task': continueTask
 };
 
 /**
