@@ -9,7 +9,7 @@ import { AccessContext } from './document-cache.js';
 import type { FingerprintIndex } from './fingerprint-index.js';
 import { replaceSectionBody, insertRelative, renameHeading, deleteSection } from './sections.js';
 import { listHeadings, buildToc } from './parse.js';
-import { ensureDirectoryExists, writeFileIfUnchanged, readFileSnapshot, fileExists } from './fsio.js';
+import { ensureDirectoryExists, writeFileIfUnchanged, readFileSnapshot } from './fsio.js';
 import { getGlobalLogger } from './utils/logger.js';
 import { PathHandler } from './utils/path-handler.js';
 import type { TocNode, InsertMode } from './types/index.js';
@@ -362,9 +362,11 @@ export class DocumentManager {
     // Normalize and validate the path
     const normalizedPath = this.pathHandler.processUserPath(userPath);
     const absolutePath = this.pathHandler.getAbsolutePath(normalizedPath);
-    
-    // Check if source exists
-    if (!(await fileExists(absolutePath))) {
+
+    // Check if source exists (use fs.access directly since we already have validated absolute path)
+    try {
+      await fs.access(absolutePath);
+    } catch {
       throw new Error(`Path not found: ${normalizedPath}`);
     }
     

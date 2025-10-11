@@ -10,12 +10,13 @@ import { getSectionSchema } from './schemas/section-schemas.js';
 import { getViewDocumentSchema } from './schemas/view-document-schemas.js';
 import { getViewSectionSchema } from './schemas/view-section-schemas.js';
 import { getViewTaskSchema } from './schemas/view-task-schemas.js';
-import { getManageDocumentSchema } from './schemas/manage-document-schemas.js';
+import { getDeleteDocumentSchema } from './schemas/delete-document-schemas.js';
 import { getMoveDocumentSchema } from './schemas/move-document-schemas.js';
 import { getTaskSchema } from './schemas/task-schemas.js';
 import { getCompleteTaskSchema } from './schemas/complete-task-schemas.js';
 import { getStartTaskSchema } from './schemas/start-task-schemas.js';
 import { getMoveSchema } from './schemas/move-schemas.js';
+import { getEditDocumentSchema } from './schemas/edit-document-schemas.js';
 
 /**
  * Get all available tools based on session state
@@ -39,6 +40,11 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
       inputSchema: createDocumentSchema.inputSchema,
     },
     {
+      name: 'edit_document',
+      description: 'Edit document title and/or overview content',
+      inputSchema: getEditDocumentSchema(),
+    },
+    {
       name: 'section',
       description: 'Unified tool for ALL section operations: create, edit, and remove sections with automatic depth calculation',
       inputSchema: getSectionSchema(),
@@ -49,9 +55,9 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
       inputSchema: getMoveSchema(),
     },
     {
-      name: 'manage_document',
-      description: 'Unified tool for ALL document operations: archive, delete, rename with batch support',
-      inputSchema: getManageDocumentSchema(),
+      name: 'delete_document',
+      description: 'Delete document permanently or archive with audit trail',
+      inputSchema: getDeleteDocumentSchema(),
     },
     {
       name: 'move_document',

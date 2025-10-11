@@ -3,10 +3,11 @@
  */
 
 export { createDocument } from './create-document.js';
+export { editDocument } from './edit-document.js';
 export { browseDocuments } from './browse-documents.js';
 export { section } from './section.js';
 export { move } from './move.js';
-export { manageDocument } from './manage-document.js';
+export { deleteDocument } from './delete-document.js';
 export { moveDocument } from './move-document.js';
 export { viewDocument } from './view-document.js';
 export { viewSection } from './view-section.js';

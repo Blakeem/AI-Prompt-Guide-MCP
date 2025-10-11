@@ -1,7 +1,7 @@
 /**
  * Integration tests for write operations
  *
- * Tests that write operations (section, task, manage_document) work correctly
+ * Tests that write operations (section, task, delete_document) work correctly
  * on documents that can be read successfully.
  */
 

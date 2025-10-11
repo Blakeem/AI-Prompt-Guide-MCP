@@ -189,7 +189,7 @@ Design the REST API architecture.
 
 ## Complete Tool Reference
 
-The system provides **10 powerful tools** organized by function, all using intelligent context engineering.
+The system provides **13 powerful tools** organized by function, all using intelligent context engineering.
 
 ### 📄 Document Creation & Discovery
 
@@ -352,22 +352,73 @@ Browse task data with workflow metadata (names only, no content injection).
 
 ### 🗂️ Document Lifecycle Management
 
-#### `manage_document` - Complete Document Operations
-Unified tool for ALL document lifecycle operations with batch support.
+#### `edit_document` - Edit Document Metadata
+Update document title and/or overview content.
 
-**Operations:**
-- **archive**: Safe archival with audit trails (timestamped, recoverable)
-- **delete**: Permanent deletion (requires confirm: true)
-- **rename**: Update document title (first heading only)
-- **move**: Relocate to different path/namespace
+**Fields:**
+- **title**: Updates the first H1 heading (document title)
+- **overview**: Replaces content between title and first H2 section
 
 **Features:**
-- **Batch operations** (up to 100 operations)
-- **Audit trails** for archive operations with recovery data
-- **Path normalization** handles various path formats
-- **Safety checks** require confirmation for destructive operations
+- **Flexible editing** - update title, overview, or both in single operation
+- **Markdown-aware** - preserves document structure and formatting
+- **Path normalization** - handles various document path formats
+- **Cache invalidation** - ensures changes are immediately reflected
 
-**Use when:** Reorganizing, retiring, or relocating documents
+**Use when:** Updating document metadata without restructuring content
+
+---
+
+#### `delete_document` - Delete or Archive Documents
+Remove documents permanently or archive with audit trail.
+
+**Parameters:**
+- **document**: Document path to delete (required)
+- **archive**: Boolean flag for safe archival (default: false)
+
+**Features:**
+- **Permanent deletion** - complete file removal (archive=false)
+- **Safe archival** - timestamped archive with audit trail (archive=true)
+- **Audit files** - archive operations create `.audit` files with metadata
+- **Recovery support** - archived documents can be manually restored
+
+**Use when:** Retiring documents or cleaning up obsolete documentation
+
+---
+
+#### `move` - Move Sections & Tasks
+Relocate sections or tasks between documents or within the same document.
+
+**Parameters:**
+- **from**: Source path with section slug (e.g., "/api/auth.md#jwt-tokens")
+- **to**: Destination document path (e.g., "/api/security.md")
+- **reference**: Reference section in destination for positioning
+- **position**: Placement relative to reference (`before`, `after`, `child`)
+
+**Features:**
+- **Data safety** - creates in new location BEFORE deleting from old
+- **Auto-depth calculation** - `child` position calculates proper heading depth
+- **Within-document moves** - reorganize content in same document
+- **Reuses shared utilities** - consistent with section creation operations
+
+**Use when:** Restructuring documentation or reorganizing content hierarchy
+
+---
+
+#### `move_document` - Relocate Document Files
+Move document files to different paths or namespaces.
+
+**Parameters:**
+- **from**: Source document path (e.g., "/api/auth.md")
+- **to**: Destination path (e.g., "/api/security/auth.md")
+
+**Features:**
+- **Directory creation** - automatically creates destination directories
+- **Existence validation** - prevents overwriting existing documents
+- **Cache invalidation** - updates both source and destination caches
+- **Path normalization** - handles various path formats consistently
+
+**Use when:** Reorganizing document structure or changing namespaces
 
 ---
 
@@ -375,7 +426,7 @@ Unified tool for ALL document lifecycle operations with batch support.
 
 1. **Context Engineering**: Tools automatically load relevant context via @references
 2. **Session Awareness**: start_task vs complete_task signal session state
-3. **Unified Operations**: Single tools handle related operations (section, task, manage_document)
+3. **Unified Operations**: Single tools handle related operations (section for edit/create/delete, task for create/edit/list)
 4. **Batch Support**: Process multiple operations efficiently
 5. **Type Safety**: Central addressing system validates all paths
 6. **Graceful Degradation**: Missing workflows/references don't break execution

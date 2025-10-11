@@ -11,14 +11,15 @@ import {
   browseDocuments,
   section,
   move,
-  manageDocument,
+  deleteDocument,
   moveDocument,
   viewDocument,
   viewSection,
   viewTask,
   task,
   completeTask,
-  startTask
+  startTask,
+  editDocument
 } from './implementations/index.js';
 
 /**
@@ -37,10 +38,11 @@ type ToolImplementation = (
  */
 const TOOL_REGISTRY: Record<string, ToolImplementation> = {
   'create_document': createDocument,
+  'edit_document': editDocument,
   'browse_documents': browseDocuments,
   section,
   move,
-  'manage_document': manageDocument,
+  'delete_document': deleteDocument,
   'move_document': moveDocument,
   'view_document': viewDocument,
   'view_section': viewSection,

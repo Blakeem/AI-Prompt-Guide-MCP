@@ -1,0 +1,257 @@
+/**
+ * Unit tests for delete_document tool
+ *
+ * Each test creates its own unique test document to avoid conflicts
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import { deleteDocument } from '../implementations/delete-document.js';
+import { DocumentManager } from '../../document-manager.js';
+import { DocumentCache } from '../../document-cache.js';
+import type { SessionState } from '../../session/types.js';
+import { AddressingError, DocumentNotFoundError } from '../../shared/addressing-system.js';
+
+describe('delete_document', () => {
+  const testDocsRoot = path.resolve(process.cwd(), '.ai-prompt-guide/docs');
+
+  let cache: DocumentCache;
+  let manager: DocumentManager;
+  let sessionState: SessionState;
+  let testCounter = 0;
+
+  // Helper to create a unique test document
+  async function createTestDoc(): Promise<{ docPath: string; absPath: string; slug: string }> {
+    testCounter++;
+    const timestamp = Date.now();
+    const slug = `test-del-doc-${timestamp}-${testCounter}`;
+    const docPath = `/${slug}.md`;
+    const absPath = path.join(testDocsRoot, `${slug}.md`);
+    const content = `# Test Document ${testCounter}\n\n## Overview\nTest content.\n`;
+
+    // Ensure file is written and synced
+    await fs.writeFile(absPath, content, 'utf8');
+    const stats = await fs.stat(absPath);
+
+    if (!stats.isFile()) {
+      throw new Error(`Failed to create test file: ${absPath}`);
+    }
+
+    return { docPath, absPath, slug };
+  }
+
+  beforeEach(async () => {
+    await fs.mkdir(testDocsRoot, { recursive: true });
+    cache = new DocumentCache(testDocsRoot);
+    manager = new DocumentManager(testDocsRoot, cache);
+    sessionState = {
+      sessionId: 'test-session',
+      createDocumentStage: 0,
+    };
+  });
+
+  afterEach(async () => {
+    await cache.destroy();
+  });
+
+  describe('permanent deletion', () => {
+    it('should permanently delete a document when archive is false', async () => {
+      const { docPath, absPath } = await createTestDoc();
+
+      const result = await deleteDocument(
+        { document: docPath, archive: false },
+        sessionState,
+        manager
+      );
+
+      expect(result).toMatchObject({ action: 'deleted', document: docPath });
+      expect(result).toHaveProperty('document_info');
+      expect(result).toHaveProperty('timestamp');
+      await expect(fs.access(absPath)).rejects.toThrow();
+    });
+
+    it('should permanently delete a document when archive is not provided', async () => {
+      const { docPath, absPath } = await createTestDoc();
+
+      const result = await deleteDocument(
+        { document: docPath },
+        sessionState,
+        manager
+      );
+
+      expect(result).toMatchObject({ action: 'deleted', document: docPath });
+      await expect(fs.access(absPath)).rejects.toThrow();
+    });
+
+    it('should include document info in result', async () => {
+      const { docPath, slug } = await createTestDoc();
+
+      const result = await deleteDocument(
+        { document: docPath, archive: false },
+        sessionState,
+        manager
+      ) as { document_info: { slug: string; title: string; namespace: string } };
+
+      expect(result.document_info).toBeDefined();
+      expect(result.document_info.slug).toBe(slug);
+      expect(result.document_info.namespace).toBe('root');
+    });
+  });
+
+  describe('archive deletion', () => {
+    it('should archive a document when archive is true', async () => {
+      const { docPath, absPath, slug } = await createTestDoc();
+
+      const result = await deleteDocument(
+        { document: docPath, archive: true },
+        sessionState,
+        manager
+      );
+
+      expect(result).toMatchObject({ action: 'archived', document: docPath });
+      expect(result).toHaveProperty('from');
+      expect(result).toHaveProperty('to');
+      expect(result).toHaveProperty('audit_file');
+      expect(result).toHaveProperty('document_info');
+      expect(result).toHaveProperty('timestamp');
+
+      await expect(fs.access(absPath)).rejects.toThrow();
+
+      const archivedPath = path.join(testDocsRoot, 'archived', `${slug}.md`);
+      await expect(fs.access(archivedPath)).resolves.not.toThrow();
+
+      const auditPath = path.join(testDocsRoot, 'archived', `${slug}.md.audit`);
+      await expect(fs.access(auditPath)).resolves.not.toThrow();
+
+      // Cleanup archived files
+      await fs.unlink(archivedPath);
+      await fs.unlink(auditPath);
+    });
+
+    it('should include correct paths in archive result', async () => {
+      const { docPath, slug } = await createTestDoc();
+
+      const result = await deleteDocument(
+        { document: docPath, archive: true },
+        sessionState,
+        manager
+      ) as { from: string; to: string; audit_file: string };
+
+      expect(result.from).toBe(docPath);
+      expect(result.to).toContain('archived');
+      expect(result.audit_file).toContain('.audit');
+
+      // Cleanup
+      const archivedPath = path.join(testDocsRoot, 'archived', `${slug}.md`);
+      const auditPath = path.join(testDocsRoot, 'archived', `${slug}.md.audit`);
+      await fs.unlink(archivedPath);
+      await fs.unlink(auditPath);
+    });
+
+    it('should include document info in archive result', async () => {
+      const { docPath, slug } = await createTestDoc();
+
+      const result = await deleteDocument(
+        { document: docPath, archive: true },
+        sessionState,
+        manager
+      ) as { document_info: { slug: string; title: string; namespace: string } };
+
+      expect(result.document_info).toBeDefined();
+      expect(result.document_info.slug).toBe(slug);
+      expect(result.document_info.namespace).toBe('root');
+
+      // Cleanup
+      const archivedPath = path.join(testDocsRoot, 'archived', `${slug}.md`);
+      const auditPath = path.join(testDocsRoot, 'archived', `${slug}.md.audit`);
+      await fs.unlink(archivedPath);
+      await fs.unlink(auditPath);
+    });
+  });
+
+  describe('error handling', () => {
+    it('should throw DocumentNotFoundError when document does not exist', async () => {
+      await expect(
+        deleteDocument(
+          { document: '/nonexistent.md', archive: false },
+          sessionState,
+          manager
+        )
+      ).rejects.toThrow(DocumentNotFoundError);
+    });
+
+    it('should throw AddressingError when document parameter is missing', async () => {
+      await expect(
+        deleteDocument({}, sessionState, manager)
+      ).rejects.toThrow(AddressingError);
+    });
+
+    it('should throw AddressingError when document parameter is invalid', async () => {
+      await expect(
+        deleteDocument({ document: '' }, sessionState, manager)
+      ).rejects.toThrow(AddressingError);
+    });
+
+    it('should handle file system errors gracefully', async () => {
+      const { docPath } = await createTestDoc();
+      const originalUnlink = fs.unlink;
+      vi.spyOn(fs, 'unlink').mockRejectedValueOnce(new Error('Permission denied'));
+
+      await expect(
+        deleteDocument({ document: docPath, archive: false }, sessionState, manager)
+      ).rejects.toThrow(AddressingError);
+
+      vi.spyOn(fs, 'unlink').mockImplementation(originalUnlink);
+    });
+  });
+
+  describe('cache invalidation', () => {
+    it('should invalidate cache after permanent deletion', async () => {
+      const { docPath } = await createTestDoc();
+
+      await manager.getDocument(docPath);
+      const cachedBefore = await cache.getDocument(docPath);
+      expect(cachedBefore).not.toBeNull();
+
+      await deleteDocument({ document: docPath, archive: false }, sessionState, manager);
+
+      const cachedAfter = await manager.getDocument(docPath);
+      expect(cachedAfter).toBeNull();
+    });
+
+    it('should invalidate cache after archive', async () => {
+      const { docPath, slug } = await createTestDoc();
+
+      await manager.getDocument(docPath);
+      const cachedBefore = await cache.getDocument(docPath);
+      expect(cachedBefore).not.toBeNull();
+
+      await deleteDocument({ document: docPath, archive: true }, sessionState, manager);
+
+      const cachedAfter = await manager.getDocument(docPath);
+      expect(cachedAfter).toBeNull();
+
+      // Cleanup
+      const archivedPath = path.join(testDocsRoot, 'archived', `${slug}.md`);
+      const auditPath = path.join(testDocsRoot, 'archived', `${slug}.md.audit`);
+      await fs.unlink(archivedPath);
+      await fs.unlink(auditPath);
+    });
+  });
+
+  describe('timestamp', () => {
+    it('should include valid ISO timestamp', async () => {
+      const { docPath } = await createTestDoc();
+
+      const result = await deleteDocument(
+        { document: docPath, archive: false },
+        sessionState,
+        manager
+      ) as { timestamp: string };
+
+      expect(result.timestamp).toBeDefined();
+      expect(new Date(result.timestamp).toISOString()).toBe(result.timestamp);
+    });
+  });
+});
