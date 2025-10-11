@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { determineCreateDocumentStage } from '../schemas/create-document-schemas.js';
 import { executeCreateDocumentPipeline } from '../create/pipeline.js';
 import { getGlobalSessionStore } from '../../session/session-store.js';
@@ -10,8 +13,12 @@ describe('create_document Progressive Discovery Stages', () => {
   let sessionState: SessionState;
   let sessionId: string;
   let manager: DocumentManager;
+  let tempDir: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test documents
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'create-doc-test-'));
+
     // Create a unique session for each test
     sessionId = `test-session-${Date.now()}-${Math.random()}`;
     sessionState = {
@@ -19,12 +26,21 @@ describe('create_document Progressive Discovery Stages', () => {
       createDocumentStage: 0
     };
 
-    // Create DocumentManager for dependency injection
-    manager = createDocumentManager();
+    // Create DocumentManager with temp directory for dependency injection
+    manager = createDocumentManager(tempDir);
 
     // Clear session state
     const sessionStore = getGlobalSessionStore();
     sessionStore.reset(sessionId);
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('Stage Determination Logic', () => {

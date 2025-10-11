@@ -2,39 +2,44 @@
  * Vitest test suite for markdown CRUD operations
  */
 
-import { describe, test, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, test, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import path from 'node:path';
+import os from 'node:os';
 import { promises as fs } from 'node:fs';
-import { readFileSnapshot, writeFileIfUnchanged, ensureDirectoryExists } from './fsio.js';
+import { readFileSnapshot, writeFileIfUnchanged } from './fsio.js';
 import { listHeadings, buildToc, validateMarkdownStructure } from './parse.js';
-import { 
-  readSection, 
-  replaceSectionBody, 
-  insertRelative, 
-  renameHeading, 
-  deleteSection 
+import {
+  readSection,
+  replaceSectionBody,
+  insertRelative,
+  renameHeading,
+  deleteSection
 } from './sections.js';
 import { titleToSlug } from './slug.js';
 import { createSilentLogger, setGlobalLogger } from './utils/logger.js';
 
-const DOCS_DIR = path.resolve(process.cwd(), '.ai-prompt-guide/docs');
-const TEST_FILE = path.join(DOCS_DIR, 'final-result.md');
-const WORKING_FILE = path.join(DOCS_DIR, 'working-test.md');
-// Relative paths for readFileSnapshot
-const REL_WORKING_FILE = 'working-test.md';
+let tempDir: string;
+let TEST_FILE: string;
+let WORKING_FILE: string;
+let REL_WORKING_FILE: string;
 
-beforeAll(async () => {
+beforeAll(() => {
   // Set up silent logger for tests
   setGlobalLogger(createSilentLogger());
-
-  // Configure docs base path for fsio PathHandler
-  process.env['DOCS_BASE_PATH'] = '.ai-prompt-guide/docs';
-
-  // Ensure test directory exists
-  await ensureDirectoryExists(DOCS_DIR);
 });
 
 beforeEach(async () => {
+  // Create temporary directory for test files
+  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-tools-test-'));
+
+  // Configure docs base path for fsio PathHandler to use temp directory
+  process.env['DOCS_BASE_PATH'] = tempDir;
+
+  // Set up test file paths
+  TEST_FILE = path.join(tempDir, 'final-result.md');
+  WORKING_FILE = path.join(tempDir, 'working-test.md');
+  REL_WORKING_FILE = 'working-test.md';
+
   // Create sample document for tests
   const sampleDoc = `# API Documentation
 
@@ -74,12 +79,12 @@ Creates a new product.
   await fs.writeFile(WORKING_FILE, sampleDoc, 'utf8');
 });
 
-afterAll(async () => {
-  // Clean up working file
+afterEach(async () => {
+  // Clean up temporary directory and all its contents
   try {
-    await fs.unlink(WORKING_FILE);
+    await fs.rm(tempDir, { recursive: true, force: true });
   } catch {
-    // Ignore if file doesn't exist
+    // Ignore if directory doesn't exist
   }
 });
 
