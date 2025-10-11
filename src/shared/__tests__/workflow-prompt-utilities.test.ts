@@ -5,7 +5,7 @@
  * workflow prompts integrated into task management.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   extractWorkflowName,
   extractMainWorkflowName,
@@ -18,6 +18,8 @@ import type { CachedDocument, DocumentMetadata } from '../../document-cache.js';
 import type { TaskViewData } from '../task-view-utilities.js';
 import type { WorkflowPrompt } from '../../prompts/workflow-prompts.js';
 import type { Heading, TocNode } from '../../types/index.js';
+import * as workflowPrompts from '../../prompts/workflow-prompts.js';
+import * as taskUtilities from '../task-utilities.js';
 
 describe('Workflow Prompt Utilities', () => {
   describe('extractWorkflowName', () => {
@@ -166,47 +168,38 @@ describe('Workflow Prompt Utilities', () => {
       whenToUse: ['Multiple solution approaches', 'Trade-off decisions']
     };
 
-    beforeEach(() => {
-      // Mock the getWorkflowPrompt function
-      vi.doMock('../../prompts/workflow-prompts.js', () => ({
-        getWorkflowPrompt: vi.fn((name: string) => {
-          if (name === 'multi-option-tradeoff') {
-            return mockWorkflowPrompt;
-          }
-          return undefined;
-        })
-      }));
+    afterEach(() => {
+      vi.restoreAllMocks();
     });
 
-    it('should resolve valid workflow name', async () => {
-      // Dynamically import to get mocked version
-      const { resolveWorkflowPrompt: resolve } = await import('../workflow-prompt-utilities.js');
-      const result = resolve('multi-option-tradeoff');
+    it('should resolve valid workflow name', () => {
+      // Use vi.spyOn to mock getWorkflowPrompt
+      vi.spyOn(workflowPrompts, 'getWorkflowPrompt').mockReturnValue(mockWorkflowPrompt);
+
+      const result = resolveWorkflowPrompt('multi-option-tradeoff');
 
       expect(result).toEqual(mockWorkflowPrompt);
     });
 
-    it('should return null for invalid workflow name', async () => {
-      const { resolveWorkflowPrompt: resolve } = await import('../workflow-prompt-utilities.js');
-      const result = resolve('non-existent-workflow');
+    it('should return null for invalid workflow name', () => {
+      vi.spyOn(workflowPrompts, 'getWorkflowPrompt').mockReturnValue(undefined);
+
+      const result = resolveWorkflowPrompt('non-existent-workflow');
 
       expect(result).toBeNull();
     });
 
-    it('should return null for empty string', async () => {
-      const { resolveWorkflowPrompt: resolve } = await import('../workflow-prompt-utilities.js');
-      const result = resolve('');
+    it('should return null for empty string', () => {
+      const result = resolveWorkflowPrompt('');
 
       expect(result).toBeNull();
     });
 
     it('should handle getWorkflowPrompt throwing error', () => {
       // Mock getWorkflowPrompt to throw
-      vi.doMock('../../prompts/workflow-prompts.js', () => ({
-        getWorkflowPrompt: vi.fn(() => {
-          throw new Error('Prompts not loaded');
-        })
-      }));
+      vi.spyOn(workflowPrompts, 'getWorkflowPrompt').mockImplementation(() => {
+        throw new Error('Prompts not loaded');
+      });
 
       // Should return null instead of throwing
       expect(() => resolveWorkflowPrompt('any-workflow')).not.toThrow();
@@ -231,16 +224,8 @@ describe('Workflow Prompt Utilities', () => {
       priority: 'high'
     };
 
-    beforeEach(() => {
-      // Mock logger to suppress warnings during tests
-      vi.doMock('../../utils/logger.js', () => ({
-        getGlobalLogger: vi.fn(() => ({
-          warn: vi.fn(),
-          info: vi.fn(),
-          error: vi.fn(),
-          debug: vi.fn()
-        }))
-      }));
+    afterEach(() => {
+      vi.restoreAllMocks();
     });
 
     it('should enrich task with valid workflow', () => {
@@ -250,13 +235,8 @@ describe('Workflow Prompt Utilities', () => {
 - Workflow: multi-option-tradeoff
 `;
 
-      // Mock getWorkflowPrompt
-      vi.doMock('../../prompts/workflow-prompts.js', () => ({
-        getWorkflowPrompt: vi.fn((name: string) => {
-          if (name === 'multi-option-tradeoff') return mockWorkflowPrompt;
-          return undefined;
-        })
-      }));
+      // Mock getWorkflowPrompt using vi.spyOn
+      vi.spyOn(workflowPrompts, 'getWorkflowPrompt').mockReturnValue(mockWorkflowPrompt);
 
       const enriched = enrichTaskWithWorkflow(baseTaskData, taskContent);
 
@@ -291,20 +271,7 @@ describe('Workflow Prompt Utilities', () => {
     });
 
     it('should log warning and return unchanged task for invalid workflow name', () => {
-      const mockLogger = {
-        warn: vi.fn(),
-        info: vi.fn(),
-        error: vi.fn(),
-        debug: vi.fn()
-      };
-
-      vi.doMock('../../utils/logger.js', () => ({
-        getGlobalLogger: vi.fn(() => mockLogger)
-      }));
-
-      vi.doMock('../../prompts/workflow-prompts.js', () => ({
-        getWorkflowPrompt: vi.fn(() => undefined)
-      }));
+      vi.spyOn(workflowPrompts, 'getWorkflowPrompt').mockReturnValue(undefined);
 
       const taskContent = `
 ### Test Task
@@ -324,9 +291,7 @@ describe('Workflow Prompt Utilities', () => {
 - Workflow: multi-option-tradeoff
 `;
 
-      vi.doMock('../../prompts/workflow-prompts.js', () => ({
-        getWorkflowPrompt: vi.fn(() => mockWorkflowPrompt)
-      }));
+      vi.spyOn(workflowPrompts, 'getWorkflowPrompt').mockReturnValue(mockWorkflowPrompt);
 
       const original = { ...baseTaskData };
       const enriched = enrichTaskWithWorkflow(baseTaskData, taskContent);
@@ -351,9 +316,7 @@ describe('Workflow Prompt Utilities', () => {
 - Workflow: multi-option-tradeoff
 `;
 
-      vi.doMock('../../prompts/workflow-prompts.js', () => ({
-        getWorkflowPrompt: vi.fn(() => mockWorkflowPrompt)
-      }));
+      vi.spyOn(workflowPrompts, 'getWorkflowPrompt').mockReturnValue(mockWorkflowPrompt);
 
       const enriched = enrichTaskWithWorkflow(extendedTaskData, taskContent);
 
@@ -387,16 +350,6 @@ describe('Workflow Prompt Utilities', () => {
     let mockDocument: CachedDocument;
 
     beforeEach(() => {
-      // Mock logger
-      vi.doMock('../../utils/logger.js', () => ({
-        getGlobalLogger: vi.fn(() => ({
-          warn: vi.fn(),
-          info: vi.fn(),
-          error: vi.fn(),
-          debug: vi.fn()
-        }))
-      }));
-
       // Mock manager
       mockManager = {
         getSectionContent: vi.fn()
@@ -457,6 +410,10 @@ describe('Workflow Prompt Utilities', () => {
       } as CachedDocument;
     });
 
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('should enrich task with main workflow from first task', async () => {
       const firstTaskContent = `
 ### First Task
@@ -467,21 +424,14 @@ describe('Workflow Prompt Utilities', () => {
 
       vi.mocked(mockManager.getSectionContent).mockResolvedValue(firstTaskContent);
 
-      // Mock getTaskHeadings
-      vi.doMock('../task-utilities.js', () => ({
-        getTaskHeadings: vi.fn(async () => [
-          { slug: 'first-task', title: 'First Task', depth: 3 },
-          { slug: 'test-task', title: 'Test Task', depth: 3 }
-        ])
-      }));
+      // Mock getTaskHeadings using vi.spyOn
+      vi.spyOn(taskUtilities, 'getTaskHeadings').mockResolvedValue([
+        { slug: 'first-task', title: 'First Task', depth: 3 },
+        { slug: 'test-task', title: 'Test Task', depth: 3 }
+      ]);
 
-      // Mock getWorkflowPrompt
-      vi.doMock('../../prompts/workflow-prompts.js', () => ({
-        getWorkflowPrompt: vi.fn((name: string) => {
-          if (name === 'spec-first-integration') return mockMainWorkflow;
-          return undefined;
-        })
-      }));
+      // Mock getWorkflowPrompt using vi.spyOn
+      vi.spyOn(workflowPrompts, 'getWorkflowPrompt').mockReturnValue(mockMainWorkflow);
 
       const enriched = await enrichTaskWithMainWorkflow(mockManager, mockDocument, baseTaskData);
 
@@ -527,9 +477,7 @@ describe('Workflow Prompt Utilities', () => {
     });
 
     it('should return unchanged task when tasks section has no tasks', async () => {
-      vi.doMock('../task-utilities.js', () => ({
-        getTaskHeadings: vi.fn(async () => [])
-      }));
+      vi.spyOn(taskUtilities, 'getTaskHeadings').mockResolvedValue([]);
 
       const enriched = await enrichTaskWithMainWorkflow(mockManager, mockDocument, baseTaskData);
 
@@ -546,11 +494,9 @@ describe('Workflow Prompt Utilities', () => {
 
       vi.mocked(mockManager.getSectionContent).mockResolvedValue(firstTaskContent);
 
-      vi.doMock('../task-utilities.js', () => ({
-        getTaskHeadings: vi.fn(async () => [
-          { slug: 'first-task', title: 'First Task', depth: 3 }
-        ])
-      }));
+      vi.spyOn(taskUtilities, 'getTaskHeadings').mockResolvedValue([
+        { slug: 'first-task', title: 'First Task', depth: 3 }
+      ]);
 
       const enriched = await enrichTaskWithMainWorkflow(mockManager, mockDocument, baseTaskData);
 
@@ -566,11 +512,9 @@ describe('Workflow Prompt Utilities', () => {
 
       vi.mocked(mockManager.getSectionContent).mockResolvedValue(firstTaskContent);
 
-      vi.doMock('../task-utilities.js', () => ({
-        getTaskHeadings: vi.fn(async () => [
-          { slug: 'first-task', title: 'First Task', depth: 3 }
-        ])
-      }));
+      vi.spyOn(taskUtilities, 'getTaskHeadings').mockResolvedValue([
+        { slug: 'first-task', title: 'First Task', depth: 3 }
+      ]);
 
       const enriched = await enrichTaskWithMainWorkflow(mockManager, mockDocument, baseTaskData);
 
@@ -579,17 +523,6 @@ describe('Workflow Prompt Utilities', () => {
     });
 
     it('should log warning and return unchanged task when main workflow name is invalid', async () => {
-      const mockLogger = {
-        warn: vi.fn(),
-        info: vi.fn(),
-        error: vi.fn(),
-        debug: vi.fn()
-      };
-
-      vi.doMock('../../utils/logger.js', () => ({
-        getGlobalLogger: vi.fn(() => mockLogger)
-      }));
-
       const firstTaskContent = `
 ### First Task
 - Main-Workflow: non-existent-workflow
@@ -597,15 +530,11 @@ describe('Workflow Prompt Utilities', () => {
 
       vi.mocked(mockManager.getSectionContent).mockResolvedValue(firstTaskContent);
 
-      vi.doMock('../task-utilities.js', () => ({
-        getTaskHeadings: vi.fn(async () => [
-          { slug: 'first-task', title: 'First Task', depth: 3 }
-        ])
-      }));
+      vi.spyOn(taskUtilities, 'getTaskHeadings').mockResolvedValue([
+        { slug: 'first-task', title: 'First Task', depth: 3 }
+      ]);
 
-      vi.doMock('../../prompts/workflow-prompts.js', () => ({
-        getWorkflowPrompt: vi.fn(() => undefined)
-      }));
+      vi.spyOn(workflowPrompts, 'getWorkflowPrompt').mockReturnValue(undefined);
 
       const enriched = await enrichTaskWithMainWorkflow(mockManager, mockDocument, baseTaskData);
 
@@ -617,11 +546,9 @@ describe('Workflow Prompt Utilities', () => {
     it('should return unchanged task when first task content cannot be loaded', async () => {
       vi.mocked(mockManager.getSectionContent).mockResolvedValue(null);
 
-      vi.doMock('../task-utilities.js', () => ({
-        getTaskHeadings: vi.fn(async () => [
-          { slug: 'first-task', title: 'First Task', depth: 3 }
-        ])
-      }));
+      vi.spyOn(taskUtilities, 'getTaskHeadings').mockResolvedValue([
+        { slug: 'first-task', title: 'First Task', depth: 3 }
+      ]);
 
       const enriched = await enrichTaskWithMainWorkflow(mockManager, mockDocument, baseTaskData);
 
@@ -637,15 +564,11 @@ describe('Workflow Prompt Utilities', () => {
 
       vi.mocked(mockManager.getSectionContent).mockResolvedValue(firstTaskContent);
 
-      vi.doMock('../task-utilities.js', () => ({
-        getTaskHeadings: vi.fn(async () => [
-          { slug: 'first-task', title: 'First Task', depth: 3 }
-        ])
-      }));
+      vi.spyOn(taskUtilities, 'getTaskHeadings').mockResolvedValue([
+        { slug: 'first-task', title: 'First Task', depth: 3 }
+      ]);
 
-      vi.doMock('../../prompts/workflow-prompts.js', () => ({
-        getWorkflowPrompt: vi.fn(() => mockMainWorkflow)
-      }));
+      vi.spyOn(workflowPrompts, 'getWorkflowPrompt').mockReturnValue(mockMainWorkflow);
 
       const original = { ...baseTaskData };
       const enriched = await enrichTaskWithMainWorkflow(mockManager, mockDocument, baseTaskData);
@@ -672,15 +595,11 @@ describe('Workflow Prompt Utilities', () => {
 
       vi.mocked(mockManager.getSectionContent).mockResolvedValue(firstTaskContent);
 
-      vi.doMock('../task-utilities.js', () => ({
-        getTaskHeadings: vi.fn(async () => [
-          { slug: 'first-task', title: 'First Task', depth: 3 }
-        ])
-      }));
+      vi.spyOn(taskUtilities, 'getTaskHeadings').mockResolvedValue([
+        { slug: 'first-task', title: 'First Task', depth: 3 }
+      ]);
 
-      vi.doMock('../../prompts/workflow-prompts.js', () => ({
-        getWorkflowPrompt: vi.fn(() => mockMainWorkflow)
-      }));
+      vi.spyOn(workflowPrompts, 'getWorkflowPrompt').mockReturnValue(mockMainWorkflow);
 
       const enriched = await enrichTaskWithMainWorkflow(mockManager, mockDocument, extendedTaskData);
 
@@ -748,15 +667,11 @@ describe('Workflow Prompt Utilities', () => {
 
       vi.mocked(mockManager.getSectionContent).mockResolvedValue(firstTaskContent);
 
-      vi.doMock('../task-utilities.js', () => ({
-        getTaskHeadings: vi.fn(async () => [
-          { slug: 'first-task', title: 'First Task', depth: 3 }
-        ])
-      }));
+      vi.spyOn(taskUtilities, 'getTaskHeadings').mockResolvedValue([
+        { slug: 'first-task', title: 'First Task', depth: 3 }
+      ]);
 
-      vi.doMock('../../prompts/workflow-prompts.js', () => ({
-        getWorkflowPrompt: vi.fn(() => mockMainWorkflow)
-      }));
+      vi.spyOn(workflowPrompts, 'getWorkflowPrompt').mockReturnValue(mockMainWorkflow);
 
       const enriched = await enrichTaskWithMainWorkflow(mockManager, docWithTasks, baseTaskData);
 

@@ -6,7 +6,7 @@
  *
  * Key behaviors tested:
  * - Task workflow injection for next task (if Workflow field present)
- * - NO main workflow injection (different from continue_task)
+ * - NO main workflow injection (different from start_task)
  * - Graceful degradation for invalid workflow names
  * - Edge cases (no next task, empty workflow fields)
  */
@@ -487,7 +487,7 @@ Second task.`;
       // Should have next_task
       expect(result.next_task).toBeDefined();
 
-      // Should NOT have main_workflow (that's only for continue_task)
+      // Should NOT have main_workflow (that's only for start_task)
       expect(result.next_task).not.toHaveProperty('main_workflow');
     });
 

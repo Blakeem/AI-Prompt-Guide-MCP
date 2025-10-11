@@ -1,5 +1,5 @@
 /**
- * Implementation for the continue_task tool
+ * Implementation for the start_task tool
  *
  * Signals "I'm starting work on this task" and provides FULL CONTEXT including:
  * - Task-specific workflow (if present in task metadata)
@@ -11,7 +11,7 @@
  * - Resuming work after context compression
  *
  * Unlike view_task (passive inspection) or complete_task (work continuation),
- * continue_task provides full workflow injection for new/resumed sessions.
+ * start_task provides full workflow injection for new/resumed sessions.
  */
 
 import type { SessionState } from '../../session/types.js';
@@ -35,9 +35,9 @@ import type { HierarchicalContent } from '../../shared/reference-loader.js';
 import { getTaskHeadings } from '../../shared/task-utilities.js';
 
 /**
- * Response interface for continue_task tool
+ * Response interface for start_task tool
  */
-export interface ContinueTaskResponse {
+export interface StartTaskResponse {
   document: string;
   task: {
     slug: string;
@@ -53,7 +53,7 @@ export interface ContinueTaskResponse {
 }
 
 /**
- * Continue work on a task with full context injection
+ * Start work on a task with full context injection
  *
  * @param args - Tool arguments containing document path and task slug
  * @param _state - Session state (unused but required by tool signature)
@@ -62,11 +62,11 @@ export interface ContinueTaskResponse {
  * @throws {AddressingError} When parameters are invalid or task validation fails
  * @throws {DocumentNotFoundError} When document doesn't exist
  */
-export async function continueTask(
+export async function startTask(
   args: Record<string, unknown>,
   _state: SessionState,
   manager: DocumentManager
-): Promise<ContinueTaskResponse> {
+): Promise<StartTaskResponse> {
   try {
     // ===== INPUT VALIDATION =====
     const documentPath = ToolIntegration.validateStringParameter(args['document'], 'document');
@@ -247,8 +247,8 @@ export async function continueTask(
 
     // Wrap unexpected errors
     throw new AddressingError(
-      `Failed to continue task: ${error instanceof Error ? error.message : String(error)}`,
-      'CONTINUE_TASK_FAILED',
+      `Failed to start task: ${error instanceof Error ? error.message : String(error)}`,
+      'START_TASK_FAILED',
       {
         originalError: error instanceof Error ? error.message : String(error)
       }

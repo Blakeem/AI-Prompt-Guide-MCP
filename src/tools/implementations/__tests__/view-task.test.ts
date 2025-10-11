@@ -218,7 +218,7 @@ Task content here.`;
       expect(result.tasks[0]).toHaveProperty('workflow_name', 'multi-option-tradeoff');
       expect(result.tasks[0]).toHaveProperty('has_workflow', true);
 
-      // Ensure NO full workflow object (that's for continue_task only)
+      // Ensure NO full workflow object (that's for start_task only)
       expect(result.tasks[0]).not.toHaveProperty('workflow');
     });
 
@@ -935,7 +935,7 @@ Task with both workflow types.`;
       expect(result.tasks[0]).toHaveProperty('workflow_name', 'multi-option-tradeoff');
       expect(result.tasks[0]).toHaveProperty('main_workflow_name', 'spec-first-integration');
 
-      // Should NOT have workflow objects (those are for continue_task only)
+      // Should NOT have workflow objects (those are for start_task only)
       expect(result.tasks[0]).not.toHaveProperty('workflow');
       expect(result.tasks[0]).not.toHaveProperty('main_workflow');
 

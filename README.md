@@ -76,11 +76,45 @@ This system provides:
 **View & Inspection Tools:**
 - `view_document` - Enhanced inspection with stats and metadata
 - `view_section` - Clean section content viewer
-- `view_task` - Task data with status and priority
+- `view_task` - Passive task inspection with workflow metadata (names only, no content)
 
-**Task Management:**
+**Task Management with Workflow Injection:**
 - `task` - Unified task operations (create, edit, list)
-- `complete_task` - Mark completed, get next task with linked documents
+- `start_task` - **Start/resume work** with full context (main workflow + task workflow + references)
+- `complete_task` - **Finish current task** and get next task with its workflow (no main workflow re-injection)
+
+### 🔄 Workflow Prompt Injection System
+
+The system provides **deterministic workflow injection** based on tool choice, eliminating manual prompt lookups:
+
+**Three-Tool Architecture:**
+1. **`view_task`** - Passive inspection (shows workflow names only, no content injection)
+2. **`start_task`** - Work initiation (injects main workflow + task workflow + references)
+3. **`complete_task`** - Work continuation (injects next task workflow only)
+
+**Two Workflow Types:**
+- **Main-Workflow** - Project-level methodology defined in first task (re-injected on session resumption)
+- **Workflow** - Task-specific process guidance for individual tasks
+
+**Session Lifecycle Example:**
+```
+NEW SESSION
+↓
+1. view_task(task: ["task1", "task2"])  → Browse tasks (no injection)
+2. start_task(task: "task1")            → Main + Task workflow ✅
+3. complete_task(task: "task1")         → Next task workflow only ✅
+4. complete_task(task: "task2")         → Next task workflow only ✅
+
+[CONTEXT COMPRESSION]
+↓
+5. start_task(task: "task3")            → Main workflow RE-INJECTED ✅
+```
+
+**Key Benefits:**
+- **Deterministic** - Tool choice signals session state (start vs continue)
+- **Session Resilient** - Main workflow re-injected after context compression
+- **Zero Duplication** - No redundant workflow prompts in continuous sessions
+- **Graceful Degradation** - Missing workflows don't break task execution
 
 ## Technical Architecture
 
@@ -129,24 +163,31 @@ Tools reveal parameters gradually to conserve context:
 - **Stage 1**: Configuration - Gather specific requirements
 - **Stage 2**: Execution - Complete operation with full context
 
-## Future Vision
+## Workflow Protocol Library
 
-### 🎯 Reasoning Protocol Library (Next Phase)
+### 🎯 Available Reasoning Workflows
 
-Structured workflows for common LLM reasoning tasks:
+Structured workflow prompts for common LLM reasoning tasks (automatically injected based on task metadata):
 
-1. **`decide.tradeoffs@v1`** - Multi-option trade-off analysis with weighted criteria
-2. **`integrate.spec-first@v1`** - Spec-first integration with canonical APIs
-3. **`map.causal-flow.mermaid@v1`** - Cause→effect DAG mapping with evidence
-4. **`triage.min-repro@v1`** - Failure triage with minimal reproduction
-5. **`rollout.guardrails@v1`** - Guardrailed rollout with automatic rollback
-6. **`experiment.evidence@v1`** - Evidence-based experiment protocol
-7. **`simplify.complexity-budget@v1`** - Simplicity gate with complexity budgets
-8. **`adapt.interface-diff@v1`** - Interface diff and adaptation planning
-9. **`audit.assumptions@v1`** - Assumption audit with falsifiable tests
-10. **`validate.data-quality@v1`** - Data quality gate with drift detection
+1. **`multi-option-tradeoff`** - Multi-option trade-off analysis with weighted criteria
+2. **`spec-first-integration`** - Spec-first integration with canonical APIs
+3. **`causal-flow-mapping`** - Cause→effect DAG mapping with evidence
+4. **`failure-triage-repro`** - Failure triage with minimal reproduction
+5. **`guardrailed-rollout`** - Guardrailed rollout with automatic rollback
+6. **`evidence-based-experiment`** - Evidence-based experiment protocol
+7. **`simplicity-gate`** - Simplicity gate with complexity budgets
+8. **`interface-diff-adaptation`** - Interface diff and adaptation planning
 
-Each protocol is a **reusable graph-encoded procedure** that guides LLMs through structured reasoning steps.
+**Usage in Tasks:**
+```markdown
+### Design API Architecture
+- Status: pending
+- Priority: high
+- Main-Workflow: spec-first-integration  ← Project-level methodology
+- Workflow: multi-option-tradeoff        ← Task-specific process
+```
+
+Each workflow is a **reusable procedure** that guides LLMs through structured reasoning steps, automatically injected when starting or resuming work on tasks.
 
 ### 🚀 Long-Term Architecture
 
@@ -208,17 +249,19 @@ pnpm inspector:dev
 
 ## Development Status
 
-### ✅ Completed (Alpha v0.1)
+### ✅ Completed (Alpha v0.2)
 - Central addressing system with type-safe validation
-- 8 MCP tools migrated to unified addressing framework
+- 9 MCP tools with unified addressing framework
 - Document linking system with `@` syntax
 - Task management with status/priority tracking
+- **Workflow prompt injection system** with deterministic session handling
+- Three-tool task architecture (view/start/complete)
 - Progressive discovery workflows
-- 253 passing tests with comprehensive coverage
+- 850 passing tests with comprehensive coverage
 
 ### 🚧 In Progress
-- Reasoning protocol library implementation
-- Workflow template system
+- Enhanced workflow coordination across task series
+- Workflow analytics and effectiveness tracking
 
 ### 📋 Planned
 - Graph traversal engine for workflow execution

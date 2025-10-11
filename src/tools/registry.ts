@@ -13,7 +13,7 @@ import { getViewTaskSchema } from './schemas/view-task-schemas.js';
 import { getManageDocumentSchema } from './schemas/manage-document-schemas.js';
 import { getTaskSchema } from './schemas/task-schemas.js';
 import { getCompleteTaskSchema } from './schemas/complete-task-schemas.js';
-import { getContinueTaskSchema } from './schemas/continue-task-schemas.js';
+import { getStartTaskSchema } from './schemas/start-task-schemas.js';
 
 /**
  * Get all available tools based on session state
@@ -57,9 +57,9 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
       inputSchema: getCompleteTaskSchema(),
     },
     {
-      name: 'continue_task',
+      name: 'start_task',
       description: 'Start or resume work on a task with full context injection (main workflow, task workflow, and references). Use this when beginning a new session or resuming after context compression.',
-      inputSchema: getContinueTaskSchema(),
+      inputSchema: getStartTaskSchema(),
     },
     {
       name: 'view_document',
