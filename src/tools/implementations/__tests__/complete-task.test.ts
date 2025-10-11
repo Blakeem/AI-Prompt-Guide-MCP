@@ -728,9 +728,8 @@ Medium priority task.`;
       }, sessionState, manager);
 
       expect(result.next_task).toBeDefined();
-      // findNextAvailableTask should return high priority task
+      // findNextAvailableTask should return next sequential task
       expect(result.next_task?.slug).toBe('second-task');
-      expect(result.next_task?.priority).toBe('high');
     });
 
     it('should handle last task in series (no next task)', async () => {

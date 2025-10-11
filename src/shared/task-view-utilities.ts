@@ -7,7 +7,7 @@
  * - task.ts (where applicable)
  *
  * Features:
- * - Task metadata extraction (status, priority, links)
+ * - Task metadata extraction (status, links)
  * - Reference loading and hierarchical content
  * - Consistent response formatting
  * - Performance optimization through shared patterns
@@ -31,7 +31,6 @@ export interface TaskViewData {
   title: string;
   content: string;
   status: string;
-  priority?: string;
   link?: string;
   linkedDocument?: string;
   referencedDocuments?: HierarchicalContent[];
@@ -46,7 +45,6 @@ export interface TaskViewData {
  */
 export interface TaskMetadata {
   readonly status: string;
-  readonly priority?: string;
   readonly link?: string;
   readonly linkedDocument?: string;
 }
@@ -57,22 +55,20 @@ export interface TaskMetadata {
  */
 export function extractTaskMetadata(content: string): TaskMetadata {
   const status = extractTaskField(content, 'Status') ?? 'pending';
-  const priority = extractTaskField(content, 'Priority');
   const link = extractTaskLink(content);
   const linkedDocument = extractLinkedDocument(content);
 
   return {
     status,
-    ...(priority != null && priority !== '' && { priority }),
     ...(link != null && link !== '' && { link }),
     ...(linkedDocument != null && linkedDocument !== '' && { linkedDocument })
   };
 }
 
 /**
- * Extract a specific task field from content (Status, Priority, etc.)
+ * Extract a specific task field from content (Status, etc.)
  * Supports multiple metadata formats: "* Key: value", "- Key: value", and "**Key:** value"
- * Priority order: * (star) format first, then - (dash) format, then ** (bold) format
+ * Format priority order: * (star) format first, then - (dash) format, then ** (bold) format
  */
 export function extractTaskField(content: string, fieldName: string): string | null {
   // Support "* Key: value" format (highest priority)
@@ -157,7 +153,6 @@ export async function enrichTaskWithReferences(
     title,
     content: taskContent,
     status: metadata.status,
-    ...(metadata.priority != null && { priority: metadata.priority }),
     ...(metadata.link != null && { link: metadata.link }),
     ...(metadata.linkedDocument != null && { linkedDocument: metadata.linkedDocument }),
     ...(referencedDocuments.length > 0 && { referencedDocuments })
@@ -210,7 +205,6 @@ export function formatTaskResponse(
   };
 
   // Optional metadata
-  if (taskData.priority != null) response['priority'] = taskData.priority;
   if (taskData.link != null) response['link'] = taskData.link;
   if (taskData.linkedDocument != null) response['linked_document'] = taskData.linkedDocument;
 
@@ -258,22 +252,16 @@ async function enrichMultipleTasks(
 export function calculateTaskSummary(tasks: TaskViewData[]): {
   total_tasks: number;
   by_status: Record<string, number>;
-  by_priority: Record<string, number>;
   with_links: number;
   with_references: number;
 } {
   const statusCounts: Record<string, number> = {};
-  const priorityCounts: Record<string, number> = {};
   let withLinks = 0;
   let withReferences = 0;
 
   for (const task of tasks) {
     // Count by status
     statusCounts[task.status] = (statusCounts[task.status] ?? 0) + 1;
-
-    // Count by priority
-    const priority = task.priority ?? 'medium';
-    priorityCounts[priority] = (priorityCounts[priority] ?? 0) + 1;
 
     // Count tasks with links
     if (task.link != null || task.linkedDocument != null) {
@@ -289,15 +277,18 @@ export function calculateTaskSummary(tasks: TaskViewData[]): {
   return {
     total_tasks: tasks.length,
     by_status: statusCounts,
-    by_priority: priorityCounts,
     with_links: withLinks,
     with_references: withReferences
   };
 }
 
 /**
- * Find next available task based on priority and status
+ * Find next available task in sequential document order
  * Used by complete-task to suggest next work
+ *
+ * Returns the next pending/in_progress task that appears after the excluded task
+ * in document order. If excludeTaskSlug is not provided, returns the first
+ * available task.
  */
 export async function findNextAvailableTask(
   manager: DocumentManager,
@@ -311,7 +302,7 @@ export async function findNextAvailableTask(
     );
     if (tasksSection == null) return null;
 
-    // Get all task headings
+    // Get all task headings in document order
     const { getTaskHeadingsFromHeadings } = await import('./task-utilities.js');
     const taskHeadings = await getTaskHeadingsFromHeadings(document, tasksSection);
 
@@ -322,29 +313,24 @@ export async function findNextAvailableTask(
       taskHeadings.map(heading => ({ slug: heading.slug, heading }))
     );
 
-    // Filter available tasks
-    const availableTasks = allTasks.filter(task =>
-      task.slug !== excludeTaskSlug &&
-      (task.status === 'pending' || task.status === 'in_progress')
-    );
-
-    if (availableTasks.length === 0) return null;
-
-    // Sort by priority (high first), then by document order
-    availableTasks.sort((a, b) => {
-      const priorityOrder = { high: 3, medium: 2, low: 1 };
-      const aPriority = priorityOrder[(a.priority ?? 'medium') as keyof typeof priorityOrder] ?? 1;
-      const bPriority = priorityOrder[(b.priority ?? 'medium') as keyof typeof priorityOrder] ?? 1;
-
-      if (bPriority !== aPriority) {
-        return bPriority - aPriority; // Higher priority first
+    // Find the position of the excluded task (if provided)
+    let startIndex = 0;
+    if (excludeTaskSlug != null && excludeTaskSlug !== '') {
+      const excludedIndex = allTasks.findIndex(task => task.slug === excludeTaskSlug);
+      if (excludedIndex !== -1) {
+        startIndex = excludedIndex + 1; // Start search after excluded task
       }
+    }
 
-      // Same priority, maintain document order
-      return 0;
-    });
+    // Find first available task after excluded task (in document order)
+    for (let i = startIndex; i < allTasks.length; i++) {
+      const task = allTasks[i];
+      if (task != null && (task.status === 'pending' || task.status === 'in_progress')) {
+        return task;
+      }
+    }
 
-    return availableTasks[0] ?? null;
+    return null;
 
   } catch {
     return null;

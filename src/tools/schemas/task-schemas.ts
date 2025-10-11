@@ -15,7 +15,7 @@ export interface TaskInputSchema {
     };
     content: {
       type: 'string';
-      description: 'Task content including link, status, priority, dependencies';
+      description: 'Task content including link, status, dependencies';
     };
     operation: {
       type: 'string';
@@ -31,11 +31,6 @@ export interface TaskInputSchema {
       type: 'string';
       enum: ['pending', 'in_progress', 'completed', 'blocked'];
       description: 'Task status filter for list operation or new status for edit operation';
-    };
-    priority: {
-      type: 'string';
-      enum: ['low', 'medium', 'high'];
-      description: 'Priority filter for list operation or priority for new task';
     };
   };
   required: ['document'];
@@ -57,11 +52,6 @@ export const TASK_CONSTANTS = {
     COMPLETED: 'completed',
     BLOCKED: 'blocked',
   },
-  PRIORITIES: {
-    LOW: 'low',
-    MEDIUM: 'medium',
-    HIGH: 'high',
-  },
   MAX_TITLE_LENGTH: 200,
   MAX_CONTENT_LENGTH: 2000,
   MAX_NOTE_LENGTH: 1000,
@@ -76,10 +66,6 @@ export function isValidTaskOperation(operation: string): boolean {
 
 export function isValidTaskStatus(status: string): boolean {
   return Object.values(TASK_CONSTANTS.STATUSES).includes(status as 'pending' | 'in_progress' | 'completed' | 'blocked');
-}
-
-export function isValidTaskPriority(priority: string): boolean {
-  return Object.values(TASK_CONSTANTS.PRIORITIES).includes(priority as 'high' | 'medium' | 'low');
 }
 
 /**
@@ -99,7 +85,7 @@ export function getTaskSchema(): TaskInputSchema {
       },
       content: {
         type: 'string',
-        description: 'Task content including link, status, priority, dependencies',
+        description: 'Task content including link, status, dependencies',
       },
       operation: {
         type: 'string',
@@ -115,11 +101,6 @@ export function getTaskSchema(): TaskInputSchema {
         type: 'string',
         enum: ['pending', 'in_progress', 'completed', 'blocked'],
         description: 'Task status filter for list operation or new status for edit operation',
-      },
-      priority: {
-        type: 'string',
-        enum: ['low', 'medium', 'high'],
-        description: 'Priority filter for list operation or priority for new task',
       },
     },
     required: ['document'],

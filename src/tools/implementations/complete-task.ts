@@ -28,7 +28,6 @@ interface CompleteTaskResult {
   next_task?: {
     slug: string;
     title: string;
-    priority?: string;
     link?: string;
 
     // Task-specific workflow ONLY (no main workflow)
@@ -108,7 +107,6 @@ export async function completeTask(
     let nextTask: {
       slug: string;
       title: string;
-      priority?: string;
       link?: string;
       workflow?: {
         name: string;
@@ -141,7 +139,6 @@ export async function completeTask(
       nextTask = {
         slug: enrichedNext.slug,
         title: enrichedNext.title,
-        ...(nextTaskData.priority != null && { priority: nextTaskData.priority }),
         ...(nextTaskData.link != null && { link: nextTaskData.link }),
 
         // Add workflow if present (FULL object, not just name)

@@ -751,7 +751,6 @@ Also no workflow.`;
       const taskContent = `### Test Task
 
 - Status: pending
-- Priority: high
 - Workflow: multi-option-tradeoff
 
 Task content.`;
@@ -788,7 +787,6 @@ Task content.`;
       // Verify existing summary fields
       expect(result.summary).toHaveProperty('total_tasks', 1);
       expect(result.summary).toHaveProperty('by_status');
-      expect(result.summary).toHaveProperty('by_priority');
       expect(result.summary).toHaveProperty('with_links');
       expect(result.summary).toHaveProperty('with_references');
 
@@ -955,7 +953,6 @@ Task with both workflow types.`;
       const taskContent = `### Test Task
 
 - Status: pending
-- Priority: low
 - Workflow: simplicity-gate
 
 Test task content.`;
@@ -977,7 +974,7 @@ Test task content.`;
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
-          wordCount: 12
+          wordCount: 10
         }
       } as unknown as CachedDocument;
 
@@ -1004,7 +1001,6 @@ Test task content.`;
       expect(task).toHaveProperty('title');
       expect(task).toHaveProperty('content');
       expect(task).toHaveProperty('status');
-      expect(task).toHaveProperty('priority');
       expect(task).toHaveProperty('depth');
       expect(task).toHaveProperty('full_path');
       expect(task).toHaveProperty('word_count');
@@ -1071,7 +1067,6 @@ Second task.`;
       const taskContent = `### Complex Task
 
 - Status: in_progress
-- Priority: high
 - Workflow: multi-option-tradeoff
 → @/specs/feature-spec.md
 
@@ -1094,7 +1089,7 @@ Implement feature according to specification.`;
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
-          wordCount: 15
+          wordCount: 13
         }
       } as unknown as CachedDocument;
 
@@ -1112,7 +1107,6 @@ Implement feature according to specification.`;
       expect(task).toHaveProperty('slug', 'complex-task');
       expect(task).toHaveProperty('title', 'Complex Task');
       expect(task).toHaveProperty('status', 'in_progress');
-      expect(task).toHaveProperty('priority', 'high');
       expect(task).toHaveProperty('linked_document', '/specs/feature-spec.md');
 
       // New workflow fields

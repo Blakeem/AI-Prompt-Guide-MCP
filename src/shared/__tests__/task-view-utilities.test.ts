@@ -116,14 +116,12 @@ describe('Task View Utilities', () => {
       const content = `
 ### Task Title
 - Status: completed
-- Priority: high
 → https://example.com
 → @/path/to/doc.md
       `;
 
       const metadata = extractTaskMetadata(content);
       expect(metadata.status).toBe('completed');
-      expect(metadata.priority).toBe('high');
       expect(metadata.link).toBe('https://example.com');
       expect(metadata.linkedDocument).toBe('/path/to/doc.md');
     });
@@ -132,16 +130,15 @@ describe('Task View Utilities', () => {
       const content = 'Just some content';
       const metadata = extractTaskMetadata(content);
       expect(metadata.status).toBe('pending');
-      expect(metadata.priority).toBeUndefined();
       expect(metadata.link).toBeUndefined();
       expect(metadata.linkedDocument).toBeUndefined();
     });
 
     it('should omit empty optional fields', () => {
-      const content = '- Status: pending\n- Priority: ';
+      const content = '- Status: pending\n- Link: ';
       const metadata = extractTaskMetadata(content);
       expect(metadata.status).toBe('pending');
-      expect(metadata.priority).toBeUndefined();
+      expect(metadata.link).toBeUndefined();
     });
   });
 
@@ -151,7 +148,6 @@ describe('Task View Utilities', () => {
       title: 'Test Task',
       content: 'Task content',
       status: 'pending',
-      priority: 'high',
       link: 'https://example.com',
       linkedDocument: '/doc.md',
       referencedDocuments: [
@@ -176,7 +172,6 @@ describe('Task View Utilities', () => {
         slug: 'test-task',
         title: 'Test Task',
         status: 'pending',
-        priority: 'high',
         link: 'https://example.com',
         linked_document: '/doc.md',
         referenced_documents: taskData.referencedDocuments
@@ -229,7 +224,6 @@ describe('Task View Utilities', () => {
         title: 'Task 1',
         content: 'content',
         status: 'pending',
-        priority: 'high',
         link: 'https://example.com'
       },
       {
@@ -237,7 +231,6 @@ describe('Task View Utilities', () => {
         title: 'Task 2',
         content: 'content',
         status: 'completed',
-        priority: 'medium',
         referencedDocuments: [
           {
             path: '/ref.md',
@@ -265,10 +258,6 @@ describe('Task View Utilities', () => {
         pending: 2,
         completed: 1
       });
-      expect(summary.by_priority).toEqual({
-        high: 1,
-        medium: 2 // includes default 'medium' for task3
-      });
       expect(summary.with_links).toBe(1);
       expect(summary.with_references).toBe(1);
     });
@@ -277,7 +266,6 @@ describe('Task View Utilities', () => {
       const summary = calculateTaskSummary([]);
       expect(summary.total_tasks).toBe(0);
       expect(summary.by_status).toEqual({});
-      expect(summary.by_priority).toEqual({});
       expect(summary.with_links).toBe(0);
       expect(summary.with_references).toBe(0);
     });
@@ -302,7 +290,6 @@ describe('Task View Utilities', () => {
       const content = `
 ### Test Task
 - Status: completed
-- Priority: high
 → https://example.com
       `;
 
@@ -336,7 +323,6 @@ describe('Task View Utilities', () => {
       expect(enriched.title).toBe('Test Task');
       expect(enriched.content).toBe(content);
       expect(enriched.status).toBe('completed');
-      expect(enriched.priority).toBe('high');
       expect(enriched.link).toBe('https://example.com');
       expect(enriched.depth).toBe(3);
       expect(enriched.wordCount).toBeGreaterThan(0);

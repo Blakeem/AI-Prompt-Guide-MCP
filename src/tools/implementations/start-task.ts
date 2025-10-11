@@ -44,7 +44,6 @@ export interface StartTaskResponse {
     title: string;
     content: string;
     status: string;
-    priority: string;
     full_path: string;
     workflow?: WorkflowPrompt;
     main_workflow?: WorkflowPrompt;
@@ -176,15 +175,13 @@ export async function startTask(
     const heading = document.headings.find(h => h.slug === taskAddress.slug);
     const title = heading?.title ?? taskAddress.slug;
     const status = extractTaskField(taskContent, 'Status') ?? 'pending';
-    const priority = extractTaskField(taskContent, 'Priority') ?? 'medium';
 
     // Build base task data
     const baseTaskData: TaskViewData = {
       slug: taskAddress.slug,
       title,
       content: taskContent,
-      status,
-      priority
+      status
     };
 
     // ===== WORKFLOW ENRICHMENT =====
@@ -228,7 +225,6 @@ export async function startTask(
         title: fullyEnriched.title,
         content: fullyEnriched.content,
         status: fullyEnriched.status,
-        priority: fullyEnriched.priority ?? 'medium',
         full_path: fullyEnriched.fullPath ?? ToolIntegration.formatTaskPath(taskAddress),
         ...(workflow != null && { workflow }),
         ...(mainWorkflow != null && { main_workflow: mainWorkflow }),

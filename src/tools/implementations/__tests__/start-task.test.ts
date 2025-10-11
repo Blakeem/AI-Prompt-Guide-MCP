@@ -173,7 +173,6 @@ describe('start_task tool', () => {
       const taskContent = `### Initialize Project
 
 - Status: pending
-- Priority: high
 - Workflow: multi-option-tradeoff
 
 Set up the project structure following best practices.`;
@@ -195,7 +194,7 @@ Set up the project structure following best practices.`;
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
-          wordCount: 20
+          wordCount: 18
         }
       } as unknown as CachedDocument;
 
@@ -225,7 +224,6 @@ Set up the project structure following best practices.`;
       expect(result.task).toHaveProperty('slug', 'initialize-project');
       expect(result.task).toHaveProperty('title', 'Initialize Project');
       expect(result.task).toHaveProperty('status', 'pending');
-      expect(result.task).toHaveProperty('priority', 'high');
     });
 
     it('should not add workflow field when Workflow field not present', async () => {
@@ -716,7 +714,6 @@ Implement the REST API endpoints.`;
       expect(result.task).toHaveProperty('slug', 'implement-api');
       expect(result.task).toHaveProperty('title', 'Implement API');
       expect(result.task).toHaveProperty('status', 'in_progress');
-      expect(result.task).toHaveProperty('priority', 'high');
       expect(result.task).toHaveProperty('content');
       expect(result.task).toHaveProperty('full_path');
 
@@ -763,8 +760,6 @@ A task with minimal metadata but has references.`;
 
       expect(result.task).toHaveProperty('slug', 'minimal-task');
       expect(result.task).toHaveProperty('status', 'pending');
-      // Priority defaults to medium when not specified
-      expect(result.task.priority).toBe('medium');
       // Should not have workflow fields when not specified
       expect(result.task).not.toHaveProperty('workflow');
       expect(result.task).not.toHaveProperty('main_workflow');
@@ -774,7 +769,6 @@ A task with minimal metadata but has references.`;
       const taskContent = `### Test Task
 
 - Status: pending
-- Priority: low
 
 Test task content.`;
 
@@ -795,7 +789,7 @@ Test task content.`;
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
-          wordCount: 12
+          wordCount: 10
         }
       } as unknown as CachedDocument;
 
@@ -818,7 +812,6 @@ Test task content.`;
       expect(result.task).toHaveProperty('title');
       expect(result.task).toHaveProperty('content');
       expect(result.task).toHaveProperty('status');
-      expect(result.task).toHaveProperty('priority');
       expect(result.task).toHaveProperty('full_path');
 
       // Verify types
@@ -826,7 +819,6 @@ Test task content.`;
       expect(typeof result.task.title).toBe('string');
       expect(typeof result.task.content).toBe('string');
       expect(typeof result.task.status).toBe('string');
-      expect(typeof result.task.priority).toBe('string');
       expect(typeof result.task.full_path).toBe('string');
     });
 

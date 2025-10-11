@@ -34,7 +34,6 @@ interface ViewTaskResponse {
     full_path: string;
     parent?: string;
     status: string;
-    priority: string;
     linked_document?: string;
     referenced_documents?: HierarchicalContent[];
     word_count: number;
@@ -45,7 +44,6 @@ interface ViewTaskResponse {
   summary: {
     total_tasks: number;
     by_status: Record<string, number>;
-    by_priority: Record<string, number>;
     with_links: number;
     with_references: number;
     tasks_with_workflows: number;
@@ -220,7 +218,6 @@ export async function viewTask(
       depth: enrichedTask.depth ?? heading.depth,
       full_path: enrichedTask.fullPath ?? ToolIntegration.formatTaskPath(taskAddr),
       status: enrichedTask.status,
-      priority: enrichedTask.priority ?? 'medium',
       word_count: enrichedTask.wordCount ?? 0,
       has_workflow: hasWorkflow
     };
@@ -282,11 +279,6 @@ export async function viewTask(
       content: task.content,
       status: task.status
     };
-
-    // Only add priority if it's not the default 'medium'
-    if (task.priority !== 'medium') {
-      viewData.priority = task.priority;
-    }
 
     // Only add optional fields if they exist
     if (task.linked_document != null) {

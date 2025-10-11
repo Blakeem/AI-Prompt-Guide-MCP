@@ -66,7 +66,6 @@ interface TaskResult {
     slug: string;
     title: string;
     status: string;
-    priority?: string;
     link?: string;
     referenced_documents?: HierarchicalContent[];
     hierarchical_context?: TaskHierarchicalContext;
@@ -98,7 +97,7 @@ interface TaskResult {
  * MCP tool for comprehensive task management with creation, editing, and listing capabilities
  *
  * Supports task lifecycle management including creation of new tasks, editing existing ones,
- * and intelligent filtering by status, priority, and document context. Uses hierarchical
+ * and intelligent filtering by status and document context. Uses hierarchical
  * addressing for precise task location and management.
  *
  * @param args - Task operation parameters including action, document paths, and task details
@@ -111,7 +110,6 @@ interface TaskResult {
  *   action: "create",
  *   document: "project/setup.md",
  *   title: "Initialize Database",
- *   priority: "high",
  *   status: "pending"
  * });
  *
@@ -119,8 +117,7 @@ interface TaskResult {
  * const result = await task({
  *   action: "list",
  *   documents: ["project/setup.md", "api/auth.md"],
- *   status: "pending",
- *   priority: "high"
+ *   status: "pending"
  * });
  *
  * // Edit existing task
@@ -154,7 +151,6 @@ export async function task(
     const content = ToolIntegration.validateOptionalStringParameter(args['content'], 'content');
     const title = ToolIntegration.validateOptionalStringParameter(args['title'], 'title');
     const statusFilter = ToolIntegration.validateOptionalStringParameter(args['status'], 'status');
-    const priorityFilter = ToolIntegration.validateOptionalStringParameter(args['priority'], 'priority');
 
     // Use addressing system for validation and parsing
     const { addresses } = ToolIntegration.validateAndParse({
@@ -175,7 +171,7 @@ export async function task(
 
     switch (operation) {
       case 'list':
-        return await listTasks(manager, addresses, statusFilter, priorityFilter, documentInfo);
+        return await listTasks(manager, addresses, statusFilter, documentInfo);
 
       case 'create':
         if (title == null || content == null) {
@@ -217,7 +213,6 @@ async function listTasks(
   manager: DocumentManager,
   addresses: { document: ReturnType<typeof parseDocumentAddress> },
   statusFilter?: string,
-  priorityFilter?: string,
   documentInfo?: unknown
 ): Promise<TaskResult> {
   try {
@@ -252,7 +247,6 @@ async function listTasks(
       slug: string;
       title: string;
       status: string;
-      priority?: string;
       link?: string;
       dependencies?: string[];
       hierarchical_context?: TaskHierarchicalContext;
@@ -265,7 +259,6 @@ async function listTasks(
 
         // Parse task metadata from content
         const status = extractTaskField(taskContent, 'Status') ?? 'pending';
-        const priority = extractTaskField(taskContent, 'Priority');
         const link = extractTaskLink(taskContent);
 
         // Extract and load references using new system
@@ -286,7 +279,6 @@ async function listTasks(
           slug: heading.slug,
           title: heading.title,
           status,
-          ...(priority != null && priority !== '' && { priority }),
           ...(link != null && link !== '' && { link }),
           ...(referencedDocuments.length > 0 && { referenced_documents: referencedDocuments }),
           ...(hierarchicalContext != null && { hierarchical_context: hierarchicalContext })
@@ -311,11 +303,8 @@ async function listTasks(
     if (statusFilter != null && statusFilter !== '') {
       filteredTasks = filteredTasks.filter(task => task.status === statusFilter);
     }
-    if (priorityFilter != null && priorityFilter !== '') {
-      filteredTasks = filteredTasks.filter(task => task.priority === priorityFilter);
-    }
 
-    // Find next available task (pending or in_progress, high priority first)
+    // Find next available task (pending or in_progress, sequential order)
     const nextTask = findNextTask(filteredTasks);
 
     // Generate hierarchical summary
@@ -473,28 +462,21 @@ async function ensureTasksSection(manager: DocumentManager, docPath: string): Pr
 // Metadata extraction functions moved to shared/task-view-utilities.ts to eliminate duplication
 
 
-function findNextTask(tasks: Array<{ status: string; priority?: string; slug: string; title: string; link?: string }>): {
+function findNextTask(tasks: Array<{ status: string; slug: string; title: string; link?: string }>): {
   slug: string;
   title: string;
   link?: string;
 } | undefined {
-  // Find next available task (pending or in_progress)
+  // Find next available task (pending or in_progress) in sequential document order
   const availableTasks = tasks.filter(task =>
     task.status === 'pending' || task.status === 'in_progress'
   );
 
   if (availableTasks.length === 0) return undefined;
 
-  // Sort by priority (high first) then by order
-  availableTasks.sort((a, b) => {
-    const priorityOrder = { high: 3, medium: 2, low: 1 };
-    const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] || 1;
-    const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] || 1;
-    return bPriority - aPriority;
-  });
-
+  // Return first available task (already in document order)
   const nextTask = availableTasks[0];
-  if (!nextTask) return undefined;
+  if (nextTask == null) return undefined;
 
   return {
     slug: nextTask.slug,

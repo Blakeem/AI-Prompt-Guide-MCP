@@ -220,8 +220,7 @@ describe('Workflow Prompt Utilities', () => {
       slug: 'test-task',
       title: 'Test Task',
       content: 'Task content',
-      status: 'pending',
-      priority: 'high'
+      status: 'pending'
     };
 
     afterEach(() => {
@@ -249,7 +248,6 @@ describe('Workflow Prompt Utilities', () => {
       const taskContent = `
 ### Test Task
 - Status: pending
-- Priority: high
 `;
 
       const enriched = enrichTaskWithWorkflow(baseTaskData, taskContent);
@@ -342,8 +340,7 @@ describe('Workflow Prompt Utilities', () => {
       slug: 'test-task',
       title: 'Test Task',
       content: 'Task content',
-      status: 'pending',
-      priority: 'high'
+      status: 'pending'
     };
 
     let mockManager: DocumentManager;
@@ -489,7 +486,6 @@ describe('Workflow Prompt Utilities', () => {
       const firstTaskContent = `
 ### First Task
 - Status: pending
-- Priority: high
 `;
 
       vi.mocked(mockManager.getSectionContent).mockResolvedValue(firstTaskContent);
