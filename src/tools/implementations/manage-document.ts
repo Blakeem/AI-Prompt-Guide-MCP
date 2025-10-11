@@ -32,9 +32,7 @@ export async function manageDocument(
       const operations = args as Array<{
         operation: string;
         document: string;
-        new_path?: string;
         new_title?: string;
-        confirm?: boolean;
       }>;
 
       // Comprehensive array validation
@@ -113,9 +111,7 @@ export async function manageDocument(
       const singleOp = args as {
         operation: string;
         document: string;
-        new_path?: string;
         new_title?: string;
-        confirm?: boolean;
       };
 
       const operation = ToolIntegration.validateStringParameter(singleOp.operation, 'operation');
@@ -153,9 +149,7 @@ async function performDocumentOperation(
   operation: string,
   docPath: string,
   options: {
-    new_path?: string;
     new_title?: string;
-    confirm?: boolean;
   }
 ): Promise<{
   action: string;
@@ -190,7 +184,7 @@ async function performDocumentOperation(
   // Validate operation using standardized utilities
   const validatedOperation = ToolIntegration.validateOperation(
     operation,
-    ['archive', 'delete', 'rename', 'move'] as const,
+    ['archive', 'delete', 'rename'] as const,
     'manage-document'
   );
 
@@ -213,13 +207,7 @@ async function performDocumentOperation(
     }
 
     case 'delete': {
-      // Permanent deletion (requires confirmation)
-      if (options.confirm !== true) {
-        throw new AddressingError('Permanent deletion requires confirm: true', 'CONFIRMATION_REQUIRED', {
-          document: addresses.document.path
-        });
-      }
-
+      // Permanent deletion
       // Use the file system directly for permanent deletion with validated addresses
       const { promises: fs } = await import('node:fs');
       const { loadConfig } = await import('../../config.js');
@@ -275,49 +263,8 @@ async function performDocumentOperation(
       };
     }
 
-    case 'move': {
-      // Move document to new path
-      const rawNewPath = ToolIntegration.validateStringParameter(options.new_path, 'new_path');
-
-      // Parse and validate the new path using addressing system
-      const newPath = rawNewPath.startsWith('/') ? rawNewPath : `/${rawNewPath}`;
-      const finalNewPath = newPath.endsWith('.md') ? newPath : `${newPath}.md`;
-
-      // Validate the new path format using addressing system
-      const { addresses: newAddresses } = ToolIntegration.validateAndParse({
-        document: finalNewPath
-      });
-
-      // Use file system to move the file with validated addresses
-      const { promises: moveFs } = await import('node:fs');
-      const path = await import('node:path');
-
-      const { loadConfig } = await import('../../config.js');
-      const config = loadConfig();
-      const oldAbsolutePath = path.join(config.docsBasePath, addresses.document.path);
-      const newAbsolutePath = path.join(config.docsBasePath, newAddresses.document.path);
-
-      // Create directory if it doesn't exist
-      const newDir = path.dirname(newAbsolutePath);
-      await moveFs.mkdir(newDir, { recursive: true });
-
-      // Move the file
-      await moveFs.rename(oldAbsolutePath, newAbsolutePath);
-
-      // Get the document from the new location
-      const movedDocument = await manager.getDocument(newAddresses.document.path);
-
-      return {
-        action: 'moved',
-        document: newAddresses.document.path,
-        from: addresses.document.path,
-        to: newAddresses.document.path,
-        document_info: createDocumentInfo(newAddresses.document, movedDocument)
-      };
-    }
-
     default:
-      throw new AddressingError(`Invalid operation: ${operation}. Must be one of: archive, delete, rename, move`, 'INVALID_OPERATION', {
+      throw new AddressingError(`Invalid operation: ${operation}. Must be one of: archive, delete, rename`, 'INVALID_OPERATION', {
         document: addresses.document.path,
         operation
       });

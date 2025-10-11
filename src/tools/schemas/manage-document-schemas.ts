@@ -7,24 +7,16 @@ export interface ManageDocumentInputSchema {
   properties: {
     operation: {
       type: 'string';
-      enum: ['archive', 'delete', 'rename', 'move'];
-      description: 'Operation to perform: archive (with audit), delete (permanent), rename (title), move (relocate)';
+      enum: ['archive', 'delete', 'rename'];
+      description: 'Operation to perform: archive (with audit), delete (permanent), rename (title)';
     };
     document: {
       type: 'string';
       description: 'Document path (e.g., "/specs/api.md")';
     };
-    new_path: {
-      type: 'string';
-      description: 'New path for move operation';
-    };
     new_title: {
       type: 'string';
       description: 'New title for rename operation';
-    };
-    confirm: {
-      type: 'boolean';
-      description: 'Required confirmation for delete operation';
     };
   };
   required: ['operation', 'document'];
@@ -39,18 +31,17 @@ export const MANAGE_DOCUMENT_CONSTANTS = {
     ARCHIVE: 'archive',
     DELETE: 'delete',
     RENAME: 'rename',
-    MOVE: 'move',
   },
   DESTRUCTIVE_OPERATIONS: ['delete'] as const,
-  NON_DESTRUCTIVE_OPERATIONS: ['archive', 'rename', 'move'] as const,
+  NON_DESTRUCTIVE_OPERATIONS: ['archive', 'rename'] as const,
 } as const;
 
 /**
  * Type definitions for document management operations
  */
-export type DocumentOperation = 'archive' | 'delete' | 'rename' | 'move';
+export type DocumentOperation = 'archive' | 'delete' | 'rename';
 export type DestructiveOperation = 'delete';
-export type NonDestructiveOperation = 'archive' | 'rename' | 'move';
+export type NonDestructiveOperation = 'archive' | 'rename';
 
 /**
  * Helper functions for operation validation
@@ -63,14 +54,6 @@ export function isNonDestructiveOperation(operation: string): operation is NonDe
   return MANAGE_DOCUMENT_CONSTANTS.NON_DESTRUCTIVE_OPERATIONS.includes(operation as NonDestructiveOperation);
 }
 
-export function requiresConfirmation(operation: string): boolean {
-  return isDestructiveOperation(operation);
-}
-
-export function requiresNewPath(operation: string): boolean {
-  return operation === MANAGE_DOCUMENT_CONSTANTS.OPERATIONS.MOVE;
-}
-
 export function requiresNewTitle(operation: string): boolean {
   return operation === MANAGE_DOCUMENT_CONSTANTS.OPERATIONS.RENAME;
 }
@@ -81,9 +64,7 @@ export function requiresNewTitle(operation: string): boolean {
 export function validateOperationParameters(
   operation: string,
   document: string,
-  newPath?: string,
-  newTitle?: string,
-  confirm?: boolean
+  newTitle?: string
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
@@ -95,14 +76,7 @@ export function validateOperationParameters(
   // Operation-specific validations
   switch (operation) {
     case MANAGE_DOCUMENT_CONSTANTS.OPERATIONS.DELETE:
-      if (confirm !== true) {
-        errors.push('Delete operation requires explicit confirmation (confirm: true)');
-      }
-      break;
-    case MANAGE_DOCUMENT_CONSTANTS.OPERATIONS.MOVE:
-      if (newPath == null || newPath === '') {
-        errors.push('Move operation requires new_path parameter');
-      }
+      // Delete requires no additional parameters
       break;
     case MANAGE_DOCUMENT_CONSTANTS.OPERATIONS.RENAME:
       if (newTitle == null || newTitle === '') {
@@ -131,24 +105,16 @@ export function getManageDocumentSchema(): ManageDocumentInputSchema {
     properties: {
       operation: {
         type: 'string',
-        enum: ['archive', 'delete', 'rename', 'move'],
-        description: 'Operation to perform: archive (with audit), delete (permanent), rename (title), move (relocate)',
+        enum: ['archive', 'delete', 'rename'],
+        description: 'Operation to perform: archive (with audit), delete (permanent), rename (title)',
       },
       document: {
         type: 'string',
         description: 'Document path (e.g., "/specs/api.md")',
       },
-      new_path: {
-        type: 'string',
-        description: 'New path for move operation',
-      },
       new_title: {
         type: 'string',
         description: 'New title for rename operation',
-      },
-      confirm: {
-        type: 'boolean',
-        description: 'Required confirmation for delete operation',
       },
     },
     required: ['operation', 'document'],

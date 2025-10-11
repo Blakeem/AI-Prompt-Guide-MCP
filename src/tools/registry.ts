@@ -11,9 +11,11 @@ import { getViewDocumentSchema } from './schemas/view-document-schemas.js';
 import { getViewSectionSchema } from './schemas/view-section-schemas.js';
 import { getViewTaskSchema } from './schemas/view-task-schemas.js';
 import { getManageDocumentSchema } from './schemas/manage-document-schemas.js';
+import { getMoveDocumentSchema } from './schemas/move-document-schemas.js';
 import { getTaskSchema } from './schemas/task-schemas.js';
 import { getCompleteTaskSchema } from './schemas/complete-task-schemas.js';
 import { getStartTaskSchema } from './schemas/start-task-schemas.js';
+import { getMoveSchema } from './schemas/move-schemas.js';
 
 /**
  * Get all available tools based on session state
@@ -42,9 +44,19 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
       inputSchema: getSectionSchema(),
     },
     {
+      name: 'move',
+      description: 'Move section or task to a new location within same document or to different document',
+      inputSchema: getMoveSchema(),
+    },
+    {
       name: 'manage_document',
-      description: 'Unified tool for ALL document operations: archive, delete, rename, move with batch support',
+      description: 'Unified tool for ALL document operations: archive, delete, rename with batch support',
       inputSchema: getManageDocumentSchema(),
+    },
+    {
+      name: 'move_document',
+      description: 'Move document to a new location',
+      inputSchema: getMoveDocumentSchema(),
     },
     {
       name: 'task',
