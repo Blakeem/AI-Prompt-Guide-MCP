@@ -132,8 +132,7 @@ Multilayer Knowledge Graph:
 │   └── Cross-document transclusions (@/doc.md#section)
 └── Task Layer (Workflow Nodes)
     ├── Sequential dependencies (task → next)
-    ├── Status tracking (pending/in-progress/completed)
-    └── Priority ordering (high/medium/low)
+    └── Status tracking (pending/in-progress/completed)
 ```
 
 ### Addressing System Architecture
@@ -182,7 +181,6 @@ Structured workflow prompts for common LLM reasoning tasks (automatically inject
 ```markdown
 ### Design API Architecture
 - Status: pending
-- Priority: high
 - Main-Workflow: spec-first-integration  ← Project-level methodology
 - Workflow: multi-option-tradeoff        ← Task-specific process
 ```

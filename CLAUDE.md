@@ -423,7 +423,7 @@ The server provides a comprehensive suite of MCP tools organized by function:
 ### **View & Inspection Tools:**
 - `view_document` - Enhanced document inspection with comprehensive stats
 - `view_section` - Clean section content viewer (no stats overhead)
-- `view_task` - Clean task data viewer with status/priority info
+- `view_task` - Clean task data viewer with status
 
 ### **Task Management:**
 - `task` - Unified task operations: create, edit, list with @reference extraction from content
