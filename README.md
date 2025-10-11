@@ -12,6 +12,7 @@ Transform your Markdown documentation into an interconnected knowledge graph tha
 - [Knowledge Graph Topology](#knowledge-graph-topology)
 - [Context Engineering & Workflow Injection](#context-engineering--workflow-injection)
 - [Complete Tool Reference](#complete-tool-reference)
+- [Creating Custom Workflow Prompts](#creating-custom-workflow-prompts)
 - [Installation](#installation)
 - [Use Cases](#use-cases)
 - [License](#license)
@@ -381,6 +382,170 @@ Unified tool for ALL document lifecycle operations with batch support.
 
 ---
 
+## Creating Custom Workflow Prompts
+
+The system includes a **powerful workflow prompt system** that lets you create custom, reusable methodologies for AI agents. Workflow prompts are structured instructions that guide agents through complex problem-solving patterns.
+
+### What Are Workflow Prompts?
+
+Workflow prompts are `.wfp.md` (Workflow Prompt Markdown) files that codify proven problem-solving frameworks:
+
+- **Multi-Option Trade-off** - Structured decision-making with weighted criteria
+- **Spec-First Integration** - Ensuring correctness before implementing new features
+- **Failure Triage & Minimal Repro** - Converting bug reports into actionable fixes
+- **Causal Flow Mapping** - Debugging complex cause-effect chains
+- **Simplicity Gate** - Keeping solutions simple after non-negotiables are met
+
+### File Format
+
+Workflow files use YAML frontmatter + Markdown content:
+
+```markdown
+---
+title: "My Custom Workflow"
+description: "🎯 Brief description of what this workflow does"
+whenToUse:
+  - "When facing situation A"
+  - "When needing to accomplish goal B"
+  - "When dealing with constraint C"
+tags:
+  - "decision-making"
+  - "your-domain"
+---
+
+# My Custom Workflow
+
+## Purpose
+Explain why this workflow exists and what problem it solves.
+
+## Process
+
+1. **Step 1: [Action]**
+   - Detail A
+   - Detail B
+   - Consideration C
+
+2. **Step 2: [Action]**
+   - Detail A
+   - Detail B
+
+## Example
+Concrete example showing the workflow in action...
+
+## Common Pitfalls
+- ❌ **Pitfall 1**: Why it's wrong
+  - ✅ **Instead**: What to do
+```
+
+### How Workflows Are Used
+
+**1. Define in Task Metadata:**
+```markdown
+### Implement Authentication
+- Status: pending
+- Workflow: spec-first-integration   ← Task-specific guidance
+- Main-Workflow: causal-flow-mapping  ← Project-level methodology (first task only)
+
+Implement JWT authentication following the API spec.
+
+@/specs/auth-api.md
+```
+
+**2. Automatic Injection:**
+When agents use `start_task` or `complete_task`, the system:
+- Extracts workflow names from task metadata
+- Loads full workflow content from `.wfp.md` files
+- Injects complete methodology into the task response
+- Provides structured guidance for that specific task
+
+**3. Session-Aware Loading:**
+- **Main-Workflow** (first task only): Project-level methodology, re-injected after context compression
+- **Workflow** (any task): Task-specific process, always injected with task data
+
+### Creating Your Own Workflows
+
+**Step 1: Create the file**
+```bash
+# Workflows live in <DOCS_BASE_PATH>/../prompts/
+cd .ai-prompt-guide/prompts
+touch my-team-process.wfp.md
+```
+
+**Step 2: Define your methodology**
+- Add YAML frontmatter with `title`, `description`, `whenToUse`, and `tags`
+- Write structured process steps in Markdown
+- Include examples and common pitfalls
+- Keep it focused (200-500 lines ideal)
+
+**Step 3: Restart the server**
+Workflows are loaded at startup:
+```bash
+# Claude Desktop: Restart the app
+# MCP Inspector: Rebuild and restart
+pnpm build && npx @modelcontextprotocol/inspector node dist/index.js
+```
+
+**Step 4: Reference in tasks**
+```markdown
+### My Task
+- Status: pending
+- Workflow: my-team-process
+- Description: Task requiring custom workflow...
+```
+
+### File Naming Rules
+
+- **Lowercase only**: Use `kebab-case`, `snake_case`, or `dotted.notation`
+- **Descriptive names**: Convey purpose clearly
+- **Valid separators**: Hyphens (`-`), underscores (`_`), or dots (`.`)
+
+**Valid:**
+- `multi-option-tradeoff.wfp.md`
+- `code_review_checklist.wfp.md`
+- `performance.optimization.guide.wfp.md`
+
+**Invalid:**
+- `My Workflow.wfp.md` (spaces and capitals)
+- `workflow.wfp.md` (not descriptive)
+
+### Built-In Workflows
+
+The system includes 8+ production-ready workflows:
+
+1. **multi-option-tradeoff** - Structured decision-making with weighted criteria
+2. **spec-first-integration** - Spec-driven API integration
+3. **failure-triage-repro** - Bug triage with minimal reproduction
+4. **causal-flow-mapping** - Cause→effect debugging
+5. **simplicity-gate** - Complexity budgets and Occam's Razor
+6. **guardrailed-rollout** - Safe deployment with automatic rollback
+7. **evidence-based-experiment** - Hypothesis-driven testing
+8. **interface-diff-adaptation** - Handling breaking API changes
+
+See the [complete workflow documentation](docs/WORKFLOW-PROMPTS.md) for detailed examples and API reference.
+
+### Discovery and Loading
+
+**Automatic at startup:**
+```
+[INFO] Loading workflow prompts { directory: '/prompts', fileCount: 8 }
+[DEBUG] Workflow prompts loaded { loaded: 8, failed: 0, total: 8 }
+```
+
+**Validation:**
+- Filename format validated (lowercase, valid separators)
+- YAML frontmatter validated (correct types)
+- Content body must not be empty
+- Invalid files logged as warnings but don't break startup
+
+**Full documentation:** See [Workflow Prompts System](docs/WORKFLOW-PROMPTS.md) for complete guide including:
+- Detailed frontmatter schema
+- Best practices for effective workflows
+- Troubleshooting common issues
+- API reference for programmatic use
+- Advanced usage patterns
+
+---
+
 ## Installation
 
 ### For Claude Desktop
@@ -483,6 +648,24 @@ Create your docs directory with optional namespace organization:
 - Track documentation tasks and completion status
 - Generate suggestions for related content
 - Browse and search across entire documentation system
+
+---
+
+## Documentation
+
+### Core Documentation
+
+- **[Workflow Prompts System](docs/WORKFLOW-PROMPTS.md)** - Complete guide to creating and using workflow prompts
+  - File format and frontmatter schema
+  - Built-in workflow examples (multi-option-tradeoff, spec-first-integration, failure-triage-repro)
+  - Creating custom workflows for your team
+  - Workflow injection patterns (Main-Workflow vs Workflow)
+  - API reference and troubleshooting
+
+### For Contributors
+
+- **[Unit Test Strategy](docs/UNIT-TEST-STRATEGY.md)** - Testing standards and patterns
+- **See [CLAUDE.md](CLAUDE.md)** - Complete development guidelines and architecture
 
 ---
 
