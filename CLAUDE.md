@@ -17,8 +17,8 @@ This is a comprehensive MCP server for intelligent AI prompt and guide document 
 - **Progressive Discovery Workflows** - Step-by-step document creation with intelligent guidance
 - **Task Management System** - Complete task lifecycle with @references in content body for context loading
 - **View Tools Suite** - Clean, focused viewing for documents, sections, and tasks
-- **Unified Operations** - Single tools for related operations (section, manage_document, task)
-- **Batch Processing** - Multiple operations in single calls for efficiency
+- **Unified Operations** - Single tools for related operations (section for content editing, task for task management)
+- **Document Lifecycle Tools** - Focused tools for document operations (edit, delete, move)
 
 **Package Manager**: pnpm (NOT npm or yarn)
 **Language**: TypeScript with strict mode enabled
@@ -411,14 +411,12 @@ The server provides a comprehensive suite of MCP tools organized by function:
   - Edit: `replace`, `append`, `prepend`
   - Create: `insert_before`, `insert_after`, `append_child` (auto-depth)
   - Delete: `remove`
-  - Batch support for multiple operations
 
-### **Unified Document Operations:**
-- `manage_document` - Complete document lifecycle management:
-  - `archive` - Safe archival with audit trails
-  - `delete` - Permanent deletion
-  - `rename` - Update document titles
-  - `move` - Relocate documents
+### **Document Lifecycle Management:**
+- `edit_document` - Edit document title and/or overview content
+- `delete_document` - Delete or archive documents (archive parameter defaults to false)
+- `move` - Move sections/tasks between documents with position control (before/after/child)
+- `move_document` - Relocate document files to different paths/namespaces
 
 ### **View & Inspection Tools:**
 - `view_document` - Enhanced document inspection with comprehensive stats
@@ -428,6 +426,7 @@ The server provides a comprehensive suite of MCP tools organized by function:
 ### **Task Management:**
 - `task` - Unified task operations: create, edit, list with @reference extraction from content
 - `complete_task` - Mark completed, get next task with hierarchical reference loading
+- `start_task` - Start or resume work on a task with full context injection
 
 ### **Key Tool Design Principles:**
 
@@ -435,8 +434,8 @@ The server provides a comprehensive suite of MCP tools organized by function:
 2. **Multi-Item Support**: View tools support single or multiple items (arrays)
 3. **Clean Separation**: View tools focus on content without stats overhead (except `view_document`)
 4. **Progressive Discovery**: `create_document` uses staged parameter revelation
-5. **Batch Operations**: Section and document management support batch operations
-6. **Unified Operations**: Single tools handle related operations (create/edit/list for tasks)
+5. **Focused Operations**: Each tool has a clear, single purpose without irrelevant fields
+6. **Data Safety**: Move operations create in new location BEFORE deleting from old
 
 ## MCP ARCHITECTURE & TOOL DEVELOPMENT
 
