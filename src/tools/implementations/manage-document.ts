@@ -263,9 +263,7 @@ async function performDocumentOperation(
       }
 
       // Refresh cache and get updated document info using validated addresses
-      const { getGlobalCache } = await import('../../document-cache.js');
-      const cache = getGlobalCache();
-      cache.invalidateDocument(addresses.document.path);
+      manager.cache.invalidateDocument(addresses.document.path);
       const updatedDocument = await manager.getDocument(addresses.document.path);
 
       return {

@@ -199,4 +199,50 @@ describe('create_document Progressive Discovery Stages', () => {
       expect(['creation', 'error_fallback']).toContain((result as { stage: string }).stage);
     });
   });
+
+  describe('Document Creation Cache Integration', () => {
+    it('should successfully create a document without requiring initializeGlobalCache()', async () => {
+      // This test verifies that document creation works with dependency injection
+      // and doesn't rely on the deprecated global cache initialization
+      const args = {
+        namespace: 'test',
+        title: 'Integration Test Document',
+        overview: 'This is a test document to verify cache integration'
+      };
+
+      const result = await executeCreateDocumentPipeline(args, sessionState, manager);
+
+      // Should successfully create without global cache initialization errors
+      expect(result).toHaveProperty('stage');
+
+      // If there's an error, it should not be about cache initialization
+      if ('error' in result) {
+        const errorResult = result as { error: string };
+        expect(errorResult.error).not.toContain('Global document cache not initialized');
+        expect(errorResult.error).not.toContain('initializeGlobalCache');
+      }
+    });
+
+    it('should refresh document cache after creation using injected cache', async () => {
+      // Create a document and verify the cache is properly updated
+      const args = {
+        namespace: 'test',
+        title: 'Cache Refresh Test',
+        overview: 'Test cache refresh after creation'
+      };
+
+      const result = await executeCreateDocumentPipeline(args, sessionState, manager);
+
+      // If document was created successfully
+      if ('success' in result && (result as { success: boolean }).success === true) {
+        const creationResult = result as { created: string; success: boolean };
+
+        // Verify the document can be retrieved from the cache
+        const document = await manager.getDocument(creationResult.created);
+
+        // Document should be accessible through the manager's cache
+        expect(document).not.toBeNull();
+      }
+    });
+  });
 });

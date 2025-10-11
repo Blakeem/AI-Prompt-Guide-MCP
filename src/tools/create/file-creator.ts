@@ -89,7 +89,7 @@ export async function createDocumentFile(
     await writeDocumentContent(docPath, content);
 
     // Refresh the cache to get the updated document
-    await refreshDocumentCache(docPath);
+    await refreshDocumentCache(manager, docPath);
 
     // Get created document info
     const document = await manager.getDocument(docPath);
@@ -172,10 +172,8 @@ async function writeDocumentContent(docPath: string, content: string): Promise<v
 /**
  * Refresh document cache after creation
  */
-async function refreshDocumentCache(docPath: string): Promise<void> {
-  const cache = await import('../../document-cache.js');
-  const globalCache = cache.getGlobalCache();
-  globalCache.invalidateDocument(docPath);
+async function refreshDocumentCache(manager: DocumentManager, docPath: string): Promise<void> {
+  manager.cache.invalidateDocument(docPath);
 }
 
 /**
