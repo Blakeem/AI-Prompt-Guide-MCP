@@ -1,203 +1,389 @@
 # AI Prompt Guide MCP
 
-**An MCP server for managing interconnected Markdown documentation with task tracking and content transclusion.**
+**Intelligent documentation management for AI agents with context-aware workflow injection and hierarchical reference loading.**
+
+Transform your Markdown documentation into an interconnected knowledge graph that AI agents can navigate intelligently, loading exactly the context needed for each task with automatic workflow guidance.
 
 ---
 
-## ⚠️ Alpha Status - Under Active Development
+## Table of Contents
 
-**This project is in early alpha and not recommended for production use.** The system is being actively developed and tested. APIs, data structures, and core concepts may change significantly. Use at your own risk.
+- [What Is This?](#what-is-this)
+- [Knowledge Graph Topology](#knowledge-graph-topology)
+- [Context Engineering & Workflow Injection](#context-engineering--workflow-injection)
+- [Complete Tool Reference](#complete-tool-reference)
+- [Installation](#installation)
+- [Use Cases](#use-cases)
+- [License](#license)
 
 ---
 
 ## What Is This?
 
-AI Prompt Guide MCP is a Model Context Protocol server that helps LLMs work with structured documentation. It treats your Markdown files as an interconnected graph where documents can reference each other, tasks can be tracked, and content is loaded hierarchically when needed.
+AI Prompt Guide MCP is a Model Context Protocol server that enables AI agents to work with **structured, interconnected documentation as a knowledge graph**. Documents reference each other, tasks inject relevant workflows, and context loads hierarchically—all automatically.
 
-### Technical Foundation
+### Core Capabilities
 
-At its core, this is a **typed property hypergraph over Markdown** where:
-
-**Graph Layer:**
-- **Nodes** = document sections, tasks, workflows, and prompts
-- **Edges** = containment (document → section), sequence (task → next task), and semantic links (transcludes, references, causal flows)
-- **Documents** act as hyperedges, bundling related sections and tasks into coherent units
-
-**Workflow Layer:**
-- Specialized **reasoning protocols** (like Multi-Option Trade-off Analysis, Causal Flow Mapping, Spec-First Integration)
-- Reusable, addressable workflow nodes with structured steps and constraints
-- Not static prompts, but graph-encoded procedures that guide LLM reasoning
-
-**Control Flow:**
-- Traversing the graph = executing adaptive reasoning paths
-- Just-in-time context injection ensures structured information, not "text soup"
-- Progressive discovery reveals complexity as needed, conserving context
-
-### In Plain English
-
-This system provides:
-- Structured document management with cross-references
-- Task tracking with status and priority management
-- Hierarchical content loading through document transclusion
+**📚 Intelligent Document Management**
+- Cross-document references with `@/path/doc.md#section` syntax
+- Hierarchical content loading with cycle detection
 - Namespace organization for large documentation sets
+- Flat section addressing with automatic duplicate handling
 
-## Current Capabilities
+**⚡ Context Engineering**
+- **Smart workflow injection** based on session state (new vs. resuming)
+- **Hierarchical @reference loading** brings in relevant documentation automatically
+- **Progressive discovery** patterns conserve context tokens
+- **Session-resilient** workflows survive context compression
 
-### 🎯 Central Addressing System
-- **Type-Safe Addressing** - Unified interfaces for documents, sections, and tasks with validation
-- **Format Flexibility** - Supports `"section"`, `"#section"`, and `"/doc.md#section"` addressing
-- **Performance** - LRU caching with automatic eviction (1000 item limit)
-- **Error Handling** - Rich context with custom error types
+**🎯 Task Management**
+- Sequential task progression with status tracking
+- Automatic next-task suggestion with context
+- Workflow prompts injected based on task metadata
+- Reference documents loaded hierarchically per task
 
-### 📄 Document Features
-- **Cross-Document References** - Link documents with `@/path/doc.md#section` syntax
-- **Transclusion Support** - Referenced content loads hierarchically with cycle detection
-- **Flat Section Addressing** - Unique slug addressing with automatic duplicate handling
-- **Reference Validation** - Checks for broken references with fix suggestions
+---
 
-### 📋 Available MCP Tools
+## Knowledge Graph Topology
 
-**Core Document Management:**
-- `create_document` - Progressive document creation with reference suggestions
-- `browse_documents` - Browse and search documents by namespace
+Your documentation forms a **multi-layer knowledge graph** where AI agents traverse structured relationships:
 
-**Unified Content Operations:**
-- `section` - Complete section management (edit, create, delete)
-  - Operations: `replace`, `append`, `prepend`, `insert_before`, `insert_after`, `append_child`, `remove`
-  - Batch support for multiple operations
-  - Link validation and suggestions
-
-**Unified Document Operations:**
-- `manage_document` - Complete document lifecycle
-  - Operations: `archive`, `delete`, `rename`, `move`
-  - Safe archival with audit trails
-  - Batch operation support
-
-**View & Inspection Tools:**
-- `view_document` - Enhanced inspection with stats and metadata
-- `view_section` - Clean section content viewer
-- `view_task` - Passive task inspection with workflow metadata (names only, no content)
-
-**Task Management with Workflow Injection:**
-- `task` - Unified task operations (create, edit, list)
-- `start_task` - **Start/resume work** with full context (main workflow + task workflow + references)
-- `complete_task` - **Finish current task** and get next task with its workflow (no main workflow re-injection)
-
-### 🔄 Workflow Prompt Injection System
-
-The system provides **deterministic workflow injection** based on tool choice, eliminating manual prompt lookups:
-
-**Three-Tool Architecture:**
-1. **`view_task`** - Passive inspection (shows workflow names only, no content injection)
-2. **`start_task`** - Work initiation (injects main workflow + task workflow + references)
-3. **`complete_task`** - Work continuation (injects next task workflow only)
-
-**Two Workflow Types:**
-- **Main-Workflow** - Project-level methodology defined in first task (re-injected on session resumption)
-- **Workflow** - Task-specific process guidance for individual tasks
-
-**Session Lifecycle Example:**
 ```
-NEW SESSION
+┌─────────────────────────────────────────────────────┐
+│ DOCUMENT LAYER (Hyperedges)                        │
+│ ├─ Documents bundle related sections               │
+│ ├─ Organized by namespace (/api/, /guides/)        │
+│ └─ Metadata: title, modified, links                │
+└─────────────────────────────────────────────────────┘
+              │
+              ├─> SECTION LAYER (Content Nodes)
+              │   ├─ Unique slug addressing (#overview, #task-1)
+              │   ├─ Hierarchical parent/child relationships
+              │   └─ Cross-document references (@/doc.md#section)
+              │
+              └─> TASK LAYER (Workflow Nodes)
+                  ├─ Sequential dependencies (task → next)
+                  ├─ Status tracking (pending/in-progress/completed)
+                  ├─ Workflow field: Task-specific guidance
+                  └─ Referenced documents: Hierarchical context loading
+```
+
+### How References Work
+
+When a task contains `@/api/auth.md#overview`, the system:
+
+1. **Extracts** the reference from task content
+2. **Normalizes** it to an absolute document path
+3. **Loads** the referenced section content
+4. **Recursively loads** any @references in that section (up to configured depth)
+5. **Detects cycles** to prevent infinite loops
+6. **Returns hierarchical tree** with all loaded context
+
+**Example Reference Tree:**
+```
+Task: "Configure API Gateway"
+└─ @/api/gateway.md (depth 0)
+   ├─ @/api/auth.md (depth 1)
+   │  └─ @/security/jwt.md (depth 2)
+   └─ @/api/rate-limiting.md (depth 1)
+```
+
+---
+
+## Context Engineering & Workflow Injection
+
+The system provides **deterministic, session-aware workflow injection** that automatically adapts based on whether you're starting new work or continuing a session.
+
+### The Problem This Solves
+
+**Without Context Engineering:**
+- Agents must manually find and load relevant documentation
+- Workflow prompts duplicated or forgotten across tasks
+- Context compression breaks workflow continuity
+- No automatic relationship traversal
+
+**With Context Engineering:**
+- Relevant docs load automatically via @references
+- Workflows inject deterministically based on tool choice
+- Session resumption re-injects project methodology
+- Zero duplication in continuous work
+
+### Three-Tool Task Architecture
+
+The system uses **tool choice** to signal session state:
+
+```
+┌──────────────────┬───────────────┬────────────────┬──────────────┐
+│ Tool             │ Task Workflow │ Main Workflow  │ References   │
+├──────────────────┼───────────────┼────────────────┼──────────────┤
+│ view_task        │ Name only     │ Never          │ Lists only   │
+│ start_task       │ ✅ Full       │ ✅ Yes         │ ✅ Loaded    │
+│ complete_task    │ ✅ Next task  │ ❌ No          │ ✅ Loaded    │
+└──────────────────┴───────────────┴────────────────┴──────────────┘
+```
+
+### Session Lifecycle Example
+
+```
+NEW SESSION OR AFTER CONTEXT COMPRESSION
 ↓
-1. view_task(task: ["task1", "task2"])  → Browse tasks (no injection)
-2. start_task(task: "task1")            → Main + Task workflow ✅
-3. complete_task(task: "task1")         → Next task workflow only ✅
-4. complete_task(task: "task2")         → Next task workflow only ✅
+1. view_task(task: "implement-auth")    → Browse available tasks (no injection)
+2. start_task(task: "implement-auth")   → Main workflow + Task workflow + References ✅
+   ├─ Main-Workflow: "spec-first-integration" (from first task)
+   ├─ Workflow: "simplicity-gate" (from current task)
+   └─ @/api/auth-spec.md loaded hierarchically
 
-[CONTEXT COMPRESSION]
+3. complete_task(task: "implement-auth") → Get next task
+   └─ Next task workflow only (no main workflow duplication)
+
+4. complete_task(task: "setup-database") → Continue work
+   └─ Next task workflow only
+
+[CONTEXT COMPRESSION - Session Reset]
 ↓
-5. start_task(task: "task3")            → Main workflow RE-INJECTED ✅
+5. start_task(task: "create-api")       → Main workflow RE-INJECTED ✅
+   ├─ Main-Workflow: "spec-first-integration" (re-injected!)
+   ├─ Workflow: "multi-option-tradeoff"
+   └─ @/api/design.md loaded hierarchically
 ```
 
-**Key Benefits:**
-- **Deterministic** - Tool choice signals session state (start vs continue)
-- **Session Resilient** - Main workflow re-injected after context compression
-- **Zero Duplication** - No redundant workflow prompts in continuous sessions
-- **Graceful Degradation** - Missing workflows don't break task execution
+### Why This Matters
 
-## Technical Architecture
+**Zero Duplication**: Use `complete_task` for continuous work—main workflow isn't re-injected
 
-### Graph Structure
+**Session Resilient**: Use `start_task` after compression—main workflow automatically re-injected
 
-```
-Multilayer Knowledge Graph:
-├── Document Layer (Hyperedges)
-│   ├── Contains sections and tasks
-│   ├── Namespace organization (e.g., /api/, /guides/)
-│   └── Metadata (title, modified, links)
-├── Section Layer (Content Nodes)
-│   ├── Unique slug addressing (#overview, #task-1)
-│   ├── Hierarchical relationships (parent/child)
-│   └── Cross-document transclusions (@/doc.md#section)
-└── Task Layer (Workflow Nodes)
-    ├── Sequential dependencies (task → next)
-    └── Status tracking (pending/in-progress/completed)
-```
+**Deterministic**: Tool choice signals intent; no manual prompt management
 
-### Addressing System Architecture
+**Context Aware**: System knows whether you're starting fresh or continuing
 
-```
-src/
-├── shared/
-│   ├── addressing-system.ts    # Central type-safe addressing (435 lines)
-│   ├── path-utilities.ts       # Path and namespace utilities
-│   └── utilities.ts            # Common helpers
-├── session/
-│   ├── session-store.ts        # Singleton state management
-│   └── types.ts                # SessionState interface
-├── tools/
-│   ├── schemas/                # Centralized schema definitions
-│   ├── implementations/        # Tool logic (all using central addressing)
-│   ├── registry.ts             # Dynamic tool registration
-│   └── executor.ts             # Tool execution dispatcher
-└── server/
-    └── request-handlers/       # MCP protocol handling
-```
+### Workflow Types
 
-### Progressive Discovery Pattern
+**Main-Workflow** (Project-level methodology)
+- Defined in **first task** of document
+- Represents overall project approach
+- Re-injected only when starting/resuming work
+- Example: `"spec-first-integration"`, `"causal-flow-mapping"`
 
-Tools reveal parameters gradually to conserve context:
-- **Stage 0**: Discovery - Show available options
-- **Stage 1**: Configuration - Gather specific requirements
-- **Stage 2**: Execution - Complete operation with full context
+**Workflow** (Task-specific guidance)
+- Defined per-task as needed
+- Process guidance for that specific task
+- Always injected with task data
+- Example: `"multi-option-tradeoff"`, `"simplicity-gate"`
 
-## Workflow Protocol Library
-
-### 🎯 Available Reasoning Workflows
-
-Structured workflow prompts for common LLM reasoning tasks (automatically injected based on task metadata):
-
-1. **`multi-option-tradeoff`** - Multi-option trade-off analysis with weighted criteria
-2. **`spec-first-integration`** - Spec-first integration with canonical APIs
-3. **`causal-flow-mapping`** - Cause→effect DAG mapping with evidence
-4. **`failure-triage-repro`** - Failure triage with minimal reproduction
-5. **`guardrailed-rollout`** - Guardrailed rollout with automatic rollback
-6. **`evidence-based-experiment`** - Evidence-based experiment protocol
-7. **`simplicity-gate`** - Simplicity gate with complexity budgets
-8. **`interface-diff-adaptation`** - Interface diff and adaptation planning
-
-**Usage in Tasks:**
+**Example Task Metadata:**
 ```markdown
 ### Design API Architecture
 - Status: pending
-- Main-Workflow: spec-first-integration  ← Project-level methodology
-- Workflow: multi-option-tradeoff        ← Task-specific process
+- Main-Workflow: spec-first-integration   ← Project methodology (first task only)
+- Workflow: multi-option-tradeoff          ← Task-specific process
+
+Design the REST API architecture.
+
+@/specs/api-requirements.md
+@/architecture/patterns.md
 ```
 
-Each workflow is a **reusable procedure** that guides LLMs through structured reasoning steps, automatically injected when starting or resuming work on tasks.
+---
 
-### 🚀 Long-Term Architecture
+## Complete Tool Reference
 
-**Extended features** including:
-- **Graph traversal engine** for workflow execution
-- **Prompt workflow DSL** for custom reasoning protocols
-- **Enhanced transclusion** with deeper reference chains
-- **Multi-agent coordination** with shared context
+The system provides **10 powerful tools** organized by function, all using intelligent context engineering.
 
-## Installation & Setup
+### 📄 Document Creation & Discovery
 
-### For Claude Desktop Users
+#### `create_document` - Progressive Document Creation
+Guided document creation with namespace-specific templates and intelligent suggestions.
+
+**Features:**
+- **Progressive discovery** (3 stages: Discovery → Instructions → Creation)
+- **Namespace templates** (API specs, guides, components, services, troubleshooting)
+- **Smart suggestions** analyze existing docs for related content
+- **Security validation** prevents path traversal attacks
+
+**Use when:** Creating new documentation with guidance and structure
+
+---
+
+#### `browse_documents` - Unified Browsing & Search
+Explore documents by folder structure or perform full-text search.
+
+**Features:**
+- **Two modes**: Browse (no query) shows structure, Search (with query) finds content
+- **Namespace awareness** understands document organization
+- **Relevance scoring** ranks search results with context
+- **Relationship analysis** shows document interconnections
+
+**Use when:** Discovering what documentation exists or finding specific content
+
+---
+
+### ✏️ Content Operations
+
+#### `section` - Complete Section Management
+Unified tool for ALL section operations with automatic depth calculation.
+
+**Operations:**
+- **Edit**: `replace`, `append`, `prepend`
+- **Create**: `insert_before`, `insert_after`, `append_child` (auto-depth!)
+- **Delete**: `remove`
+
+**Features:**
+- **Batch support** for multiple operations in single call
+- **Link validation** checks for broken @references
+- **Auto-depth calculation** for append_child operation
+- **Markdown-aware** uses AST-based parsing, not string manipulation
+
+**Use when:** Adding, modifying, or removing document sections
+
+---
+
+#### `task` - Unified Task Management
+Complete task lifecycle: create, edit, and list with automatic @reference extraction.
+
+**Operations:**
+- **create**: Add new tasks with metadata
+- **edit**: Update task content and status
+- **list**: Query tasks with filtering and next-task detection
+
+**Features:**
+- **Hierarchical @reference loading** brings in documentation context
+- **Status filtering** (pending, in_progress, completed, blocked)
+- **Hierarchical organization** supports phase/category grouping
+- **Next task detection** finds first available work item
+
+**Use when:** Managing task creation, updates, and discovery
+
+---
+
+### 🔄 Task Workflow Tools
+
+#### `start_task` - Start Work with Full Context
+**The primary entry point** for beginning work on any task.
+
+**What it injects:**
+1. **Task-specific workflow** (Workflow field) - Process guidance for this task
+2. **Main workflow** (Main-Workflow from first task) - Project methodology
+3. **Referenced documents** (@references) - Hierarchical context up to depth 3
+
+**Use when:**
+- Starting a new task for the first time
+- Resuming work after context compression
+- Beginning a new work session
+
+**Example response:**
+```json
+{
+  "task": {
+    "slug": "implement-auth",
+    "workflow": { "name": "simplicity-gate", "content": "..." },
+    "main_workflow": { "name": "spec-first-integration", "content": "..." },
+    "referenced_documents": [
+      { "path": "/api/auth-spec.md", "content": "...", "children": [...] }
+    ]
+  }
+}
+```
+
+---
+
+#### `complete_task` - Finish and Get Next
+Mark current task complete and automatically get the next task with its context.
+
+**What it does:**
+1. **Updates task status** to "completed" with timestamp and notes
+2. **Finds next available task** (first pending/in-progress after current)
+3. **Injects next task workflow** (task-specific only, NOT main workflow)
+4. **Loads next task references** hierarchically for context
+
+**Use when:**
+- Finishing current task in ongoing session
+- Continuing sequential work flow
+- Want next task suggestion with minimal duplication
+
+**Key difference:** Does NOT re-inject main workflow (already in context from start_task)
+
+---
+
+### 👁️ View & Inspection Tools
+
+#### `view_document` - Comprehensive Document Inspection
+Inspect document structure with full statistics and metadata.
+
+**What you get:**
+- **Document metadata** (title, namespace, modified date)
+- **Section hierarchy** with heading structure
+- **Link statistics** (total, internal, external, broken)
+- **Task statistics** (total, completed, pending)
+- **Word/heading counts** and file metadata
+
+**Use when:** Need detailed overview of document structure and health
+
+---
+
+#### `view_section` - Clean Section Content
+View specific sections without stats overhead—just clean content.
+
+**Features:**
+- **Batch viewing** (up to 10 sections)
+- **Reference extraction** shows @links in content
+- **Hierarchy detection** identifies parent/child relationships
+- **Summary statistics** when viewing multiple sections
+
+**Use when:** Quickly reading section content without full document context
+
+---
+
+#### `view_task` - Passive Task Inspection
+Browse task data with workflow metadata (names only, no content injection).
+
+**What you get:**
+- **Task status** and basic metadata
+- **Workflow names** (not full content)
+- **Reference list** (@references present, not loaded)
+- **Batch support** for multiple tasks
+
+**Use when:** Inspecting tasks without triggering full context loading
+
+**Key difference:** Shows workflow NAME only (unlike start_task which injects full content)
+
+---
+
+### 🗂️ Document Lifecycle Management
+
+#### `manage_document` - Complete Document Operations
+Unified tool for ALL document lifecycle operations with batch support.
+
+**Operations:**
+- **archive**: Safe archival with audit trails (timestamped, recoverable)
+- **delete**: Permanent deletion (requires confirm: true)
+- **rename**: Update document title (first heading only)
+- **move**: Relocate to different path/namespace
+
+**Features:**
+- **Batch operations** (up to 100 operations)
+- **Audit trails** for archive operations with recovery data
+- **Path normalization** handles various path formats
+- **Safety checks** require confirmation for destructive operations
+
+**Use when:** Reorganizing, retiring, or relocating documents
+
+---
+
+### Key Tool Design Principles
+
+1. **Context Engineering**: Tools automatically load relevant context via @references
+2. **Session Awareness**: start_task vs complete_task signal session state
+3. **Unified Operations**: Single tools handle related operations (section, task, manage_document)
+4. **Batch Support**: Process multiple operations efficiently
+5. **Type Safety**: Central addressing system validates all paths
+6. **Graceful Degradation**: Missing workflows/references don't break execution
+
+---
+
+## Installation
+
+### For Claude Desktop
 
 Add this to your `claude_desktop_config.json`:
 
@@ -208,112 +394,102 @@ Add this to your `claude_desktop_config.json`:
       "command": "npx",
       "args": ["-y", "ai-prompt-guide-mcp"],
       "env": {
-        "DOCS_BASE_PATH": "./.ai-prompt-guide/docs"
+        "DOCS_BASE_PATH": "./.ai-prompt-guide/docs",
+        "REFERENCE_EXTRACTION_DEPTH": "3"
       }
     }
   }
 }
 ```
 
-**Configuration:**
-- `DOCS_BASE_PATH` - Path to your documents directory (required)
-- `LOG_LEVEL` - Set to `debug` for verbose logging (optional, defaults to `info`)
+### Configuration Options
 
-### For Development
+**Required:**
+- `DOCS_BASE_PATH` - Path to your documents directory (e.g., `./.ai-prompt-guide/docs`)
 
-```bash
-# Clone and install
-git clone https://github.com/Blakeem/AI-Prompt-Guide-MCP.git
-cd AI-Prompt-Guide-MCP
-pnpm install && pnpm build
+**Optional:**
+- `REFERENCE_EXTRACTION_DEPTH` - How deep to load @references hierarchically (1-5, default: 3)
+  - `1` - Direct references only
+  - `3` - Balanced depth (recommended)
+  - `5` - Maximum depth for complex doc trees
+- `LOG_LEVEL` - Logging verbosity: `debug`, `info`, `warn`, `error` (default: `info`)
 
-# Start MCP inspector for testing
-pnpm inspector:dev
+### Document Structure
 
-# Run quality gates
-pnpm check:all
+Create your docs directory with optional namespace organization:
+
 ```
-
-## Testing with MCP Inspector
-
-```bash
-# Start inspector
-pnpm inspector:dev
-
-# Open URL with pre-filled token
-# Test tools interactively
-# Ctrl+C to stop when done
+.ai-prompt-guide/docs/
+├── api/
+│   ├── specs/
+│   │   └── authentication.md
+│   └── guides/
+│       └── getting-started.md
+├── frontend/
+│   └── components/
+│       └── button-system.md
+└── workflows/
+    └── development-process.md
 ```
-
-## Development Status
-
-### ✅ Completed (Alpha v0.2)
-- Central addressing system with type-safe validation
-- 9 MCP tools with unified addressing framework
-- Document linking system with `@` syntax
-- Task management with status/priority tracking
-- **Workflow prompt injection system** with deterministic session handling
-- Three-tool task architecture (view/start/complete)
-- Progressive discovery workflows
-- 850 passing tests with comprehensive coverage
-
-### 🚧 In Progress
-- Enhanced workflow coordination across task series
-- Workflow analytics and effectiveness tracking
-
-### 📋 Planned
-- Graph traversal engine for workflow execution
-- Enhanced workflow coordination
-- Advanced document relationship mapping
-
-## Quality Standards
-
-**Mandatory Quality Gates:**
-```bash
-pnpm test:run      # All tests must pass
-pnpm lint          # Zero warnings/errors
-pnpm typecheck     # Zero type errors
-pnpm check:dead-code # Zero unused exports
-pnpm check:all     # Run all checks
-```
-
-**Built With:**
-- TypeScript (strict mode)
-- MCP SDK (full protocol compliance)
-- Unified/Remark (AST-based markdown)
-- Vitest (comprehensive testing)
-- ESLint (zero-tolerance linting)
-
-## Use Cases
-
-**For Development:**
-- Track architectural decisions as linked knowledge graphs
-- Guide LLMs through complex multi-step workflows
-- Create interconnected documentation that loads context automatically
-
-**For AI Research:**
-- Test structured reasoning protocols vs free-form prompting
-- Build reusable workflow libraries for common tasks
-- Study intelligent context loading and document relationship patterns
-
-**For Documentation:**
-- Create interconnected documentation ecosystems
-- Link specifications to implementation guides
-- Maintain living documentation that guides development
-
-## Contributing
-
-This project is building **structured documentation tools for LLMs**. We're creating:
-- Document management with transclusion and cross-references
-- Task management systems integrated with documentation
-- Hierarchical content loading for relevant context
-
-Contributions, ideas, and feedback welcome!
-
-## License
-
-MIT - See LICENSE file for details
 
 ---
 
-*Building cognitive scaffolding for the next generation of AI systems.*
+## Use Cases
+
+### For Development Teams
+
+**Architectural Decision Records**
+- Link decisions to implementations with @references
+- Track progress through task workflows
+- Maintain living documentation that guides development
+- Resume work seamlessly after context compression
+
+**API Documentation**
+- Create interconnected API specs with automatic reference loading
+- Guide implementation with task-specific workflows (spec-first, simplicity-gate)
+- Track API implementation tasks with status and progress
+- Search across all API documentation instantly
+
+**Project Knowledge Bases**
+- Organize docs by namespace (api/, guides/, troubleshooting/)
+- Cross-link related documents for automatic context loading
+- Define project methodologies in Main-Workflow for consistency
+- Navigate documentation as a knowledge graph, not flat files
+
+### For AI Research
+
+**Structured Reasoning Protocols**
+- Test workflow prompts vs. free-form prompting
+- Build reusable workflow libraries for common tasks
+- Study intelligent context loading patterns
+- Measure effectiveness of different workflow combinations
+
+**Context Engineering Experiments**
+- Analyze hierarchical reference loading performance
+- Compare session-aware vs. session-agnostic approaches
+- Study impact of reference depth on task completion
+- Test progressive discovery vs. full context upfront
+
+### For Technical Writers
+
+**Interconnected Documentation**
+- Create documentation ecosystems with smart linking
+- Link specifications to implementation guides automatically
+- Maintain consistency with namespace templates
+- Validate references and identify broken links
+
+**Content Organization**
+- Organize large doc sets with namespace hierarchies
+- Track documentation tasks and completion status
+- Generate suggestions for related content
+- Browse and search across entire documentation system
+
+---
+
+## License
+
+MIT - See LICENSE file for details.
+
+---
+
+*Transforming documentation from static files into intelligent, context-aware knowledge graphs for AI agents.*

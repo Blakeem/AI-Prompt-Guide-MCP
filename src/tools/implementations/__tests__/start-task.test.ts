@@ -230,7 +230,6 @@ Set up the project structure following best practices.`;
       const taskContent = `### Simple Task
 
 - Status: pending
-- Priority: medium
 
 Just a simple task without workflow.`;
 
@@ -318,7 +317,6 @@ Task with invalid workflow reference.`;
       const firstTaskContent = `### Design Architecture
 
 - Status: pending
-- Priority: high
 - Main-Workflow: spec-first-integration
 - Workflow: multi-option-tradeoff
 
@@ -327,7 +325,6 @@ Design the system architecture.`;
       const currentTaskContent = `### Implement Feature
 
 - Status: pending
-- Priority: medium
 - Workflow: simplicity-gate
 
 Implement the feature.`;
@@ -403,7 +400,6 @@ Implement the feature.`;
       const firstTaskContent = `### First Task
 
 - Status: pending
-- Priority: high
 
 First task without main workflow.`;
 
@@ -528,7 +524,6 @@ Task with empty workflow field.`;
       const taskContent = `### Setup Database
 
 - Status: pending
-- Priority: high
 → @/specs/database-schema.md
 
 Set up the database following the schema specification.`;
@@ -658,7 +653,6 @@ Task referencing a non-existent document.`;
       const firstTaskContent = `### Design System
 
 - Status: pending
-- Priority: high
 - Main-Workflow: spec-first-integration
 - Workflow: multi-option-tradeoff
 → @/specs/architecture.md
@@ -668,7 +662,6 @@ Design the overall system architecture.`;
       const currentTaskContent = `### Implement API
 
 - Status: in_progress
-- Priority: high
 - Workflow: simplicity-gate
 → @/specs/api-spec.md
 
@@ -826,7 +819,6 @@ Test task content.`;
       const taskContent = `### Subtask Implementation
 
 - Status: pending
-- Priority: medium
 
 Implement a specific subtask.`;
 

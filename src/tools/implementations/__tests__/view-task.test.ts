@@ -2,7 +2,7 @@
  * Unit tests for view_task tool
  *
  * Tests the view_task tool which provides passive task inspection, showing:
- * - Task data with metadata (status, priority, etc.)
+ * - Task data with metadata (status, links, etc.)
  * - Workflow metadata (names only, NOT full content)
  * - Main workflow metadata (from first task)
  * - Referenced documents (hierarchical @reference loading)
@@ -180,7 +180,6 @@ describe('view_task tool', () => {
       const taskContent = `### Test Task
 
 - Status: pending
-- Priority: high
 - Workflow: multi-option-tradeoff
 
 Task content here.`;

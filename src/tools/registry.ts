@@ -73,7 +73,7 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'view_task',
-      description: 'View specific tasks with clean task data including status, priority, and dependencies. Supports single or multiple tasks.',
+      description: 'View specific tasks with clean task data including status. Supports single or multiple tasks.',
       inputSchema: getViewTaskSchema(),
     },
   ];

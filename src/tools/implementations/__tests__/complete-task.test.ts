@@ -142,7 +142,6 @@ describe('complete_task tool', () => {
       const firstTaskContent = `### First Task
 
 - Status: pending
-- Priority: high
 
 First task content.`;
 
@@ -669,24 +668,21 @@ Only task in document.`;
       const firstTaskContent = `### First Task
 
 - Status: pending
-- Priority: low
 
 First task.`;
 
       const secondTaskContent = `### Second Task
 
 - Status: pending
-- Priority: high
 - Workflow: simplicity-gate
 
-High priority task with workflow.`;
+Second task with workflow.`;
 
       const thirdTaskContent = `### Third Task
 
 - Status: pending
-- Priority: medium
 
-Medium priority task.`;
+Third task content.`;
 
       const mockDocument = {
         content: `# Doc\n\n## Tasks\n\n${firstTaskContent}\n\n${secondTaskContent}\n\n${thirdTaskContent}`,
@@ -792,7 +788,6 @@ Last pending task.`;
       const taskContent = `### Test Task
 
 - Status: pending
-- Priority: high
 
 Task content.`;
 

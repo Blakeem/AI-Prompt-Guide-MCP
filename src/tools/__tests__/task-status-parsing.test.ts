@@ -28,7 +28,6 @@ describe('Task Status Parsing (BUG #3)', () => {
 Some description here.
 
 * Status: in_progress
-* Priority: high
 
 More content here.`;
 
@@ -41,7 +40,6 @@ More content here.`;
 Some description here.
 
 - Status: completed
-- Priority: medium
 
 More content here.`;
 
@@ -52,7 +50,6 @@ More content here.`;
     it('should parse status from bold format (**Status:** value)', () => {
       const content = `### Task Title
 **Status:** pending
-**Priority:** low
 
 This is the format used in our test documents.`;
 
@@ -65,8 +62,7 @@ This is the format used in our test documents.`;
 
       statusValues.forEach(statusValue => {
         const content = `### Task Title
-**Status:** ${statusValue}
-**Priority:** high`;
+**Status:** ${statusValue}`;
 
         const status = extractMetadata(content, 'Status');
         expect(status, `Failed to parse status: ${statusValue}`).toBe(statusValue);
@@ -94,8 +90,7 @@ This is the format used in our test documents.`;
 
     it('should fall back to bold format when star and dash are not present', () => {
       const content = `### Task Title
-**Status:** blocked
-**Priority:** high`;
+**Status:** blocked`;
 
       const status = extractMetadata(content, 'Status');
       expect(status).toBe('blocked'); // Bold format should be used
@@ -125,32 +120,27 @@ Just some description text.`;
 
     it('should trim whitespace from extracted values', () => {
       const content = `### Task Title
-**Status:**   completed
-**Priority:**   high   `;
+**Status:**   completed`;
 
       const status = extractMetadata(content, 'Status');
       expect(status).toBe('completed'); // Should be trimmed
     });
 
-    it('should work with other metadata fields like Priority', () => {
+    it('should work with other metadata fields like Dependencies', () => {
       const content = `### Task Title
 **Status:** in_progress
-**Priority:** high
 **Dependencies:** #other-task`;
 
       const status = extractMetadata(content, 'Status');
-      const priority = extractMetadata(content, 'Priority');
       const dependencies = extractMetadata(content, 'Dependencies');
 
       expect(status).toBe('in_progress');
-      expect(priority).toBe('high');
       expect(dependencies).toBe('#other-task');
     });
 
     it('should handle multiline content correctly', () => {
       const content = `### Test Task Listing
 **Status:** in_progress
-**Priority:** medium
 **Dependencies:** none
 
 Verify that tasks under the Tasks section are properly identified and listed.

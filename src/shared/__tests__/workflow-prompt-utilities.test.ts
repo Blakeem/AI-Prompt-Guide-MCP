@@ -27,7 +27,6 @@ describe('Workflow Prompt Utilities', () => {
       const content = `
 ### Task Title
 - Status: pending
-- Priority: high
 - Workflow: multi-option-tradeoff
 `;
       expect(extractWorkflowName(content)).toBe('multi-option-tradeoff');
@@ -46,7 +45,6 @@ describe('Workflow Prompt Utilities', () => {
       const content = `
 ### Task Title
 - Status: pending
-- Priority: high
 `;
       expect(extractWorkflowName(content)).toBeNull();
     });

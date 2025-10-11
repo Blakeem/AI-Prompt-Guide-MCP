@@ -21,15 +21,15 @@ import type { HeadingInfo } from '../task-utilities.js';
 describe('Task View Utilities', () => {
   describe('extractTaskField', () => {
     it('should extract field with dash format', () => {
-      const content = '- Status: completed\n- Priority: high';
+      const content = '- Status: completed\n- Dependencies: #other-task';
       expect(extractTaskField(content, 'Status')).toBe('completed');
-      expect(extractTaskField(content, 'Priority')).toBe('high');
+      expect(extractTaskField(content, 'Dependencies')).toBe('#other-task');
     });
 
     it('should extract field with star format', () => {
-      const content = '* Status: pending\n* Priority: medium';
+      const content = '* Status: pending\n* Link: https://example.com';
       expect(extractTaskField(content, 'Status')).toBe('pending');
-      expect(extractTaskField(content, 'Priority')).toBe('medium');
+      expect(extractTaskField(content, 'Link')).toBe('https://example.com');
     });
 
     it('should be case sensitive', () => {
