@@ -271,32 +271,23 @@ function validateContentLength(content: string, operation: string, path: string)
 }
 
 /**
- * Reads a file and returns its content with modification time
+ * Internal helper to read file snapshot with basic validation only
+ * Used by trusted internal code that has already validated paths
  *
- * Security Features:
- * - Path validation and sanitization
- * - File size validation
- * - Extension validation
- * - Path traversal protection
- *
- * @param path - File path to read (will be validated and sanitized)
+ * @param absolutePath - Already validated absolute path
+ * @param operation - Operation name for error context
  * @returns FileSnapshot with content and modification time
- * @throws SpecDocsError for security violations or file system errors
+ * @throws SpecDocsError for file system errors
  */
-export async function readFileSnapshot(path: string): Promise<FileSnapshot> {
-  const operation = 'readFileSnapshot';
-
-  // Validate and sanitize the path
-  const safePath = await validateAndSanitizePath(path, operation);
-
+async function readFileSnapshotInternal(absolutePath: string, operation: string): Promise<FileSnapshot> {
   try {
     const [stat, buffer] = await Promise.all([
-      fs.stat(safePath),
-      fs.readFile(safePath)
+      fs.stat(absolutePath),
+      fs.readFile(absolutePath)
     ]);
 
     // Validate file size
-    validateFileSize(stat.size, operation, safePath);
+    validateFileSize(stat.size, operation, absolutePath);
 
     // Convert buffer to string with proper encoding
     const content = buffer.toString('utf8');
@@ -309,33 +300,33 @@ export async function readFileSnapshot(path: string): Promise<FileSnapshot> {
     if (error instanceof Error && 'code' in error) {
       if (error.code === 'ENOENT') {
         throw createError(
-          `File not found: ${basename(safePath)}`,
+          `File not found: ${basename(absolutePath)}`,
           ERROR_CODES.FILE_NOT_FOUND,
           {
             operation,
-            path: basename(safePath), // Only include filename for security
-            originalPath: path
+            path: basename(absolutePath), // Only include filename for security
+            originalPath: absolutePath
           }
         );
       }
       if (error.code === 'EACCES') {
         throw createError(
-          `Access denied: ${basename(safePath)}`,
+          `Access denied: ${basename(absolutePath)}`,
           ERROR_CODES.INVALID_OPERATION,
           {
             operation,
-            path: basename(safePath),
+            path: basename(absolutePath),
             securityViolation: 'ACCESS_DENIED'
           }
         );
       }
       if (error.code === 'EISDIR') {
         throw createError(
-          `Path is a directory, not a file: ${basename(safePath)}`,
+          `Path is a directory, not a file: ${basename(absolutePath)}`,
           ERROR_CODES.INVALID_OPERATION,
           {
             operation,
-            path: basename(safePath),
+            path: basename(absolutePath),
             securityViolation: 'INVALID_FILE_TYPE'
           }
         );
@@ -348,7 +339,7 @@ export async function readFileSnapshot(path: string): Promise<FileSnapshot> {
     // Log unexpected errors for monitoring
     console.warn(`Unexpected error in ${operation}:`, {
       error: error instanceof Error ? error.message : String(error),
-      path: basename(safePath)
+      path: basename(absolutePath)
     });
 
     throw error;
@@ -356,33 +347,53 @@ export async function readFileSnapshot(path: string): Promise<FileSnapshot> {
 }
 
 /**
- * Writes a file only if the modification time matches the expected value
- * This prevents concurrent modification conflicts
+ * Reads a file and returns its content with modification time
  *
  * Security Features:
  * - Path validation and sanitization
- * - Content size validation
+ * - File size validation
  * - Extension validation
  * - Path traversal protection
- * - Atomic write operations
  *
- * @param path - File path to write (will be validated and sanitized)
- * @param expectedMtimeMs - Expected modification time to prevent conflicts
- * @param content - Content to write (will be validated for size)
+ * @param path - File path to read (will be validated and sanitized)
+ * @param options - Optional configuration for trusted internal callers
+ * @returns FileSnapshot with content and modification time
  * @throws SpecDocsError for security violations or file system errors
  */
-export async function writeFileIfUnchanged(
+export async function readFileSnapshot(
   path: string,
-  expectedMtimeMs: number,
-  content: string
-): Promise<void> {
-  const operation = 'writeFileIfUnchanged';
+  options?: { bypassValidation?: boolean }
+): Promise<FileSnapshot> {
+  const operation = 'readFileSnapshot';
 
-  // Validate and sanitize the path
+  // If called from trusted internal code with absolute path, bypass validation
+  if (options?.bypassValidation === true) {
+    return await readFileSnapshotInternal(path, operation);
+  }
+
+  // Validate and sanitize the path for external/user-provided paths
   const safePath = await validateAndSanitizePath(path, operation);
+  return await readFileSnapshotInternal(safePath, operation);
+}
 
+/**
+ * Internal helper to write file with mtime check and basic validation only
+ * Used by trusted internal code that has already validated paths
+ *
+ * @param absolutePath - Already validated absolute path
+ * @param expectedMtimeMs - Expected modification time to prevent conflicts
+ * @param content - Content to write
+ * @param operation - Operation name for error context
+ * @throws SpecDocsError for file system errors
+ */
+async function writeFileIfUnchangedInternal(
+  absolutePath: string,
+  expectedMtimeMs: number,
+  content: string,
+  operation: string
+): Promise<void> {
   // Validate content size before attempting to write
-  validateContentLength(content, operation, safePath);
+  validateContentLength(content, operation, absolutePath);
 
   // Validate expectedMtimeMs parameter
   if (typeof expectedMtimeMs !== 'number' ||
@@ -404,7 +415,7 @@ export async function writeFileIfUnchanged(
   }
 
   try {
-    const stat = await fs.stat(safePath);
+    const stat = await fs.stat(absolutePath);
 
     if (stat.mtimeMs !== expectedMtimeMs) {
       throw createError(
@@ -412,7 +423,7 @@ export async function writeFileIfUnchanged(
         ERROR_CODES.PRECONDITION_FAILED,
         {
           operation,
-          path: basename(safePath), // Only include filename for security
+          path: basename(absolutePath), // Only include filename for security
           expectedMtimeMs,
           actualMtimeMs: stat.mtimeMs,
           timeDifference: stat.mtimeMs - expectedMtimeMs
@@ -421,14 +432,14 @@ export async function writeFileIfUnchanged(
     }
 
     // Ensure parent directory exists
-    const parentDir = dirname(safePath);
+    const parentDir = dirname(absolutePath);
     await fs.mkdir(parentDir, { recursive: true });
 
     // Atomic write: write to temp file, then rename
-    const tempPath = `${safePath}.tmp.${Date.now()}`;
+    const tempPath = `${absolutePath}.tmp.${Date.now()}`;
     try {
       await fs.writeFile(tempPath, content, 'utf8');
-      await fs.rename(tempPath, safePath);
+      await fs.rename(tempPath, absolutePath);
     } catch (writeError) {
       // Clean up temp file if write failed
       try {
@@ -443,22 +454,22 @@ export async function writeFileIfUnchanged(
     if (error instanceof Error && 'code' in error) {
       if (error.code === 'ENOENT') {
         throw createError(
-          `File not found: ${basename(safePath)}`,
+          `File not found: ${basename(absolutePath)}`,
           ERROR_CODES.FILE_NOT_FOUND,
           {
             operation,
-            path: basename(safePath),
-            originalPath: path
+            path: basename(absolutePath),
+            originalPath: absolutePath
           }
         );
       }
       if (error.code === 'EACCES') {
         throw createError(
-          `Access denied: ${basename(safePath)}`,
+          `Access denied: ${basename(absolutePath)}`,
           ERROR_CODES.INVALID_OPERATION,
           {
             operation,
-            path: basename(safePath),
+            path: basename(absolutePath),
             securityViolation: 'ACCESS_DENIED'
           }
         );
@@ -469,7 +480,7 @@ export async function writeFileIfUnchanged(
           ERROR_CODES.INVALID_OPERATION,
           {
             operation,
-            path: basename(safePath),
+            path: basename(absolutePath),
             securityViolation: 'DISK_FULL'
           }
         );
@@ -484,11 +495,46 @@ export async function writeFileIfUnchanged(
     // Log unexpected errors for monitoring
     console.warn(`Unexpected error in ${operation}:`, {
       error: error instanceof Error ? error.message : String(error),
-      path: basename(safePath)
+      path: basename(absolutePath)
     });
 
     throw error;
   }
+}
+
+/**
+ * Writes a file only if the modification time matches the expected value
+ * This prevents concurrent modification conflicts
+ *
+ * Security Features:
+ * - Path validation and sanitization
+ * - Content size validation
+ * - Extension validation
+ * - Path traversal protection
+ * - Atomic write operations
+ *
+ * @param path - File path to write (will be validated and sanitized)
+ * @param expectedMtimeMs - Expected modification time to prevent conflicts
+ * @param content - Content to write (will be validated for size)
+ * @param options - Optional configuration for trusted internal callers
+ * @throws SpecDocsError for security violations or file system errors
+ */
+export async function writeFileIfUnchanged(
+  path: string,
+  expectedMtimeMs: number,
+  content: string,
+  options?: { bypassValidation?: boolean }
+): Promise<void> {
+  const operation = 'writeFileIfUnchanged';
+
+  // If called from trusted internal code with absolute path, bypass validation
+  if (options?.bypassValidation === true) {
+    return await writeFileIfUnchangedInternal(path, expectedMtimeMs, content, operation);
+  }
+
+  // Validate and sanitize the path for external/user-provided paths
+  const safePath = await validateAndSanitizePath(path, operation);
+  return await writeFileIfUnchangedInternal(safePath, expectedMtimeMs, content, operation);
 }
 
 /**

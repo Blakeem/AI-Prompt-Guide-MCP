@@ -244,7 +244,7 @@ export class DocumentManager {
     }
 
     // Filter out the title heading and TOC heading itself
-    const contentHeadings = document.headings.filter(h => 
+    const contentHeadings = document.headings.filter(h =>
       h.depth > 1 && h.slug !== 'table-of-contents'
     );
 
@@ -254,11 +254,11 @@ export class DocumentManager {
 
     // Build TOC from filtered headings using our buildToc tool
     const absolutePath = this.getAbsolutePath(docPath);
-    const snapshot = await readFileSnapshot(absolutePath);
-    
+    const snapshot = await readFileSnapshot(absolutePath, { bypassValidation: true });
+
     // Parse the current content to get the complete TOC structure
     const currentToc = buildToc(snapshot.content);
-    const filteredToc = currentToc.filter(node => 
+    const filteredToc = currentToc.filter(node =>
       node.depth > 1 && node.slug !== 'table-of-contents'
     );
 
@@ -267,8 +267,8 @@ export class DocumentManager {
     // Update TOC section using our section tools
     try {
       const updated = replaceSectionBody(snapshot.content, 'table-of-contents', tocContent);
-      await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated);
-      
+      await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated, { bypassValidation: true });
+
       logger.debug('Updated table of contents', { path: docPath });
     } catch (error) {
       logger.warn('Failed to update TOC', { path: docPath, error });
@@ -286,10 +286,10 @@ export class DocumentManager {
     options: UpdateSectionOptions = {}
   ): Promise<void> {
     const absolutePath = this.getAbsolutePath(docPath);
-    const snapshot = await readFileSnapshot(absolutePath);
+    const snapshot = await readFileSnapshot(absolutePath, { bypassValidation: true });
 
     const updated = replaceSectionBody(snapshot.content, slug, newContent);
-    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated);
+    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated, { bypassValidation: true });
 
     // Update TOC if requested
     if (options.updateToc === true) {
@@ -310,10 +310,10 @@ export class DocumentManager {
     options: UpdateSectionOptions = {}
   ): Promise<void> {
     const absolutePath = this.getAbsolutePath(docPath);
-    const snapshot = await readFileSnapshot(absolutePath);
+    const snapshot = await readFileSnapshot(absolutePath, { bypassValidation: true });
 
     const updated = renameHeading(snapshot.content, slug, newTitle);
-    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated);
+    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated, { bypassValidation: true });
 
     // Update TOC if requested
     if (options.updateToc === true) {
@@ -328,10 +328,10 @@ export class DocumentManager {
    */
   async deleteSection(docPath: string, slug: string, options: UpdateSectionOptions = {}): Promise<void> {
     const absolutePath = this.getAbsolutePath(docPath);
-    const snapshot = await readFileSnapshot(absolutePath);
+    const snapshot = await readFileSnapshot(absolutePath, { bypassValidation: true });
 
     const updated = deleteSection(snapshot.content, slug);
-    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated);
+    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated, { bypassValidation: true });
 
     // Update TOC if requested
     if (options.updateToc === true) {
@@ -440,7 +440,7 @@ export class DocumentManager {
     options: UpdateSectionOptions = {}
   ): Promise<void> {
     const absolutePath = this.getAbsolutePath(docPath);
-    const snapshot = await readFileSnapshot(absolutePath);
+    const snapshot = await readFileSnapshot(absolutePath, { bypassValidation: true });
 
     // Determine depth if not specified
     let calculatedDepth: number;
@@ -467,7 +467,7 @@ export class DocumentManager {
     const finalDepth = validateHeadingDepth(calculatedDepth);
 
     const updated = insertRelative(snapshot.content, referenceSlug, insertMode, finalDepth, title, content);
-    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated);
+    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated, { bypassValidation: true });
 
     // Update TOC if requested
     if (options.updateToc === true) {

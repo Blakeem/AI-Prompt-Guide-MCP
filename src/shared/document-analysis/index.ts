@@ -31,6 +31,7 @@ export { DocumentAnalysisError };
  * @param namespace - Target namespace for the document
  * @param title - Document title
  * @param overview - Document overview content
+ * @param excludePath - Optional document path to exclude from suggestions (e.g., the document being created)
  *
  * @returns Promise resolving to smart suggestions with analysis results
  *
@@ -43,6 +44,17 @@ export { DocumentAnalysisError };
  *   'api/specs',
  *   'User Authentication API',
  *   'API for handling user login and session management'
+ * );
+ * ```
+ *
+ * @example With path exclusion (for document creation)
+ * ```typescript
+ * const suggestions = await analyzeDocumentSuggestions(
+ *   manager,
+ *   'api/specs',
+ *   'User Authentication API',
+ *   'API for handling user login and session management',
+ *   '/api/specs/user-authentication-api.md' // Exclude current document
  * );
  * ```
  *
@@ -64,7 +76,8 @@ export async function analyzeDocumentSuggestions(
   manager: DocumentManager,
   namespace: string,
   title: string,
-  overview: string
+  overview: string,
+  excludePath?: string
 ): Promise<SmartSuggestions> {
   // Input validation
   const validationErrors = validateAnalysisInputs(manager, namespace, title, overview);
@@ -91,7 +104,7 @@ export async function analyzeDocumentSuggestions(
   try {
     // Find related documents
     try {
-      relatedDocs = await findRelatedDocuments(manager, namespace, title, overview);
+      relatedDocs = await findRelatedDocuments(manager, namespace, title, overview, excludePath);
     } catch (error) {
       errors.push(`Related documents analysis failed: ${error}`);
       warnings.push('Using empty related documents list');

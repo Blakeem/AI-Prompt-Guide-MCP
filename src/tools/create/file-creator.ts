@@ -101,7 +101,7 @@ export async function createDocumentFile(
 
     try {
       [suggestions, namespacePatterns] = await Promise.all([
-        analyzeDocumentSuggestions(manager, namespace, title, overview),
+        analyzeDocumentSuggestions(manager, namespace, title, overview, docPath),
         analyzeNamespacePatterns(manager, namespace)
       ]);
     } catch (error) {

@@ -1100,12 +1100,13 @@ export function readSection(markdown: string, slug: string): string | null {
   let captured: string | null = null;
 
   headingRange(tree, matchHeadingBySlug(normalizedSlug, headings), (start, nodes, end) => {
-    // Serialize the captured section including the heading
+    // Serialize the captured section INCLUDING the heading BUT EXCLUDING the end boundary
+    // The end parameter is the next section's heading and should not be part of this section's content
     const section: Root = {
       type: 'root',
-      children: [start, ...nodes, end].filter(Boolean) as Content[],
+      children: [start, ...nodes].filter(Boolean) as Content[],
     };
-    
+
     try {
       captured = toMarkdown(section);
     } catch (error) {
@@ -1118,7 +1119,7 @@ export function readSection(markdown: string, slug: string): string | null {
       );
     }
 
-    return [start, ...nodes, end]; // No modification
+    return [start, ...nodes, end]; // Still return all nodes (no modification to AST)
   });
 
   return captured;

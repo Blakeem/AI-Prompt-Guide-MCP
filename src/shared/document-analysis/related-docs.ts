@@ -46,6 +46,7 @@ interface FingerprintCandidate {
  * @param _namespace - Target namespace (kept for compatibility, not used)
  * @param title - Document title for keyword extraction
  * @param overview - Document overview for keyword extraction
+ * @param excludePath - Optional document path to exclude from results (e.g., the document being created)
  *
  * @returns Promise resolving to array of related document suggestions
  *
@@ -55,7 +56,8 @@ export async function findRelatedDocuments(
   manager: DocumentManager,
   _namespace: string,
   title: string,
-  overview: string
+  overview: string,
+  excludePath?: string
 ): Promise<RelatedDocumentSuggestion[]> {
   // Input validation
   if (manager == null) {
@@ -149,6 +151,11 @@ export async function findRelatedDocuments(
 
           // Calculate fingerprint-based relevance scores
           for (const [docPath, fingerprint] of pathToFingerprint.entries()) {
+            // Skip the document being created (prevent self-reference)
+            if (excludePath != null && docPath === excludePath) {
+              continue;
+            }
+
             const score = calculateFingerprintRelevance(keywords, fingerprint.keywords);
             candidates.push({
               fingerprint,
@@ -184,6 +191,11 @@ export async function findRelatedDocuments(
       // Use original algorithm: process all documents with content analysis
       for (const docInfo of allDocuments) {
         try {
+          // Skip the document being created (prevent self-reference)
+          if (excludePath != null && docInfo.path === excludePath) {
+            continue;
+          }
+
           const document = await manager.getDocument(docInfo.path);
           if (document == null) {
             continue;
