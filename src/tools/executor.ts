@@ -9,6 +9,7 @@ import type { DocumentManager } from '../document-manager.js';
 import {
   createDocument,
   browseDocuments,
+  searchDocuments,
   section,
   move,
   deleteDocument,
@@ -40,6 +41,7 @@ const TOOL_REGISTRY: Record<string, ToolImplementation> = {
   'create_document': createDocument,
   'edit_document': editDocument,
   'browse_documents': browseDocuments,
+  'search_documents': searchDocuments,
   section,
   move,
   'delete_document': deleteDocument,

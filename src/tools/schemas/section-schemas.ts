@@ -13,50 +13,34 @@
  * Supports comprehensive section management operations with automatic
  * hierarchical addressing and flexible content manipulation.
  *
- * @example Basic section editing
+ * @example Single section edit (uses operations array)
  * ```typescript
  * const editInput = {
  *   document: '/api/authentication.md',
- *   section: 'jwt-tokens',
- *   content: 'Updated JWT token documentation...',
- *   operation: 'replace'
+ *   operations: [{
+ *     section: 'jwt-tokens',
+ *     content: 'Updated JWT token documentation...',
+ *     operation: 'replace'
+ *   }]
  * };
  * ```
  *
- * @example Creating new sections
+ * @example Creating new section (uses operations array)
  * ```typescript
  * const createInput = {
  *   document: '/api/endpoints.md',
- *   section: 'users',  // Reference section for placement
- *   content: 'New OAuth section content...',
- *   operation: 'insert_after',
- *   title: 'OAuth Integration'
+ *   operations: [{
+ *     section: 'users',  // Reference section for placement
+ *     content: 'New OAuth section content...',
+ *     operation: 'insert_after',
+ *     title: 'OAuth Integration'
+ *   }]
  * };
  * ```
  *
- * @example Hierarchical section creation
+ * @example Multiple operations in one call
  * ```typescript
- * const hierarchicalInput = {
- *   document: '/specs/api-design.md',
- *   section: 'authentication',  // Parent section
- *   content: 'OAuth 2.0 flow documentation...',
- *   operation: 'append_child',  // Creates child section with auto-depth
- *   title: 'OAuth Flows'
- * };
- * ```
- *
- * @example Section deletion
- * ```typescript
- * const deleteInput = {
- *   document: '/deprecated/old-api.md',
- *   section: 'legacy-endpoints',
- *   operation: 'remove'
- * };
- * ```
- *
- * @example Batch operations
- * ```typescript
- * const batchInput = {
+ * const multiInput = {
  *   document: '/api/specs.md',
  *   operations: [
  *     {
@@ -69,6 +53,11 @@
  *       content: 'New migration guide...',
  *       operation: 'insert_after',
  *       title: 'Migration Guide'
+ *     },
+ *     {
+ *       section: 'deprecated',
+ *       content: '',
+ *       operation: 'remove'
  *     }
  *   ]
  * };
@@ -101,102 +90,42 @@ export interface SectionInputSchema {
     };
 
     /**
-     * Section slug for operation target or reference
+     * Array of section operations to perform
      *
-     * For edit/delete operations: identifies the target section.
-     * For create operations: identifies the reference section for placement.
-     * Supports both flat slugs and hierarchical addressing.
-     *
-     * @example Flat section slugs
-     * "authentication", "endpoints", "configuration"
-     *
-     * @example Hierarchical section paths
-     * "api/auth/oauth", "guides/setup/database"
-     *
-     * @example With hash prefix (normalized automatically)
-     * "#jwt-tokens", "#api-endpoints"
+     * Each operation contains section slug, operation type, content, and optional title.
+     * Always provide as an array, even for single operations.
      */
-    section: {
-      type: 'string';
-      description: 'Section slug to edit or reference section for new section placement (e.g., "#endpoints", "#authentication", "api/auth/flows")';
-    };
-
-    /**
-     * Content for the section operation
-     *
-     * For edit operations: new or additional content for the section.
-     * For create operations: content for the new section.
-     * Not required for delete operations.
-     *
-     * @example Markdown content
-     * "## Authentication\n\nThis section covers..."
-     *
-     * @example Rich content with links
-     * "See @/api/auth.md#tokens for token details.\n\n### Overview\n..."
-     *
-     * @example Code examples
-     * "```javascript\nconst token = generateJWT(payload);\n```"
-     */
-    content: {
-      type: 'string';
-      description: 'Content for the section (markdown format, supports @ link syntax)';
-    };
-
-    /**
-     * Operation type to perform on the section
-     *
-     * Supports three categories of operations:
-     * - Edit: modify existing sections (replace, append, prepend)
-     * - Create: add new sections (insert_before, insert_after, append_child)
-     * - Delete: remove sections (remove)
-     *
-     * @example Edit operations
-     * - "replace": Completely replace section content
-     * - "append": Add content to end of section
-     * - "prepend": Add content to beginning of section
-     *
-     * @example Create operations
-     * - "insert_before": Create new section before reference section
-     * - "insert_after": Create new section after reference section
-     * - "append_child": Create new subsection under reference section
-     *
-     * @example Delete operations
-     * - "remove": Delete section and all its subsections
-     *
-     * @default "replace"
-     */
-    operation: {
-      type: 'string';
-      enum: ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child', 'remove'];
-      default: 'replace';
-      description: 'Edit: replace/append/prepend. Create: insert_before/insert_after/append_child (auto-depth). Delete: remove';
-    };
-
-    /**
-     * Title for new section creation
-     *
-     * Required for create operations (insert_before, insert_after, append_child).
-     * Will be used as the heading text and to generate the section slug.
-     * Not used for edit or delete operations.
-     *
-     * @example Simple titles
-     * "Authentication", "API Endpoints", "Configuration"
-     *
-     * @example Descriptive titles
-     * "OAuth 2.0 Integration", "Database Setup Guide", "Error Handling Patterns"
-     *
-     * @example Hierarchical context
-     * "JWT Token Validation" (under Authentication section)
-     * "User Management APIs" (under API Endpoints section)
-     */
-    title: {
-      type: 'string';
-      description: 'Title for new section (required for create operations: insert_before, insert_after, append_child)';
+    operations: {
+      type: 'array';
+      description: 'Array of section operations to perform. Always pass operations as an array, even for single edits.';
+      items: {
+        type: 'object';
+        properties: {
+          section: {
+            type: 'string';
+            description: 'Section slug to target (e.g., "overview", "#overview")';
+          };
+          operation: {
+            type: 'string';
+            enum: ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child', 'remove'];
+            description: 'Operation type';
+          };
+          content: {
+            type: 'string';
+            description: 'Content for the operation (empty string for remove)';
+          };
+          title: {
+            type: 'string';
+            description: 'Title for new sections (required for insert_before, insert_after, append_child)';
+          };
+        };
+        required: ['section', 'operation', 'content'];
+      };
     };
   };
 
-  /** Required parameters - document, section, and content are mandatory for most operations */
-  required: ['document', 'section', 'content'];
+  /** Required parameters - document and operations array are mandatory */
+  required: ['document', 'operations'];
 
   /** Prevent additional properties for strict validation */
   additionalProperties: false;
@@ -455,7 +384,7 @@ export function isDeleteOperation(operation: string): operation is DeleteOperati
 }
 
 /**
- * Get the input schema for section tool
+ * Get the input schema for section tool (bulk operations only)
  */
 export function getSectionSchema(): SectionInputSchema {
   return {
@@ -465,26 +394,35 @@ export function getSectionSchema(): SectionInputSchema {
         type: 'string',
         description: 'Document path (e.g., "/specs/search-api.md")',
       },
-      section: {
-        type: 'string',
-        description: 'Section slug to edit or reference section for new section placement (e.g., "#endpoints", "#authentication", "api/auth/flows")',
-      },
-      content: {
-        type: 'string',
-        description: 'Content for the section (markdown format, supports @ link syntax)',
-      },
-      operation: {
-        type: 'string',
-        enum: ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child', 'remove'],
-        default: SECTION_CONSTANTS.DEFAULT_OPERATION,
-        description: 'Edit: replace/append/prepend. Create: insert_before/insert_after/append_child (auto-depth). Delete: remove',
-      },
-      title: {
-        type: 'string',
-        description: 'Title for new section (required for create operations: insert_before, insert_after, append_child)',
+      operations: {
+        type: 'array',
+        description: 'Array of section operations to perform. Always pass operations as an array, even for single edits.',
+        items: {
+          type: 'object',
+          properties: {
+            section: {
+              type: 'string',
+              description: 'Section slug to target (e.g., "overview", "#overview")',
+            },
+            operation: {
+              type: 'string',
+              enum: ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child', 'remove'],
+              description: 'Operation type',
+            },
+            content: {
+              type: 'string',
+              description: 'Content for the operation (empty string for remove)',
+            },
+            title: {
+              type: 'string',
+              description: 'Title for new sections (required for insert_before, insert_after, append_child)',
+            },
+          },
+          required: ['section', 'operation', 'content'],
+        },
       },
     },
-    required: ['document', 'section', 'content'],
+    required: ['document', 'operations'],
     additionalProperties: false,
   };
 }

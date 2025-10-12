@@ -9,8 +9,7 @@ import type { DocumentManager } from '../../document-manager.js';
 import { performSectionEdit } from '../../shared/utilities.js';
 import {
   ToolIntegration,
-  AddressingError,
-  parseDocumentAddress
+  AddressingError
 } from '../../shared/addressing-system.js';
 
 /**
@@ -113,44 +112,80 @@ async function processSectionOperation(
 /**
  * MCP tool for comprehensive section management with support for all CRUD operations
  *
- * Supports both single and batch operations for section editing, creation, and deletion.
+ * Supports bulk operations only - always pass operations as an array, even for single edits.
  * Uses the central addressing system for consistent hierarchical and flat addressing patterns.
  *
- * @param args - Single operation object or array of operations for batch processing
+ * @param args - Object with document path and operations array
  * @param _state - MCP session state (unused in current implementation)
  * @returns Operation results with document info, affected sections, and status details
  *
  * @example
- * // Single section edit
+ * // Single section edit (uses operations array)
  * const result = await section({
- *   document: "api/auth.md",
- *   section: "overview",
- *   content: "Updated content",
- *   operation: "replace"
+ *   document: "/api/auth.md",
+ *   operations: [{
+ *     section: "overview",
+ *     content: "Updated content",
+ *     operation: "replace"
+ *   }]
  * });
  *
- * // Batch operations
- * const result = await section([
- *   { document: "api/auth.md", section: "overview", content: "New content", operation: "replace" },
- *   { document: "api/auth.md", section: "examples", content: "Example content", operation: "append_child" }
- * ]);
+ * // Multiple operations
+ * const result = await section({
+ *   document: "/api/auth.md",
+ *   operations: [
+ *     { section: "overview", content: "New content", operation: "replace" },
+ *     { section: "examples", content: "Example content", operation: "append_child", title: "Examples" }
+ *   ]
+ * });
  *
  * @throws {AddressingError} When document or section addresses are invalid or not found
  * @throws {Error} When section operations fail due to content constraints or filesystem errors
  */
 export async function section(
-  args: Record<string, unknown> | Array<Record<string, unknown>>,
+  args: Record<string, unknown>,
   _state: SessionState,
   manager: DocumentManager
 ): Promise<unknown> {
   try {
-    const isBatch = Array.isArray(args);
+    // Validate operations array exists and is valid
+    const operations = args['operations'] as unknown;
 
-    if (isBatch) {
-      return await handleBatchOperations(args as unknown as SectionOperation[], manager);
-    } else {
-      return await handleSingleOperation(args as unknown as SectionOperation, manager);
+    if (!Array.isArray(operations)) {
+      throw new AddressingError(
+        'operations array is required and must be an array',
+        'MISSING_OPERATIONS',
+        { provided: operations, type: typeof operations }
+      );
     }
+
+    if (operations.length === 0) {
+      throw new AddressingError(
+        'operations array cannot be empty - must contain at least one operation',
+        'EMPTY_OPERATIONS'
+      );
+    }
+
+    // Extract document path and validate
+    const document = ToolIntegration.validateOptionalStringParameter(args['document'], 'document');
+    if (document == null || document === '') {
+      throw new AddressingError(
+        'document path is required',
+        'MISSING_DOCUMENT'
+      );
+    }
+
+    // Convert operations to proper format
+    const sectionOps: SectionOperation[] = operations.map((op: unknown) => ({
+      document,
+      section: (op as Record<string, unknown>)['section'] as string,
+      content: (op as Record<string, unknown>)['content'] as string,
+      operation: (op as Record<string, unknown>)['operation'] as string,
+      title: (op as Record<string, unknown>)['title'] as string,
+      analyze_links: (op as Record<string, unknown>)['analyze_links'] as boolean
+    }));
+
+    return await handleBatchOperations(sectionOps, manager);
   } catch (error) {
     // Handle addressing errors with standardized hierarchical formatting
     if (error instanceof AddressingError) {
@@ -243,311 +278,47 @@ async function handleBatchOperations(
     }
   }
 
-  return formatBatchResponse(batchResults, documentsModified, sectionsModified, operations.length, manager);
+  return formatBatchResponse(batchResults, documentsModified, sectionsModified);
 }
 
-/**
- * Handle single section operation with addressing system validation
- */
-async function handleSingleOperation(
-  singleOp: SectionOperation,
-  manager: DocumentManager
-): Promise<unknown> {
-  // Validate and parse addresses
-  const { addresses } = ToolIntegration.validateAndParse({
-    document: singleOp.document ?? '',
-    section: singleOp.section ?? ''
-  });
-
-  const { document: docAddress, section: sectionAddress } = addresses;
-
-  // Validate section address exists
-  if (sectionAddress == null) {
-    throw new AddressingError('Section address is required for section operations', 'MISSING_SECTION', {
-      document: singleOp.document,
-      section: singleOp.section
-    });
-  }
-
-  const content = ToolIntegration.validateOptionalStringParameter(singleOp.content, 'content') ?? '';
-  const operation = ToolIntegration.validateOperation(
-    singleOp.operation ?? 'replace',
-    ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child', 'remove'] as const,
-    'section'
-  );
-  const title = ToolIntegration.validateOptionalStringParameter(singleOp.title, 'title');
-
-  // Content validation for non-remove operations
-  if (operation !== 'remove' && !content) {
-    throw new AddressingError('Content is required for all operations except remove', 'MISSING_CONTENT', {
-      operation
-    });
-  }
-
-  // Perform the section operation using existing logic but with validated addresses
-  const result = await performSectionEdit(
-    manager,
-    docAddress.path,
-    sectionAddress.slug,
-    content,
-    operation,
-    title
-  );
-
-  return formatSingleResponse(result, docAddress, sectionAddress, content, operation, manager, singleOp.analyze_links ?? false);
-}
 
 /**
- * Format batch operation response with document info when applicable
+ * Format batch operation response with standardized structure
  */
 async function formatBatchResponse(
   batchResults: SectionOperationResult[],
   documentsModified: Set<string>,
-  sectionsModified: number,
-  totalOperations: number,
-  manager: DocumentManager
+  sectionsModified: number
 ): Promise<unknown> {
-  // Get document info for single document batches using addressing system
-  let documentInfo;
-  if (Array.from(documentsModified).length === 1) {
-    const singleDocPath = Array.from(documentsModified)[0] as string;
-    try {
-      const docAddress = parseDocumentAddress(singleDocPath);
-      const doc = await manager.getDocument(singleDocPath);
-      if (doc != null) {
-        documentInfo = ToolIntegration.formatDocumentInfo(docAddress, { title: doc.metadata.title });
-      }
-    } catch {
-      // Skip document info if parsing fails
+  // Convert batch results to new format with status field
+  const results = batchResults.map(result => {
+    if (result.success) {
+      return {
+        section: result.section,
+        operation: result.action,
+        status: result.action === 'created' ? 'created' : result.action === 'removed' ? 'removed' : 'updated',
+        ...(result.depth != null && { depth: result.depth }),
+        ...(result.removed_content != null && { removed_content: result.removed_content })
+      };
+    } else {
+      return {
+        section: result.section,
+        status: 'error',
+        error: result.error
+      };
     }
-  }
+  });
+
+  // Get single document path if all operations on same document
+  const docPaths = Array.from(documentsModified);
+  const singleDocPath = docPaths.length === 1 ? docPaths[0] : undefined;
 
   return {
-    batch_results: batchResults,
-    document: Array.from(documentsModified).length === 1 ? Array.from(documentsModified)[0] : undefined,
-    sections_modified: sectionsModified,
-    total_operations: totalOperations,
-    timestamp: new Date().toISOString(),
-    ...(documentInfo != null && { document_info: documentInfo })
-  };
-}
-
-/**
- * Format single operation response based on action type
- */
-async function formatSingleResponse(
-  result: { action: 'edited' | 'created' | 'removed'; section: string; depth?: number; removedContent?: string },
-  docAddress: ReturnType<typeof parseDocumentAddress>,
-  sectionAddress: NonNullable<ReturnType<typeof ToolIntegration.validateAndParse>['addresses']['section']>,
-  content: string,
-  operation: string,
-  manager: DocumentManager,
-  analyzeLinks: boolean = false
-): Promise<unknown> {
-  // Get document information for response using addressing system
-  const document = await manager.getDocument(docAddress.path);
-  const documentInfo = document != null
-    ? ToolIntegration.formatDocumentInfo(docAddress, { title: document.metadata.title })
-    : undefined;
-
-  if (result.action === 'created') {
-    return formatCreatedResponse(result, docAddress, sectionAddress, content, operation, documentInfo, manager, analyzeLinks);
-  } else if (result.action === 'removed') {
-    return formatRemovedResponse(result, docAddress, operation, documentInfo);
-  } else {
-    return formatUpdatedResponse(result, docAddress, sectionAddress, content, operation, documentInfo, manager, analyzeLinks);
-  }
-}
-
-/**
- * Format response for created section operation
- */
-async function formatCreatedResponse(
-  result: { section: string; depth?: number },
-  docAddress: ReturnType<typeof parseDocumentAddress>,
-  sectionAddress: NonNullable<ReturnType<typeof ToolIntegration.validateAndParse>['addresses']['section']>,
-  content: string,
-  operation: string,
-  documentInfo: unknown,
-  manager: DocumentManager,
-  analyzeLinks: boolean = false
-): Promise<unknown> {
-  // Backward compatibility: include both old and new hierarchical formats
-  const hierarchicalInfo = {
-    slug_depth: result.depth ?? 1,
-    parent_slug: result.section.includes('/')
-      ? result.section.split('/').slice(0, -1).join('/')
-      : null
-  };
-
-  // Standardized hierarchical context (future direction)
-  const hierarchicalContext = ToolIntegration.formatHierarchicalContext(sectionAddress);
-
-  // Analyze links in the created content (optional for performance)
-  const linkAssistance = await analyzeLinksIfRequested(content, docAddress.path, manager, analyzeLinks);
-
-  return {
-    created: true,
-    document: docAddress.path,
-    new_section: result.section,
-    ...(result.depth !== undefined && { depth: result.depth }),
-    operation,
-    timestamp: new Date().toISOString(),
-    hierarchical_info: hierarchicalInfo,
-    ...(hierarchicalContext != null && { hierarchical_context: hierarchicalContext }),
-    link_assistance: linkAssistance,
-    ...(documentInfo != null && { document_info: documentInfo })
-  };
-}
-
-/**
- * Format response for removed section operation
- */
-function formatRemovedResponse(
-  result: { section: string; removedContent?: string },
-  docAddress: ReturnType<typeof parseDocumentAddress>,
-  operation: string,
-  documentInfo: unknown
-): unknown {
-  return {
-    removed: true,
-    document: docAddress.path,
-    section: result.section,
-    removed_content: result.removedContent,
-    operation,
-    timestamp: new Date().toISOString(),
-    ...(documentInfo != null && { document_info: documentInfo })
-  };
-}
-
-/**
- * Format response for updated section operation
- */
-async function formatUpdatedResponse(
-  result: { section: string },
-  docAddress: ReturnType<typeof parseDocumentAddress>,
-  sectionAddress: NonNullable<ReturnType<typeof ToolIntegration.validateAndParse>['addresses']['section']>,
-  content: string,
-  operation: string,
-  documentInfo: unknown,
-  manager: DocumentManager,
-  analyzeLinks: boolean = false
-): Promise<unknown> {
-  // Backward compatibility: include both old and new hierarchical formats
-  const updatedDocument = await manager.getDocument(docAddress.path);
-  const sectionHeading = updatedDocument?.headings.find(h => h.slug === result.section);
-  const actualDepth = sectionHeading?.depth ?? 1;
-
-  const hierarchicalInfo = {
-    slug_depth: actualDepth,
-    parent_slug: result.section.includes('/')
-      ? result.section.split('/').slice(0, -1).join('/')
-      : null
-  };
-
-  // Standardized hierarchical context (future direction)
-  const hierarchicalContext = ToolIntegration.formatHierarchicalContext(sectionAddress);
-
-  // Analyze links in the updated content (optional for performance)
-  const linkAssistance = await analyzeLinksIfRequested(content, docAddress.path, manager, analyzeLinks);
-
-  return {
-    updated: true,
-    document: docAddress.path,
-    section: result.section,
-    operation,
-    timestamp: new Date().toISOString(),
-    hierarchical_info: hierarchicalInfo,
-    ...(hierarchicalContext != null && { hierarchical_context: hierarchicalContext }),
-    link_assistance: linkAssistance,
-    ...(documentInfo != null && { document_info: documentInfo })
-  };
-}
-
-/**
- * Conditionally analyze links based on configuration to improve performance
- */
-async function analyzeLinksIfRequested(
-  content: string,
-  documentPath: string,
-  manager: DocumentManager,
-  shouldAnalyze: boolean = false
-): Promise<{
-  links_found: Array<{
-    link_text: string;
-    is_valid: boolean;
-    target_document?: string;
-    target_section?: string;
-    validation_error?: string;
-  }>;
-  link_suggestions: Array<{
-    suggested_link: string;
-    target_document: string;
-    rationale: string;
-    placement_hint: string;
-  }>;
-  syntax_help?: {
-    detected_patterns: string[];
-    correct_examples: string[];
-    common_mistakes: string[];
-  };
-  referenced_documents?: Array<{
-    path: string;
-    title: string;
-    content: string;
-    depth: number;
-    namespace: string;
-    children: Array<{
-      path: string;
-      title: string;
-      content: string;
-      depth: number;
-      namespace: string;
-      children: unknown[];
-    }>;
-  }>;
-}> {
-  if (!shouldAnalyze) {
-    // Return minimal response when analysis is disabled for performance
-    // No syntax_help field to save ~110 tokens when no links present
-    return {
-      links_found: [],
-      link_suggestions: []
-    };
-  }
-
-  // Use unified ReferenceExtractor and ReferenceLoader
-  const { ReferenceExtractor } = await import('../../shared/reference-extractor.js');
-  const { ReferenceLoader } = await import('../../shared/reference-loader.js');
-  const { loadConfig } = await import('../../config.js');
-
-  const extractor = new ReferenceExtractor();
-  const loader = new ReferenceLoader();
-  const config = loadConfig();
-
-  // Extract and normalize references using unified system
-  const refs = extractor.extractReferences(content);
-  const normalized = extractor.normalizeReferences(refs, documentPath);
-
-  // Load hierarchical references using configured depth
-  const hierarchy = await loader.loadReferences(normalized, manager, config.referenceExtractionDepth);
-
-  // Perform existing link analysis for backward compatibility
-  const { createLinkAnalysisService } = await import('../../shared/link-analysis.js');
-  const linkAnalysis = createLinkAnalysisService(manager);
-  const legacyAnalysis = await linkAnalysis.analyzeLinks(content, documentPath);
-
-  // Only include syntax_help when links are detected or malformed patterns found
-  const shouldIncludeSyntaxHelp =
-    legacyAnalysis.links_found.length > 0 ||
-    legacyAnalysis.syntax_help.detected_patterns.length > 0;
-
-  // Return enhanced response with hierarchical references
-  return {
-    links_found: legacyAnalysis.links_found,
-    link_suggestions: legacyAnalysis.link_suggestions,
-    ...(shouldIncludeSyntaxHelp && { syntax_help: legacyAnalysis.syntax_help }),
-    referenced_documents: hierarchy
+    success: true,
+    document: singleDocPath,
+    operations_completed: sectionsModified,
+    results,
+    timestamp: new Date().toISOString()
   };
 }
 

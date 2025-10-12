@@ -59,9 +59,250 @@ interface TaskHierarchicalContext {
   depth: number;
 }
 
-interface TaskResult {
-  operation: string;
+/**
+ * Individual task operation result
+ */
+interface TaskOperationResult {
+  operation: 'create' | 'edit' | 'list';
+  status: 'created' | 'updated' | 'listed' | 'error';
+  task?: {
+    slug: string;
+    title: string;
+    hierarchical_context?: TaskHierarchicalContext;
+  };
+  tasks?: Array<{
+    slug: string;
+    title: string;
+    status: string;
+    link?: string;
+    referenced_documents?: HierarchicalContent[];
+    hierarchical_context?: TaskHierarchicalContext;
+  }>;
+  count?: number;
+  hierarchical_summary?: {
+    by_phase: Record<string, { total: number; pending: number; in_progress: number; completed: number }>;
+    by_category: Record<string, { total: number; pending: number; in_progress?: number; completed?: number }>;
+    critical_path: string[];
+  };
+  next_task?: {
+    slug: string;
+    title: string;
+    link?: string;
+  };
+  error?: string;
+}
+
+/**
+ * Bulk task operations response
+ */
+interface TaskBulkResponse {
+  success: boolean;
   document: string;
+  operations_completed: number;
+  results: TaskOperationResult[];
+  timestamp: string;
+}
+
+/**
+ * MCP tool for comprehensive task management with bulk operations support
+ *
+ * Supports bulk task operations including creation, editing, and listing in a single call.
+ * Always pass operations as an array, even for single task operations.
+ *
+ * @param args - Object with document path and operations array
+ * @param _state - MCP session state (unused in current implementation)
+ * @returns Bulk operation results with created/edited tasks and filtered lists
+ *
+ * @example
+ * // Single task creation (uses operations array)
+ * const result = await task({
+ *   document: "/project/setup.md",
+ *   operations: [{
+ *     operation: "create",
+ *     title: "Initialize Database",
+ *     content: "Status: pending\n\nSet up PostgreSQL database"
+ *   }]
+ * });
+ *
+ * // Multiple operations in one call
+ * const result = await task({
+ *   document: "/project/setup.md",
+ *   operations: [
+ *     { operation: "create", title: "Task 1", content: "Status: pending\n\nContent 1" },
+ *     { operation: "create", title: "Task 2", content: "Status: pending\n\nContent 2" },
+ *     { operation: "list" }
+ *   ]
+ * });
+ *
+ * @throws {AddressingError} When document or task addresses are invalid or not found
+ * @throws {Error} When task operations fail due to content constraints or structural issues
+ */
+export async function task(
+  args: Record<string, unknown>,
+  _state: SessionState,
+  manager: DocumentManager
+): Promise<TaskBulkResponse> {
+  try {
+    // Validate operations array exists and is valid
+    const operations = args['operations'] as unknown;
+
+    if (!Array.isArray(operations)) {
+      throw new AddressingError(
+        'operations array is required and must be an array',
+        'MISSING_OPERATIONS',
+        { provided: operations, type: typeof operations }
+      );
+    }
+
+    if (operations.length === 0) {
+      throw new AddressingError(
+        'operations array cannot be empty - must contain at least one operation',
+        'EMPTY_OPERATIONS'
+      );
+    }
+
+    // Extract and validate document path
+    const documentPath = ToolIntegration.validateStringParameter(args['document'], 'document');
+
+    // Use addressing system for document validation
+    const { addresses } = ToolIntegration.validateAndParse({
+      document: documentPath
+    });
+
+    // Get document and validate existence
+    const document = await manager.getDocument(addresses.document.path);
+    if (document == null) {
+      throw new DocumentNotFoundError(addresses.document.path);
+    }
+
+    // Process all operations
+    return await processTaskOperations(addresses.document.path, operations, manager);
+
+  } catch (error) {
+    if (error instanceof AddressingError) {
+      const errorResponse = ToolIntegration.formatHierarchicalError(error, 'Verify task section structure and document organization');
+      throw new AddressingError(errorResponse.error, error.code, errorResponse.context as Record<string, unknown> | undefined);
+    }
+    throw new AddressingError(
+      `Task operation failed: ${error instanceof Error ? error.message : String(error)}`,
+      'OPERATION_FAILED'
+    );
+  }
+}
+
+/**
+ * Process bulk task operations
+ */
+async function processTaskOperations(
+  documentPath: string,
+  operations: Array<Record<string, unknown>>,
+  manager: DocumentManager
+): Promise<TaskBulkResponse> {
+  const results: TaskOperationResult[] = [];
+
+  for (const op of operations) {
+    try {
+      // Validate operation type
+      const operation = ToolIntegration.validateOperation(
+        op['operation'] ?? '',
+        ['create', 'edit', 'list'] as const,
+        'task'
+      );
+
+      // Get parsed document address
+      const { addresses } = ToolIntegration.validateAndParse({
+        document: documentPath
+      });
+
+      // Process based on operation type
+      if (operation === 'create') {
+        const title = ToolIntegration.validateOptionalStringParameter(op['title'], 'title');
+        const content = ToolIntegration.validateOptionalStringParameter(op['content'], 'content');
+        const taskSlug = ToolIntegration.validateOptionalStringParameter(op['task'], 'task');
+
+        if (title == null || content == null) {
+          throw new AddressingError('Missing required parameters for create: title and content', 'MISSING_PARAMETER');
+        }
+
+        const createResult = await createTask(manager, addresses, title, content, taskSlug);
+        if (createResult.task_created != null) {
+          results.push({
+            operation: 'create',
+            status: 'created',
+            task: createResult.task_created
+          });
+        }
+
+      } else if (operation === 'edit') {
+        const taskSlug = ToolIntegration.validateOptionalStringParameter(op['task'], 'task');
+        const content = ToolIntegration.validateOptionalStringParameter(op['content'], 'content');
+
+        if (taskSlug == null || content == null) {
+          throw new AddressingError('Missing required parameters for edit: task and content', 'MISSING_PARAMETER');
+        }
+
+        // Parse task address
+        const taskAddresses = ToolIntegration.validateAndParse({
+          document: documentPath,
+          task: taskSlug
+        });
+
+        if (taskAddresses.addresses.task == null) {
+          throw new AddressingError('Task address validation failed', 'INVALID_TASK');
+        }
+
+        await editTask(manager, taskAddresses.addresses, content);
+        results.push({
+          operation: 'edit',
+          status: 'updated'
+        });
+
+      } else if (operation === 'list') {
+        const statusFilter = ToolIntegration.validateOptionalStringParameter(op['status'], 'status');
+        const listResult = await listTasks(manager, addresses, statusFilter);
+
+        const result: TaskOperationResult = {
+          operation: 'list',
+          status: 'listed',
+          count: listResult.tasks?.length ?? 0
+        };
+
+        if (listResult.tasks != null) {
+          result.tasks = listResult.tasks;
+        }
+        if (listResult.hierarchical_summary != null) {
+          result.hierarchical_summary = listResult.hierarchical_summary;
+        }
+        if (listResult.next_task != null) {
+          result.next_task = listResult.next_task;
+        }
+
+        results.push(result);
+      }
+
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      results.push({
+        operation: (op['operation'] as 'create' | 'edit' | 'list') ?? 'create',
+        status: 'error',
+        error: message
+      });
+    }
+  }
+
+  return {
+    success: true,
+    document: documentPath,
+    operations_completed: results.filter(r => r.status !== 'error').length,
+    results,
+    timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
+  };
+}
+
+/**
+ * Internal task result for helper functions
+ */
+interface InternalTaskResult {
   tasks?: Array<{
     slug: string;
     title: string;
@@ -85,114 +326,6 @@ interface TaskResult {
     title: string;
     hierarchical_context?: TaskHierarchicalContext;
   };
-  timestamp: string;
-}
-
-/**
- * MCP tool for comprehensive task management with creation, editing, and listing capabilities
- *
- * Supports task lifecycle management including creation of new tasks, editing existing ones,
- * and intelligent filtering by status and document context. Uses hierarchical
- * addressing for precise task location and management.
- *
- * @param args - Task operation parameters including action, document paths, and task details
- * @param _state - MCP session state (unused in current implementation)
- * @returns Task operation results with created/edited tasks, document context, and filtered lists
- *
- * @example
- * // Create a new task
- * const result = await task({
- *   action: "create",
- *   document: "project/setup.md",
- *   title: "Initialize Database",
- *   status: "pending"
- * });
- *
- * // List tasks with filtering
- * const result = await task({
- *   action: "list",
- *   documents: ["project/setup.md", "api/auth.md"],
- *   status: "pending"
- * });
- *
- * // Edit existing task
- * const result = await task({
- *   action: "edit",
- *   document: "project/setup.md",
- *   task: "initialize-database",
- *   status: "in-progress"
- * });
- *
- * @throws {AddressingError} When document or task addresses are invalid or not found
- * @throws {Error} When task operations fail due to content constraints or structural issues
- */
-export async function task(
-  args: Record<string, unknown>,
-  _state: SessionState,
-  manager: DocumentManager
-): Promise<TaskResult> {
-  try {
-
-    // Validate parameters using ToolIntegration utilities
-    const documentPath = ToolIntegration.validateStringParameter(args['document'], 'document');
-    const operationRaw = args['operation'] ?? 'list';
-    const operation = ToolIntegration.validateOperation(
-      operationRaw,
-      ['list', 'create', 'edit'] as const,
-      'task'
-    );
-
-    const taskSlug = ToolIntegration.validateOptionalStringParameter(args['task'], 'task');
-    const content = ToolIntegration.validateOptionalStringParameter(args['content'], 'content');
-    const title = ToolIntegration.validateOptionalStringParameter(args['title'], 'title');
-    const statusFilter = ToolIntegration.validateOptionalStringParameter(args['status'], 'status');
-
-    // Use addressing system for validation and parsing
-    const { addresses } = ToolIntegration.validateAndParse({
-      document: documentPath,
-      ...(taskSlug != null && { task: taskSlug })
-    });
-
-    // Get document and validate existence
-    const document = await manager.getDocument(addresses.document.path);
-    if (document == null) {
-      throw new DocumentNotFoundError(addresses.document.path);
-    }
-
-    switch (operation) {
-      case 'list':
-        return await listTasks(manager, addresses, statusFilter);
-
-      case 'create':
-        if (title == null || content == null) {
-          throw new AddressingError('Missing required parameters for create: title and content', 'MISSING_PARAMETER');
-        }
-        return await createTask(manager, addresses, title, content, taskSlug);
-
-      case 'edit':
-        if (taskSlug == null || content == null) {
-          throw new AddressingError('Missing required parameters for edit: task and content', 'MISSING_PARAMETER');
-        }
-        if (addresses.task == null) {
-          throw new AddressingError('Task address validation failed', 'INVALID_TASK');
-        }
-        return await editTask(manager, addresses, content);
-
-      default:
-        // This should never happen due to validateOperation, but keep for type safety
-        throw new AddressingError(`Invalid operation: ${operation}. Must be one of: list, create, edit`, 'INVALID_OPERATION');
-    }
-
-  } catch (error) {
-    if (error instanceof AddressingError) {
-      const errorResponse = ToolIntegration.formatHierarchicalError(error, 'Verify task section structure and document organization');
-      throw new AddressingError(errorResponse.error, error.code, errorResponse.context as Record<string, unknown> | undefined);
-    }
-    throw new AddressingError(
-      `Task operation failed: ${error instanceof Error ? error.message : String(error)}`,
-      'OPERATION_FAILED'
-    );
-  }
 }
 
 /**
@@ -203,7 +336,7 @@ async function listTasks(
   manager: DocumentManager,
   addresses: { document: ReturnType<typeof parseDocumentAddress> },
   statusFilter?: string
-): Promise<TaskResult> {
+): Promise<InternalTaskResult> {
   try {
     // Get the document - existence already validated in main function
     const document = await manager.getDocument(addresses.document.path);
@@ -219,10 +352,7 @@ async function listTasks(
 
     if (tasksSection == null) {
       return {
-        operation: 'list',
-        document: addresses.document.path,
-        tasks: [],
-        timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
+        tasks: []
       };
     }
 
@@ -299,12 +429,9 @@ async function listTasks(
     const hierarchicalSummary = generateHierarchicalSummary(filteredTasks);
 
     return {
-      operation: 'list',
-      document: addresses.document.path,
       tasks: filteredTasks,
       ...(hierarchicalSummary != null && { hierarchical_summary: hierarchicalSummary }),
-      ...(nextTask != null && { next_task: nextTask }),
-      timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
+      ...(nextTask != null && { next_task: nextTask })
     };
 
   } catch (error) {
@@ -330,7 +457,7 @@ async function createTask(
   title: string,
   content: string,
   referenceSlug?: string
-): Promise<TaskResult> {
+): Promise<InternalTaskResult> {
   try {
     const taskSlug = titleToSlug(title);
     // Task slugs are just the title slug, not prefixed with "tasks/"
@@ -352,13 +479,10 @@ ${content}`;
     await performSectionEdit(manager, addresses.document.path, targetSection, taskContent, operation, title);
 
     return {
-      operation: 'create',
-      document: addresses.document.path,
       task_created: {
         slug: taskSlug,  // Return the actual task slug without prefix
         title
-      },
-      timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
+      }
     };
 
   } catch (error) {
@@ -382,7 +506,7 @@ async function editTask(
   manager: DocumentManager,
   addresses: { document: DocumentAddress; task?: TaskAddress },
   content: string
-): Promise<TaskResult> {
+): Promise<InternalTaskResult> {
   // Validate task address exists
   if (addresses.task == null) {
     throw new AddressingError('Task address is required for edit operation', 'MISSING_TASK');
@@ -391,11 +515,7 @@ async function editTask(
     // Update the task section with new content using validated addresses
     await performSectionEdit(manager, addresses.document.path, addresses.task.slug, content, 'replace');
 
-    return {
-      operation: 'edit',
-      document: addresses.document.path,
-      timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
-    };
+    return {};
 
   } catch (error) {
     if (error instanceof AddressingError) {

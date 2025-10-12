@@ -1,7 +1,21 @@
 /**
- * Schema definitions for task tool
+ * Schema definitions for task tool - Bulk operations only
  */
 
+/**
+ * Individual task operation within the operations array
+ */
+export interface TaskOperationSchema {
+  operation: 'create' | 'edit' | 'list';
+  title?: string;
+  content?: string;
+  task?: string;
+  status?: string;
+}
+
+/**
+ * Main input schema for bulk task operations
+ */
 export interface TaskInputSchema {
   type: 'object';
   properties: {
@@ -9,31 +23,40 @@ export interface TaskInputSchema {
       type: 'string';
       description: 'Document path (e.g., "/specs/search-api.md")';
     };
-    task: {
-      type: 'string';
-      description: 'Task slug to target (e.g., "#initialize-config", "#database-setup") or reference task for new task placement';
-    };
-    content: {
-      type: 'string';
-      description: 'Task content including link, status, dependencies';
-    };
-    operation: {
-      type: 'string';
-      enum: ['create', 'edit', 'list'];
-      default: 'list';
-      description: 'create: new task, edit: modify task, list: show tasks';
-    };
-    title: {
-      type: 'string';
-      description: 'Title for new task (required for create operation)';
-    };
-    status: {
-      type: 'string';
-      enum: ['pending', 'in_progress', 'completed', 'blocked'];
-      description: 'Task status filter for list operation or new status for edit operation';
+    operations: {
+      type: 'array';
+      description: 'Array of task operations to perform';
+      items: {
+        type: 'object';
+        properties: {
+          operation: {
+            type: 'string';
+            enum: ['create', 'edit', 'list'];
+            description: 'Task operation type';
+          };
+          title: {
+            type: 'string';
+            description: 'Task title (required for create)';
+          };
+          content: {
+            type: 'string';
+            description: 'Task content with optional @references';
+          };
+          task: {
+            type: 'string';
+            description: 'Task slug to edit (required for edit operation)';
+          };
+          status: {
+            type: 'string';
+            enum: ['pending', 'in_progress', 'completed', 'blocked'];
+            description: 'Filter by status for list operation';
+          };
+        };
+        required: ['operation'];
+      };
     };
   };
-  required: ['document'];
+  required: ['document', 'operations'];
   additionalProperties: false;
 }
 
@@ -69,7 +92,7 @@ export function isValidTaskStatus(status: string): boolean {
 }
 
 /**
- * Get the input schema for task tool
+ * Get the input schema for task tool (bulk operations only)
  */
 export function getTaskSchema(): TaskInputSchema {
   return {
@@ -79,31 +102,40 @@ export function getTaskSchema(): TaskInputSchema {
         type: 'string',
         description: 'Document path (e.g., "/specs/search-api.md")',
       },
-      task: {
-        type: 'string',
-        description: 'Task slug to target (e.g., "#initialize-config", "#database-setup") or reference task for new task placement',
-      },
-      content: {
-        type: 'string',
-        description: 'Task content including link, status, dependencies',
-      },
-      operation: {
-        type: 'string',
-        enum: ['create', 'edit', 'list'],
-        default: 'list',
-        description: 'create: new task, edit: modify task, list: show tasks',
-      },
-      title: {
-        type: 'string',
-        description: 'Title for new task (required for create operation)',
-      },
-      status: {
-        type: 'string',
-        enum: ['pending', 'in_progress', 'completed', 'blocked'],
-        description: 'Task status filter for list operation or new status for edit operation',
-      },
+      operations: {
+        type: 'array',
+        description: 'Array of task operations to perform',
+        items: {
+          type: 'object',
+          properties: {
+            operation: {
+              type: 'string',
+              enum: ['create', 'edit', 'list'],
+              description: 'Task operation type'
+            },
+            title: {
+              type: 'string',
+              description: 'Task title (required for create)'
+            },
+            content: {
+              type: 'string',
+              description: 'Task content with optional @references'
+            },
+            task: {
+              type: 'string',
+              description: 'Task slug to edit (required for edit operation)'
+            },
+            status: {
+              type: 'string',
+              enum: ['pending', 'in_progress', 'completed', 'blocked'],
+              description: 'Filter by status for list operation'
+            }
+          },
+          required: ['operation']
+        }
+      }
     },
-    required: ['document'],
+    required: ['document', 'operations'],
     additionalProperties: false,
   };
 }

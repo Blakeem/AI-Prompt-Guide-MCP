@@ -5,6 +5,7 @@
 export { createDocument } from './create-document.js';
 export { editDocument } from './edit-document.js';
 export { browseDocuments } from './browse-documents.js';
+export { searchDocuments } from './search-documents.js';
 export { section } from './section.js';
 export { move } from './move.js';
 export { deleteDocument } from './delete-document.js';

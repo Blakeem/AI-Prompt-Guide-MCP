@@ -17,6 +17,7 @@ import { getCompleteTaskSchema } from './schemas/complete-task-schemas.js';
 import { getStartTaskSchema } from './schemas/start-task-schemas.js';
 import { getMoveSchema } from './schemas/move-schemas.js';
 import { getEditDocumentSchema } from './schemas/edit-document-schemas.js';
+import { getSearchDocumentsSchema } from './schemas/search-documents-schemas.js';
 
 /**
  * Get all available tools based on session state
@@ -27,6 +28,11 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
       name: 'browse_documents',
       description: 'Unified browsing and searching of documents with namespace awareness and cross-namespace linking. Browse mode (no query) shows folder/file structure. Search mode (with query) performs content search.',
       inputSchema: getBrowseDocumentsSchema(),
+    },
+    {
+      name: 'search_documents',
+      description: 'Search across documents with full-text or regex patterns. Returns structured results with match context.',
+      inputSchema: getSearchDocumentsSchema(),
     },
   ];
 
@@ -46,7 +52,7 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'section',
-      description: 'Unified tool for ALL section operations: create, edit, and remove sections with automatic depth calculation',
+      description: 'Perform multiple section operations in a single call. Always pass operations as an array, even for single edits. Supports create, edit, and remove operations with automatic depth calculation.',
       inputSchema: getSectionSchema(),
     },
     {
@@ -66,7 +72,7 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'task',
-      description: 'Unified tool for task operations: create, edit, and list tasks with slug-based addressing',
+      description: 'Perform multiple task operations in a single call. Always pass operations as an array, even for single task operations. Supports create, edit, and list operations.',
       inputSchema: getTaskSchema(),
     },
     {
