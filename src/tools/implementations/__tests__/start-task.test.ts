@@ -30,32 +30,53 @@ describe('start_task tool', () => {
 
   describe('Parameter Validation', () => {
     it('should throw error when document parameter missing', async () => {
-      await expect(startTask({ task: 'some-task' }, sessionState, manager))
+      await expect(startTask({}, sessionState, manager))
         .rejects.toThrow('document parameter is required');
     });
 
-    it('should throw error when task parameter missing', async () => {
-      await expect(startTask({ document: '/project/tasks.md' }, sessionState, manager))
-        .rejects.toThrow('task parameter is required');
+    it('should accept sequential mode (document only)', async () => {
+      // Sequential mode - should find first pending/in_progress task
+      // This test verifies the parameter is accepted (actual behavior tested elsewhere)
+      const mockDocument = {
+        content: '# Project\n\n## Tasks\n\n### First Task\n\n- Status: pending',
+        headings: [
+          { slug: 'project', title: 'Project', depth: 1 },
+          { slug: 'tasks', title: 'Tasks', depth: 2 },
+          { slug: 'first-task', title: 'First Task', depth: 3 }
+        ],
+        sections: new Map([
+          ['project', ''],
+          ['tasks', ''],
+          ['first-task', '- Status: pending']
+        ]),
+        metadata: {
+          path: '/project/tasks.md',
+          title: 'Project',
+          lastModified: new Date(),
+          contentHash: 'mock-hash',
+          wordCount: 10
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
+      vi.spyOn(manager, 'getSectionContent').mockResolvedValue('- Status: pending');
+
+      const result = await startTask({ document: '/project/tasks.md' }, sessionState, manager);
+      expect(result).toHaveProperty('mode', 'sequential');
     });
 
     it('should throw error when document parameter is empty string', async () => {
-      await expect(startTask({ document: '', task: 'some-task' }, sessionState, manager))
+      await expect(startTask({ document: '' }, sessionState, manager))
         .rejects.toThrow();
     });
 
-    it('should throw error when task parameter is empty string', async () => {
-      await expect(startTask({ document: '/project/tasks.md', task: '' }, sessionState, manager))
-        .rejects.toThrow();
+    it('should throw error when task slug is empty after #', async () => {
+      await expect(startTask({ document: '/project/tasks.md#' }, sessionState, manager))
+        .rejects.toThrow('Task slug cannot be empty after #');
     });
 
     it('should throw error when document parameter is null', async () => {
-      await expect(startTask({ document: null, task: 'some-task' }, sessionState, manager))
-        .rejects.toThrow();
-    });
-
-    it('should throw error when task parameter is null', async () => {
-      await expect(startTask({ document: '/project/tasks.md', task: null }, sessionState, manager))
+      await expect(startTask({ document: null }, sessionState, manager))
         .rejects.toThrow();
     });
   });
@@ -66,8 +87,7 @@ describe('start_task tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(null);
 
       await expect(startTask({
-        document: '/nonexistent/doc.md',
-        task: 'some-task'
+        document: '/nonexistent/doc.md#some-task'
       }, sessionState, manager))
         .rejects.toThrow(DocumentNotFoundError);
     });
@@ -94,13 +114,12 @@ describe('start_task tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
 
       await expect(startTask({
-        document: '/project/doc.md',
-        task: 'some-task'
+        document: '/project/doc.md#some-task'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
 
-    it('should throw error when task not found in document', async () => {
+    it('should throw error when task not found in document (ad-hoc mode)', async () => {
       // Mock document with tasks section but different task
       const mockDocument = {
         content: '# Document\n\n## Tasks\n\n### Other Task\n\nContent',
@@ -127,8 +146,7 @@ describe('start_task tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(null);
 
       await expect(startTask({
-        document: '/project/tasks.md',
-        task: 'missing-task'
+        document: '/project/tasks.md#missing-task'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
@@ -161,8 +179,7 @@ describe('start_task tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
 
       await expect(startTask({
-        document: '/project/tasks.md',
-        task: 'overview' // Not under tasks section
+        document: '/project/tasks.md#overview' // Not under tasks section
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
@@ -216,8 +233,7 @@ Set up the project structure following best practices.`;
       }));
 
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'initialize-project'
+        document: '/project/tasks.md#initialize-project'
       }, sessionState, manager);
 
       expect(result).toHaveProperty('task');
@@ -258,8 +274,7 @@ Just a simple task without workflow.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'simple-task'
+        document: '/project/tasks.md#simple-task'
       }, sessionState, manager);
 
       expect(result.task).not.toHaveProperty('workflow');
@@ -304,8 +319,7 @@ Task with invalid workflow reference.`;
       }));
 
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'task-with-invalid-workflow'
+        document: '/project/tasks.md#task-with-invalid-workflow'
       }, sessionState, manager);
 
       // Should continue without workflow field
@@ -385,8 +399,7 @@ Implement the feature.`;
       }));
 
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'implement-feature'
+        document: '/project/tasks.md#implement-feature'
       }, sessionState, manager);
 
       expect(result.task).toHaveProperty('slug', 'implement-feature');
@@ -440,8 +453,7 @@ Second task.`;
       });
 
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'second-task'
+        document: '/project/tasks.md#second-task'
       }, sessionState, manager);
 
       expect(result.task).not.toHaveProperty('main_workflow');
@@ -471,8 +483,7 @@ Second task.`;
 
       // This should throw because there are no tasks at all
       await expect(startTask({
-        document: '/project/tasks.md',
-        task: 'nonexistent'
+        document: '/project/tasks.md#nonexistent'
       }, sessionState, manager))
         .rejects.toThrow();
     });
@@ -510,8 +521,7 @@ Task with empty workflow field.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'task-with-empty-workflow'
+        document: '/project/tasks.md#task-with-empty-workflow'
       }, sessionState, manager);
 
       // Empty workflow field should not add workflow property
@@ -553,8 +563,7 @@ Set up the database following the schema specification.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'setup-database'
+        document: '/project/tasks.md#setup-database'
       }, sessionState, manager);
 
       // Should attempt to load references (may fail due to mocking limitations)
@@ -595,8 +604,7 @@ No references in this task.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'simple-task'
+        document: '/project/tasks.md#simple-task'
       }, sessionState, manager);
 
       // Should not have referenced_documents if none present
@@ -639,8 +647,7 @@ Task referencing a non-existent document.`;
 
       // Should not throw, even with invalid reference
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'task-with-invalid-reference'
+        document: '/project/tasks.md#task-with-invalid-reference'
       }, sessionState, manager);
 
       expect(result.task).toHaveProperty('slug', 'task-with-invalid-reference');
@@ -698,8 +705,7 @@ Implement the REST API endpoints.`;
       });
 
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'implement-api'
+        document: '/project/tasks.md#implement-api'
       }, sessionState, manager);
 
       // Verify basic task data
@@ -747,8 +753,7 @@ A task with minimal metadata but has references.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'minimal-task'
+        document: '/project/tasks.md#minimal-task'
       }, sessionState, manager);
 
       expect(result.task).toHaveProperty('slug', 'minimal-task');
@@ -790,8 +795,7 @@ Test task content.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'test-task'
+        document: '/project/tasks.md#test-task'
       }, sessionState, manager);
 
       // Verify response structure matches specification
@@ -849,8 +853,7 @@ Implement a specific subtask.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await startTask({
-        document: '/project/tasks.md',
-        task: 'subtask-implementation'
+        document: '/project/tasks.md#subtask-implementation'
       }, sessionState, manager);
 
       expect(result.task).toHaveProperty('slug', 'subtask-implementation');
@@ -864,8 +867,7 @@ Implement a specific subtask.`;
 
       try {
         await startTask({
-          document: '/missing/doc.md',
-          task: 'some-task'
+          document: '/missing/doc.md#some-task'
         }, sessionState, manager);
         expect.fail('Should have thrown error');
       } catch (error) {
@@ -903,8 +905,7 @@ Implement a specific subtask.`;
 
       try {
         await startTask({
-          document: '/project/tasks.md',
-          task: 'missing-task'
+          document: '/project/tasks.md#missing-task'
         }, sessionState, manager);
         expect.fail('Should have thrown error');
       } catch (error) {
@@ -919,8 +920,7 @@ Implement a specific subtask.`;
       vi.spyOn(manager, 'getDocument').mockRejectedValue(new Error('Filesystem error'));
 
       await expect(startTask({
-        document: '/project/tasks.md',
-        task: 'some-task'
+        document: '/project/tasks.md#some-task'
       }, sessionState, manager))
         .rejects.toThrow('Filesystem error');
     });

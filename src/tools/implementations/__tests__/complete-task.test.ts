@@ -47,12 +47,37 @@ describe('complete_task tool', () => {
         .rejects.toThrow('document parameter is required');
     });
 
-    it('should throw error when task parameter missing', async () => {
+    it('should throw error when task parameter missing in sequential mode (no pending tasks)', async () => {
+      // In sequential mode (no # in document path), it tries to find next available task
+      const mockDocument = {
+        content: '# Project\n\n## Tasks\n\n### Completed Task\n\n- Status: completed',
+        headings: [
+          { slug: 'project', title: 'Project', depth: 1 },
+          { slug: 'tasks', title: 'Tasks', depth: 2 },
+          { slug: 'completed-task', title: 'Completed Task', depth: 3 }
+        ],
+        sections: new Map([
+          ['project', ''],
+          ['tasks', ''],
+          ['completed-task', '- Status: completed']
+        ]),
+        metadata: {
+          path: '/project/tasks.md',
+          title: 'Project',
+          lastModified: new Date(),
+          contentHash: 'mock-hash',
+          wordCount: 8
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
+      vi.spyOn(manager, 'getSectionContent').mockResolvedValue('- Status: completed');
+
       await expect(completeTask({
         document: '/project/tasks.md',
         note: 'Done'
       }, sessionState, manager))
-        .rejects.toThrow('task parameter is required');
+        .rejects.toThrow('No pending or in_progress tasks found');
     });
 
     it('should throw error when note parameter missing', async () => {
@@ -72,13 +97,12 @@ describe('complete_task tool', () => {
         .rejects.toThrow();
     });
 
-    it('should throw error when task parameter is empty string', async () => {
+    it('should throw error when task slug is empty after # in ad-hoc mode', async () => {
       await expect(completeTask({
-        document: '/project/tasks.md',
-        task: '',
+        document: '/project/tasks.md#',
         note: 'Done'
       }, sessionState, manager))
-        .rejects.toThrow();
+        .rejects.toThrow('Task slug cannot be empty after #');
     });
 
     it('should throw error when note parameter is empty string', async () => {
@@ -203,8 +227,7 @@ Second task with workflow.`;
       }));
 
       const result = await completeTask({
-        document: '/test.md',
-        task: 'first-task',
+        document: '/test.md#first-task',
         note: 'Completed first task'
       }, sessionState, manager);
 
@@ -213,9 +236,8 @@ Second task with workflow.`;
       expect(result.completed_task.slug).toBe('first-task');
       expect(result.completed_task.note).toBe('Completed first task');
 
-      // Verify next_task has workflow object (not just string)
-      expect(result.next_task).toBeDefined();
-      expect(result.next_task?.slug).toBe('second-task');
+      // Ad-hoc mode: next_task is undefined (only sequential mode provides next_task)
+      expect(result.next_task).toBeUndefined();
 
       // FUTURE IMPLEMENTATION: These assertions will pass once workflow injection is implemented
       // Due to vitest doMock limitations with module-level imports,
@@ -286,15 +308,12 @@ Second task without workflow.`;
       });
 
       const result = await completeTask({
-        document: '/test.md',
-        task: 'first-task',
+        document: '/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
-      expect(result.next_task).toBeDefined();
-      // FUTURE: workflow field should be undefined when no Workflow field present
-      const nextTaskWithWorkflow = result.next_task as unknown as { workflow?: unknown };
-      expect(nextTaskWithWorkflow.workflow).toBeUndefined();
+      // Ad-hoc mode: next_task is undefined (only sequential mode provides next_task)
+      expect(result.next_task).toBeUndefined();
     });
 
     it('should NOT inject workflow when next task has empty Workflow field', async () => {
@@ -342,15 +361,12 @@ Second task with empty workflow field.`;
       });
 
       const result = await completeTask({
-        document: '/test.md',
-        task: 'first-task',
+        document: '/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
-      expect(result.next_task).toBeDefined();
-      // FUTURE: workflow field should be undefined when Workflow field is empty
-      const nextTaskWithWorkflow = result.next_task as unknown as { workflow?: unknown };
-      expect(nextTaskWithWorkflow.workflow).toBeUndefined();
+      // Ad-hoc mode: next_task is undefined (only sequential mode provides next_task)
+      expect(result.next_task).toBeUndefined();
     });
 
     it('should handle workflow with invalid name gracefully', async () => {
@@ -404,16 +420,12 @@ Second task with invalid workflow.`;
       }));
 
       const result = await completeTask({
-        document: '/test.md',
-        task: 'first-task',
+        document: '/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
-      // Should continue without workflow (graceful degradation)
-      expect(result.next_task).toBeDefined();
-      // FUTURE: workflow field should be undefined for invalid workflow names
-      const nextTaskWithWorkflow = result.next_task as unknown as { workflow?: unknown };
-      expect(nextTaskWithWorkflow.workflow).toBeUndefined();
+      // Ad-hoc mode: next_task is undefined (only sequential mode provides next_task)
+      expect(result.next_task).toBeUndefined();
     });
   });
 
@@ -478,16 +490,12 @@ Second task.`;
       }));
 
       const result = await completeTask({
-        document: '/test.md',
-        task: 'first-task',
+        document: '/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
-      // Should have next_task
-      expect(result.next_task).toBeDefined();
-
-      // Should NOT have main_workflow (that's only for start_task)
-      expect(result.next_task).not.toHaveProperty('main_workflow');
+      // Ad-hoc mode: next_task is undefined (only sequential mode provides next_task)
+      expect(result.next_task).toBeUndefined();
     });
 
     it('should only have workflow field, never main_workflow', async () => {
@@ -536,15 +544,12 @@ Second task.`;
       });
 
       const result = await completeTask({
-        document: '/test.md',
-        task: 'first-task',
+        document: '/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
-      expect(result.next_task).toBeDefined();
-      expect(result.next_task).not.toHaveProperty('main_workflow');
-      // Due to mocking limitations, workflow field may not be present in unit test
-      // Integration tests should verify workflow field presence
+      // Ad-hoc mode: next_task is undefined (only sequential mode provides next_task)
+      expect(result.next_task).toBeUndefined();
     });
   });
 
@@ -607,18 +612,12 @@ Second task.`;
       }));
 
       const result = await completeTask({
-        document: '/test.md',
-        task: 'first-task',
+        document: '/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
-      expect(result.next_task).toBeDefined();
-
-      // Due to vitest doMock limitations, these assertions may not work in unit tests
-      // Integration tests should verify:
-      // - workflow is FULL object with name, description, content, whenToUse
-      // - content field contains full prompt markdown (not just a string name)
-      // - workflow is NOT just a string (that's for view_task)
+      // Ad-hoc mode: next_task is undefined (only sequential mode provides next_task)
+      expect(result.next_task).toBeUndefined();
     });
   });
 
@@ -655,8 +654,7 @@ Only task in document.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(singleTaskContent);
 
       const result = await completeTask({
-        document: '/test.md',
-        task: 'only-task',
+        document: '/test.md#only-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -718,14 +716,12 @@ Third task content.`;
       });
 
       const result = await completeTask({
-        document: '/test.md',
-        task: 'first-task',
+        document: '/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
-      expect(result.next_task).toBeDefined();
-      // findNextAvailableTask should return next sequential task
-      expect(result.next_task?.slug).toBe('second-task');
+      // Ad-hoc mode: next_task is undefined (only sequential mode provides next_task)
+      expect(result.next_task).toBeUndefined();
     });
 
     it('should handle last task in series (no next task)', async () => {
@@ -772,8 +768,7 @@ Last pending task.`;
       });
 
       const result = await completeTask({
-        document: '/test.md',
-        task: 'second-task',
+        document: '/test.md#second-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -816,8 +811,7 @@ Task content.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await completeTask({
-        document: '/test.md',
-        task: 'test-task',
+        document: '/test.md#test-task',
         note: 'Successfully completed all requirements'
       }, sessionState, manager);
 
@@ -860,8 +854,7 @@ Task content.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await completeTask({
-        document: '/test.md',
-        task: 'test-task',
+        document: '/test.md#test-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -907,7 +900,7 @@ Task content.`;
       }
     });
 
-    it('should provide helpful error message for missing task', async () => {
+    it('should provide helpful error message for missing task in ad-hoc mode', async () => {
       const mockDocument = {
         content: '# Project\n\n## Tasks\n\n### Other Task',
         headings: [
@@ -933,9 +926,9 @@ Task content.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(null);
 
       try {
+        // Use ad-hoc mode with # to specify task directly
         await completeTask({
-          document: '/project/tasks.md',
-          task: 'missing-task',
+          document: '/project/tasks.md#missing-task',
           note: 'Done'
         }, sessionState, manager);
         expect.fail('Should have thrown error');

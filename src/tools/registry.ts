@@ -77,12 +77,12 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'complete_task',
-      description: 'Mark tasks as completed with notes and get next available task with linked documents',
+      description: 'Mark a task as completed. TWO MODES: Sequential ("/doc.md") completes next pending task and returns next task. Ad-hoc ("/doc.md#task") completes ONLY that specific task (no next task returned). ⚠️ CRITICAL: Always use FULL PATH with #slug for assigned tasks or you will complete the WRONG TASK!',
       inputSchema: getCompleteTaskSchema(),
     },
     {
       name: 'start_task',
-      description: 'Start or resume work on a task with full context injection (main workflow, task workflow, and references). Use this when beginning a new session or resuming after context compression.',
+      description: 'Start work on a task. TWO MODES: Sequential ("/doc.md") starts first pending task with main+task workflows. Ad-hoc ("/doc.md#task") starts ONLY that task with task workflow only (no main workflow). ⚠️ CRITICAL: Always use FULL PATH with #slug for assigned tasks or you will start the WRONG TASK!',
       inputSchema: getStartTaskSchema(),
     },
     {

@@ -19,6 +19,7 @@ import type { HierarchicalContent } from '../../shared/reference-loader.js';
 import { enrichTaskWithWorkflow } from '../../shared/workflow-prompt-utilities.js';
 
 interface CompleteTaskResult {
+  mode: 'sequential' | 'adhoc';
   completed_task: {
     slug: string;
     title: string;
@@ -50,15 +51,38 @@ export async function completeTask(
 ): Promise<CompleteTaskResult> {
   try {
 
-    // Validate required parameters using ToolIntegration utilities
-    const documentPath = ToolIntegration.validateStringParameter(args['document'], 'document');
-    const taskSlug = ToolIntegration.validateStringParameter(args['task'], 'task');
+    // Mode Detection: Parse document parameter to detect mode
+    const documentParam = ToolIntegration.validateStringParameter(args['document'], 'document');
     const note = ToolIntegration.validateStringParameter(args['note'], 'note');
+
+    let mode: 'sequential' | 'adhoc';
+    let docPath: string;
+    let taskSlug: string | undefined;
+
+    if (documentParam.includes('#')) {
+      // Ad-hoc mode: Parse document + slug
+      const parts = documentParam.split('#');
+      docPath = parts[0] ?? documentParam;
+      taskSlug = parts[1];
+      mode = 'adhoc';
+
+      if (taskSlug == null || taskSlug === '') {
+        throw new AddressingError(
+          'Task slug cannot be empty after #',
+          'EMPTY_TASK_SLUG'
+        );
+      }
+    } else {
+      // Sequential mode: Document only
+      docPath = documentParam;
+      taskSlug = undefined;
+      mode = 'sequential';
+    }
 
     // Use addressing system for validation and parsing
     const { addresses } = ToolIntegration.validateAndParse({
-      document: documentPath,
-      task: taskSlug
+      document: docPath,
+      ...(taskSlug != null && { task: taskSlug })
     });
 
     // Get document and validate existence
@@ -67,17 +91,37 @@ export async function completeTask(
       throw new DocumentNotFoundError(addresses.document.path);
     }
 
-    // Validate task address exists
-    if (addresses.task == null) {
-      throw new AddressingError('Task address is required for complete operation', 'MISSING_TASK');
+    // Determine target task based on mode
+    let targetTaskSlug: string;
+
+    if (mode === 'adhoc') {
+      // Ad-hoc mode: Use the provided task slug
+      if (addresses.task == null) {
+        throw new AddressingError('Task address required for ad-hoc mode', 'MISSING_TASK');
+      }
+      targetTaskSlug = addresses.task.slug;
+    } else {
+      // Sequential mode: Find next available task
+      const nextTask = await findNextAvailableTask(manager, document, undefined);
+      if (nextTask == null) {
+        throw new AddressingError(
+          'No pending or in_progress tasks found in document',
+          'NO_AVAILABLE_TASKS',
+          {
+            document: addresses.document.path,
+            suggestion: 'All tasks may be completed. Use view_task to check task status.'
+          }
+        );
+      }
+      targetTaskSlug = nextTask.slug;
     }
 
-    // Get current task content using validated addresses
-    const currentContent = await manager.getSectionContent(addresses.document.path, addresses.task.slug);
+    // Get current task content using target task slug
+    const currentContent = await manager.getSectionContent(addresses.document.path, targetTaskSlug);
     if (currentContent == null || currentContent === '') {
-      throw new AddressingError(`Task not found: ${addresses.task.slug}`, 'TASK_NOT_FOUND', {
+      throw new AddressingError(`Task not found: ${targetTaskSlug}`, 'TASK_NOT_FOUND', {
         document: addresses.document.path,
-        task: addresses.task.slug
+        task: targetTaskSlug
       });
     }
 
@@ -88,11 +132,17 @@ export async function completeTask(
     const completedDate = new Date().toISOString().substring(0, 10);  // YYYY-MM-DD format
     const updatedContent = updateTaskStatus(currentContent, 'completed', note, completedDate);
 
-    // Update the task section with validated addresses
-    await performSectionEdit(manager, addresses.document.path, addresses.task.slug, updatedContent, 'replace');
+    // Update the task section with target task slug
+    await performSectionEdit(manager, addresses.document.path, targetTaskSlug, updatedContent, 'replace');
 
-    // Get next available task using shared utility
-    const nextTaskData = await findNextAvailableTask(manager, document, addresses.task.slug);
+    // Get next available task based on mode
+    let nextTaskData: { slug: string; title: string; status: string; link?: string; referencedDocuments?: HierarchicalContent[] } | null = null;
+
+    if (mode === 'sequential') {
+      // Sequential mode: Find next task after current one
+      nextTaskData = await findNextAvailableTask(manager, document, targetTaskSlug);
+    }
+    // In ad-hoc mode, nextTaskData remains null
 
     let nextTask: {
       slug: string;
@@ -148,8 +198,9 @@ export async function completeTask(
     }
 
     return {
+      mode,
       completed_task: {
-        slug: addresses.task.slug,
+        slug: targetTaskSlug,
         title: taskTitle,
         note,
         completed_date: completedDate

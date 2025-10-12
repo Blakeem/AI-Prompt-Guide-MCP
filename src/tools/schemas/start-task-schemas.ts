@@ -11,14 +11,10 @@ export interface StartTaskInputSchema {
   properties: {
     document: {
       type: 'string';
-      description: 'Document path (e.g., "/project/setup.md")';
-    };
-    task: {
-      type: 'string';
-      description: 'Task slug to start (e.g., "#initialize-project", "#database-setup")';
+      description: string;
     };
   };
-  required: ['document', 'task'];
+  required: ['document'];
   additionalProperties: false;
 }
 
@@ -31,14 +27,25 @@ export function getStartTaskSchema(): StartTaskInputSchema {
     properties: {
       document: {
         type: 'string',
-        description: 'Document path (e.g., "/project/setup.md")',
-      },
-      task: {
-        type: 'string',
-        description: 'Task slug to start (e.g., "#initialize-project", "#database-setup")',
+        description: `Document path with optional task slug.
+
+TWO MODES:
+1. Sequential: "/project/tasks.md"
+   → Starts first pending/in_progress task
+   → Injects main workflow + task workflow + references
+   → Use for systematic work through a project
+
+2. Ad-hoc: "/project/tasks.md#implement-auth"
+   → Starts ONLY the specified task
+   → Injects task workflow ONLY (no main workflow)
+   → Use when a specific task was assigned to you
+
+⚠️ IMPORTANT: If you were assigned a specific task, ALWAYS include the full path with #slug!
+Example: If assigned "#implement-auth", use "/project/tasks.md#implement-auth"
+Otherwise you will start the WRONG TASK!`,
       },
     },
-    required: ['document', 'task'],
+    required: ['document'],
     additionalProperties: false,
   };
 }
