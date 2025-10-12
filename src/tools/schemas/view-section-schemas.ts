@@ -7,14 +7,10 @@ export interface ViewSectionInputSchema {
   properties: {
     document: {
       type: 'string';
-      description: 'Document path (e.g., "/specs/auth-api.md")';
-    };
-    section: {
-      type: 'string' | 'array';
-      description: 'Section slug(s) to view (e.g., "#endpoints" or ["#endpoints", "#authentication"] for multiple)';
+      description: string;
     };
   };
-  required: ['document', 'section'];
+  required: ['document'];
   additionalProperties: false;
 }
 
@@ -52,14 +48,25 @@ export function getViewSectionSchema(): ViewSectionInputSchema {
     properties: {
       document: {
         type: 'string',
-        description: 'Document path (e.g., "/specs/auth-api.md")',
-      },
-      section: {
-        type: 'string',
-        description: 'Section slug(s) to view (e.g., "#endpoints" or ["#endpoints", "#authentication"] for multiple)',
+        description: `Document path with optional section slug(s).
+
+TWO MODES:
+1. Overview: "/api/auth.md"
+   → Returns list of ALL sections with slug, title, and depth (no content)
+   → Use for browsing document structure
+
+2. Detail: "/api/auth.md#endpoints"
+   → Returns FULL section content for the specified section
+   → Supports multiple sections: "/api/auth.md#endpoints,authentication,errors"
+   → Use for viewing specific section details
+
+Examples:
+- Overview: "/api/auth.md" → All sections (titles only)
+- Single detail: "/api/auth.md#endpoints" → Full section content
+- Multiple detail: "/api/auth.md#endpoints,auth" → Multiple full contents`,
       },
     },
-    required: ['document', 'section'],
+    required: ['document'],
     additionalProperties: false,
   };
 }

@@ -54,12 +54,11 @@ Should not appear in authentication.
 
   it('should not include next section heading in returned content', async () => {
     const result = await viewSection({
-      document: '/test-api.md',
-      section: 'overview'
+      document: '/test-api.md#overview'
     }, mockState, manager);
 
     // Extract content from result
-    const sections = (result as { sections: Array<{ content: string }> }).sections;
+    const sections = (result as { sections: Array<{ content?: string }> }).sections;
     expect(sections).toHaveLength(1);
 
     const firstSection = sections[0];
@@ -68,7 +67,7 @@ Should not appear in authentication.
       throw new Error('First section should be defined');
     }
 
-    const content = firstSection.content;
+    const content = firstSection.content ?? '';
 
     // Should include the section's own heading and content
     expect(content).toContain('## Overview');
@@ -81,11 +80,10 @@ Should not appear in authentication.
 
   it('should not include next section heading for middle sections', async () => {
     const result = await viewSection({
-      document: '/test-api.md',
-      section: 'authentication'
+      document: '/test-api.md#authentication'
     }, mockState, manager);
 
-    const sections = (result as { sections: Array<{ content: string }> }).sections;
+    const sections = (result as { sections: Array<{ content?: string }> }).sections;
     expect(sections).toHaveLength(1);
 
     const firstSection = sections[0];
@@ -94,7 +92,7 @@ Should not appear in authentication.
       throw new Error('First section should be defined');
     }
 
-    const content = firstSection.content;
+    const content = firstSection.content ?? '';
 
     // Should include authentication section content
     expect(content).toContain('## Authentication');
@@ -106,11 +104,10 @@ Should not appear in authentication.
 
   it('should handle last section correctly (no next heading to exclude)', async () => {
     const result = await viewSection({
-      document: '/test-api.md',
-      section: 'endpoints'
+      document: '/test-api.md#endpoints'
     }, mockState, manager);
 
-    const sections = (result as { sections: Array<{ content: string }> }).sections;
+    const sections = (result as { sections: Array<{ content?: string }> }).sections;
     expect(sections).toHaveLength(1);
 
     const firstSection = sections[0];
@@ -119,7 +116,7 @@ Should not appear in authentication.
       throw new Error('First section should be defined');
     }
 
-    const content = firstSection.content;
+    const content = firstSection.content ?? '';
 
     // Should include endpoints section content
     expect(content).toContain('## Endpoints');
@@ -131,18 +128,17 @@ Should not appear in authentication.
 
   it('should handle section with # prefix correctly', async () => {
     const result = await viewSection({
-      document: '/test-api.md',
-      section: '#overview'
+      document: '/test-api.md#overview'
     }, mockState, manager);
 
-    const sections = (result as { sections: Array<{ content: string }> }).sections;
+    const sections = (result as { sections: Array<{ content?: string }> }).sections;
     const firstSection = sections[0];
     expect(firstSection).toBeDefined();
     if (firstSection == null) {
       throw new Error('First section should be defined');
     }
 
-    const content = firstSection.content;
+    const content = firstSection.content ?? '';
 
     // Should NOT include next section heading
     expect(content).not.toContain('## Authentication');
@@ -150,18 +146,17 @@ Should not appear in authentication.
 
   it('should handle full path format correctly', async () => {
     const result = await viewSection({
-      document: '/test-api.md',
-      section: '/test-api.md#overview'
+      document: '/test-api.md#overview'
     }, mockState, manager);
 
-    const sections = (result as { sections: Array<{ content: string }> }).sections;
+    const sections = (result as { sections: Array<{ content?: string }> }).sections;
     const firstSection = sections[0];
     expect(firstSection).toBeDefined();
     if (firstSection == null) {
       throw new Error('First section should be defined');
     }
 
-    const content = firstSection.content;
+    const content = firstSection.content ?? '';
 
     // Should NOT include next section heading
     expect(content).not.toContain('## Authentication');

@@ -31,43 +31,165 @@ describe('view_task tool', () => {
 
   describe('Parameter Validation', () => {
     it('should throw error when document parameter missing', async () => {
-      await expect(viewTask({ task: 'some-task' }, sessionState, manager))
+      await expect(viewTask({}, sessionState, manager))
         .rejects.toThrow('document parameter is required');
     });
 
-    it('should throw error when task parameter missing', async () => {
-      await expect(viewTask({ document: '/project/tasks.md' }, sessionState, manager))
-        .rejects.toThrow('task parameter is required');
+    it('should accept overview mode (document only)', async () => {
+      // Overview mode - should return all tasks with minimal data
+      const mockDocument = {
+        content: '# Project\n\n## Tasks\n\n### First Task\n\n- Status: pending',
+        headings: [
+          { slug: 'project', title: 'Project', depth: 1 },
+          { slug: 'tasks', title: 'Tasks', depth: 2 },
+          { slug: 'first-task', title: 'First Task', depth: 3 }
+        ],
+        sections: new Map([
+          ['project', ''],
+          ['tasks', ''],
+          ['first-task', '- Status: pending']
+        ]),
+        metadata: {
+          path: '/project/tasks.md',
+          title: 'Project',
+          lastModified: new Date(),
+          contentHash: 'mock-hash',
+          wordCount: 10
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
+      vi.spyOn(manager, 'getSectionContent').mockResolvedValue('- Status: pending');
+
+      const result = await viewTask({ document: '/project/tasks.md' }, sessionState, manager);
+      expect(result).toHaveProperty('mode', 'overview');
     });
 
     it('should throw error when document parameter is empty string', async () => {
-      await expect(viewTask({ document: '', task: 'some-task' }, sessionState, manager))
+      await expect(viewTask({ document: '' }, sessionState, manager))
         .rejects.toThrow();
     });
 
-    it('should throw error when task parameter is empty string', async () => {
-      await expect(viewTask({ document: '/project/tasks.md', task: '' }, sessionState, manager))
-        .rejects.toThrow();
+    it('should throw error when task slug is empty after #', async () => {
+      await expect(viewTask({ document: '/project/tasks.md#' }, sessionState, manager))
+        .rejects.toThrow('Task slug(s) cannot be empty after #');
     });
 
     it('should throw error when document parameter is null', async () => {
-      await expect(viewTask({ document: null, task: 'some-task' }, sessionState, manager))
-        .rejects.toThrow();
-    });
-
-    it('should throw error when task parameter is null', async () => {
-      await expect(viewTask({ document: '/project/tasks.md', task: null }, sessionState, manager))
+      await expect(viewTask({ document: null }, sessionState, manager))
         .rejects.toThrow();
     });
 
     it('should throw error when task count exceeds limit', async () => {
-      const tasks = Array.from({ length: 11 }, (_, i) => `task-${i}`);
+      const tasks = Array.from({ length: 11 }, (_, i) => `task-${i}`).join(',');
 
       await expect(viewTask({
-        document: '/project/tasks.md',
-        task: tasks
+        document: `/project/tasks.md#${tasks}`
       }, sessionState, manager))
         .rejects.toThrow();
+    });
+  });
+
+  describe('Overview Mode', () => {
+    it('should return overview of all tasks when no task slug provided', async () => {
+      const task1Content = `### First Task
+
+- Status: pending
+- Workflow: multi-option-tradeoff
+
+First task content.`;
+
+      const task2Content = `### Second Task
+
+- Status: in_progress
+
+Second task content.`;
+
+      const task3Content = `### Third Task
+
+- Status: completed
+- Workflow: simplicity-gate
+
+Third task content.`;
+
+      const mockDocument = {
+        content: `# Project\n\n## Tasks\n\n${task1Content}\n\n${task2Content}\n\n${task3Content}`,
+        headings: [
+          { slug: 'project', title: 'Project', depth: 1 },
+          { slug: 'tasks', title: 'Tasks', depth: 2 },
+          { slug: 'first-task', title: 'First Task', depth: 3 },
+          { slug: 'second-task', title: 'Second Task', depth: 3 },
+          { slug: 'third-task', title: 'Third Task', depth: 3 }
+        ],
+        sections: new Map([
+          ['project', ''],
+          ['tasks', ''],
+          ['first-task', task1Content],
+          ['second-task', task2Content],
+          ['third-task', task3Content]
+        ]),
+        metadata: {
+          path: '/project/tasks.md',
+          title: 'Project',
+          lastModified: new Date(),
+          contentHash: 'mock-hash',
+          wordCount: 30
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
+      vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
+        if (slug === 'first-task') return task1Content;
+        if (slug === 'second-task') return task2Content;
+        if (slug === 'third-task') return task3Content;
+        return null;
+      });
+
+      const result = await viewTask({ document: '/project/tasks.md' }, sessionState, manager);
+
+      expect(result.mode).toBe('overview');
+      expect(result.tasks.length).toBe(3);
+
+      // Verify minimal data structure for each task
+      for (const task of result.tasks) {
+        expect(task).toHaveProperty('slug');
+        expect(task).toHaveProperty('title');
+        expect(task).toHaveProperty('status');
+        expect(task).toHaveProperty('depth');
+        expect(task).toHaveProperty('full_path');
+        expect(task).toHaveProperty('has_workflow');
+
+        // Should NOT have these fields in overview mode
+        expect(task.content).toBeUndefined();
+        expect(task.word_count).toBeUndefined();
+      }
+
+      // Verify specific task data
+      const firstTask = result.tasks[0];
+      const secondTask = result.tasks[1];
+      const thirdTask = result.tasks[2];
+
+      expect(firstTask).toBeDefined();
+      expect(firstTask?.slug).toBe('first-task');
+      expect(firstTask?.status).toBe('pending');
+      expect(firstTask?.has_workflow).toBe(true);
+      expect(firstTask?.workflow_name).toBe('multi-option-tradeoff');
+
+      expect(secondTask).toBeDefined();
+      expect(secondTask?.slug).toBe('second-task');
+      expect(secondTask?.status).toBe('in_progress');
+      expect(secondTask?.has_workflow).toBe(false);
+      expect(secondTask?.workflow_name).toBeUndefined();
+
+      expect(thirdTask).toBeDefined();
+      expect(thirdTask?.slug).toBe('third-task');
+      expect(thirdTask?.status).toBe('completed');
+      expect(thirdTask?.has_workflow).toBe(true);
+      expect(thirdTask?.workflow_name).toBe('simplicity-gate');
+
+      // Verify summary
+      expect(result.summary.total_tasks).toBe(3);
+      expect(result.summary.tasks_with_workflows).toBe(2);
     });
   });
 
@@ -76,8 +198,7 @@ describe('view_task tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(null);
 
       await expect(viewTask({
-        document: '/nonexistent/doc.md',
-        task: 'some-task'
+        document: '/nonexistent/doc.md#some-task'
       }, sessionState, manager))
         .rejects.toThrow(DocumentNotFoundError);
     });
@@ -103,8 +224,7 @@ describe('view_task tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
 
       await expect(viewTask({
-        document: '/project/doc.md',
-        task: 'some-task'
+        document: '/project/doc.md#some-task'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
@@ -135,8 +255,7 @@ describe('view_task tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(null);
 
       await expect(viewTask({
-        document: '/project/tasks.md',
-        task: 'missing-task'
+        document: '/project/tasks.md#missing-task'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
@@ -168,8 +287,7 @@ describe('view_task tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
 
       await expect(viewTask({
-        document: '/project/tasks.md',
-        task: 'overview'
+        document: '/project/tasks.md#overview'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
@@ -209,8 +327,7 @@ Task content here.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md',
-        task: 'test-task'
+        document: '/test.md#test-task'
       }, sessionState, manager);
 
       expect(result.tasks).toHaveLength(1);
@@ -253,8 +370,7 @@ No workflow here.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md',
-        task: 'simple-task'
+        document: '/test.md#simple-task'
       }, sessionState, manager);
 
       expect(result.tasks[0]).not.toHaveProperty('workflow_name');
@@ -294,8 +410,7 @@ Empty workflow field.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md',
-        task: 'task-with-empty-workflow'
+        document: '/test.md#task-with-empty-workflow'
       }, sessionState, manager);
 
       expect(result.tasks[0]).not.toHaveProperty('workflow_name');
@@ -357,8 +472,7 @@ Empty workflow.`;
       });
 
       const result = await viewTask({
-        document: '/test.md',
-        task: ['task-with-workflow', 'task-without-workflow', 'task-with-empty-workflow']
+        document: '/test.md#task-with-workflow,task-without-workflow,task-with-empty-workflow'
       }, sessionState, manager);
 
       expect(result.tasks).toHaveLength(3);
@@ -424,8 +538,7 @@ Second task content.`;
       });
 
       const result = await viewTask({
-        document: '/test.md',
-        task: ['first-task', 'second-task']
+        document: '/test.md#first-task,second-task'
       }, sessionState, manager);
 
       // Both tasks should have main_workflow_name
@@ -482,8 +595,7 @@ Second task.`;
       });
 
       const result = await viewTask({
-        document: '/test.md',
-        task: ['first-task', 'second-task']
+        document: '/test.md#first-task,second-task'
       }, sessionState, manager);
 
       // Neither task should have main_workflow_name
@@ -524,8 +636,7 @@ Empty main workflow field.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(firstTaskContent);
 
       const result = await viewTask({
-        document: '/test.md',
-        task: 'first-task'
+        document: '/test.md#first-task'
       }, sessionState, manager);
 
       expect(result.tasks[0]).not.toHaveProperty('main_workflow_name');
@@ -578,8 +689,7 @@ Second task.`;
 
       // View only second task
       const result = await viewTask({
-        document: '/test.md',
-        task: 'second-task'
+        document: '/test.md#second-task'
       }, sessionState, manager);
 
       // Second task should still get main_workflow_name from first task
@@ -634,8 +744,7 @@ No workflow.`;
       });
 
       const result = await viewTask({
-        document: '/test.md',
-        task: ['task-1', 'task-2']
+        document: '/test.md#task-1,task-2'
       }, sessionState, manager);
 
       expect(result.summary).toHaveProperty('tasks_with_workflows', 1);
@@ -686,8 +795,7 @@ Second task.`;
       });
 
       const result = await viewTask({
-        document: '/test.md',
-        task: ['first-task', 'second-task']
+        document: '/test.md#first-task,second-task'
       }, sessionState, manager);
 
       // Both tasks have access to main workflow from first task
@@ -738,8 +846,7 @@ Also no workflow.`;
       });
 
       const result = await viewTask({
-        document: '/test.md',
-        task: ['task-1', 'task-2']
+        document: '/test.md#task-1,task-2'
       }, sessionState, manager);
 
       expect(result.summary).toHaveProperty('tasks_with_workflows', 0);
@@ -779,8 +886,7 @@ Task content.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md',
-        task: 'test-task'
+        document: '/test.md#test-task'
       }, sessionState, manager);
 
       // Verify existing summary fields
@@ -829,8 +935,7 @@ Task content.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md',
-        task: 'test-task'
+        document: '/test.md#test-task'
       }, sessionState, manager);
 
       // Verify workflow_name is a string
@@ -876,8 +981,7 @@ First task.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(firstTaskContent);
 
       const result = await viewTask({
-        document: '/test.md',
-        task: 'first-task'
+        document: '/test.md#first-task'
       }, sessionState, manager);
 
       // Verify main_workflow_name is a string
@@ -924,8 +1028,7 @@ Task with both workflow types.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md',
-        task: 'test-task'
+        document: '/test.md#test-task'
       }, sessionState, manager);
 
       // Should have name fields only
@@ -981,11 +1084,11 @@ Test task content.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/project/tasks.md',
-        task: 'test-task'
+        document: '/project/tasks.md#test-task'
       }, sessionState, manager);
 
       // Verify response structure
+      expect(result).toHaveProperty('mode', 'detail');
       expect(result).toHaveProperty('document');
       expect(result).toHaveProperty('tasks');
       expect(result).toHaveProperty('summary');
@@ -1052,8 +1155,7 @@ Second task.`;
       });
 
       const result = await viewTask({
-        document: '/test.md',
-        task: ['task-1', 'task-2']
+        document: '/test.md#task-1,task-2'
       }, sessionState, manager);
 
       expect(result.tasks).toHaveLength(2);
@@ -1096,8 +1198,7 @@ Implement feature according to specification.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md',
-        task: 'complex-task'
+        document: '/test.md#complex-task'
       }, sessionState, manager);
 
       const task = result.tasks[0];
@@ -1159,8 +1260,7 @@ Second task with its own workflow.`;
       });
 
       const result = await viewTask({
-        document: '/test.md',
-        task: ['first-task', 'second-task']
+        document: '/test.md#first-task,second-task'
       }, sessionState, manager);
 
       // Both should have main_workflow_name from first task

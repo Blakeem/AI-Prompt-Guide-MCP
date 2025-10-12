@@ -16,6 +16,7 @@ import { getTaskHeadings } from '../../shared/task-utilities.js';
 import {
   enrichTaskWithReferences,
   calculateTaskSummary,
+  extractTaskMetadata,
   type TaskViewData
 } from '../../shared/task-view-utilities.js';
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
@@ -25,18 +26,19 @@ import { extractWorkflowName, extractMainWorkflowName } from '../../shared/workf
  * Clean response format for view_task
  */
 interface ViewTaskResponse {
+  mode: 'overview' | 'detail';
   document: string;
   tasks: Array<{
     slug: string;
     title: string;
-    content: string;
+    content?: string;  // Only in detail mode
     depth: number;
     full_path: string;
     parent?: string;
     status: string;
     linked_document?: string;
     referenced_documents?: HierarchicalContent[];
-    word_count: number;
+    word_count?: number;  // Only in detail mode
     workflow_name?: string;
     main_workflow_name?: string;
     has_workflow: boolean;
@@ -60,20 +62,49 @@ export async function viewTask(
   manager: DocumentManager
 ): Promise<ViewTaskResponse> {
 
-  // Import helper functions (now handled by standardized validation)
-  // const { parseTasks, validateTaskCount } = await import('../schemas/view-task-schemas.js');
+  // Mode Detection: Parse document parameter to detect mode
+  const documentParam = ToolIntegration.validateStringParameter(args['document'], 'document');
 
-  // Validate required parameters using standardized utilities
-  const documentPath = ToolIntegration.validateDocumentParameter(args['document']);
-  const tasks = ToolIntegration.validateArrayParameter(args['task'], 'task');
+  let mode: 'overview' | 'detail';
+  let docPath: string;
+  let taskSlugs: string[] | undefined;
 
-  // Validate count using standardized utility
-  ToolIntegration.validateCountLimit(tasks, 10, 'tasks');
+  if (documentParam.includes('#')) {
+    // Detail mode: Parse document + slug(s)
+    const parts = documentParam.split('#');
+    docPath = parts[0] ?? documentParam;
+    const slugsPart = parts[1];
+    mode = 'detail';
+
+    if (slugsPart == null || slugsPart === '') {
+      throw new AddressingError(
+        'Task slug(s) cannot be empty after #',
+        'EMPTY_TASK_SLUG'
+      );
+    }
+
+    // Support comma-separated slugs: #task1,task2,task3
+    taskSlugs = slugsPart.split(',').map(s => s.trim()).filter(s => s !== '');
+
+    if (taskSlugs.length === 0) {
+      throw new AddressingError(
+        'At least one task slug required in detail mode',
+        'NO_TASK_SLUGS'
+      );
+    }
+
+    // Validate count using standardized utility
+    ToolIntegration.validateCountLimit(taskSlugs, 10, 'tasks');
+  } else {
+    // Overview mode: Document only
+    docPath = documentParam;
+    taskSlugs = undefined;
+    mode = 'overview';
+  }
 
   // Use addressing system for document validation
   const { addresses } = ToolIntegration.validateAndParse({
-    document: documentPath,
-    // We don't use task here because we need to handle multiple tasks manually
+    document: docPath
   });
 
   // Get document
@@ -93,6 +124,63 @@ export async function viewTask(
       document: addresses.document.path
     });
   }
+
+  // Handle Overview Mode: Return all tasks with minimal data (no content)
+  if (mode === 'overview') {
+    const taskHeadings = await getTaskHeadings(document, tasksSection);
+
+    // Process all tasks with minimal data
+    const overviewTasks = await Promise.all(
+      taskHeadings.map(async (heading) => {
+        const content = await manager.getSectionContent(addresses.document.path, heading.slug) ?? '';
+        const metadata = extractTaskMetadata(content);
+        const workflowName = extractWorkflowName(content);
+
+        return {
+          slug: heading.slug,
+          title: heading.title,
+          status: metadata.status,
+          depth: heading.depth,
+          full_path: `${addresses.document.path}#${heading.slug}`,
+          has_workflow: workflowName != null && workflowName !== '',
+          ...(workflowName != null && workflowName !== '' && { workflow_name: workflowName })
+        };
+      })
+    );
+
+    // Calculate summary for overview
+    const statusCounts: Record<string, number> = {};
+    let tasksWithWorkflows = 0;
+
+    for (const task of overviewTasks) {
+      statusCounts[task.status] = (statusCounts[task.status] ?? 0) + 1;
+      if (task.has_workflow) tasksWithWorkflows++;
+    }
+
+    return {
+      mode: 'overview',
+      document: addresses.document.path,
+      tasks: overviewTasks,
+      summary: {
+        total_tasks: overviewTasks.length,
+        by_status: statusCounts,
+        with_links: 0,
+        with_references: 0,
+        tasks_with_workflows: tasksWithWorkflows,
+        tasks_with_main_workflow: 0
+      }
+    };
+  }
+
+  // Detail Mode: Process specified tasks with full content
+  // At this point we're in detail mode, so taskSlugs must be defined
+  if (taskSlugs == null) {
+    throw new AddressingError(
+      'Internal error: taskSlugs undefined in detail mode',
+      'INTERNAL_ERROR'
+    );
+  }
+  const tasks = taskSlugs;
 
   // Parse and validate all tasks using addressing system
   // Use Promise.allSettled for non-critical view operations to handle partial failures gracefully
@@ -276,7 +364,7 @@ export async function viewTask(
     const viewData: TaskViewData = {
       slug: task.slug,
       title: task.title,
-      content: task.content,
+      content: task.content ?? '',  // Default to empty string for summary calculation
       status: task.status
     };
 
@@ -299,6 +387,7 @@ export async function viewTask(
   const tasksWithMainWorkflow = processedTasks.filter(task => task.main_workflow_name != null).length;
 
   return {
+    mode: 'detail',
     document: addresses.document.path,
     tasks: processedTasks,
     summary: {

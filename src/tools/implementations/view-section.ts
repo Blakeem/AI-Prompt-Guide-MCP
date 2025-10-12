@@ -21,17 +21,18 @@ import { ReferenceExtractor } from '../../shared/reference-extractor.js';
  * Enhanced response format for view_section with hierarchical support
  */
 interface ViewSectionResponse {
+  mode: 'overview' | 'detail';
   document: string;
   sections: Array<{
     slug: string;
     title: string;
-    content: string;
+    content?: string;  // Only in detail mode
     depth: number;
     full_path: string;
     parent?: string;
-    word_count: number;
-    links: string[];
-    hierarchical_context: HierarchicalContext | null;
+    word_count?: number;  // Only in detail mode
+    links?: string[];  // Only in detail mode
+    hierarchical_context?: HierarchicalContext | null;  // Only in detail mode
   }>;
   summary: {
     total_sections: number;
@@ -55,20 +56,49 @@ export async function viewSection(
   manager: DocumentManager
 ): Promise<ViewSectionResponse> {
 
-  // Import helper functions (now handled by standardized validation)
-  // const { parseSections, validateSectionCount } = await import('../schemas/view-section-schemas.js');
+  // Mode Detection: Parse document parameter to detect mode
+  const documentParam = ToolIntegration.validateStringParameter(args['document'], 'document');
 
-  // Validate required parameters using standardized utilities
-  const documentPath = ToolIntegration.validateDocumentParameter(args['document']);
-  const sections = ToolIntegration.validateArrayParameter(args['section'], 'section');
+  let mode: 'overview' | 'detail';
+  let docPath: string;
+  let sectionSlugs: string[] | undefined;
 
-  // Validate count using standardized utility
-  ToolIntegration.validateCountLimit(sections, 10, 'sections');
+  if (documentParam.includes('#')) {
+    // Detail mode: Parse document + slug(s)
+    const parts = documentParam.split('#');
+    docPath = parts[0] ?? documentParam;
+    const slugsPart = parts[1];
+    mode = 'detail';
+
+    if (slugsPart == null || slugsPart === '') {
+      throw new AddressingError(
+        'Section slug(s) cannot be empty after #',
+        'EMPTY_SECTION_SLUG'
+      );
+    }
+
+    // Support comma-separated slugs: #section1,section2,section3
+    sectionSlugs = slugsPart.split(',').map(s => s.trim()).filter(s => s !== '');
+
+    if (sectionSlugs.length === 0) {
+      throw new AddressingError(
+        'At least one section slug required in detail mode',
+        'NO_SECTION_SLUGS'
+      );
+    }
+
+    // Validate count using standardized utility
+    ToolIntegration.validateCountLimit(sectionSlugs, 10, 'sections');
+  } else {
+    // Overview mode: Document only
+    docPath = documentParam;
+    sectionSlugs = undefined;
+    mode = 'overview';
+  }
 
   // Use addressing system for document validation
   const { addresses } = ToolIntegration.validateAndParse({
-    document: documentPath,
-    // We don't use section here because we need to handle multiple sections manually
+    document: docPath
   });
 
   // Get document
@@ -76,6 +106,48 @@ export async function viewSection(
   if (document == null) {
     throw new DocumentNotFoundError(addresses.document.path);
   }
+
+  // Handle Overview Mode: Return all sections with minimal data (no content)
+  if (mode === 'overview') {
+    // Get all sections from document headings
+    const overviewSections = document.headings.map(heading => ({
+      slug: heading.slug,
+      title: heading.title,
+      depth: heading.depth,
+      full_path: `${addresses.document.path}#${heading.slug}`
+    }));
+
+    // Calculate summary statistics
+    const maxDepth = Math.max(...document.headings.map(h => h.depth), 0);
+    const namespaces: string[] = []; // Overview mode doesn't load hierarchical context
+
+    return {
+      mode: 'overview',
+      document: addresses.document.path,
+      sections: overviewSections,
+      summary: {
+        total_sections: overviewSections.length,
+        total_words: 0,  // Not calculated in overview mode
+        has_content: true,
+        hierarchical_stats: {
+          max_depth: maxDepth,
+          namespaces,
+          flat_sections: overviewSections.length,
+          hierarchical_sections: 0
+        }
+      }
+    };
+  }
+
+  // Detail Mode: Process specified sections with full content
+  // At this point we're in detail mode, so sectionSlugs must be defined
+  if (sectionSlugs == null) {
+    throw new AddressingError(
+      'Internal error: sectionSlugs undefined in detail mode',
+      'INTERNAL_ERROR'
+    );
+  }
+  const sections = sectionSlugs;
 
   // Parse and validate all sections using addressing system
   // Use Promise.allSettled for non-critical view operations to handle partial failures gracefully
@@ -206,8 +278,8 @@ export async function viewSection(
 
   const summary = {
     total_sections: processedSections.length,
-    total_words: processedSections.reduce((sum, section) => sum + section.word_count, 0),
-    has_content: processedSections.some(section => section.content.trim() !== ''),
+    total_words: processedSections.reduce((sum, section) => sum + (section.word_count ?? 0), 0),
+    has_content: processedSections.some(section => (section.content ?? '').trim() !== ''),
     hierarchical_stats: {
       max_depth: maxDepth,
       namespaces,
@@ -217,6 +289,7 @@ export async function viewSection(
   };
 
   return {
+    mode: 'detail',
     document: addresses.document.path,
     sections: processedSections,
     summary

@@ -7,14 +7,10 @@ export interface ViewTaskInputSchema {
   properties: {
     document: {
       type: 'string';
-      description: 'Document path (e.g., "/specs/auth-api.md")';
-    };
-    task: {
-      type: 'string' | 'array';
-      description: 'Task slug(s) to view (e.g., "#initialize-config" or ["#initialize-config", "#database-setup"] for multiple)';
+      description: string;
     };
   };
-  required: ['document', 'task'];
+  required: ['document'];
   additionalProperties: false;
 }
 
@@ -52,14 +48,25 @@ export function getViewTaskSchema(): ViewTaskInputSchema {
     properties: {
       document: {
         type: 'string',
-        description: 'Document path (e.g., "/specs/auth-api.md")',
-      },
-      task: {
-        type: 'string',
-        description: 'Task slug(s) to view (e.g., "#initialize-config" or ["#initialize-config", "#database-setup"] for multiple)',
+        description: `Document path with optional task slug(s).
+
+TWO MODES:
+1. Overview: "/project/tasks.md"
+   → Returns list of ALL tasks with slug, title, and status (no content)
+   → Use for browsing available tasks in a document
+
+2. Detail: "/project/tasks.md#implement-auth"
+   → Returns FULL task content for the specified task
+   → Supports multiple tasks: "/project/tasks.md#task1,task2,task3"
+   → Use for viewing specific task details
+
+Examples:
+- Overview: "/api/tasks.md" → All tasks (titles + status only)
+- Single detail: "/api/tasks.md#implement-auth" → Full task content
+- Multiple detail: "/api/tasks.md#task1,task2" → Multiple full contents`,
       },
     },
-    required: ['document', 'task'],
+    required: ['document'],
     additionalProperties: false,
   };
 }

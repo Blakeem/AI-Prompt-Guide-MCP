@@ -92,12 +92,12 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'view_section',
-      description: 'View specific sections with clean content data. Supports single or multiple sections without stats overhead.',
+      description: 'View document sections. TWO MODES: Overview ("/doc.md") lists ALL sections with titles only. Detail ("/doc.md#section") shows full content for specified section(s). Supports multiple: "/doc.md#section1,section2"',
       inputSchema: getViewSectionSchema(),
     },
     {
       name: 'view_task',
-      description: 'View specific tasks with clean task data including status. Supports single or multiple tasks.',
+      description: 'View document tasks. TWO MODES: Overview ("/doc.md") lists ALL tasks with status only. Detail ("/doc.md#task") shows full content for specified task(s). Supports multiple: "/doc.md#task1,task2"',
       inputSchema: getViewTaskSchema(),
     },
   ];

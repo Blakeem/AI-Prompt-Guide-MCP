@@ -275,33 +275,44 @@ Complete task lifecycle through bulk operations: create, edit, and list.
 ### 🔄 Task Workflow Tools
 
 #### `start_task` - Start Work with Full Context
-Begin task work with complete workflow and documentation context injection.
+Begin task work with complete workflow and documentation context injection using unified path addressing.
+
+**Two Modes:**
+- **Sequential**: `/project/tasks.md` - Starts first pending/in_progress task
+- **Ad-hoc**: `/project/tasks.md#implement-auth` - Starts specific task only
 
 **Injects:**
-- **Task-specific workflow** - Process guidance
-- **Main workflow** - Project methodology
-- **Referenced documents** - Hierarchical context tree
+- **Task-specific workflow** - Process guidance (both modes)
+- **Main workflow** - Project methodology (sequential mode only)
+- **Referenced documents** - Hierarchical context tree (both modes)
 
-**Capabilities:**
-- **Session-aware** - re-injects main workflow after context compression
-- **Hierarchical loading** of @references up to configured depth
-- **Complete context** for starting or resuming work
+**Key Difference:**
+- **Sequential mode**: Full context with main workflow (for new/resumed sessions)
+- **Ad-hoc mode**: Task workflow only, no main workflow (for assigned tasks)
 
 **Use when:** Starting tasks or resuming after context loss
+
+⚠️ **Important**: Always use full path with `#slug` when assigned a specific task, or you will start the WRONG TASK!
 
 ---
 
 #### `complete_task` - Finish and Get Next
-Mark task complete and receive next task with workflow context.
+Mark task complete and optionally receive next task using unified path addressing.
+
+**Two Modes:**
+- **Sequential**: `/project/tasks.md` - Completes next pending task, returns next available task
+- **Ad-hoc**: `/project/tasks.md#implement-auth` - Completes ONLY that specific task (no next task returned)
 
 **Capabilities:**
 - **Status updates** with completion notes
-- **Automatic next-task** detection
+- **Automatic next-task** detection (sequential mode only)
 - **Task workflow injection** for next work item
 - **Reference loading** for next task context
-- **Minimal duplication** - skips main workflow injection
+- **Minimal duplication** - skips main workflow injection (always)
 
 **Use when:** Completing tasks in ongoing sessions
+
+⚠️ **Important**: Always use full path with `#slug` when assigned a specific task, or you will complete the WRONG TASK!
 
 ---
 
@@ -320,29 +331,51 @@ Inspect document structure with complete statistics and metadata.
 
 ---
 
-#### `view_section` - Clean Section Content
-View section content with reference extraction and hierarchy detection.
+#### `view_section` - View Document Sections
+View section content with reference extraction and hierarchy detection using unified path addressing.
 
-**Capabilities:**
-- **Batch viewing** up to 10 sections
-- **Reference extraction** from content
-- **Hierarchy detection** for structure
-- **Summary statistics** across sections
+**Two Modes:**
+- **Overview**: `/api/auth.md` - Lists ALL sections with titles and depth only (fast discovery)
+- **Detail**: `/api/auth.md#endpoints` - Shows full content for specified section(s)
 
-**Use when:** Reading section content
+**Overview Mode:**
+- Returns `slug`, `title`, `depth`, `full_path` for all sections
+- No content loading (fast)
+- Use for discovering document structure
+
+**Detail Mode:**
+- Full content with references and hierarchy
+- Supports multiple sections: `/api/auth.md#endpoints,authentication`
+- Batch viewing up to 10 sections
+- Word counts and link extraction
+
+**Use when:**
+- Overview: Discovering what sections exist
+- Detail: Reading specific section content
 
 ---
 
-#### `view_task` - Lightweight Task Inspection
-Browse task metadata and workflow names without full context loading.
+#### `view_task` - View Document Tasks
+Browse task metadata and workflow names using unified path addressing.
 
-**Provides:**
-- Task status and metadata
-- Workflow names (lightweight)
-- Reference lists
-- Batch support for multiple tasks
+**Two Modes:**
+- **Overview**: `/project/tasks.md` - Lists ALL tasks with status only (fast discovery)
+- **Detail**: `/project/tasks.md#implement-auth` - Shows full content for specified task(s)
 
-**Use when:** Browsing tasks without loading full context
+**Overview Mode:**
+- Returns `slug`, `title`, `status`, `depth`, `workflow_name` for all tasks
+- No full content loading (fast)
+- Use for discovering available tasks
+
+**Detail Mode:**
+- Full task content with references and workflows
+- Supports multiple tasks: `/project/tasks.md#task1,task2`
+- Batch viewing up to 10 tasks
+- Complete metadata and context
+
+**Use when:**
+- Overview: Browsing available tasks
+- Detail: Viewing specific task details
 
 ---
 
