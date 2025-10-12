@@ -424,8 +424,12 @@ The system includes a **powerful workflow prompt system** that lets you create c
 
 Workflow prompts are `.md` (Markdown) files that codify proven problem-solving frameworks:
 
+- **TDD Incremental Orchestration** - Multi-agent coordination with test-driven development
+- **Incremental Orchestration** - Multi-agent coordination with flexible testing
+- **Code Review: Section-Based** - Parallel review with agents assigned to code sections
+- **Code Review: Issue-Based** - Parallel review with agents assigned to issue types
 - **Multi-Option Trade-off** - Structured decision-making with weighted criteria
-- **Spec-First Integration** - Ensuring correctness before implementing new features
+- **Spec-First Integration** - Ensuring correctness before implementing
 - **Failure Triage & Minimal Repro** - Converting bug reports into actionable fixes
 - **Causal Flow Mapping** - Debugging complex cause-effect chains
 - **Simplicity Gate** - Keeping solutions simple after non-negotiables are met
@@ -442,9 +446,6 @@ whenToUse:
   - "When facing situation A"
   - "When needing to accomplish goal B"
   - "When dealing with constraint C"
-tags:
-  - "decision-making"
-  - "your-domain"
 ---
 
 # My Custom Workflow
@@ -506,7 +507,7 @@ touch my-team-process.md
 ```
 
 **Step 2: Define your methodology**
-- Add YAML frontmatter with `title`, `description`, `whenToUse`, and `tags`
+- Add YAML frontmatter with `title`, `description`, and `whenToUse`
 - Write structured process steps in Markdown
 - Include examples and common pitfalls
 - Keep it focused (200-500 lines ideal)
@@ -544,16 +545,25 @@ pnpm build && npx @modelcontextprotocol/inspector node dist/index.js
 
 ### Built-In Workflows
 
-The system includes 8+ production-ready workflows:
+The system includes 12 production-ready workflows:
 
-1. **multi-option-tradeoff** - Structured decision-making with weighted criteria
-2. **spec-first-integration** - Spec-driven API integration
-3. **failure-triage-repro** - Bug triage with minimal reproduction
-4. **causal-flow-mapping** - Cause→effect debugging
-5. **simplicity-gate** - Complexity budgets and Occam's Razor
-6. **guardrailed-rollout** - Safe deployment with automatic rollback
-7. **evidence-based-experiment** - Hypothesis-driven testing
-8. **interface-diff-adaptation** - Handling breaking API changes
+**Main Workflows** (Project Methodology - Use in First Task):
+- **tdd-incremental-orchestration** - Multi-agent coordination with TDD discipline, quality gates, and staged integration
+- **incremental-orchestration** - Multi-agent coordination with flexible testing and staged integration
+- **code-review-section-based** - Parallel code review with 10 agents, each reviewing specific sections
+- **code-review-issue-based** - Parallel code review with 10 agents, each focusing on specific issue types
+
+**Task Workflows** (Task-Specific Guidance):
+- **spec-first-integration** - Spec-driven API integration for correctness
+- **multi-option-tradeoff** - Structured decision-making with weighted criteria
+- **failure-triage-repro** - Bug triage with minimal reproduction
+- **causal-flow-mapping** - Cause→effect debugging for complex systems
+- **simplicity-gate** - Complexity budgets after non-negotiables met
+- **guardrailed-rollout** - Safe deployment with automatic rollback
+- **evidence-based-experiment** - Hypothesis-driven testing
+- **interface-diff-adaptation** - Handling breaking API changes
+
+**Note:** Main Workflows can also be used as Task Workflows depending on context. The distinction is flexible.
 
 See the [complete workflow documentation](docs/WORKFLOW-PROMPTS.md) for detailed examples and API reference.
 

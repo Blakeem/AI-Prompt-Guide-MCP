@@ -40,7 +40,7 @@ export interface TaskInputSchema {
           };
           content: {
             type: 'string';
-            description: 'Task content with optional @references';
+            description: 'Task content with optional @references and workflow metadata (Workflow: workflow-name, Main-Workflow: workflow-name). Available workflows: tdd-incremental-orchestration, incremental-orchestration, code-review-section-based, code-review-issue-based, spec-first-integration, multi-option-tradeoff, failure-triage-repro, causal-flow-mapping, simplicity-gate, guardrailed-rollout, evidence-based-experiment, interface-diff-adaptation';
           };
           task: {
             type: 'string';
@@ -119,7 +119,7 @@ export function getTaskSchema(): TaskInputSchema {
             },
             content: {
               type: 'string',
-              description: 'Task content with optional @references'
+              description: 'Task content with optional @references and workflow metadata (Workflow: workflow-name, Main-Workflow: workflow-name). Available workflows: tdd-incremental-orchestration, incremental-orchestration, code-review-section-based, code-review-issue-based, spec-first-integration, multi-option-tradeoff, failure-triage-repro, causal-flow-mapping, simplicity-gate, guardrailed-rollout, evidence-based-experiment, interface-diff-adaptation'
             },
             task: {
               type: 'string',
