@@ -1,0 +1,14 @@
+{
+  "name": "ai-prompt-guide",
+  "version": "1.0.0",
+  "description": "Intelligent document management and agent orchestration workflows for AI-assisted development",
+  "author": {
+    "name": "Blake McDonald",
+    "url": "https://github.com/Blakeem"
+  },
+  "homepage": "https://github.com/Blakeem/AI-Prompt-Guide-MCP",
+  "repository": "https://github.com/Blakeem/AI-Prompt-Guide-MCP",
+  "license": "MIT",
+  "keywords": ["documentation", "mcp", "workflows", "agent-orchestration", "tdd"],
+  "mcpServers": "./.mcp.json"
+}
