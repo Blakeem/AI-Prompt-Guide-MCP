@@ -7,6 +7,8 @@ import type { CachedDocument } from '../../document-cache.js';
 import { AddressingError, DocumentNotFoundError } from '../../shared/addressing-system.js';
 import * as sections from '../../sections.js';
 import * as fsio from '../../fsio.js';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 
 describe('edit_document Tool', () => {
   let sessionState: SessionState;
@@ -434,6 +436,59 @@ describe('edit_document Tool', () => {
       const resultObj = result as Record<string, unknown>;
       expect(Array.isArray(resultObj['changes_made'])).toBe(true);
       expect(typeof resultObj['timestamp']).toBe('string');
+    });
+  });
+
+  describe('Integration - File I/O with bypassValidation', () => {
+    let testDir: string;
+
+    beforeEach(() => {
+      // Create test directory structure
+      testDir = join(process.cwd(), `.test-edit-document-${Date.now()}`);
+      const apiSpecsDir = join(testDir, 'api', 'specs');
+      mkdirSync(apiSpecsDir, { recursive: true });
+
+      // Create test document in nested directory
+      const testDocPath = join(apiSpecsDir, 'test-alpha-api.md');
+      const testContent = `# Test Alpha API
+
+This is the original overview content.
+
+## Endpoints
+
+API endpoints documentation.
+`;
+      writeFileSync(testDocPath, testContent, 'utf-8');
+    });
+
+    afterEach(() => {
+      // Clean up test directory
+      if (testDir != null) {
+        rmSync(testDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should read and write file with absolute path using bypassValidation', async () => {
+      // This test verifies the FIX for the bypassValidation bug in edit_document tool
+      // Before the fix, readFileSnapshot and writeFileIfUnchanged would fail with "File not found"
+      // when called with absolute paths in the edit_document implementation
+
+      const { readFileSnapshot, writeFileIfUnchanged } = await import('../../fsio.js');
+      const absolutePath = join(testDir, 'api', 'specs', 'test-alpha-api.md');
+
+      // This should NOT throw "File not found" error with bypassValidation
+      const snapshot = await readFileSnapshot(absolutePath, { bypassValidation: true });
+      expect(snapshot.content).toContain('# Test Alpha API');
+      expect(snapshot.content).toContain('This is the original overview content');
+
+      // writeFileIfUnchanged checks mtime - if file changes between read and write, it fails
+      // For this test, we just need to verify that bypassValidation works (no "File not found")
+      // So we'll use the same mtime and write the same content - the important part is no error
+      await expect(writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, snapshot.content, { bypassValidation: true }))
+        .resolves.not.toThrow();
+
+      // The real test: these operations should complete without "File not found" errors
+      // which would have occurred without the bypassValidation fix
     });
   });
 });

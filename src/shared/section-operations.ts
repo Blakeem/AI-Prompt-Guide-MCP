@@ -51,13 +51,13 @@ export async function performSectionEdit(
     const absolutePath = path.join(config.docsBasePath, normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath);
     const { readFileSnapshot, writeFileIfUnchanged } = await import('../fsio.js');
 
-    const snapshot = await readFileSnapshot(absolutePath);
+    const snapshot = await readFileSnapshot(absolutePath, { bypassValidation: true });
 
     // Get the content that will actually be removed (matches deleteSection behavior)
     const removedContent = getSectionContentForRemoval(snapshot.content, sectionSlug) ?? '';
 
     const updatedContent = deleteSection(snapshot.content, sectionSlug);
-    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updatedContent);
+    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updatedContent, { bypassValidation: true });
 
     return {
       action: 'removed',

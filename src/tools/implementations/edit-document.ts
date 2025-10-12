@@ -53,7 +53,7 @@ export async function editDocument(
     const absolutePath = path.join(config.docsBasePath, addresses.document.path);
 
     // Read current file content
-    const snapshot = await readFileSnapshot(absolutePath);
+    const snapshot = await readFileSnapshot(absolutePath, { bypassValidation: true });
     let content = snapshot.content;
 
     // Track changes made
@@ -131,7 +131,7 @@ export async function editDocument(
     }
 
     // Write updated content
-    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, content);
+    await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, content, { bypassValidation: true });
 
     // Invalidate cache
     manager.cache.invalidateDocument(addresses.document.path);
