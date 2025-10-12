@@ -4,9 +4,10 @@
  */
 
 import type { DocumentManager } from '../../document-manager.js';
-import { analyzeDocumentSuggestions, analyzeNamespacePatterns } from '../../shared/utilities.js';
+import { analyzeDocumentSuggestions, analyzeNamespacePatterns, performSectionEdit } from '../../shared/utilities.js';
 import { parseDocumentAddress, AddressingError } from '../../shared/addressing-system.js';
 import type { SmartSuggestions, NamespacePatterns } from '../schemas/create-document-schemas.js';
+import { getGlobalLogger } from '../../utils/logger.js';
 
 /**
  * Document creation result
@@ -50,7 +51,8 @@ export async function createDocumentFile(
   manager: DocumentManager,
   content: string,
   docPath: string,
-  slug: string
+  slug: string,
+  includeTasks: boolean
 ): Promise<DocumentCreationResult | FileCreationError> {
   try {
     // Validate the document path using addressing system
@@ -90,6 +92,30 @@ export async function createDocumentFile(
     // Refresh the cache to get the updated document
     await refreshDocumentCache(manager, docPath);
 
+    // Create Tasks section if requested
+    if (includeTasks === true) {
+      try {
+        await performSectionEdit(
+          manager,
+          docPath,
+          slug, // Parent section (document title)
+          'Task list for this document.',
+          'append_child',
+          'Tasks'
+        );
+        // Refresh cache again after adding Tasks section
+        await refreshDocumentCache(manager, docPath);
+      } catch (error) {
+        // Log error but don't fail the entire document creation
+        const logger = getGlobalLogger();
+        logger.warn('Failed to create Tasks section', {
+          docPath,
+          slug,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
     // Get created document info
     const document = await manager.getDocument(docPath);
     const headings = document?.headings ?? [];
@@ -105,7 +131,12 @@ export async function createDocumentFile(
       ]);
     } catch (error) {
       // If suggestions fail, just continue without them - not critical
-      console.error('Failed to generate suggestions:', error);
+      const logger = getGlobalLogger();
+      logger.warn('Failed to generate suggestions', {
+        docPath,
+        namespace,
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
 
     // Build result with proper optional property handling

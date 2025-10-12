@@ -432,6 +432,39 @@ export function parseDocumentAddress(docPath: string): DocumentAddress {
 }
 
 /**
+ * Normalize section input to handle # prefix with document context
+ *
+ * When a section reference starts with # but doesn't contain /, it's
+ * document-context addressing (e.g., "#overview" with context "/api/auth.md").
+ * Strip the # prefix and treat as plain slug for consistent parsing.
+ *
+ * @param section - Section reference that may have # prefix
+ * @returns Normalized section reference without leading # for context-based addressing
+ *
+ * @example Context-based addressing
+ * ```typescript
+ * normalizeSectionInput('#overview') // Returns: 'overview'
+ * normalizeSectionInput('overview')  // Returns: 'overview'
+ * ```
+ *
+ * @example Full path (unchanged)
+ * ```typescript
+ * normalizeSectionInput('/doc.md#slug')   // Returns: '/doc.md#slug'
+ * normalizeSectionInput('#api/auth/jwt')  // Returns: '#api/auth/jwt'
+ * ```
+ */
+function normalizeSectionInput(section: string): string {
+  // If starts with # but contains no /, it's document-context addressing
+  // Strip the # and treat as plain slug
+  if (section.startsWith('#') && !section.includes('/')) {
+    return section.slice(1);
+  }
+
+  // Otherwise return as-is (plain slug or full path)
+  return section;
+}
+
+/**
  * Normalize a hierarchical slug by removing # prefix and normalizing path components
  *
  * @param slug - Raw slug that may contain hierarchical paths
@@ -459,6 +492,9 @@ export function parseSectionAddress(sectionRef: string, contextDoc?: string): Se
     throw new InvalidAddressError(String(sectionRef), 'Section reference must be a string');
   }
 
+  // Normalize input to handle # prefix with document context
+  const normalizedRef = normalizeSectionInput(sectionRef);
+
   // Check cache first - early return if cached
   const cacheKey = `${sectionRef}|${contextDoc ?? ''}`;
   const cached = cache.getSection(cacheKey);
@@ -467,7 +503,7 @@ export function parseSectionAddress(sectionRef: string, contextDoc?: string): Se
   }
 
   // Parse section reference into document path and section slug
-  const { documentPath, sectionSlug } = parseSectionReference(sectionRef, contextDoc);
+  const { documentPath, sectionSlug } = parseSectionReference(normalizedRef, contextDoc);
 
   // Normalize slug - early validation for empty slug
   const normalizedSlug = normalizeHierarchicalSlug(sectionSlug);
