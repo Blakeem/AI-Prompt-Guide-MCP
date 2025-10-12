@@ -75,16 +75,16 @@ Use `start_task` whenever a session restarts; it re-injects the project’s main
 
 Two metadata fields control workflow injection:
 
-- **Main-Workflow** – Project-level methodology defined in the first task of a document. Reappears only when work restarts (e.g., after compression or new session). Examples: `spec-first-integration`, `causal-flow-mapping`.
-- **Workflow** – Task-level guidance. Injected every time the task is addressed. Examples: `multi-option-tradeoff`, `simplicity-gate`.
+- **Main-Workflow** – Project-level methodology defined in the first task of a document. Reappears only when work restarts (e.g., after compression or new session). Popular choices include `incremental-orchestration` and `tdd-incremental-orchestration`.
+- **Workflow** – Task-level guidance. Injected every time the task is addressed. Useful options include `spec-first-integration`, `multi-option-tradeoff`, `failure-triage-repro`, and `code-review-issue-based`.
 
 Example task definition:
 
 ```markdown
 ### Design API Architecture
 - Status: pending
-- Main-Workflow: spec-first-integration   # project methodology (first task only)
-- Workflow: multi-option-tradeoff         # task-specific process
+- Main-Workflow: incremental-orchestration   # project methodology (first task only)
+- Workflow: spec-first-integration           # task-specific process
 
 Design the REST API architecture.
 
@@ -136,9 +136,9 @@ At startup the server loads Markdown files from two directories:
 Logs summarize the load:
 
 ```
-[INFO] Loading workflow prompts from directory { directory: '/workflows', fileCount: 12, prefix: 'workflow_' }
+[INFO] Loading workflow prompts from directory { directory: '/workflows', fileCount: 6, prefix: 'workflow_' }
 [INFO] Loading workflow prompts from directory { directory: '/guides', fileCount: 4, prefix: 'guide_' }
-[INFO] Workflow prompts loaded from all directories { loaded: 16, failed: 0, directories: 2 }
+[INFO] Workflow prompts loaded from all directories { loaded: 10, failed: 0, directories: 2 }
 ```
 
 Use your MCP client’s `prompts/list` command to discover them dynamically.
@@ -208,7 +208,21 @@ Implement JWT authentication following the API spec.
 
 ### Built-In Prompts
 
-The repository ships with 12 workflow prompts (incremental orchestration, code review variants, decision frameworks, integration checklists, and more) and 4 guide prompts covering documentation standards and best practices. Consult `docs/WORKFLOW-PROMPTS.md` for detail on each prompt and advanced authoring tips.
+The repository includes six workflow prompts:
+- `workflow_code-review-issue-based`
+- `workflow_failure-triage-repro`
+- `workflow_incremental-orchestration`
+- `workflow_multi-option-tradeoff`
+- `workflow_spec-first-integration`
+- `workflow_tdd-incremental-orchestration`
+
+and four documentation guides:
+- `guide_activate-guide-documentation`
+- `guide_activate-specification-documentation`
+- `guide_documentation_standards`
+- `guide_research_best_practices`
+
+Consult `docs/WORKFLOW-PROMPTS.md` for detailed descriptions and authoring guidance.
 
 ## Getting Started
 
