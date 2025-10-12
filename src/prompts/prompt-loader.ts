@@ -24,76 +24,49 @@ const logger = getGlobalLogger();
 const PROMPT_FILE_EXTENSION = '.md';
 
 /**
- * Loads all workflow prompts from a directory
+ * Directory configuration for prompt loading
+ */
+export interface DirectoryConfig {
+  /** Path to the directory */
+  path: string;
+  /** Optional prefix to add to prompt names from this directory */
+  prefix?: string;
+}
+
+/**
+ * Loads all workflow prompts from one or more directories
  */
 export class PromptLoader {
-  private readonly promptsDirectory: string;
+  private readonly directories: DirectoryConfig[];
   private readonly errors: PromptLoadError[] = [];
 
-  constructor(promptsDirectory: string) {
-    this.promptsDirectory = promptsDirectory;
+  /**
+   * Create a new PromptLoader
+   * @param directories - Single directory config or array of directory configs
+   */
+  constructor(directories: DirectoryConfig | DirectoryConfig[]) {
+    this.directories = Array.isArray(directories) ? directories : [directories];
   }
 
   /**
-   * Load all workflow prompts from the prompts directory
+   * Load all workflow prompts from configured directories
    * @returns Array of loaded workflow prompts
    */
   async loadAll(): Promise<WorkflowPrompt[]> {
     this.errors.length = 0; // Clear previous errors
+    const allPrompts: WorkflowPrompt[] = [];
 
-    // Check if directory exists
-    try {
-      await readdir(this.promptsDirectory);
-    } catch (error) {
-      logger.warn('Prompts directory not found', {
-        directory: this.promptsDirectory,
-        error: error instanceof Error ? error.message : String(error)
-      });
-      return [];
-    }
-
-    // Read all files in directory
-    let files: string[];
-    try {
-      files = await readdir(this.promptsDirectory);
-    } catch (error) {
-      logger.error('Failed to read prompts directory', {
-        directory: this.promptsDirectory,
-        error: error instanceof Error ? error.message : String(error)
-      });
-      return [];
-    }
-
-    // Filter for .wfp.md files
-    const promptFiles = files.filter(f => f.endsWith(PROMPT_FILE_EXTENSION));
-
-    if (promptFiles.length === 0) {
-      logger.warn('No workflow prompt files found', {
-        directory: this.promptsDirectory,
-        extension: PROMPT_FILE_EXTENSION
-      });
-      return [];
-    }
-
-    logger.info('Loading workflow prompts', {
-      directory: this.promptsDirectory,
-      fileCount: promptFiles.length
-    });
-
-    // Load and parse each file
-    const prompts: WorkflowPrompt[] = [];
-    for (const file of promptFiles) {
-      const prompt = await this.loadPromptFile(file);
-      if (prompt != null) {
-        prompts.push(prompt);
-      }
+    // Process each directory
+    for (const dirConfig of this.directories) {
+      const prompts = await this.loadFromDirectory(dirConfig);
+      allPrompts.push(...prompts);
     }
 
     // Log summary
-    logger.info('Workflow prompts loaded', {
-      loaded: prompts.length,
+    logger.info('Workflow prompts loaded from all directories', {
+      loaded: allPrompts.length,
       failed: this.errors.length,
-      total: promptFiles.length
+      directories: this.directories.length
     });
 
     // Log errors if any
@@ -108,16 +81,82 @@ export class PromptLoader {
       }
     }
 
+    return allPrompts;
+  }
+
+  /**
+   * Load prompts from a single directory
+   * @param dirConfig - Directory configuration
+   * @returns Array of loaded workflow prompts from this directory
+   */
+  private async loadFromDirectory(dirConfig: DirectoryConfig): Promise<WorkflowPrompt[]> {
+    const { path: promptsDirectory, prefix } = dirConfig;
+
+    // Check if directory exists
+    try {
+      await readdir(promptsDirectory);
+    } catch (error) {
+      logger.warn('Prompts directory not found', {
+        directory: promptsDirectory,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return [];
+    }
+
+    // Read all files in directory
+    let files: string[];
+    try {
+      files = await readdir(promptsDirectory);
+    } catch (error) {
+      logger.error('Failed to read prompts directory', {
+        directory: promptsDirectory,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return [];
+    }
+
+    // Filter for .md files
+    const promptFiles = files.filter(f => f.endsWith(PROMPT_FILE_EXTENSION));
+
+    if (promptFiles.length === 0) {
+      logger.warn('No workflow prompt files found', {
+        directory: promptsDirectory,
+        extension: PROMPT_FILE_EXTENSION
+      });
+      return [];
+    }
+
+    logger.info('Loading workflow prompts from directory', {
+      directory: promptsDirectory,
+      fileCount: promptFiles.length,
+      prefix: prefix ?? 'none'
+    });
+
+    // Load and parse each file
+    const prompts: WorkflowPrompt[] = [];
+    for (const file of promptFiles) {
+      const prompt = await this.loadPromptFile(promptsDirectory, file, prefix);
+      if (prompt != null) {
+        prompts.push(prompt);
+      }
+    }
+
     return prompts;
   }
 
   /**
    * Load and parse a single prompt file
+   * @param directory - The directory containing the file
    * @param filename - The filename to load
+   * @param prefix - Optional prefix to add to the prompt name
    * @returns Parsed workflow prompt or null if loading failed
    */
-  private async loadPromptFile(filename: string): Promise<WorkflowPrompt | null> {
-    const filepath = join(this.promptsDirectory, filename);
+  private async loadPromptFile(
+    directory: string,
+    filename: string,
+    prefix?: string
+  ): Promise<WorkflowPrompt | null> {
+    const filepath = join(directory, filename);
     const nameWithoutExt = basename(filename, PROMPT_FILE_EXTENSION);
 
     // Validate filename format
@@ -190,18 +229,22 @@ export class PromptLoader {
       return null;
     }
 
-    // Convert to WorkflowPrompt
-    return this.convertToWorkflowPrompt(parsed);
+    // Convert to WorkflowPrompt with optional prefix
+    return this.convertToWorkflowPrompt(parsed, prefix);
   }
 
   /**
    * Convert parsed prompt file to WorkflowPrompt format
    * @param parsed - Parsed prompt file data
+   * @param prefix - Optional prefix to add to the prompt name
    * @returns WorkflowPrompt object
    */
-  private convertToWorkflowPrompt(parsed: ParsedPromptFile): WorkflowPrompt {
+  private convertToWorkflowPrompt(parsed: ParsedPromptFile, prefix?: string): WorkflowPrompt {
+    // Apply prefix if provided and not empty
+    const name = (prefix != null && prefix !== '') ? `${prefix}${parsed.filename}` : parsed.filename;
+
     return {
-      name: parsed.filename,
+      name,
       description: parsed.frontmatter.description ?? '',
       content: parsed.content,
       tags: parsed.frontmatter.tags ?? [],

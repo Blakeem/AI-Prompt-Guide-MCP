@@ -77,7 +77,8 @@ export function resolveWorkflowPrompt(workflowName: string): WorkflowPrompt | nu
   }
 
   try {
-    const prompt = getWorkflowPrompt(workflowName);
+    // Add workflow_ prefix when looking up prompts (prompts are stored with prefix)
+    const prompt = getWorkflowPrompt(`workflow_${workflowName}`);
     return prompt ?? null;
   } catch {
     // Return null on any error (prompts not loaded, etc.)

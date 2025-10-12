@@ -34,6 +34,7 @@ let cachedPrompts: WorkflowPrompt[] | null = null;
 
 /**
  * Load workflow prompts from filesystem
+ * Loads from both workflows/ and guides/ directories with appropriate prefixes
  * @returns Promise resolving to array of workflow prompts
  */
 export async function loadWorkflowPrompts(): Promise<WorkflowPrompt[]> {
@@ -42,9 +43,13 @@ export async function loadWorkflowPrompts(): Promise<WorkflowPrompt[]> {
   }
 
   const config = loadConfig();
-  const promptsDirectory = join(config.docsBasePath, '../workflows');
+  const workflowsDirectory = join(config.docsBasePath, '../workflows');
+  const guidesDirectory = join(config.docsBasePath, '../guides');
 
-  const loader = new PromptLoader(promptsDirectory);
+  const loader = new PromptLoader([
+    { path: workflowsDirectory, prefix: 'workflow_' },
+    { path: guidesDirectory, prefix: 'guide_' }
+  ]);
   cachedPrompts = await loader.loadAll();
 
   return cachedPrompts;

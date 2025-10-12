@@ -418,21 +418,52 @@ Move documents to different paths or namespaces.
 
 ## Creating Custom Workflow Prompts
 
-The system includes a **powerful workflow prompt system** that lets you create custom, reusable methodologies for AI agents. Workflow prompts are structured instructions that guide agents through complex problem-solving patterns.
+The system includes a **unified prompt system** that automatically loads both workflows and guides as MCP prompts at server startup.
 
-### What Are Workflow Prompts?
+### Prompt Loading Architecture
 
-Workflow prompts are `.md` (Markdown) files that codify proven problem-solving frameworks:
+**At Startup:**
+All Markdown files from two directories are loaded as MCP prompts with automatic prefix assignment:
 
-- **TDD Incremental Orchestration** - Multi-agent coordination with test-driven development
-- **Incremental Orchestration** - Multi-agent coordination with flexible testing
-- **Code Review: Section-Based** - Parallel review with agents assigned to code sections
-- **Code Review: Issue-Based** - Parallel review with agents assigned to issue types
-- **Multi-Option Trade-off** - Structured decision-making with weighted criteria
-- **Spec-First Integration** - Ensuring correctness before implementing
-- **Failure Triage & Minimal Repro** - Converting bug reports into actionable fixes
-- **Causal Flow Mapping** - Debugging complex cause-effect chains
-- **Simplicity Gate** - Keeping solutions simple after non-negotiables are met
+```
+[INFO] Loading workflow prompts from directory { directory: '/workflows', fileCount: 12, prefix: 'workflow_' }
+[INFO] Loading workflow prompts from directory { directory: '/guides', fileCount: 4, prefix: 'guide_' }
+[INFO] Workflow prompts loaded from all directories { loaded: 16, failed: 0, directories: 2 }
+```
+
+**Directory Structure:**
+```
+.ai-prompt-guide/
+├── workflows/          → Loaded with 'workflow_' prefix
+│   ├── spec-first-integration.md
+│   ├── multi-option-tradeoff.md
+│   └── ...12 workflows total
+└── guides/            → Loaded with 'guide_' prefix
+    ├── activate-guide-documentation.md
+    ├── documentation_standards.md
+    └── ...4 guides total
+```
+
+### What Are Prompts?
+
+The system provides two types of prompts (all `.md` Markdown files loaded at startup):
+
+**Workflow Prompts** (`workflow_*` prefix) - Process-oriented problem-solving frameworks from `.ai-prompt-guide/workflows/`:
+- **workflow_tdd-incremental-orchestration** - Multi-agent coordination with test-driven development
+- **workflow_incremental-orchestration** - Multi-agent coordination with flexible testing
+- **workflow_code-review-section-based** - Parallel review with agents assigned to code sections
+- **workflow_code-review-issue-based** - Parallel review with agents assigned to issue types
+- **workflow_multi-option-tradeoff** - Structured decision-making with weighted criteria
+- **workflow_spec-first-integration** - Ensuring correctness before implementing
+- And 6 more workflow prompts...
+
+**Guide Prompts** (`guide_*` prefix) - Content-oriented documentation helpers from `.ai-prompt-guide/guides/`:
+- **guide_activate-guide-documentation** - How to write guides and tutorials
+- **guide_activate-specification-documentation** - How to write technical specs
+- **guide_documentation_standards** - Writing style and formatting standards
+- **guide_research_best_practices** - Research and validation methods
+
+**Discovery**: Use your MCP client's `prompts/list` capability to see all available prompts dynamically after server starts.
 
 ### File Format
 
@@ -478,13 +509,15 @@ Concrete example showing the workflow in action...
 ```markdown
 ### Implement Authentication
 - Status: pending
-- Workflow: spec-first-integration   ← Task-specific guidance
-- Main-Workflow: causal-flow-mapping  ← Project-level methodology (first task only)
+- Workflow: spec-first-integration   ← Task-specific guidance (write without workflow_ prefix)
+- Main-Workflow: causal-flow-mapping  ← Project-level methodology (write without workflow_ prefix)
 
 Implement JWT authentication following the API spec.
 
 @/specs/auth-api.md
 ```
+
+**Note**: Write workflow names **without** the `workflow_` prefix in task metadata. The system automatically adds the prefix when looking up prompts.
 
 **2. Automatic Injection:**
 When agents use `start_task` or `complete_task`, the system:
@@ -512,15 +545,25 @@ touch my-team-process.md
 - Include examples and common pitfalls
 - Keep it focused (200-500 lines ideal)
 
-**Step 3: Restart the server**
-Workflows are loaded at startup:
+**Step 3: Restart the server to load new prompts**
+All workflow and guide files are loaded as MCP prompts during server startup:
 ```bash
-# Claude Desktop: Restart the app
+# Claude Desktop: Restart the app to reload prompts
 # MCP Inspector: Rebuild and restart
 pnpm build && npx @modelcontextprotocol/inspector node dist/index.js
+
+# You'll see in the logs:
+# [INFO] Loading workflow prompts from directory { directory: '/workflows', fileCount: 13, prefix: 'workflow_' }
+# [INFO] Loading workflow prompts from directory { directory: '/guides', fileCount: 4, prefix: 'guide_' }
+# [INFO] Workflow prompts loaded from all directories { loaded: 17, failed: 0, directories: 2 }
 ```
 
-**Step 4: Reference in tasks**
+**Step 4: Verify prompt is loaded**
+Use your MCP client's `prompts/list` to confirm your new prompt appears with the correct prefix:
+- Workflows from `.ai-prompt-guide/workflows/` → `workflow_my-team-process`
+- Guides from `.ai-prompt-guide/guides/` → `guide_my-team-process`
+
+**Step 5: Reference in tasks**
 ```markdown
 ### My Task
 - Status: pending
@@ -543,43 +586,37 @@ pnpm build && npx @modelcontextprotocol/inspector node dist/index.js
 - `My Workflow.md` (spaces and capitals)
 - `workflow.md` (not descriptive)
 
-### Built-In Workflows
+### Built-In Prompts
 
-The system includes 12 production-ready workflows:
+The system includes **12 workflow prompts** and **4 guide prompts** (16 total), all automatically loaded as MCP prompts during server startup:
 
-**Main Workflows** (Project Methodology - Use in First Task):
-- **tdd-incremental-orchestration** - Multi-agent coordination with TDD discipline, quality gates, and staged integration
-- **incremental-orchestration** - Multi-agent coordination with flexible testing and staged integration
-- **code-review-section-based** - Parallel code review with 10 agents, each reviewing specific sections
-- **code-review-issue-based** - Parallel code review with 10 agents, each focusing on specific issue types
+**Workflows** (`workflow_*` prefix) - Loaded from `.ai-prompt-guide/workflows/`:
+- Main orchestration workflows (tdd-incremental-orchestration, incremental-orchestration)
+- Code review workflows (code-review-section-based, code-review-issue-based)
+- Decision-making and integration workflows (spec-first-integration, multi-option-tradeoff, etc.)
 
-**Task Workflows** (Task-Specific Guidance):
-- **spec-first-integration** - Spec-driven API integration for correctness
-- **multi-option-tradeoff** - Structured decision-making with weighted criteria
-- **failure-triage-repro** - Bug triage with minimal reproduction
-- **causal-flow-mapping** - Cause→effect debugging for complex systems
-- **simplicity-gate** - Complexity budgets after non-negotiables met
-- **guardrailed-rollout** - Safe deployment with automatic rollback
-- **evidence-based-experiment** - Hypothesis-driven testing
-- **interface-diff-adaptation** - Handling breaking API changes
+**Guides** (`guide_*` prefix) - Loaded from `.ai-prompt-guide/guides/`:
+- Documentation writing guides (activate-guide-documentation, activate-specification-documentation)
+- Standards and research guides (documentation_standards, research_best_practices)
 
-**Note:** Main Workflows can also be used as Task Workflows depending on context. The distinction is flexible.
+**Dynamic Discovery**: After server startup, use your MCP client's `prompts/list` to see all available prompts with their descriptions and usage guidance.
 
 See the [complete workflow documentation](docs/WORKFLOW-PROMPTS.md) for detailed examples and API reference.
 
-### Discovery and Loading
+### Prompt Validation and Error Handling
 
-**Automatic at startup:**
-```
-[INFO] Loading workflow prompts { directory: '/prompts', fileCount: 8 }
-[DEBUG] Workflow prompts loaded { loaded: 8, failed: 0, total: 8 }
-```
+**Startup Validation:**
+All prompt files are validated during server startup:
+- **Filename format** - Must use lowercase with valid separators (hyphens, underscores, dots)
+- **YAML frontmatter** - Required fields with correct types (`title`, `description`, `whenToUse`)
+- **Content body** - Must not be empty
+- **Invalid files** - Logged as warnings but don't break startup
 
-**Validation:**
-- Filename format validated (lowercase, valid separators)
-- YAML frontmatter validated (correct types)
-- Content body must not be empty
-- Invalid files logged as warnings but don't break startup
+**Error Recovery:**
+The prompt system is resilient:
+- Invalid files are skipped with detailed warnings
+- Other prompts continue loading normally
+- System remains functional even with some invalid prompts
 
 **Full documentation:** See [Workflow Prompts System](docs/WORKFLOW-PROMPTS.md) for complete guide including:
 - Detailed frontmatter schema
@@ -623,23 +660,39 @@ Add this to your `claude_desktop_config.json`:
   - `5` - Maximum depth for complex doc trees
 - `LOG_LEVEL` - Logging verbosity: `debug`, `info`, `warn`, `error` (default: `info`)
 
-### Document Structure
+### Directory Structure
 
-Create your docs directory with optional namespace organization:
+The system expects a specific directory structure with docs, workflows, and guides:
 
 ```
-.ai-prompt-guide/docs/
-├── api/
-│   ├── specs/
-│   │   └── authentication.md
-│   └── guides/
-│       └── getting-started.md
-├── frontend/
-│   └── components/
-│       └── button-system.md
-└── workflows/
-    └── development-process.md
+.ai-prompt-guide/
+├── docs/                     # Your documentation (REQUIRED)
+│   ├── api/
+│   │   ├── specs/
+│   │   │   └── authentication.md
+│   │   └── guides/
+│   │       └── getting-started.md
+│   ├── frontend/
+│   │   └── components/
+│   │       └── button-system.md
+│   └── workflows/
+│       └── development-process.md
+│
+├── workflows/                # Workflow prompts (loaded at startup)
+│   ├── spec-first-integration.md
+│   ├── multi-option-tradeoff.md
+│   └── ...12 total workflows
+│
+└── guides/                   # Documentation guides (loaded at startup)
+    ├── activate-guide-documentation.md
+    ├── documentation_standards.md
+    └── ...4 total guides
 ```
+
+**At Startup:**
+- Documents in `docs/` are available via MCP tools
+- Workflows in `workflows/` are loaded as `workflow_*` MCP prompts
+- Guides in `guides/` are loaded as `guide_*` MCP prompts
 
 ---
 

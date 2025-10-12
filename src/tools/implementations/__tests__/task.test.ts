@@ -36,6 +36,9 @@ describe('task tool - Bulk Operations', () => {
   });
 
   afterEach(async () => {
+    // Destroy manager to cancel pending async operations and clean up cache
+    await manager.destroy();
+
     // Clean up test directory
     if (testDir != null) {
       await rm(testDir, { recursive: true, force: true });

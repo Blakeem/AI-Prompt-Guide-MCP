@@ -864,6 +864,21 @@ export class DocumentManager {
   }
 
   /**
+   * Destroy the document manager and clean up resources
+   * Cancels all pending TOC updates and destroys the cache
+   */
+  async destroy(): Promise<void> {
+    // Cancel all pending TOC updates
+    for (const timeoutId of this.pendingTocUpdates.values()) {
+      clearTimeout(timeoutId);
+    }
+    this.pendingTocUpdates.clear();
+
+    // Destroy cache
+    await this.cache.destroy();
+  }
+
+  /**
    * Convert document path to absolute filesystem path
    */
   private getAbsolutePath(docPath: string): string {
