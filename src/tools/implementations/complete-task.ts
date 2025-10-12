@@ -227,12 +227,16 @@ export async function completeTask(
  */
 
 function updateTaskStatus(content: string, newStatus: string, note: string, completedDate: string): string {
-  // Update status line
-  let updated = content.replace(/^- Status:\s*.+$/m, `- Status: ${newStatus}`);
+  // Detect and preserve the list marker used in the status line (- or *)
+  const statusMatch = content.match(/^([*-]) Status:\s*.+$/m);
+  const listMarker = statusMatch?.[1] ?? '-';
 
-  // Add completion info
-  updated += `\n- Completed: ${completedDate}`;
-  updated += `\n- Note: ${note}`;
+  // Update status line (support both - and * list markers)
+  let updated = content.replace(/^[*-] Status:\s*.+$/m, `${listMarker} Status: ${newStatus}`);
+
+  // Add completion info using the same list marker
+  updated += `\n${listMarker} Completed: ${completedDate}`;
+  updated += `\n${listMarker} Note: ${note}`;
 
   return updated;
 }
