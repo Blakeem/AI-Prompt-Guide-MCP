@@ -85,11 +85,6 @@ interface TaskResult {
     title: string;
     hierarchical_context?: TaskHierarchicalContext;
   };
-  document_info?: {
-    slug: string;
-    title: string;
-    namespace: string;
-  };
   timestamp: string;
 }
 
@@ -164,20 +159,15 @@ export async function task(
       throw new DocumentNotFoundError(addresses.document.path);
     }
 
-    // Format document info using addressing system helper
-    const documentInfo = ToolIntegration.formatDocumentInfo(addresses.document, {
-      title: document.metadata.title
-    });
-
     switch (operation) {
       case 'list':
-        return await listTasks(manager, addresses, statusFilter, documentInfo);
+        return await listTasks(manager, addresses, statusFilter);
 
       case 'create':
         if (title == null || content == null) {
           throw new AddressingError('Missing required parameters for create: title and content', 'MISSING_PARAMETER');
         }
-        return await createTask(manager, addresses, title, content, taskSlug, documentInfo);
+        return await createTask(manager, addresses, title, content, taskSlug);
 
       case 'edit':
         if (taskSlug == null || content == null) {
@@ -186,7 +176,7 @@ export async function task(
         if (addresses.task == null) {
           throw new AddressingError('Task address validation failed', 'INVALID_TASK');
         }
-        return await editTask(manager, addresses, content, documentInfo);
+        return await editTask(manager, addresses, content);
 
       default:
         // This should never happen due to validateOperation, but keep for type safety
@@ -212,8 +202,7 @@ export async function task(
 async function listTasks(
   manager: DocumentManager,
   addresses: { document: ReturnType<typeof parseDocumentAddress> },
-  statusFilter?: string,
-  documentInfo?: unknown
+  statusFilter?: string
 ): Promise<TaskResult> {
   try {
     // Get the document - existence already validated in main function
@@ -233,8 +222,7 @@ async function listTasks(
         operation: 'list',
         document: addresses.document.path,
         tasks: [],
-        ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
       };
     }
 
@@ -316,8 +304,7 @@ async function listTasks(
       tasks: filteredTasks,
       ...(hierarchicalSummary != null && { hierarchical_summary: hierarchicalSummary }),
       ...(nextTask != null && { next_task: nextTask }),
-      ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
     };
 
   } catch (error) {
@@ -342,8 +329,7 @@ async function createTask(
   addresses: { document: ReturnType<typeof parseDocumentAddress> },
   title: string,
   content: string,
-  referenceSlug?: string,
-  documentInfo?: unknown
+  referenceSlug?: string
 ): Promise<TaskResult> {
   try {
     const taskSlug = titleToSlug(title);
@@ -372,8 +358,7 @@ ${content}`;
         slug: taskSlug,  // Return the actual task slug without prefix
         title
       },
-      ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
     };
 
   } catch (error) {
@@ -396,8 +381,7 @@ ${content}`;
 async function editTask(
   manager: DocumentManager,
   addresses: { document: DocumentAddress; task?: TaskAddress },
-  content: string,
-  documentInfo?: unknown
+  content: string
 ): Promise<TaskResult> {
   // Validate task address exists
   if (addresses.task == null) {
@@ -410,8 +394,7 @@ async function editTask(
     return {
       operation: 'edit',
       document: addresses.document.path,
-      ...(documentInfo != null && typeof documentInfo === 'object' ? { document_info: documentInfo as { slug: string; title: string; namespace: string } } : {}),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
     };
 
   } catch (error) {

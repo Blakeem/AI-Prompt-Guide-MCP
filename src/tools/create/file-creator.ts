@@ -25,7 +25,6 @@ export interface DocumentCreationResult {
   sections: string[];
   suggestions?: SmartSuggestions;
   namespace_patterns?: NamespacePatterns;
-  next_actions: string[];
 }
 
 /**
@@ -121,13 +120,7 @@ export async function createDocumentFile(
         namespace,
         created: new Date().toISOString()
       },
-      sections: headings.map(h => `#${h.slug}`),
-      next_actions: [
-        'Use section tool with operation "edit" to add content to any section',
-        'Use task tool to populate the tasks section with specific items',
-        'Use section tool with operation "insert_after" to add new sections as needed',
-        'Review suggestions above and use section tool to add @references to related documents'
-      ]
+      sections: headings.map(h => `#${h.slug}`)
     };
 
     // Only add suggestions if they exist (exactOptionalPropertyTypes compliance)

@@ -867,7 +867,7 @@ Task content.`;
 
       // Verify response structure
       expect(result).toHaveProperty('completed_task');
-      expect(result).toHaveProperty('document_info');
+      expect(result).not.toHaveProperty('document_info');
       expect(result).toHaveProperty('timestamp');
 
       // Verify completed_task structure
@@ -876,20 +876,15 @@ Task content.`;
       expect(result.completed_task).toHaveProperty('note');
       expect(result.completed_task).toHaveProperty('completed_date');
 
-      // Verify document_info structure
-      expect(result.document_info).toHaveProperty('slug');
-      expect(result.document_info).toHaveProperty('title');
-      expect(result.document_info).toHaveProperty('namespace');
-
       // Verify types
       expect(typeof result.completed_task.slug).toBe('string');
       expect(typeof result.completed_task.title).toBe('string');
       expect(typeof result.completed_task.note).toBe('string');
       expect(typeof result.completed_task.completed_date).toBe('string');
-      expect(typeof result.document_info.slug).toBe('string');
-      expect(typeof result.document_info.title).toBe('string');
-      expect(typeof result.document_info.namespace).toBe('string');
       expect(typeof result.timestamp).toBe('string');
+
+      // Verify timestamp is date-only format (YYYY-MM-DD)
+      expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
   });
 

@@ -146,12 +146,8 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         },
         link_assistance: {
           links_found: expect.any(Array),
-          link_suggestions: expect.any(Array),
-          syntax_help: {
-            detected_patterns: expect.any(Array),
-            correct_examples: expect.any(Array),
-            common_mistakes: expect.any(Array)
-          }
+          link_suggestions: expect.any(Array)
+          // No syntax_help expected when analyze_links is false (default)
         },
         document_info: {
           slug: expect.any(String),
@@ -200,12 +196,8 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         },
         link_assistance: {
           links_found: expect.any(Array),
-          link_suggestions: expect.any(Array),
-          syntax_help: {
-            detected_patterns: expect.any(Array),
-            correct_examples: expect.any(Array),
-            common_mistakes: expect.any(Array)
-          }
+          link_suggestions: expect.any(Array)
+          // No syntax_help expected when analyze_links is false (default)
         },
         document_info: {
           slug: expect.any(String),
@@ -245,12 +237,8 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         },
         link_assistance: {
           links_found: expect.any(Array),
-          link_suggestions: expect.any(Array),
-          syntax_help: {
-            detected_patterns: expect.any(Array),
-            correct_examples: expect.any(Array),
-            common_mistakes: expect.any(Array)
-          }
+          link_suggestions: expect.any(Array)
+          // No syntax_help expected when analyze_links is false (default)
         },
         document_info: {
           slug: expect.any(String),
@@ -331,12 +319,8 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         },
         link_assistance: {
           links_found: expect.any(Array),
-          link_suggestions: expect.any(Array),
-          syntax_help: {
-            detected_patterns: expect.any(Array),
-            correct_examples: expect.any(Array),
-            common_mistakes: expect.any(Array)
-          }
+          link_suggestions: expect.any(Array)
+          // No syntax_help expected when analyze_links is false (default)
         },
         document_info: {
           slug: expect.any(String),
@@ -379,12 +363,8 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         },
         link_assistance: {
           links_found: expect.any(Array),
-          link_suggestions: expect.any(Array),
-          syntax_help: {
-            detected_patterns: expect.any(Array),
-            correct_examples: expect.any(Array),
-            common_mistakes: expect.any(Array)
-          }
+          link_suggestions: expect.any(Array)
+          // No syntax_help expected when analyze_links is false (default)
         },
         document_info: {
           slug: expect.any(String),
@@ -427,12 +407,8 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         },
         link_assistance: {
           links_found: expect.any(Array),
-          link_suggestions: expect.any(Array),
-          syntax_help: {
-            detected_patterns: expect.any(Array),
-            correct_examples: expect.any(Array),
-            common_mistakes: expect.any(Array)
-          }
+          link_suggestions: expect.any(Array)
+          // No syntax_help expected when analyze_links is false (default)
         },
         document_info: {
           slug: expect.any(String),
@@ -474,12 +450,8 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         },
         link_assistance: {
           links_found: expect.any(Array),
-          link_suggestions: expect.any(Array),
-          syntax_help: {
-            detected_patterns: expect.any(Array),
-            correct_examples: expect.any(Array),
-            common_mistakes: expect.any(Array)
-          }
+          link_suggestions: expect.any(Array)
+          // No syntax_help expected when analyze_links is false (default)
         },
         document_info: {
           slug: expect.any(String),
@@ -923,12 +895,8 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         },
         link_assistance: {
           links_found: expect.any(Array),
-          link_suggestions: expect.any(Array),
-          syntax_help: {
-            detected_patterns: expect.any(Array),
-            correct_examples: expect.any(Array),
-            common_mistakes: expect.any(Array)
-          }
+          link_suggestions: expect.any(Array)
+          // No syntax_help expected when analyze_links is false (default)
         },
         document_info: {
           slug: expect.any(String),
@@ -995,7 +963,8 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
         document: '/test-doc.md',
         section: 'overview',
         content: 'This section references @/api/users.md#get-user and @#authentication.',
-        operation: 'replace'
+        operation: 'replace',
+        analyze_links: false  // Default behavior - no links analyzed
       };
 
       mockPerformSectionEdit.mockResolvedValue({
@@ -1006,20 +975,13 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       // Act
       const result = await section(args, mockSessionState, mockDocumentManager);
 
-      // Assert
+      // Assert - verify link_assistance exists but syntax_help does NOT (analyze_links is false)
       expect(result).toMatchObject({
         updated: true,
         link_assistance: {
           links_found: expect.any(Array),
-          link_suggestions: expect.any(Array),
-          syntax_help: {
-            detected_patterns: expect.any(Array),
-            correct_examples: expect.arrayContaining([
-              expect.stringContaining('@/'),
-              expect.stringContaining('@#')
-            ]),
-            common_mistakes: expect.any(Array)
-          }
+          link_suggestions: expect.any(Array)
+          // No syntax_help when analyze_links is false
         }
       });
 
@@ -1027,7 +989,7 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       const linkAssistance = (result as Record<string, unknown>)['link_assistance'] as Record<string, unknown>;
       expect(linkAssistance['links_found']).toBeInstanceOf(Array);
       expect(linkAssistance['link_suggestions']).toBeInstanceOf(Array);
-      expect((linkAssistance['syntax_help'] as Record<string, unknown>)['correct_examples']).toContain('@/api/specs/user-api.md - Link to entire document');
+      expect(linkAssistance).not.toHaveProperty('syntax_help');
     });
 
     test('should include hierarchical info for all operations', async () => {
@@ -1129,6 +1091,143 @@ describe('Edit Section Tool - Enhanced Functionality', () => {
       // Verify link assistance is NOT included for remove operations
       expect(result).not.toHaveProperty('link_assistance');
       expect(result).not.toHaveProperty('hierarchical_info');
+    });
+  });
+
+  describe('Conditional syntax_help Optimization', () => {
+    test('should NOT include syntax_help when no links present and analyze_links is false', async () => {
+      // Arrange
+      const args = {
+        document: '/test-doc.md',
+        section: 'overview',
+        content: 'Simple text with no links at all.',
+        operation: 'replace',
+        analyze_links: false
+      };
+
+      mockPerformSectionEdit.mockResolvedValue({
+        action: 'edited',
+        section: 'overview'
+      });
+
+      // Act
+      const result = await section(args, mockSessionState, mockDocumentManager);
+
+      // Assert - verify link_assistance exists but syntax_help does NOT
+      expect(result).toHaveProperty('link_assistance');
+      const linkAssistance = (result as Record<string, unknown>)['link_assistance'] as Record<string, unknown>;
+      expect(linkAssistance).toHaveProperty('links_found');
+      expect(linkAssistance).toHaveProperty('link_suggestions');
+      expect(linkAssistance).not.toHaveProperty('syntax_help');
+
+      // Verify empty arrays for links and suggestions
+      expect(linkAssistance['links_found']).toEqual([]);
+      expect(linkAssistance['link_suggestions']).toEqual([]);
+    });
+
+    test('should include syntax_help when links are detected (analyze_links true)', async () => {
+      // Arrange
+      const args = {
+        document: '/test-doc.md',
+        section: 'overview',
+        content: 'Text with @/api/auth.md reference',
+        operation: 'replace',
+        analyze_links: true
+      };
+
+      mockPerformSectionEdit.mockResolvedValue({
+        action: 'edited',
+        section: 'overview'
+      });
+
+      // Act
+      const result = await section(args, mockSessionState, mockDocumentManager);
+
+      // Assert - verify syntax_help IS included when links detected
+      expect(result).toHaveProperty('link_assistance');
+      const linkAssistance = (result as Record<string, unknown>)['link_assistance'] as Record<string, unknown>;
+      expect(linkAssistance).toHaveProperty('syntax_help');
+
+      const syntaxHelp = linkAssistance['syntax_help'] as Record<string, unknown>;
+      expect(syntaxHelp).toHaveProperty('detected_patterns');
+      expect(syntaxHelp).toHaveProperty('correct_examples');
+      expect(syntaxHelp).toHaveProperty('common_mistakes');
+    });
+
+    test('should NOT include syntax_help by default when no links (analyze_links defaults to false)', async () => {
+      // Arrange
+      const args = {
+        document: '/test-doc.md',
+        section: 'features',
+        content: 'Content without any @ references or links.',
+        operation: 'replace'
+        // analyze_links not specified, defaults to false
+      };
+
+      mockPerformSectionEdit.mockResolvedValue({
+        action: 'edited',
+        section: 'features'
+      });
+
+      // Act
+      const result = await section(args, mockSessionState, mockDocumentManager);
+
+      // Assert
+      const linkAssistance = (result as Record<string, unknown>)['link_assistance'] as Record<string, unknown>;
+      expect(linkAssistance).not.toHaveProperty('syntax_help');
+      expect(linkAssistance['links_found']).toEqual([]);
+      expect(linkAssistance['link_suggestions']).toEqual([]);
+    });
+
+    test('should include syntax_help for created sections when links detected', async () => {
+      // Arrange
+      const args = {
+        document: '/test-doc.md',
+        section: 'new-section',
+        content: 'New section with @/docs/reference.md link',
+        operation: 'insert_after',
+        title: 'New Section',
+        analyze_links: true
+      };
+
+      mockPerformSectionEdit.mockResolvedValue({
+        action: 'created',
+        section: 'new-section',
+        depth: 2
+      });
+
+      // Act
+      const result = await section(args, mockSessionState, mockDocumentManager);
+
+      // Assert
+      expect(result).toHaveProperty('link_assistance');
+      const linkAssistance = (result as Record<string, unknown>)['link_assistance'] as Record<string, unknown>;
+      expect(linkAssistance).toHaveProperty('syntax_help');
+    });
+
+    test('should NOT include syntax_help for created sections when no links', async () => {
+      // Arrange
+      const args = {
+        document: '/test-doc.md',
+        section: 'another-section',
+        content: 'Simple section without references',
+        operation: 'append_child',
+        title: 'Another Section'
+        // analyze_links defaults to false
+      };
+
+      mockPerformSectionEdit.mockResolvedValue({
+        action: 'created',
+        section: 'another-section',
+        depth: 3
+      });
+
+      // Act
+      const result = await section(args, mockSessionState, mockDocumentManager);
+
+      // Assert
+      const linkAssistance = (result as Record<string, unknown>)['link_assistance'] as Record<string, unknown>;
+      expect(linkAssistance).not.toHaveProperty('syntax_help');
     });
   });
 });

@@ -31,7 +31,6 @@ export interface InstructionsResult {
     title: string;
     overview: string;
   };
-  smart_suggestions_note: string;
 }
 
 /**
@@ -348,8 +347,7 @@ export function processInstructions(namespace: string): ValidationResult {
         namespace,
         title: exampleData.title,
         overview: exampleData.overview
-      },
-      smart_suggestions_note: "After providing title and overview, you'll receive intelligent suggestions about related documents, similar implementations, and logical next steps before creating the document."
+      }
     };
   }
 
@@ -386,8 +384,7 @@ Add sections relevant to your specific use case.
       namespace,
       title: customExampleData.title,
       overview: customExampleData.overview
-    },
-    smart_suggestions_note: "After providing title and overview, you'll receive intelligent suggestions about related documents, similar implementations, and logical next steps before creating the document."
+    }
   };
 }
 

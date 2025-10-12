@@ -140,6 +140,8 @@ describe('create_document Progressive Discovery Stages', () => {
 
       expect(result).toHaveProperty('stage', 'instructions');
       expect(result).toHaveProperty('namespace', 'api/guides');
+      // Verify context optimization: smart_suggestions_note should NOT be present
+      expect(result).not.toHaveProperty('smart_suggestions_note');
     });
 
     it('should proceed to creation stage (2) when namespace, title, and overview provided', async () => {
@@ -197,6 +199,32 @@ describe('create_document Progressive Discovery Stages', () => {
       // Stage 2 creates immediately - create:false is ignored
       expect(result).toHaveProperty('stage');
       expect(['creation', 'error_fallback']).toContain((result as { stage: string }).stage);
+    });
+  });
+
+  describe('Context Optimization', () => {
+    it('should NOT include next_actions field in creation stage response', async () => {
+      const args = {
+        namespace: 'test',
+        title: 'Context Test Document',
+        overview: 'Testing context optimization'
+      };
+
+      const result = await executeCreateDocumentPipeline(args, sessionState, manager);
+
+      // Verify context optimization: next_actions should NOT be present
+      if ('stage' in result && (result as { stage: string }).stage === 'creation') {
+        expect(result).not.toHaveProperty('next_actions');
+      }
+    });
+
+    it('should NOT include smart_suggestions_note in instructions stage response', async () => {
+      const args = { namespace: 'api/guides' };
+      const result = await executeCreateDocumentPipeline(args, sessionState, manager);
+
+      expect(result).toHaveProperty('stage', 'instructions');
+      // Verify context optimization: smart_suggestions_note should NOT be present
+      expect(result).not.toHaveProperty('smart_suggestions_note');
     });
   });
 

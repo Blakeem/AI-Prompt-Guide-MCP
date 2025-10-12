@@ -40,11 +40,6 @@ interface CompleteTaskResult {
 
     referenced_documents?: HierarchicalContent[];
   };
-  document_info: {
-    slug: string;
-    title: string;
-    namespace: string;
-  };
   timestamp: string;
 }
 
@@ -76,11 +71,6 @@ export async function completeTask(
     if (addresses.task == null) {
       throw new AddressingError('Task address is required for complete operation', 'MISSING_TASK');
     }
-
-    // Format document info using addressing system helper
-    const documentInfo = ToolIntegration.formatDocumentInfo(addresses.document, {
-      title: document.metadata.title
-    });
 
     // Get current task content using validated addresses
     const currentContent = await manager.getSectionContent(addresses.document.path, addresses.task.slug);
@@ -165,8 +155,7 @@ export async function completeTask(
         completed_date: completedDate
       },
       ...(nextTask != null && { next_task: nextTask }),
-      document_info: documentInfo,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
     };
 
   } catch (error) {

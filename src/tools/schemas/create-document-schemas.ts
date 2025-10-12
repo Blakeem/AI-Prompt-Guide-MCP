@@ -152,12 +152,7 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
         common_sections: ['#overview', '#authentication', '#endpoints'],
         frequent_links: ['/api/guides/auth-implementation'],
         typical_tasks: ['Implement endpoint validation']
-      },
-      next_actions: [
-        'Use section tool with operation "edit" to add content to any section',
-        'Use task tool to populate the tasks section with specific items',
-        'Review suggestions above and use section tool to add @references to related documents'
-      ]
+      }
     }
   }
 };

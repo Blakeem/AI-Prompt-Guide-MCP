@@ -486,7 +486,7 @@ async function analyzeLinksIfRequested(
     rationale: string;
     placement_hint: string;
   }>;
-  syntax_help: {
+  syntax_help?: {
     detected_patterns: string[];
     correct_examples: string[];
     common_mistakes: string[];
@@ -508,18 +508,11 @@ async function analyzeLinksIfRequested(
   }>;
 }> {
   if (!shouldAnalyze) {
-    // Import shared constant for consistency
-    const { LINK_SYNTAX_EXAMPLES } = await import('../../shared/link-analysis.js');
-
     // Return minimal response when analysis is disabled for performance
+    // No syntax_help field to save ~110 tokens when no links present
     return {
       links_found: [],
-      link_suggestions: [],
-      syntax_help: {
-        detected_patterns: [],
-        correct_examples: [...LINK_SYNTAX_EXAMPLES],
-        common_mistakes: []
-      }
+      link_suggestions: []
     };
   }
 
@@ -544,9 +537,16 @@ async function analyzeLinksIfRequested(
   const linkAnalysis = createLinkAnalysisService(manager);
   const legacyAnalysis = await linkAnalysis.analyzeLinks(content, documentPath);
 
+  // Only include syntax_help when links are detected or malformed patterns found
+  const shouldIncludeSyntaxHelp =
+    legacyAnalysis.links_found.length > 0 ||
+    legacyAnalysis.syntax_help.detected_patterns.length > 0;
+
   // Return enhanced response with hierarchical references
   return {
-    ...legacyAnalysis,
+    links_found: legacyAnalysis.links_found,
+    link_suggestions: legacyAnalysis.link_suggestions,
+    ...(shouldIncludeSyntaxHelp && { syntax_help: legacyAnalysis.syntax_help }),
     referenced_documents: hierarchy
   };
 }
