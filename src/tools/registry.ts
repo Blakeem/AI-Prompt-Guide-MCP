@@ -52,7 +52,7 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'section',
-      description: 'Perform multiple section operations in a single call. Always pass operations as an array, even for single edits. Supports create, edit, and remove operations with automatic depth calculation.',
+      description: 'Bulk section operations with unified path support. Document parameter ALWAYS required (default context). Section field supports: 1) "slug" (uses document), 2) "#slug" (uses document), 3) "/doc.md#slug" (overrides document). Enables cross-document edits in single batch.',
       inputSchema: getSectionSchema(),
     },
     {
@@ -72,7 +72,7 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'task',
-      description: 'Perform multiple task operations in a single call. Always pass operations as an array, even for single task operations. Supports create, edit, and list operations.',
+      description: 'Bulk task operations with unified path support. Document parameter ALWAYS required (default context). Task field supports: 1) "slug" (uses document), 2) "#slug" (uses document), 3) "/doc.md#slug" (overrides document). Enables cross-document task creation in single batch.',
       inputSchema: getTaskSchema(),
     },
     {

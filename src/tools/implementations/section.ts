@@ -9,7 +9,8 @@ import type { DocumentManager } from '../../document-manager.js';
 import { performSectionEdit } from '../../shared/utilities.js';
 import {
   ToolIntegration,
-  AddressingError
+  AddressingError,
+  DocumentNotFoundError
 } from '../../shared/addressing-system.js';
 
 /**
@@ -17,6 +18,55 @@ import {
  * Prevents performance issues and potential DoS attacks
  */
 const MAX_BATCH_SIZE = 100;
+
+/**
+ * Parse operation target with document override support
+ * Supports three formats:
+ * 1. Slug only: "section-slug" (uses default document)
+ * 2. Full path: "/doc.md#section-slug" (overrides document)
+ * 3. Error: Document path without slug
+ */
+function parseOperationTarget(
+  operation: { section: string },
+  defaultDocument: string
+): { document: string; slug: string } {
+  const fieldValue = operation.section;
+
+  // Check for full path (contains #)
+  if (fieldValue.includes('#')) {
+    const parts = fieldValue.split('#');
+    const docPath = parts[0];
+    const slug = parts[1];
+
+    if (docPath == null || docPath === '') {
+      throw new AddressingError(
+        'Full path must include document path before #',
+        'MISSING_DOCUMENT_PATH'
+      );
+    }
+
+    if (slug == null || slug === '') {
+      throw new AddressingError(
+        'Full path must include section slug after #',
+        'MISSING_SLUG'
+      );
+    }
+
+    // Override: use embedded document path
+    return { document: docPath, slug };
+  }
+
+  // Check for path without slug (error case)
+  if (fieldValue.startsWith('/')) {
+    throw new AddressingError(
+      'Document path must include section slug after # (e.g., "/doc.md#slug")',
+      'PATH_WITHOUT_SLUG'
+    );
+  }
+
+  // Slug only: use default document
+  return { document: defaultDocument, slug: fieldValue };
+}
 
 /**
  * Interface for individual section operation
@@ -48,13 +98,20 @@ interface SectionOperationResult {
  */
 async function processSectionOperation(
   manager: DocumentManager,
-  operation: SectionOperation
+  operation: SectionOperation,
+  defaultDocument: string
 ): Promise<SectionOperationResult> {
   try {
-    // Use addressing system for validation and parsing
+    // Parse with potential document override
+    const { document: targetDoc, slug: sectionSlug } = parseOperationTarget(
+      { section: operation.section },
+      defaultDocument
+    );
+
+    // Validate target document and section
     const { addresses } = ToolIntegration.validateAndParse({
-      document: operation.document,
-      section: operation.section
+      document: targetDoc,
+      section: sectionSlug
     });
 
     const { document: docAddress, section: sectionAddress } = addresses;
@@ -62,9 +119,15 @@ async function processSectionOperation(
     // Validate that section address exists (not undefined)
     if (sectionAddress == null) {
       throw new AddressingError('Section address is required for section operations', 'MISSING_SECTION', {
-        document: operation.document,
-        section: operation.section
+        document: targetDoc,
+        section: sectionSlug
       });
+    }
+
+    // Verify target document exists
+    const targetDocument = await manager.getDocument(docAddress.path);
+    if (targetDocument == null) {
+      throw new DocumentNotFoundError(docAddress.path);
     }
 
     // Validate operation using standardized utilities
@@ -253,15 +316,17 @@ async function handleBatchOperations(
   // Process each operation sequentially with addressing validation
   for (const op of operations) {
     try {
-      // Parse and validate each operation's addresses
-      const { addresses } = ToolIntegration.validateAndParse({
-        document: op.document ?? '',
-        section: op.section ?? ''
-      });
+      // Parse with potential document override
+      const defaultDoc = op.document ?? '';
+      const { document: targetDoc } = parseOperationTarget(
+        { section: op.section ?? '' },
+        defaultDoc
+      );
 
-      documentsModified.add(addresses.document.path);
+      // Track which documents were modified (may be different from default)
+      documentsModified.add(targetDoc);
 
-      const result = await processSectionOperation(manager, op);
+      const result = await processSectionOperation(manager, op, defaultDoc);
       batchResults.push(result);
 
       if (result.success) {

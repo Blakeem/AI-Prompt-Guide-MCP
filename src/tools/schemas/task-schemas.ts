@@ -21,7 +21,7 @@ export interface TaskInputSchema {
   properties: {
     document: {
       type: 'string';
-      description: 'Document path (e.g., "/specs/search-api.md")';
+      description: 'Document path (e.g., "/specs/search-api.md"). ALWAYS required - provides default context for all operations. Individual task fields can override with full path "/other.md#slug" for multi-document operations.';
     };
     operations: {
       type: 'array';
@@ -44,7 +44,7 @@ export interface TaskInputSchema {
           };
           task: {
             type: 'string';
-            description: 'Task slug to edit (required for edit operation)';
+            description: 'Task slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/project/main.md" with task="/project/sub.md#task-1" creates task in sub.md instead. Required for edit operation.';
           };
           status: {
             type: 'string';
@@ -100,7 +100,7 @@ export function getTaskSchema(): TaskInputSchema {
     properties: {
       document: {
         type: 'string',
-        description: 'Document path (e.g., "/specs/search-api.md")',
+        description: 'Document path (e.g., "/specs/search-api.md"). ALWAYS required - provides default context for all operations. Individual task fields can override with full path "/other.md#slug" for multi-document operations.',
       },
       operations: {
         type: 'array',
@@ -123,7 +123,7 @@ export function getTaskSchema(): TaskInputSchema {
             },
             task: {
               type: 'string',
-              description: 'Task slug to edit (required for edit operation)'
+              description: 'Task slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/project/main.md" with task="/project/sub.md#task-1" creates task in sub.md instead. Required for edit operation.'
             },
             status: {
               type: 'string',

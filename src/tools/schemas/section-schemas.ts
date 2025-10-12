@@ -72,6 +72,9 @@ export interface SectionInputSchema {
     /**
      * Target document path for section operations
      *
+     * ALWAYS required - provides default context for all operations.
+     * Individual section fields can override with full path "/other.md#slug" for multi-document operations.
+     *
      * Must be absolute path from document root including .md extension.
      * Document must exist before performing section operations.
      *
@@ -86,7 +89,7 @@ export interface SectionInputSchema {
      */
     document: {
       type: 'string';
-      description: 'Document path (e.g., "/specs/search-api.md")';
+      description: 'Document path (e.g., "/specs/search-api.md"). ALWAYS required - provides default context for all operations. Individual section fields can override with full path "/other.md#slug" for multi-document operations.';
     };
 
     /**
@@ -103,7 +106,7 @@ export interface SectionInputSchema {
         properties: {
           section: {
             type: 'string';
-            description: 'Section slug to target (e.g., "overview", "#overview")';
+            description: 'Section slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/api/auth.md" with section="/api/security.md#authentication" edits security.md instead.';
           };
           operation: {
             type: 'string';
@@ -392,7 +395,7 @@ export function getSectionSchema(): SectionInputSchema {
     properties: {
       document: {
         type: 'string',
-        description: 'Document path (e.g., "/specs/search-api.md")',
+        description: 'Document path (e.g., "/specs/search-api.md"). ALWAYS required - provides default context for all operations. Individual section fields can override with full path "/other.md#slug" for multi-document operations.',
       },
       operations: {
         type: 'array',
@@ -402,7 +405,7 @@ export function getSectionSchema(): SectionInputSchema {
           properties: {
             section: {
               type: 'string',
-              description: 'Section slug to target (e.g., "overview", "#overview")',
+              description: 'Section slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/api/auth.md" with section="/api/security.md#authentication" edits security.md instead.',
             },
             operation: {
               type: 'string',

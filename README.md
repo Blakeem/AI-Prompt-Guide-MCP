@@ -249,6 +249,38 @@ Unified bulk operations for all section editing, creation, and deletion.
 - **Link validation** for @references
 - **Structure-aware parsing** preserves document integrity
 
+**Unified Path Support:**
+- **Document parameter**: ALWAYS required - provides default context for all operations
+- **Section field formats**:
+  1. `"slug"` - Uses document parameter as context
+  2. `"#slug"` - Uses document parameter as context (with # prefix)
+  3. `"/other.md#slug"` - Overrides document parameter for this operation
+
+**Multi-Document Example:**
+```json
+{
+  "document": "/api/auth.md",
+  "operations": [
+    {
+      "section": "overview",
+      "operation": "replace",
+      "content": "Updated authentication overview..."
+    },
+    {
+      "section": "/api/security.md#authentication",
+      "operation": "append",
+      "content": "\n\n### Additional Security Notes\n..."
+    },
+    {
+      "section": "/guides/setup.md#auth-setup",
+      "operation": "replace",
+      "content": "## Authentication Setup\n..."
+    }
+  ]
+}
+```
+Edits three sections across three different documents in a single batch operation.
+
 **Use when:** Managing section content and structure
 
 ---
@@ -267,6 +299,34 @@ Complete task lifecycle through bulk operations: create, edit, and list.
 - **Status filtering** across task states
 - **Next task detection** for workflow progression
 - **Hierarchical organization** for complex projects
+
+**Unified Path Support:**
+- **Document parameter**: ALWAYS required - provides default context for all operations
+- **Task field formats**:
+  1. `"slug"` - Uses document parameter as context
+  2. `"#slug"` - Uses document parameter as context (with # prefix)
+  3. `"/other.md#slug"` - Overrides document parameter for this operation
+
+**Multi-Document Example:**
+```json
+{
+  "document": "/project/main-tasks.md",
+  "operations": [
+    {
+      "operation": "create",
+      "title": "Main Agent Task",
+      "content": "Work on main feature..."
+    },
+    {
+      "operation": "create",
+      "title": "Subagent Task",
+      "content": "Background processing...",
+      "task": "/project/subagent-tasks.md#background-task"
+    }
+  ]
+}
+```
+Creates first task in main-tasks.md, second task in subagent-tasks.md - all in one batch operation.
 
 **Use when:** Managing task lifecycles
 

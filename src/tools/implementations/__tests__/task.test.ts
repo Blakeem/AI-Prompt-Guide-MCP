@@ -237,7 +237,7 @@ describe('task tool - Bulk Operations', () => {
       }, sessionState, manager);
 
       expect(result.results[0]?.status).toBe('error');
-      expect(result.results[0]?.error).toContain('task and content');
+      expect(result.results[0]?.error).toContain('task slug');
     });
   });
 

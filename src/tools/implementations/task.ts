@@ -25,6 +25,60 @@ import type {
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
 
 /**
+ * Parse operation target with document override support
+ * Supports three formats:
+ * 1. Slug only: "task-slug" (uses default document)
+ * 2. Full path: "/doc.md#task-slug" (overrides document)
+ * 3. Null/undefined (for create operations without specific task reference)
+ */
+function parseOperationTarget(
+  operation: { task?: string },
+  defaultDocument: string
+): { document: string; slug: string } {
+  const fieldValue = operation.task;
+
+  if (fieldValue == null) {
+    // Create operations may not have task slug
+    return { document: defaultDocument, slug: '' };
+  }
+
+  // Check for full path (contains #)
+  if (fieldValue.includes('#')) {
+    const parts = fieldValue.split('#');
+    const docPath = parts[0];
+    const slug = parts[1];
+
+    if (docPath == null || docPath === '') {
+      throw new AddressingError(
+        'Full path must include document path before #',
+        'MISSING_DOCUMENT_PATH'
+      );
+    }
+
+    if (slug == null || slug === '') {
+      throw new AddressingError(
+        'Full path must include task slug after #',
+        'MISSING_SLUG'
+      );
+    }
+
+    // Override: use embedded document path
+    return { document: docPath, slug };
+  }
+
+  // Check for path without slug (error case)
+  if (fieldValue.startsWith('/')) {
+    throw new AddressingError(
+      'Document path must include task slug after # (e.g., "/doc.md#slug")',
+      'PATH_WITHOUT_SLUG'
+    );
+  }
+
+  // Slug only: use default document
+  return { document: defaultDocument, slug: fieldValue };
+}
+
+/**
  * Get hierarchical context for a task slug
  */
 function getTaskHierarchicalContext(taskSlug: string): TaskHierarchicalContext | null {
@@ -209,22 +263,32 @@ async function processTaskOperations(
         'task'
       );
 
-      // Get parsed document address
-      const { addresses } = ToolIntegration.validateAndParse({
-        document: documentPath
-      });
-
       // Process based on operation type
       if (operation === 'create') {
         const title = ToolIntegration.validateOptionalStringParameter(op['title'], 'title');
         const content = ToolIntegration.validateOptionalStringParameter(op['content'], 'content');
-        const taskSlug = ToolIntegration.validateOptionalStringParameter(op['task'], 'task');
 
         if (title == null || content == null) {
           throw new AddressingError('Missing required parameters for create: title and content', 'MISSING_PARAMETER');
         }
 
-        const createResult = await createTask(manager, addresses, title, content, taskSlug);
+        // Parse operation target with potential document override
+        const { document: targetDoc, slug: taskSlug } = parseOperationTarget(op as { task?: string }, documentPath);
+
+        // Validate target document (may be different from default)
+        const targetAddresses = ToolIntegration.validateAndParse({
+          document: targetDoc
+        });
+
+        // Verify document exists
+        const targetDocument = await manager.getDocument(targetAddresses.addresses.document.path);
+        if (targetDocument == null) {
+          throw new DocumentNotFoundError(targetAddresses.addresses.document.path);
+        }
+
+        // Convert empty string to undefined for createTask parameter
+        const referenceSlug = taskSlug === '' ? undefined : taskSlug;
+        const createResult = await createTask(manager, targetAddresses.addresses, title, content, referenceSlug);
         if (createResult.task_created != null) {
           results.push({
             operation: 'create',
@@ -234,21 +298,33 @@ async function processTaskOperations(
         }
 
       } else if (operation === 'edit') {
-        const taskSlug = ToolIntegration.validateOptionalStringParameter(op['task'], 'task');
         const content = ToolIntegration.validateOptionalStringParameter(op['content'], 'content');
 
-        if (taskSlug == null || content == null) {
-          throw new AddressingError('Missing required parameters for edit: task and content', 'MISSING_PARAMETER');
+        if (content == null) {
+          throw new AddressingError('Missing required parameters for edit: content', 'MISSING_PARAMETER');
         }
 
-        // Parse task address
+        // Parse operation target with potential document override
+        const { document: targetDoc, slug: taskSlug } = parseOperationTarget(op as { task?: string }, documentPath);
+
+        if (taskSlug === '') {
+          throw new AddressingError('Missing required parameter for edit: task slug', 'MISSING_PARAMETER');
+        }
+
+        // Parse task address with potentially overridden document
         const taskAddresses = ToolIntegration.validateAndParse({
-          document: documentPath,
+          document: targetDoc,
           task: taskSlug
         });
 
         if (taskAddresses.addresses.task == null) {
           throw new AddressingError('Task address validation failed', 'INVALID_TASK');
+        }
+
+        // Verify document exists
+        const targetDocument = await manager.getDocument(taskAddresses.addresses.document.path);
+        if (targetDocument == null) {
+          throw new DocumentNotFoundError(taskAddresses.addresses.document.path);
         }
 
         await editTask(manager, taskAddresses.addresses, content);
@@ -259,7 +335,22 @@ async function processTaskOperations(
 
       } else if (operation === 'list') {
         const statusFilter = ToolIntegration.validateOptionalStringParameter(op['status'], 'status');
-        const listResult = await listTasks(manager, addresses, statusFilter);
+
+        // Parse operation target with potential document override
+        const { document: targetDoc } = parseOperationTarget(op as { task?: string }, documentPath);
+
+        // Validate target document (may be different from default)
+        const targetAddresses = ToolIntegration.validateAndParse({
+          document: targetDoc
+        });
+
+        // Verify document exists
+        const targetDocument = await manager.getDocument(targetAddresses.addresses.document.path);
+        if (targetDocument == null) {
+          throw new DocumentNotFoundError(targetAddresses.addresses.document.path);
+        }
+
+        const listResult = await listTasks(manager, targetAddresses.addresses, statusFilter);
 
         const result: TaskOperationResult = {
           operation: 'list',
