@@ -12,7 +12,7 @@ const VALID_FILENAME_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 
 /**
  * Validates a prompt filename (without extension)
- * @param filename - The filename to validate (without .wfp.md extension)
+ * @param filename - The filename to validate (without .md extension)
  * @returns true if valid, false otherwise
  */
 export function isValidFilename(filename: string): boolean {

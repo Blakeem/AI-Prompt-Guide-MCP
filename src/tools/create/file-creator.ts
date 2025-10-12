@@ -1,6 +1,6 @@
 /**
  * File creator for create-document pipeline
- * Handles Stage 3 (Creation) file system operations and finalization
+ * Handles Stage 1 (Creation) file system operations and finalization
  */
 
 import type { DocumentManager } from '../../document-manager.js';

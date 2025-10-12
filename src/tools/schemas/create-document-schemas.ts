@@ -43,8 +43,7 @@ interface CreateDocumentSchemaStage {
 /**
  * Progressive discovery schemas for create_document tool
  * Stage 0: Discovery - no parameters (show available namespaces)
- * Stage 1: Instructions - namespace parameter (show guidance for selected namespace)
- * Stage 2: Creation - namespace + title + overview (create document immediately with suggestions)
+ * Stage 1: Creation - namespace + title + overview (create blank document immediately)
  */
 const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
   0: {
@@ -66,45 +65,14 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
         }
         // ... other namespaces
       ],
-      next_step: 'Call again with \'namespace\' parameter to get specific instructions',
+      next_step: 'Call again with \'namespace\', \'title\', and \'overview\' to create a blank document',
       example: { namespace: 'api/specs' }
     }
   },
 
   1: {
     stage: 1,
-    description: 'Instructions stage - call with namespace to get specific guidance',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        namespace: {
-          type: 'string',
-          description: 'Document namespace (choose from available namespaces shown in stage 0, or provide custom namespace like "custom/my-namespace")'
-        }
-      },
-      required: ['namespace'],
-      additionalProperties: true
-    },
-    responseExample: {
-      stage: 'instructions',
-      namespace: 'api/specs',
-      instructions: [
-        'Research current API patterns and industry standards for your domain',
-        'Define clear request/response schemas using JSON Schema or OpenAPI',
-        // ... other instructions
-      ],
-      next_step: 'Call again with namespace, title, and overview to create the document',
-      example: {
-        namespace: 'api/specs',
-        title: 'Search API',
-        overview: 'Full-text search with ranking capabilities'
-      }
-    }
-  },
-
-  2: {
-    stage: 2,
-    description: 'Creation stage - call with namespace, title, and overview to create document immediately',
+    description: 'Creation stage - call with namespace, title, and overview to create blank document',
     inputSchema: {
       type: 'object',
       properties: {
@@ -135,7 +103,7 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
         namespace: 'api/specs',
         created: '2025-01-20T12:00:00Z'
       },
-      sections: ['#overview', '#authentication', '#endpoints', '#error-handling'],
+      sections: ['#search-api', '#table-of-contents'],
       suggestions: {
         related_documents: [
           {
@@ -181,17 +149,12 @@ export function determineCreateDocumentStage(args: Record<string, unknown>): num
   const hasTitle = args['title'] != null && args['title'] !== '';
   const hasOverview = args['overview'] != null && args['overview'] !== '';
 
-  // Stage 2: Has all required parameters (create document immediately)
+  // Stage 1: Has all required parameters (create document immediately)
   if (hasNamespace && hasTitle && hasOverview) {
-    return 2;
-  }
-
-  // Stage 1: Has namespace but missing title or overview
-  if (hasNamespace) {
     return 1;
   }
 
-  // Stage 0: No parameters or missing namespace
+  // Stage 0: No parameters or missing required fields
   return 0;
 }
 
@@ -199,10 +162,9 @@ export function determineCreateDocumentStage(args: Record<string, unknown>): num
  * Get next stage number for progression
  */
 export function getNextCreateDocumentStage(currentStage: number): number {
-  // Stage progression: 0 -> 1 -> 2
+  // Stage progression: 0 -> 1
   if (currentStage === 0) return 1;
-  if (currentStage === 1) return 2;
-  return 2; // Max stage
+  return 1; // Max stage
 }
 
 /**

@@ -21,7 +21,7 @@ const logger = getGlobalLogger();
 /**
  * Workflow prompt file extension
  */
-const PROMPT_FILE_EXTENSION = '.wfp.md';
+const PROMPT_FILE_EXTENSION = '.md';
 
 /**
  * Loads all workflow prompts from a directory

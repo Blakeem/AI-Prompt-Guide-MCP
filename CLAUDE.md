@@ -14,7 +14,7 @@ This is a comprehensive MCP server for intelligent AI prompt and guide document 
 - **Hierarchical Document Loading** - Recursive reference loading with configurable depth and cycle detection
 - **Advanced Document Linking** - Cross-document references with `@/path/doc.md#section` syntax in task and section content
 - **Flat Section Addressing** - Unique slug addressing with automatic duplicate handling (e.g., `#overview`, `#tasks-1`)
-- **Progressive Discovery Workflows** - Step-by-step document creation with intelligent guidance
+- **Progressive Discovery Workflows** - 2-stage document creation (discovery → creation) for blank documents
 - **Task Management System** - Complete task lifecycle with @references in content body for context loading
 - **View Tools Suite** - Clean, focused viewing for documents, sections, and tasks
 - **Unified Operations** - Single tools for related operations (section for content editing, task for task management)
@@ -100,7 +100,7 @@ function createError(message: string, code: string, context?: Record<string, unk
 **Error Severity Classification:**
 - **CRITICAL**: Operation cannot continue, throw error (e.g., path traversal, resource exhaustion)
 - **IMPORTANT**: Log error, return error result (e.g., cache invalidation failure)
-- **OPTIONAL**: Log warning, use fallback (e.g., template loading failure)
+- **OPTIONAL**: Log warning, use fallback (e.g., configuration loading failure)
 
 **Security Event Logging:**
 All security violations are logged using `SecurityAuditLogger` for audit trail:
@@ -403,11 +403,12 @@ pnpm check:all          # Runs all checks: lint + typecheck + dead-code
 The server provides a comprehensive suite of MCP tools organized by function:
 
 ### **Core Document Management:**
-- `create_document` - Progressive document creation with smart link guidance
+- `create_document` - 2-stage progressive discovery (namespace selection → blank document creation)
 - `browse_documents` - Unified browsing and searching with namespace awareness
+- `search_documents` - Full-text and regex search across documents with context extraction
 
-### **Unified Content Operations:**
-- `section` - Complete section management with operations:
+### **Unified Content Operations (Bulk-Only):**
+- `section` - Bulk section operations via operations array:
   - Edit: `replace`, `append`, `prepend`
   - Create: `insert_before`, `insert_after`, `append_child` (auto-depth)
   - Delete: `remove`
@@ -423,8 +424,8 @@ The server provides a comprehensive suite of MCP tools organized by function:
 - `view_section` - Clean section content viewer (no stats overhead)
 - `view_task` - Clean task data viewer with status
 
-### **Task Management:**
-- `task` - Unified task operations: create, edit, list with @reference extraction from content
+### **Task Management (Bulk-Only):**
+- `task` - Bulk task operations via operations array: create, edit, list with @reference extraction
 - `complete_task` - Mark completed, get next task with hierarchical reference loading
 - `start_task` - Start or resume work on a task with full context injection
 
@@ -433,9 +434,10 @@ The server provides a comprehensive suite of MCP tools organized by function:
 1. **Consistent Field Names**: All tools use `document` field (not `path`) for consistency
 2. **Multi-Item Support**: View tools support single or multiple items (arrays)
 3. **Clean Separation**: View tools focus on content without stats overhead (except `view_document`)
-4. **Progressive Discovery**: `create_document` uses staged parameter revelation
-5. **Focused Operations**: Each tool has a clear, single purpose without irrelevant fields
-6. **Data Safety**: Move operations create in new location BEFORE deleting from old
+4. **Progressive Discovery**: `create_document` uses 2-stage flow (discovery → creation)
+5. **Bulk Operations**: `section` and `task` tools use operations array for all modifications
+6. **Focused Operations**: Each tool has a clear, single purpose without irrelevant fields
+7. **Data Safety**: Move operations create in new location BEFORE deleting from old
 
 ## MCP ARCHITECTURE & TOOL DEVELOPMENT
 
@@ -468,7 +470,7 @@ src/
 
 ### Progressive Discovery Pattern
 
-The progressive discovery pattern allows tools to reveal parameters gradually, conserving context and guiding users through complex flows.
+The progressive discovery pattern allows tools to reveal parameters gradually, conserving context and guiding users through workflows.
 
 #### Key Concepts
 
@@ -477,16 +479,26 @@ The progressive discovery pattern allows tools to reveal parameters gradually, c
 3. **Context Conservation**: Minimal schemas reduce token usage
 4. **Graceful Error Handling**: Errors provide helpful guidance, not exceptions
 
+#### Current Implementation: create_document (2-Stage Flow)
+
+**Stage 0 - Discovery:**
+- Show available namespaces when no parameters provided
+- Guide user to select namespace and provide title/overview
+
+**Stage 1 - Creation:**
+- Create blank document with title and overview
+- Generate simple structure: title + overview + TOC placeholder
+- No hardcoded templates or scaffolding
+
 #### Implementation Pattern
 
-For any tool implementing progressive discovery:
+For tools implementing progressive discovery:
 
 1. **Define Schema Stages** (`src/tools/schemas/[tool]-schemas.ts`):
 ```typescript
 export const TOOL_SCHEMAS: Record<number, SchemaStage> = {
-  0: { /* minimal schema */ },
-  1: { /* intermediate schema */ },
-  2: { /* full schema */ }
+  0: { /* discovery/minimal schema */ },
+  1: { /* creation/full schema */ }
 };
 ```
 
@@ -494,7 +506,7 @@ export const TOOL_SCHEMAS: Record<number, SchemaStage> = {
 ```typescript
 export interface SessionState {
   sessionId: string;
-  toolNameStage: number;  // Add stage tracking for your tool
+  createDocumentStage: number;  // Stage tracking per tool
 }
 ```
 
@@ -505,17 +517,52 @@ export async function executeTool(
   state: SessionState,
   onStageChange?: () => void
 ): Promise<unknown> {
-  // Determine current stage from args
-  // Update session state if stage changes
-  // Return stage-appropriate response
+  // Stage 0: Show discovery options
+  // Stage 1: Execute creation with all params
 }
 ```
 
 4. **Update Tool Registry** (`src/tools/registry.ts`):
 ```typescript
-const toolSchema = getToolSchema(state.toolNameStage);
+const toolSchema = getToolSchema(state.createDocumentStage);
 // Return dynamic schema based on session state
 ```
+
+## WORKFLOW GUIDES AND DOCUMENTATION SYSTEM
+
+The project includes static reference materials for document authors and AI agents:
+
+### **Workflow Guides** (`.ai-prompt-guide/guides/`)
+Static documentation teaching how to write effective documentation:
+- `activate-guide-documentation.md` - Creating actionable guides and tutorials
+- `activate-specification-documentation.md` - Writing technical specifications
+- `documentation_standards.md` - Content organization and writing standards
+- `research_best_practices.md` - Research guidelines
+- And 6 more workflow guides
+
+**Purpose:** Reference material for document authors (not loaded by MCP server)
+**Management:** Direct file editing
+**Audience:** Document authors and AI agents
+
+### **Workflow Prompts** (`.ai-prompt-guide/workflows/`)
+Structured workflow protocols with YAML frontmatter:
+- `spec-first-integration.md` - Integration correctness protocol
+- `multi-option-tradeoff.md` - Multi-criteria decision making
+- `failure-triage-repro.md` - Bug reproduction workflows
+- `simplicity-gate.md` - Simplicity checks
+- And 4 more workflow protocols
+
+**Purpose:** Reusable decision frameworks and workflows (not loaded by MCP server)
+**Management:** Direct file editing
+**Audience:** AI agents and developers
+**Note:** Files use standard `.md` extension (not `.wfp.md`)
+
+### **Document Creation**
+The `create_document` MCP tool creates blank documents with no hardcoded templates:
+- Simple structure: title + overview + TOC placeholder
+- No namespace-specific scaffolding
+- Users build document structure organically using `section` tool
+- Workflow guides provide best practices for structure (if consulted)
 
 ### Session State Management
 

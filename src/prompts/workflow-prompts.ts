@@ -4,7 +4,7 @@
  * These prompts provide structured decision-making and problem-solving
  * frameworks for agents working on documentation, tasks, and development.
  *
- * Prompts are loaded dynamically from .wfp.md files in the prompts directory.
+ * Prompts are loaded dynamically from .md files in the workflows directory.
  */
 
 import { join } from 'path';
@@ -42,7 +42,7 @@ export async function loadWorkflowPrompts(): Promise<WorkflowPrompt[]> {
   }
 
   const config = loadConfig();
-  const promptsDirectory = join(config.docsBasePath, '../prompts');
+  const promptsDirectory = join(config.docsBasePath, '../workflows');
 
   const loader = new PromptLoader(promptsDirectory);
   cachedPrompts = await loader.loadAll();

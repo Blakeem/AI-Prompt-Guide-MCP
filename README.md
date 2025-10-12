@@ -194,15 +194,16 @@ The system provides **13 powerful tools** organized by function, all using intel
 ### 📄 Document Creation & Discovery
 
 #### `create_document` - Progressive Document Creation
-Guided document creation with namespace-specific templates and intelligent suggestions.
+Guided blank document creation with namespace organization and intelligent suggestions.
 
 **Features:**
-- **Progressive discovery** (3 stages: Discovery → Instructions → Creation)
-- **Namespace templates** (API specs, guides, components, services, troubleshooting)
+- **Progressive discovery** (2 stages: Discovery → Creation)
+- **Blank documents** with simple structure (title + overview + TOC placeholder)
+- **Namespace organization** for structured documentation
 - **Smart suggestions** analyze existing docs for related content
 - **Security validation** prevents path traversal attacks
 
-**Use when:** Creating new documentation with guidance and structure
+**Use when:** Creating new documentation that you'll structure organically
 
 ---
 
@@ -221,8 +222,8 @@ Explore documents by folder structure or perform full-text search.
 
 ### ✏️ Content Operations
 
-#### `section` - Complete Section Management
-Unified tool for ALL section operations with automatic depth calculation.
+#### `section` - Complete Section Management (Bulk-Only)
+Unified tool for ALL section operations via operations array with automatic depth calculation.
 
 **Operations:**
 - **Edit**: `replace`, `append`, `prepend`
@@ -230,17 +231,18 @@ Unified tool for ALL section operations with automatic depth calculation.
 - **Delete**: `remove`
 
 **Features:**
-- **Batch support** for multiple operations in single call
+- **Bulk operations only** - all operations passed as array for consistency
+- **Multiple operations** in single call for efficiency
 - **Link validation** checks for broken @references
 - **Auto-depth calculation** for append_child operation
 - **Markdown-aware** uses AST-based parsing, not string manipulation
 
-**Use when:** Adding, modifying, or removing document sections
+**Use when:** Adding, modifying, or removing document sections (single or multiple)
 
 ---
 
-#### `task` - Unified Task Management
-Complete task lifecycle: create, edit, and list with automatic @reference extraction.
+#### `task` - Unified Task Management (Bulk-Only)
+Complete task lifecycle via operations array: create, edit, and list with automatic @reference extraction.
 
 **Operations:**
 - **create**: Add new tasks with metadata
@@ -248,12 +250,14 @@ Complete task lifecycle: create, edit, and list with automatic @reference extrac
 - **list**: Query tasks with filtering and next-task detection
 
 **Features:**
+- **Bulk operations only** - all operations passed as array for consistency
+- **Multiple operations** in single call for efficiency
 - **Hierarchical @reference loading** brings in documentation context
 - **Status filtering** (pending, in_progress, completed, blocked)
 - **Hierarchical organization** supports phase/category grouping
 - **Next task detection** finds first available work item
 
-**Use when:** Managing task creation, updates, and discovery
+**Use when:** Managing task creation, updates, and discovery (single or multiple)
 
 ---
 
@@ -439,7 +443,7 @@ The system includes a **powerful workflow prompt system** that lets you create c
 
 ### What Are Workflow Prompts?
 
-Workflow prompts are `.wfp.md` (Workflow Prompt Markdown) files that codify proven problem-solving frameworks:
+Workflow prompts are `.md` (Markdown) files that codify proven problem-solving frameworks:
 
 - **Multi-Option Trade-off** - Structured decision-making with weighted criteria
 - **Spec-First Integration** - Ensuring correctness before implementing new features
@@ -505,7 +509,7 @@ Implement JWT authentication following the API spec.
 **2. Automatic Injection:**
 When agents use `start_task` or `complete_task`, the system:
 - Extracts workflow names from task metadata
-- Loads full workflow content from `.wfp.md` files
+- Loads full workflow content from `.md` files
 - Injects complete methodology into the task response
 - Provides structured guidance for that specific task
 
@@ -517,9 +521,9 @@ When agents use `start_task` or `complete_task`, the system:
 
 **Step 1: Create the file**
 ```bash
-# Workflows live in <DOCS_BASE_PATH>/../prompts/
-cd .ai-prompt-guide/prompts
-touch my-team-process.wfp.md
+# Workflows live in <DOCS_BASE_PATH>/../workflows/
+cd .ai-prompt-guide/workflows
+touch my-team-process.md
 ```
 
 **Step 2: Define your methodology**
@@ -551,13 +555,13 @@ pnpm build && npx @modelcontextprotocol/inspector node dist/index.js
 - **Valid separators**: Hyphens (`-`), underscores (`_`), or dots (`.`)
 
 **Valid:**
-- `multi-option-tradeoff.wfp.md`
-- `code_review_checklist.wfp.md`
-- `performance.optimization.guide.wfp.md`
+- `multi-option-tradeoff.md`
+- `code_review_checklist.md`
+- `performance.optimization.guide.md`
 
 **Invalid:**
-- `My Workflow.wfp.md` (spaces and capitals)
-- `workflow.wfp.md` (not descriptive)
+- `My Workflow.md` (spaces and capitals)
+- `workflow.md` (not descriptive)
 
 ### Built-In Workflows
 
@@ -699,6 +703,7 @@ Create your docs directory with optional namespace organization:
 - Track documentation tasks and completion status
 - Generate suggestions for related content
 - Browse and search across entire documentation system
+- Build document structure organically using section operations
 
 ---
 

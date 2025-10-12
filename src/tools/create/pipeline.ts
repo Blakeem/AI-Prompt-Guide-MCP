@@ -1,6 +1,6 @@
 /**
  * Pipeline orchestrator for create-document
- * Coordinates all stages of the progressive discovery flow
+ * Coordinates all stages of the progressive discovery flow (2-stage: discovery -> creation)
  */
 
 import type { SessionState } from '../../session/types.js';
@@ -13,7 +13,6 @@ import { getGlobalSessionStore } from '../../session/session-store.js';
 
 import {
   processDiscovery,
-  processInstructions,
   validateNamespaceForCreation,
   type ValidationResult
 } from './validation-processor.js';
@@ -60,7 +59,7 @@ export interface CreationErrorResult {
 
 /**
  * Main pipeline orchestrator function
- * Handles all stages of the progressive discovery pattern (0, 1, 2)
+ * Handles all stages of the progressive discovery pattern (0 -> 1)
  */
 export async function executeCreateDocumentPipeline(
   args: Record<string, unknown>,
@@ -88,7 +87,7 @@ export async function executeCreateDocumentPipeline(
   }
 
   // STAGE 0: Discovery - Return available document namespaces
-  if (namespace == null) {
+  if (namespace == null || title == null || overview == null) {
     // Update to next stage for tool list
     const nextStage = getNextCreateDocumentStage(currentStage);
     if (nextStage !== currentStage) {
@@ -102,24 +101,9 @@ export async function executeCreateDocumentPipeline(
     return processDiscovery();
   }
 
-  // STAGE 1: Instructions - Return namespace-specific guidance
-  if (title == null || overview == null) {
-    // Update to next stage for tool list
-    const nextStage = getNextCreateDocumentStage(1);
-    if (nextStage !== state.createDocumentStage) {
-      sessionStore.updateSession(state.sessionId, { createDocumentStage: nextStage });
-
-      if (onStageChange != null) {
-        onStageChange();
-      }
-    }
-
-    return processInstructions(namespace);
-  }
-
-  // STAGE 2: Creation - Create the document immediately with suggestions
+  // STAGE 1: Creation - Create the document immediately
   // Update to creation stage for tool list
-  const nextStage = getNextCreateDocumentStage(2);
+  const nextStage = getNextCreateDocumentStage(1);
   if (nextStage !== state.createDocumentStage) {
     sessionStore.updateSession(state.sessionId, { createDocumentStage: nextStage });
 
@@ -132,7 +116,7 @@ export async function executeCreateDocumentPipeline(
 }
 
 /**
- * Execute Stage 2: Document Creation
+ * Execute Stage 1: Document Creation
  */
 async function executeCreationStage(
   namespace: string,

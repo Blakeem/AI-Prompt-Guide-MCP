@@ -3,7 +3,7 @@
  */
 
 /**
- * Frontmatter metadata from .wfp.md files
+ * Frontmatter metadata from workflow .md files
  */
 export interface PromptFrontmatter {
   /** Display title for the prompt (optional, defaults to filename) */

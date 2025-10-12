@@ -15,7 +15,7 @@ The **Workflow Prompts System** provides a structured way to guide AI agents thr
 
 ### File Format
 
-Workflow prompts are stored as `.wfp.md` (Workflow Prompt Markdown) files with YAML frontmatter:
+Workflow prompts are stored as `.md` (Markdown) files with YAML frontmatter:
 
 ```markdown
 ---
@@ -55,31 +55,31 @@ Workflow files MUST follow these naming conventions:
 - **Valid patterns**: `kebab-case`, `snake_case`, `dotted.notation`
 
 **Valid Examples:**
-- `multi-option-tradeoff.wfp.md`
-- `spec_first_integration.wfp.md`
-- `causal.flow.mapping.wfp.md`
+- `multi-option-tradeoff.md`
+- `spec_first_integration.md`
+- `causal.flow.mapping.md`
 
 **Invalid Examples:**
-- `Multi Option Tradeoff.wfp.md` (spaces and capitals)
-- `123workflow.wfp.md` (missing descriptive name)
-- `My-Workflow!.wfp.md` (special characters)
+- `Multi Option Tradeoff.md` (spaces and capitals)
+- `123workflow.md` (missing descriptive name)
+- `My-Workflow!.md` (special characters)
 
 ### Directory Structure
 
-Workflow files are stored in the `prompts` directory relative to your docs base path:
+Workflow files are stored in the `workflows` directory relative to your docs base path:
 
 ```
 your-project/
 ├── .ai-prompt-guide/
 │   ├── docs/              # Your documentation
-│   └── prompts/           # Workflow prompt files
-│       ├── multi-option-tradeoff.wfp.md
-│       ├── spec-first-integration.wfp.md
-│       ├── failure-triage-repro.wfp.md
-│       └── custom-workflow.wfp.md
+│   └── workflows/         # Workflow prompt files
+│       ├── multi-option-tradeoff.md
+│       ├── spec-first-integration.md
+│       ├── failure-triage-repro.md
+│       └── custom-workflow.md
 ```
 
-**Note**: The system automatically looks for workflows in `<DOCS_BASE_PATH>/../prompts/`.
+**Note**: The system automatically looks for workflows in `<DOCS_BASE_PATH>/../workflows/`.
 
 ## Frontmatter Schema
 
@@ -158,8 +158,8 @@ tags:
 
 The system automatically loads workflow prompts at server startup:
 
-1. **Initialization**: During server startup, the system scans the `prompts` directory
-2. **File Discovery**: Finds all `.wfp.md` files
+1. **Initialization**: During server startup, the system scans the `workflows` directory
+2. **File Discovery**: Finds all `.md` files
 3. **Validation**: Validates filename format, frontmatter structure, and content
 4. **Caching**: Loads workflows into memory for fast access
 5. **Error Handling**: Logs warnings for invalid files but continues loading valid ones
@@ -183,7 +183,7 @@ Check server logs to verify workflows loaded correctly:
 
 ```
 [WARN] Failed to load prompt file {
-  filename: 'Bad-File.wfp.md',
+  filename: 'Bad-File.md',
   type: 'INVALID_FILENAME',
   message: 'Invalid filename "Bad-File". Filenames must be lowercase...'
 }
@@ -299,24 +299,24 @@ Pick a descriptive name that follows the naming conventions:
 
 ```bash
 # Good names
-my-team-process.wfp.md
-code_review_checklist.wfp.md
-performance.optimization.guide.wfp.md
+my-team-process.md
+code_review_checklist.md
+performance.optimization.guide.md
 
 # Bad names
-My Team Process.wfp.md    # Spaces and capitals
-workflow.wfp.md           # Not descriptive
-123.wfp.md                # Not descriptive
+My Team Process.md    # Spaces and capitals
+workflow.md           # Not descriptive
+123.md                # Not descriptive
 ```
 
 ### Step 2: Create the File
 
-Create your `.wfp.md` file in the prompts directory:
+Create your `.md` file in the workflows directory:
 
 ```bash
 # Assuming DOCS_BASE_PATH is /project/.ai-prompt-guide/docs
-cd /project/.ai-prompt-guide/prompts
-touch my-custom-workflow.wfp.md
+cd /project/.ai-prompt-guide/workflows
+touch my-custom-workflow.md
 ```
 
 ### Step 3: Add Frontmatter
@@ -425,7 +425,7 @@ Task content here...
 
 ### Example 1: Multi-Option Trade-off Protocol
 
-**File**: `multi-option-tradeoff.wfp.md`
+**File**: `multi-option-tradeoff.md`
 
 ```markdown
 ---
@@ -481,7 +481,7 @@ tags:
 
 ### Example 2: Spec-First Integration Protocol
 
-**File**: `spec-first-integration.wfp.md`
+**File**: `spec-first-integration.md`
 
 ```markdown
 ---
@@ -538,7 +538,7 @@ tags:
 
 ### Example 3: Failure Triage & Minimal Repro
 
-**File**: `failure-triage-repro.wfp.md`
+**File**: `failure-triage-repro.md`
 
 ```markdown
 ---
@@ -646,10 +646,10 @@ tags:
    - `[problem]-[solution]`: `failure-triage-repro`
 
 3. **Avoid Generic Names**
-   - ❌ `workflow.wfp.md`
-   - ❌ `process.wfp.md`
-   - ✅ `code-review-checklist.wfp.md`
-   - ✅ `incident-response-runbook.wfp.md`
+   - ❌ `workflow.md`
+   - ❌ `process.md`
+   - ✅ `code-review-checklist.md`
+   - ✅ `incident-response-runbook.md`
 
 ### Frontmatter Guidelines
 
@@ -691,12 +691,12 @@ REFERENCE_EXTRACTION_DEPTH=3  # Default: 3, Range: 1-5
 
 The system looks for workflows at:
 ```
-<DOCS_BASE_PATH>/../prompts/*.wfp.md
+<DOCS_BASE_PATH>/../workflows/*.md
 ```
 
 **Example:**
 - DOCS_BASE_PATH: `/project/.ai-prompt-guide/docs`
-- Prompts directory: `/project/.ai-prompt-guide/prompts`
+- Workflows directory: `/project/.ai-prompt-guide/workflows`
 
 ## Troubleshooting
 
@@ -705,9 +705,9 @@ The system looks for workflows at:
 **Check filename:**
 ```bash
 # Must be lowercase with valid separators
-✓ my-workflow.wfp.md
-✗ My-Workflow.wfp.md
-✗ my workflow.wfp.md
+✓ my-workflow.md
+✗ My-Workflow.md
+✗ my workflow.md
 ```
 
 **Check frontmatter:**
@@ -723,7 +723,7 @@ The system looks for workflows at:
 ```bash
 # Look for warnings
 [WARN] Failed to load prompt file {
-  filename: 'my-workflow.wfp.md',
+  filename: 'my-workflow.md',
   type: 'VALIDATION_ERROR',
   message: 'whenToUse must be an array of strings'
 }
@@ -747,8 +747,8 @@ Workflow: workflow-name   # Missing list marker
 
 **Check workflow name matches filename:**
 ```bash
-# File: spec-first-integration.wfp.md
-# Reference: spec-first-integration (NO .wfp.md extension)
+# File: spec-first-integration.md
+# Reference: spec-first-integration (NO .md extension)
 ```
 
 **Verify workflow loaded:**
@@ -773,7 +773,7 @@ Workflows must have non-empty content after frontmatter.
 **Validation error:**
 ```
 [WARN] Failed to load prompt file {
-  filename: 'empty.wfp.md',
+  filename: 'empty.md',
   type: 'VALIDATION_ERROR',
   message: 'Prompt content cannot be empty'
 }
@@ -799,7 +799,7 @@ Loads all workflow prompts from the filesystem at server startup.
 Retrieves a single workflow prompt by name.
 
 **Parameters:**
-- `name`: Workflow name (filename without `.wfp.md` extension)
+- `name`: Workflow name (filename without `.md` extension)
 
 **Returns**: `WorkflowPrompt | undefined`
 
@@ -907,11 +907,11 @@ Create workflows that reference other workflows:
 
 1. **Evaluate options**
    - Use the Multi-Option Trade-off Protocol for this step
-   - See @/prompts/multi-option-tradeoff.wfp.md
+   - See @/workflows/multi-option-tradeoff.md
 
 2. **Implement chosen option**
    - Use Spec-First Integration if working with APIs
-   - See @/prompts/spec-first-integration.wfp.md
+   - See @/workflows/spec-first-integration.md
 ```
 
 ### Dynamic Workflow Selection
