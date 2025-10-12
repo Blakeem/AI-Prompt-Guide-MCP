@@ -229,7 +229,7 @@ Design the REST API architecture.
 
 ## Complete Tool Reference
 
-The system provides **13 powerful tools** organized by function, all using intelligent context engineering.
+The system provides **14 powerful tools** organized by function, all using intelligent context engineering.
 
 ### 📄 Document Creation & Discovery
 
@@ -392,8 +392,6 @@ Begin task work with complete workflow and documentation context injection using
 
 **Use when:** Starting tasks or resuming after context loss
 
-⚠️ **Important**: Always use full path with `#slug` when assigned a specific task, or you will start the WRONG TASK!
-
 ---
 
 #### `complete_task` - Finish and Get Next
@@ -411,8 +409,6 @@ Mark task complete and optionally receive next task using unified path addressin
 - **Minimal duplication** - skips main workflow injection (always)
 
 **Use when:** Completing tasks in ongoing sessions
-
-⚠️ **Important**: Always use full path with `#slug` when assigned a specific task, or you will complete the WRONG TASK!
 
 ---
 
@@ -544,8 +540,7 @@ Move documents to different paths or namespaces.
 2. **Session Awareness** - Tools signal and respond to session state
 3. **Unified Operations** - Single tools for related operations
 4. **Batch Support** - Efficient multi-operation processing
-5. **Type Safety** - Validated addressing throughout
-6. **Graceful Degradation** - Resilient to missing resources
+5. **Graceful Degradation** - Resilient to missing resources
 
 ---
 
@@ -734,29 +729,11 @@ The system includes **12 workflow prompts** and **4 guide prompts** (16 total), 
 
 **Dynamic Discovery**: After server startup, use your MCP client's `prompts/list` to see all available prompts with their descriptions and usage guidance.
 
-See the [complete workflow documentation](docs/WORKFLOW-PROMPTS.md) for detailed examples and API reference.
-
-### Prompt Validation and Error Handling
-
-**Startup Validation:**
-All prompt files are validated during server startup:
-- **Filename format** - Must use lowercase with valid separators (hyphens, underscores, dots)
-- **YAML frontmatter** - Required fields with correct types (`title`, `description`, `whenToUse`)
-- **Content body** - Must not be empty
-- **Invalid files** - Logged as warnings but don't break startup
-
-**Error Recovery:**
-The prompt system is resilient:
-- Invalid files are skipped with detailed warnings
-- Other prompts continue loading normally
-- System remains functional even with some invalid prompts
-
 **Full documentation:** See [Workflow Prompts System](docs/WORKFLOW-PROMPTS.md) for complete guide including:
-- Detailed frontmatter schema
+- Detailed frontmatter schema and file format
 - Best practices for effective workflows
-- Troubleshooting common issues
-- API reference for programmatic use
-- Advanced usage patterns
+- Built-in workflow examples
+- Creating custom workflows for your team
 
 ---
 
