@@ -194,246 +194,225 @@ The system provides **13 powerful tools** organized by function, all using intel
 ### 📄 Document Creation & Discovery
 
 #### `create_document` - Progressive Document Creation
-Guided blank document creation with namespace organization and intelligent suggestions.
+Create blank documents with namespace organization through guided 2-stage discovery.
 
-**Features:**
-- **Progressive discovery** (2 stages: Discovery → Creation)
-- **Blank documents** with simple structure (title + overview + TOC placeholder)
-- **Namespace organization** for structured documentation
-- **Smart suggestions** analyze existing docs for related content
-- **Security validation** prevents path traversal attacks
+**Capabilities:**
+- **Progressive discovery** guides namespace selection
+- **Blank documents** ready for organic structure building
+- **Smart suggestions** based on existing documentation patterns
+- **Namespace organization** for large documentation sets
 
-**Use when:** Creating new documentation that you'll structure organically
+**Use when:** Starting new documentation
 
 ---
 
 #### `browse_documents` - Unified Browsing & Search
-Explore documents by folder structure or perform full-text search.
+Explore folder structure or search content with namespace-aware organization.
 
-**Features:**
-- **Two modes**: Browse (no query) shows structure, Search (with query) finds content
-- **Namespace awareness** understands document organization
-- **Relevance scoring** ranks search results with context
-- **Relationship analysis** shows document interconnections
+**Capabilities:**
+- **Dual-mode operation** - browse structure or search content
+- **Namespace awareness** for organized navigation
+- **Relevance scoring** with contextual ranking
+- **Relationship analysis** across documents
 
-**Use when:** Discovering what documentation exists or finding specific content
+**Use when:** Exploring documentation or finding content
+
+---
+
+#### `search_documents` - Full-Text & Regex Search
+Search across all documents with context extraction and match highlighting.
+
+**Capabilities:**
+- **Full-text search** with case-insensitive matching
+- **Regex patterns** for advanced queries
+- **Context extraction** with surrounding lines
+- **Scope filtering** by namespace
+- **Match highlighting** with line numbers
+
+**Use when:** Finding specific content patterns
 
 ---
 
 ### ✏️ Content Operations
 
-#### `section` - Complete Section Management (Bulk-Only)
-Unified tool for ALL section operations via operations array with automatic depth calculation.
+#### `section` - Complete Section Management
+Unified bulk operations for all section editing, creation, and deletion.
 
 **Operations:**
 - **Edit**: `replace`, `append`, `prepend`
-- **Create**: `insert_before`, `insert_after`, `append_child` (auto-depth!)
+- **Create**: `insert_before`, `insert_after`, `append_child`
 - **Delete**: `remove`
 
-**Features:**
-- **Bulk operations only** - all operations passed as array for consistency
-- **Multiple operations** in single call for efficiency
-- **Link validation** checks for broken @references
-- **Auto-depth calculation** for append_child operation
-- **Markdown-aware** uses AST-based parsing, not string manipulation
+**Capabilities:**
+- **Batch processing** via operations array
+- **Auto-depth calculation** for child insertions
+- **Link validation** for @references
+- **Structure-aware parsing** preserves document integrity
 
-**Use when:** Adding, modifying, or removing document sections (single or multiple)
+**Use when:** Managing section content and structure
 
 ---
 
-#### `task` - Unified Task Management (Bulk-Only)
-Complete task lifecycle via operations array: create, edit, and list with automatic @reference extraction.
+#### `task` - Unified Task Management
+Complete task lifecycle through bulk operations: create, edit, and list.
 
 **Operations:**
-- **create**: Add new tasks with metadata
-- **edit**: Update task content and status
-- **list**: Query tasks with filtering and next-task detection
+- **create**: Add tasks with metadata
+- **edit**: Update content and status
+- **list**: Query with filtering
 
-**Features:**
-- **Bulk operations only** - all operations passed as array for consistency
-- **Multiple operations** in single call for efficiency
-- **Hierarchical @reference loading** brings in documentation context
-- **Status filtering** (pending, in_progress, completed, blocked)
-- **Hierarchical organization** supports phase/category grouping
-- **Next task detection** finds first available work item
+**Capabilities:**
+- **Batch processing** via operations array
+- **Hierarchical @reference loading** for context
+- **Status filtering** across task states
+- **Next task detection** for workflow progression
+- **Hierarchical organization** for complex projects
 
-**Use when:** Managing task creation, updates, and discovery (single or multiple)
+**Use when:** Managing task lifecycles
 
 ---
 
 ### 🔄 Task Workflow Tools
 
 #### `start_task` - Start Work with Full Context
-**The primary entry point** for beginning work on any task.
+Begin task work with complete workflow and documentation context injection.
 
-**What it injects:**
-1. **Task-specific workflow** (Workflow field) - Process guidance for this task
-2. **Main workflow** (Main-Workflow from first task) - Project methodology
-3. **Referenced documents** (@references) - Hierarchical context up to depth 3
+**Injects:**
+- **Task-specific workflow** - Process guidance
+- **Main workflow** - Project methodology
+- **Referenced documents** - Hierarchical context tree
 
-**Use when:**
-- Starting a new task for the first time
-- Resuming work after context compression
-- Beginning a new work session
+**Capabilities:**
+- **Session-aware** - re-injects main workflow after context compression
+- **Hierarchical loading** of @references up to configured depth
+- **Complete context** for starting or resuming work
 
-**Example response:**
-```json
-{
-  "task": {
-    "slug": "implement-auth",
-    "workflow": { "name": "simplicity-gate", "content": "..." },
-    "main_workflow": { "name": "spec-first-integration", "content": "..." },
-    "referenced_documents": [
-      { "path": "/api/auth-spec.md", "content": "...", "children": [...] }
-    ]
-  }
-}
-```
+**Use when:** Starting tasks or resuming after context loss
 
 ---
 
 #### `complete_task` - Finish and Get Next
-Mark current task complete and automatically get the next task with its context.
+Mark task complete and receive next task with workflow context.
 
-**What it does:**
-1. **Updates task status** to "completed" with timestamp and notes
-2. **Finds next available task** (first pending/in-progress after current)
-3. **Injects next task workflow** (task-specific only, NOT main workflow)
-4. **Loads next task references** hierarchically for context
+**Capabilities:**
+- **Status updates** with completion notes
+- **Automatic next-task** detection
+- **Task workflow injection** for next work item
+- **Reference loading** for next task context
+- **Minimal duplication** - skips main workflow injection
 
-**Use when:**
-- Finishing current task in ongoing session
-- Continuing sequential work flow
-- Want next task suggestion with minimal duplication
-
-**Key difference:** Does NOT re-inject main workflow (already in context from start_task)
+**Use when:** Completing tasks in ongoing sessions
 
 ---
 
 ### 👁️ View & Inspection Tools
 
 #### `view_document` - Comprehensive Document Inspection
-Inspect document structure with full statistics and metadata.
+Inspect document structure with complete statistics and metadata.
 
-**What you get:**
-- **Document metadata** (title, namespace, modified date)
-- **Section hierarchy** with heading structure
-- **Link statistics** (total, internal, external, broken)
-- **Task statistics** (total, completed, pending)
-- **Word/heading counts** and file metadata
+**Provides:**
+- Document metadata and hierarchy
+- Link and task statistics
+- Section structure and relationships
+- Word and heading counts
 
-**Use when:** Need detailed overview of document structure and health
+**Use when:** Analyzing document structure and health
 
 ---
 
 #### `view_section` - Clean Section Content
-View specific sections without stats overhead—just clean content.
+View section content with reference extraction and hierarchy detection.
 
-**Features:**
-- **Batch viewing** (up to 10 sections)
-- **Reference extraction** shows @links in content
-- **Hierarchy detection** identifies parent/child relationships
-- **Summary statistics** when viewing multiple sections
+**Capabilities:**
+- **Batch viewing** up to 10 sections
+- **Reference extraction** from content
+- **Hierarchy detection** for structure
+- **Summary statistics** across sections
 
-**Use when:** Quickly reading section content without full document context
+**Use when:** Reading section content
 
 ---
 
-#### `view_task` - Passive Task Inspection
-Browse task data with workflow metadata (names only, no content injection).
+#### `view_task` - Lightweight Task Inspection
+Browse task metadata and workflow names without full context loading.
 
-**What you get:**
-- **Task status** and basic metadata
-- **Workflow names** (not full content)
-- **Reference list** (@references present, not loaded)
-- **Batch support** for multiple tasks
+**Provides:**
+- Task status and metadata
+- Workflow names (lightweight)
+- Reference lists
+- Batch support for multiple tasks
 
-**Use when:** Inspecting tasks without triggering full context loading
-
-**Key difference:** Shows workflow NAME only (unlike start_task which injects full content)
+**Use when:** Browsing tasks without loading full context
 
 ---
 
 ### 🗂️ Document Lifecycle Management
 
 #### `edit_document` - Edit Document Metadata
-Update document title and/or overview content.
+Update document title and overview content.
 
-**Fields:**
-- **title**: Updates the first H1 heading (document title)
-- **overview**: Replaces content between title and first H2 section
+**Capabilities:**
+- **Title updates** (H1 heading)
+- **Overview updates** (intro content)
+- **Flexible editing** - update either or both fields
+- **Structure preservation** during updates
 
-**Features:**
-- **Flexible editing** - update title, overview, or both in single operation
-- **Markdown-aware** - preserves document structure and formatting
-- **Path normalization** - handles various document path formats
-- **Cache invalidation** - ensures changes are immediately reflected
-
-**Use when:** Updating document metadata without restructuring content
+**Use when:** Updating document metadata
 
 ---
 
 #### `delete_document` - Delete or Archive Documents
 Remove documents permanently or archive with audit trail.
 
-**Parameters:**
-- **document**: Document path to delete (required)
-- **archive**: Boolean flag for safe archival (default: false)
+**Capabilities:**
+- **Permanent deletion** option
+- **Safe archival** with timestamps
+- **Audit trail** creation
+- **Recovery support** for archived documents
 
-**Features:**
-- **Permanent deletion** - complete file removal (archive=false)
-- **Safe archival** - timestamped archive with audit trail (archive=true)
-- **Audit files** - archive operations create `.audit` files with metadata
-- **Recovery support** - archived documents can be manually restored
-
-**Use when:** Retiring documents or cleaning up obsolete documentation
+**Use when:** Retiring or cleaning up documentation
 
 ---
 
 #### `move` - Move Sections & Tasks
-Relocate sections or tasks between documents or within the same document.
+Relocate sections or tasks between or within documents.
 
-**Parameters:**
-- **from**: Source path with section slug (e.g., "/api/auth.md#jwt-tokens")
-- **to**: Destination document path (e.g., "/api/security.md")
-- **reference**: Reference section in destination for positioning
-- **position**: Placement relative to reference (`before`, `after`, `child`)
+**Positioning:**
+- `before` - Insert before reference section
+- `after` - Insert after reference section
+- `child` - Append as child with auto-depth
 
-**Features:**
-- **Data safety** - creates in new location BEFORE deleting from old
-- **Auto-depth calculation** - `child` position calculates proper heading depth
-- **Within-document moves** - reorganize content in same document
-- **Reuses shared utilities** - consistent with section creation operations
+**Capabilities:**
+- **Cross-document moves** between files
+- **Within-document moves** for reorganization
+- **Auto-depth calculation** for child placement
+- **Safe operations** - create before delete
 
-**Use when:** Restructuring documentation or reorganizing content hierarchy
+**Use when:** Restructuring documentation
 
 ---
 
 #### `move_document` - Relocate Document Files
-Move document files to different paths or namespaces.
+Move documents to different paths or namespaces.
 
-**Parameters:**
-- **from**: Source document path (e.g., "/api/auth.md")
-- **to**: Destination path (e.g., "/api/security/auth.md")
+**Capabilities:**
+- **Automatic directory creation**
+- **Overwrite protection**
+- **Namespace changes** supported
+- **Cache updates** for moved documents
 
-**Features:**
-- **Directory creation** - automatically creates destination directories
-- **Existence validation** - prevents overwriting existing documents
-- **Cache invalidation** - updates both source and destination caches
-- **Path normalization** - handles various path formats consistently
-
-**Use when:** Reorganizing document structure or changing namespaces
+**Use when:** Reorganizing document structure
 
 ---
 
 ### Key Tool Design Principles
 
-1. **Context Engineering**: Tools automatically load relevant context via @references
-2. **Session Awareness**: start_task vs complete_task signal session state
-3. **Unified Operations**: Single tools handle related operations (section for edit/create/delete, task for create/edit/list)
-4. **Batch Support**: Process multiple operations efficiently
-5. **Type Safety**: Central addressing system validates all paths
-6. **Graceful Degradation**: Missing workflows/references don't break execution
+1. **Context Engineering** - Automatic @reference loading
+2. **Session Awareness** - Tools signal and respond to session state
+3. **Unified Operations** - Single tools for related operations
+4. **Batch Support** - Efficient multi-operation processing
+5. **Type Safety** - Validated addressing throughout
+6. **Graceful Degradation** - Resilient to missing resources
 
 ---
 
@@ -694,16 +673,15 @@ Create your docs directory with optional namespace organization:
 
 **Interconnected Documentation**
 - Create documentation ecosystems with smart linking
-- Link specifications to implementation guides automatically
-- Maintain consistency with namespace templates
-- Validate references and identify broken links
+- Link specifications to implementation guides
+- Validate references across documents
 
 **Content Organization**
-- Organize large doc sets with namespace hierarchies
-- Track documentation tasks and completion status
+- Organize large doc sets with namespaces
+- Track documentation tasks and status
 - Generate suggestions for related content
-- Browse and search across entire documentation system
-- Build document structure organically using section operations
+- Browse and search entire documentation systems
+- Build document structure organically
 
 ---
 
