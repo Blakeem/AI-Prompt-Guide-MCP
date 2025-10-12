@@ -1,8 +1,22 @@
 # AI Prompt Guide MCP
 
-**Intelligent documentation management for AI agents with context-aware workflow injection and hierarchical reference loading.**
+**Agent orchestration scaffolding with task-driven knowledge graphs and zero-configuration context engineering.**
 
-Transform your Markdown documentation into an interconnected knowledge graph that AI agents can navigate intelligently, loading exactly the context needed for each task with automatic workflow guidance.
+A Model Context Protocol server that transforms documentation into an intelligent agent coordination system. Assign tasks to agents—specs, workflows, and interconnected docs load automatically. No manual prompt crafting, no context juggling, no repetitive setup. Just structured knowledge that guides agents through complex work while maximizing context efficiency.
+
+## Why This Exists
+
+Building with AI agents means drowning in prompt management: manually assembling specs, copying workflows, tracking what each agent needs, and losing context to compression. This system eliminates that friction entirely.
+
+**What you get:**
+- **Task-driven context loading** - Assign `"/tasks.md#implement-auth"` to a subagent → full spec, workflow, and linked docs inject automatically
+- **Built-in best practices** - Custom workflows inject based on task type (no more copying boilerplate decision frameworks)
+- **Zero manual orchestration** - Agents navigate a knowledge graph where every task knows its context requirements
+- **Persistent audit trail** - Completion notes create searchable project memory across sessions
+- **Context-efficient delegation** - Subagents get complete context without the main agent narrating (work longer before compression)
+- **Cross-document intelligence** - `@/spec.md#auth` references pull exact sections needed, not entire files
+
+**The result:** Agent scaffolding that feels like it reads your mind. You describe high-level work in tasks, the system handles the orchestration complexity.
 
 ---
 
@@ -21,27 +35,53 @@ Transform your Markdown documentation into an interconnected knowledge graph tha
 
 ## What Is This?
 
-AI Prompt Guide MCP is a Model Context Protocol server that enables AI agents to work with **structured, interconnected documentation as a knowledge graph**. Documents reference each other, tasks inject relevant workflows, and context loads hierarchically—all automatically.
+Think of it as **Kubernetes for AI agents, but for knowledge instead of containers**. You define tasks in Markdown, link them to specs and workflows, and the system handles all orchestration—context loading, workflow injection, cross-document navigation, and audit trails.
+
+### The Agent Orchestration Model
+
+**Traditional approach (manual hell):**
+```
+You: "Implement authentication using JWT"
+Agent: "What's the spec?"
+You: [paste 500 lines of API spec]
+Agent: "What pattern should I follow?"
+You: [paste your decision-making workflow]
+Agent: [runs out of context after 2 iterations]
+You: [repeat everything for the subagent]
+```
+
+**With this system:**
+```
+You: assign start_task("/tasks.md#implement-auth") to Agent A
+→ Full JWT spec, security workflow, related docs inject automatically
+→ Agent A works until done, completes task with audit note
+
+You: assign start_task("/tasks.md#setup-database") to Agent B
+→ Database schema, migration workflow, connection docs inject automatically
+→ Agent B gets full context without you repeating anything
+→ Complete task history persists across all compression cycles
+```
 
 ### Core Capabilities
 
-**📚 Intelligent Document Management**
-- Cross-document references with `@/path/doc.md#section` syntax
-- Hierarchical content loading with cycle detection
-- Namespace organization for large documentation sets
-- Flat section addressing with automatic duplicate handling
+**🤖 Agent Scaffolding & Orchestration**
+- **Task-based handoff** - Assign tasks by path, full context loads automatically
+- **Incremental & ad-hoc modes** - Sequential workflow for main agent, isolated tasks for subagents
+- **Zero-config delegation** - Subagents receive complete context without main agent narration
+- **Persistent audit trail** - Completion notes create searchable project memory
+- **Cross-document operations** - Single batch edits across multiple files via unified paths
 
-**⚡ Context Engineering**
-- **Smart workflow injection** based on session state (new vs. resuming)
-- **Hierarchical @reference loading** brings in relevant documentation automatically
-- **Progressive discovery** patterns conserve context tokens
-- **Session-resilient** workflows survive context compression
+**📚 Knowledge Graph Architecture**
+- **@reference linking** - `@/spec.md#section` pulls exact content needed, not entire files
+- **Hierarchical loading** - References recursively load with configurable depth (prevent exponential growth)
+- **Cycle detection** - Automatic prevention of circular reference loops
+- **Namespace organization** - Structure large doc sets by domain (`/api/`, `/guides/`, `/specs/`)
 
-**🎯 Task Management**
-- Sequential task progression with status tracking
-- Automatic next-task suggestion with context
-- Workflow prompts injected based on task metadata
-- Reference documents loaded hierarchically per task
+**⚡ Intelligent Context Engineering**
+- **Workflow injection** - Custom decision frameworks load based on task type
+- **Session-aware loading** - Main workflow re-injects after context compression, skipped during continuous work
+- **Progressive discovery** - Browse mode (fast) vs detail mode (full context) for all view tools
+- **Dynamic context sizing** - Load only what each task actually needs
 
 ---
 
