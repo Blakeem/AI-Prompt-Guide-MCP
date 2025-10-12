@@ -44,7 +44,6 @@ AI projects stall when agents need to be micromanaged with copy-pasted specs, de
   - [Directory Structure](#directory-structure)
 - [Codex & Other MCP Clients](#codex--other-mcp-clients)
 - [Use Cases](#use-cases)
-- [Additional Documentation](#additional-documentation)
 - [License](#license)
 
 ## Core Concepts
@@ -381,12 +380,6 @@ Codex and most other MCP clients watch for the `bin` executable, so once the ser
 - **Development Teams** – Link ADRs to implementations, spec driven feature delivery with structured workflows, and keep large specs searchable by namespace.
 - **AI Research & Ops** – Experiment with context engineering, compare workflow strategies, and benchmark deterministic reference loading under different depths.
 - **Technical Writers & Knowledge Managers** – Build interconnected documentation ecosystems, validate references automatically, and manage tasks alongside content updates.
-
-## Additional Documentation
-
-- `docs/WORKFLOW-PROMPTS.md` – Deep dive into prompt architecture, schema, and built-in workflows.
-- `docs/UNIT-TEST-STRATEGY.md` – Contributor-focused testing approach.
-- `CLAUDE.md` – Development guidelines, architecture decisions, and quality gates.
 
 ## License
 
