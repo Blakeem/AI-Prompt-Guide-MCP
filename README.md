@@ -35,10 +35,14 @@ AI projects stall when agents need to be micromanaged with copy-pasted specs, de
   - [Using Workflows in Tasks](#using-workflows-in-tasks)
   - [Create Your Own](#create-your-own)
   - [Built-In Prompts](#built-in-prompts)
+- [Claude Code Plugin](#claude-code-plugin)
 - [Getting Started](#getting-started)
-  - [Installation](#installation)
+  - [Requirements](#requirements)
+  - [Install & Build](#install--build)
+  - [Run the Server](#run-the-server)
   - [Configuration](#configuration)
   - [Directory Structure](#directory-structure)
+- [Codex & Other MCP Clients](#codex--other-mcp-clients)
 - [Use Cases](#use-cases)
 - [Additional Documentation](#additional-documentation)
 - [License](#license)
@@ -224,42 +228,82 @@ and four documentation guides:
 
 Consult `docs/WORKFLOW-PROMPTS.md` for detailed descriptions and authoring guidance.
 
-## Getting Started
+## Claude Code Plugin
 
-### Installation
+The Claude Code plugin bundles this MCP server with guided slash commands and specialized subagents so you can launch complex workflows in one message.
 
-#### Claude Code (recommended)
+### Install
 
 ```bash
 /plugin marketplace add https://github.com/Blakeem/AI-Prompt-Guide-MCP
 /plugin install ai-prompt-guide
 ```
 
-The plugin bundles:
-- 9 slash commands for common workflows (`/guide-feature`, `/guide-fix`, `/guide-review`, etc.).
-- 2 dedicated subagents (implementation and review).
-- All 14 MCP tools preconfigured with the server.
-- Proven workflows for feature delivery, testing, review, and decision-making.
+Use `/plugin list` to confirm installation or `/plugin update ai-prompt-guide` to pull the latest version.
 
-Manage the plugin via `/plugin list`, `/plugin update ai-prompt-guide`, or `/plugin remove ai-prompt-guide`. See `PLUGIN-README.md` for full documentation.
+### Slash Commands
 
-#### Claude Desktop
+Each command wraps an MCP workflow and expects a follow-up message, for example `/ai-prompt-guide:feature Give the new dashboard requirements`. Available commands:
+- `/guide-feature` – Build or extend a feature with incremental orchestration.
+- `/guide-fix` – Run the failure triage workflow to isolate and resolve a bug.
+- `/guide-refactor` – Plan and execute refactoring with quantitative trade-off analysis.
+- `/guide-review` – Launch a targeted code review using the review subagent.
+- `/guide-audit` – Perform a comprehensive quality audit across the codebase.
+- `/guide-coverage` – Add or improve automated test coverage.
+- `/guide-decide` – Compare multiple approaches with structured decision analysis.
+- `/guide-spec-feature` – Draft internal specifications before implementation.
+- `/guide-spec-external` – Research and document third-party APIs or dependencies.
 
-Add the server to `claude_desktop_config.json`:
+### Subagents
 
-```json
-{
-  "mcpServers": {
-    "ai-prompt-guide-mcp": {
-      "command": "npx",
-      "args": ["-y", "ai-prompt-guide-mcp"],
-      "env": {
-        "DOCS_BASE_PATH": "./.ai-prompt-guide/docs",
-        "REFERENCE_EXTRACTION_DEPTH": "3"
-      }
-    }
-  }
-}
+- **Code Subagent** – Implementation specialist covering feature work, debugging, refactoring, testing, and documentation.
+- **Review Subagent** – Quality and risk analyst focused on correctness, security, performance, and architectural concerns.
+
+Slash commands automatically route work to the right subagent and inject the corresponding workflows and reference material.
+
+### Example Usage
+
+```
+/ai-prompt-guide:feature Ship an admin dashboard that surfaces active-user trends, includes filtering by region, and exposes download-ready CSV exports. Make sure tests cover the aggregation logic.
+```
+
+The plugin will create a structured plan, spin up the code subagent with incremental orchestration, and load any referenced documents or workflows automatically.
+
+## Getting Started
+
+### Requirements
+
+- Node.js 18 or newer
+- pnpm 10.x (the project uses pnpm workspaces and lockfiles)
+
+### Install & Build
+
+```bash
+pnpm install
+pnpm build
+```
+
+This compiles the TypeScript source into `dist/` and prepares the executable `ai-prompt-guide-mcp`.
+
+### Run the Server
+
+From a local clone:
+
+```bash
+# Development with hot reload
+pnpm dev
+
+# Production build
+pnpm start          # after pnpm build
+
+# Inspector-driven testing
+pnpm build && pnpm inspector
+```
+
+You can also launch the published package directly:
+
+```bash
+npx -y ai-prompt-guide-mcp
 ```
 
 ### Configuration
@@ -287,17 +331,50 @@ Out-of-range depth values default to `3`. Cycle detection and node limits keep r
 │       └── development-process.md
 │
 ├── workflows/                # Workflow prompts → loaded as workflow_* prompts
-│   ├── spec-first-integration.md
+│   ├── code-review-issue-based.md
+│   ├── failure-triage-repro.md
+│   ├── incremental-orchestration.md
 │   ├── multi-option-tradeoff.md
-│   └── ...
+│   ├── spec-first-integration.md
+│   └── tdd-incremental-orchestration.md
 │
 └── guides/                   # Documentation guides → loaded as guide_* prompts
     ├── activate-guide-documentation.md
     ├── documentation_standards.md
-    └── ...
+    ├── activate-specification-documentation.md
+    └── research_best_practices.md
 ```
 
 `docs/` feeds the MCP tools, while `workflows/` and `guides/` load into the prompt system at startup.
+
+## Codex & Other MCP Clients
+
+Any MCP client that accepts a JSON configuration can launch the server the same way. Point the client to the CLI entry point and pass environment variables for your document root:
+
+```json
+{
+  "mcpServers": {
+    "ai-prompt-guide-mcp": {
+      "command": "npx",
+      "args": ["-y", "ai-prompt-guide-mcp"],
+      "env": {
+        "DOCS_BASE_PATH": "./.ai-prompt-guide/docs",
+        "REFERENCE_EXTRACTION_DEPTH": "3",
+        "LOG_LEVEL": "info"
+      }
+    }
+  }
+}
+```
+
+### Codex CLI Workflow
+
+1. Clone the repository and build it locally (`pnpm install && pnpm build`).
+2. Add an entry to your Codex MCP configuration referencing `node dist/index.js` (or the published `npx` command above).
+3. Export `DOCS_BASE_PATH` to the folder containing your docs, workflows, and guides.
+4. Validate the connection with `pnpm inspector` or `npx --yes @modelcontextprotocol/inspector node dist/index.js`.
+
+Codex and most other MCP clients watch for the `bin` executable, so once the server is built you can point directly at the generated binary without additional glue code.
 
 ## Use Cases
 
