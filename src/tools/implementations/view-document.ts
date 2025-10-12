@@ -24,10 +24,6 @@ interface ViewDocumentResponse {
       slug: string;
       title: string;
       depth: number;
-      full_path: string;
-      parent?: string;
-      hasContent: boolean;
-      links: string[];
     }>;
 
     // Enhanced metadata with stats (like browse_documents)
@@ -262,14 +258,14 @@ async function extractDocumentMetadata(
  * Parameters for analyzing document sections
  */
 interface AnalyzeDocumentSectionsParams {
-  manager: DocumentManager;
   documentPath: string;
   document: CachedDocument;
   sectionSlug: string | undefined;
 }
 
 /**
- * Analyze document sections and build enhanced section information
+ * Analyze document sections and build simple section overview
+ * Returns only essential information: slug, title, and depth
  */
 async function analyzeDocumentSections(
   params: AnalyzeDocumentSectionsParams
@@ -277,12 +273,8 @@ async function analyzeDocumentSections(
   slug: string;
   title: string;
   depth: number;
-  full_path: string;
-  parent?: string;
-  hasContent: boolean;
-  links: string[];
 }>> {
-  const { manager, documentPath, document, sectionSlug } = params;
+  const { document, sectionSlug } = params;
   // Determine which sections to show
   let sectionsToShow = document.headings;
 
@@ -297,49 +289,16 @@ async function analyzeDocumentSections(
     }
   }
 
-  // Build enhanced sections with hierarchical information
-  const enhancedSections = await Promise.all(sectionsToShow.map(async (heading: { slug: string; title: string; depth: number }) => {
-    // Get section content to analyze for links
-    const content = await manager.getSectionContent(documentPath, heading.slug) ?? '';
-
-    // Analyze section for links using unified ReferenceExtractor
-    const { ReferenceExtractor } = await import('../../shared/reference-extractor.js');
-    const extractor = new ReferenceExtractor();
-    const links = extractor.extractReferences(content);
-
-    // Build hierarchical information using standardized ToolIntegration methods
-    const { parseSectionAddress, ToolIntegration } = await import('../../shared/addressing-system.js');
-    const { getParentSlug } = await import('../../shared/utilities.js');
-
-    const sectionAddress = parseSectionAddress(heading.slug, documentPath);
-    const fullPath = ToolIntegration.formatSectionPath(sectionAddress);
-    const parent = getParentSlug(heading.slug);
-
-    const sectionData: {
-      slug: string;
-      title: string;
-      depth: number;
-      full_path: string;
-      parent?: string;
-      hasContent: boolean;
-      links: string[];
-    } = {
+  // Build simple sections with only essential information
+  const simpleSections = sectionsToShow.map((heading: { slug: string; title: string; depth: number }) => {
+    return {
       slug: heading.slug,
       title: heading.title,
-      depth: heading.depth,
-      full_path: fullPath,
-      hasContent: (content.trim() !== ''),
-      links
+      depth: heading.depth
     };
+  });
 
-    if (parent != null && parent !== '') {
-      sectionData.parent = parent;
-    }
-
-    return sectionData;
-  }));
-
-  return enhancedSections;
+  return simpleSections;
 }
 
 /**
@@ -477,10 +436,6 @@ interface FormatDocumentResponseParams {
     slug: string;
     title: string;
     depth: number;
-    full_path: string;
-    parent?: string;
-    hasContent: boolean;
-    links: string[];
   }>;
   documentLinks: {
     total: number;
@@ -545,7 +500,6 @@ async function processDocument(
 
   // Analyze document sections
   const sections = await analyzeDocumentSections({
-    manager,
     documentPath,
     document,
     sectionSlug

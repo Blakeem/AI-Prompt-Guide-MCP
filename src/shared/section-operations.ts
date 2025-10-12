@@ -24,8 +24,8 @@ export async function performSectionEdit(
     throw new DocumentNotFoundError(normalizedPath);
   }
 
-  const creationOperations = ['insert_before', 'insert_after', 'append_child'];
-  const editOperations = ['replace', 'append', 'prepend'];
+  const creationOperations = ['insert_before', 'insert_after', 'append_child', 'append'];
+  const editOperations = ['replace', 'prepend'];
   const removeOperations = ['remove'];
 
   if (removeOperations.includes(operation)) {
@@ -75,17 +75,43 @@ export async function performSectionEdit(
       );
     }
 
-    // Map operation to InsertMode
-    const insertMode = operation === 'insert_before' ? 'insert_before'
-      : operation === 'insert_after' ? 'insert_after'
-      : 'append_child';
+    let insertMode: InsertMode;
+    let targetSlug: string;
 
+    if (operation === 'append') {
+      // Special handling for append operation: insert before tasks or at end
+      const tasksSection = document.headings.find(h => h.slug === 'tasks' || h.title.toLowerCase() === 'tasks');
+
+      if (tasksSection != null) {
+        // Insert before tasks section
+        insertMode = 'insert_before';
+        targetSlug = tasksSection.slug;
+      } else {
+        // No tasks section - insert after the last section
+        const lastSection = document.headings[document.headings.length - 1];
+        if (lastSection == null) {
+          throw new AddressingError(
+            'Cannot append: document has no sections',
+            'NO_SECTIONS',
+            { documentPath: normalizedPath }
+          );
+        }
+        insertMode = 'insert_after';
+        targetSlug = lastSection.slug;
+      }
+    } else {
+      // Map operation to InsertMode
+      insertMode = operation === 'insert_before' ? 'insert_before'
+        : operation === 'insert_after' ? 'insert_after'
+        : 'append_child';
+      targetSlug = sectionSlug;
+    }
 
     // Insert the section with automatic depth calculation
     await manager.insertSection(
       normalizedPath,
-      sectionSlug,
-      insertMode as InsertMode,
+      targetSlug,
+      insertMode,
       undefined, // Let it auto-calculate depth
       title,
       content,

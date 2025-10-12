@@ -67,28 +67,48 @@ export function extractTaskMetadata(content: string): TaskMetadata {
 
 /**
  * Extract a specific task field from content (Status, etc.)
- * Supports multiple metadata formats: "* Key: value", "- Key: value", and "**Key:** value"
- * Format priority order: * (star) format first, then - (dash) format, then ** (bold) format
+ * Supports multiple metadata formats:
+ * - "* Key: value" (list item with star)
+ * - "- Key: value" (list item with dash)
+ * - "**Key:** value" (bold format)
+ * - "Key: value" (plain format without list marker)
+ * Format priority order: * format, - format, ** format, then plain format
+ * Automatically unescapes markdown-escaped characters (e.g., "in\_progress" becomes "in_progress")
  */
 export function extractTaskField(content: string, fieldName: string): string | null {
   // Support "* Key: value" format (highest priority)
   const starRegex = new RegExp(`^\\s*\\*\\s*${fieldName}:\\s*(.+)$`, 'm');
   const starMatch = content.match(starRegex);
   if (starMatch?.[1] != null) {
-    return starMatch[1].trim();
+    return unescapeMarkdown(starMatch[1].trim());
   }
 
   // Support "- Key: value" format (second priority)
   const dashRegex = new RegExp(`^\\s*-\\s*${fieldName}:\\s*(.+)$`, 'm');
   const dashMatch = content.match(dashRegex);
   if (dashMatch?.[1] != null) {
-    return dashMatch[1].trim();
+    return unescapeMarkdown(dashMatch[1].trim());
   }
 
-  // Support "**Key:** value" format (lowest priority, exact case match)
+  // Support "**Key:** value" format (third priority, exact case match)
   const boldRegex = new RegExp(`^\\s*\\*\\*${fieldName}:\\*\\*\\s*(.+)$`, 'm');
   const boldMatch = content.match(boldRegex);
-  return boldMatch?.[1]?.trim() ?? null;
+  if (boldMatch?.[1] != null) {
+    return unescapeMarkdown(boldMatch[1].trim());
+  }
+
+  // Support plain "Key: value" format without list marker (lowest priority)
+  const plainRegex = new RegExp(`^\\s*${fieldName}:\\s*(.+)$`, 'm');
+  const plainMatch = content.match(plainRegex);
+  return plainMatch?.[1] != null ? unescapeMarkdown(plainMatch[1].trim()) : null;
+}
+
+/**
+ * Unescape markdown-escaped characters
+ * Handles common markdown escapes like \_, \*, \[, \], etc.
+ */
+function unescapeMarkdown(text: string): string {
+  return text.replace(/\\([_*[\](){}#+\-.!`])/g, '$1');
 }
 
 /**

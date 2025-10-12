@@ -133,7 +133,7 @@ async function processSectionOperation(
     // Validate operation using standardized utilities
     const operationType = ToolIntegration.validateOperation(
       operation.operation ?? 'replace',
-      ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child', 'remove'] as const,
+      ['replace', 'prepend', 'insert_before', 'insert_after', 'append_child', 'append', 'remove'] as const,
       'section'
     );
 

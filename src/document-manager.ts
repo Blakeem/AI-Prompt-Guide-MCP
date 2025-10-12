@@ -291,6 +291,9 @@ export class DocumentManager {
     const updated = replaceSectionBody(snapshot.content, slug, newContent);
     await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated, { bypassValidation: true });
 
+    // Invalidate cache after write to ensure subsequent operations see fresh data
+    this.cache.invalidateDocument(docPath);
+
     // Update TOC if requested
     if (options.updateToc === true) {
       this.scheduleTocUpdate(docPath);
@@ -315,6 +318,9 @@ export class DocumentManager {
     const updated = renameHeading(snapshot.content, slug, newTitle);
     await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated, { bypassValidation: true });
 
+    // Invalidate cache after write to ensure subsequent operations see fresh data
+    this.cache.invalidateDocument(docPath);
+
     // Update TOC if requested
     if (options.updateToc === true) {
       this.scheduleTocUpdate(docPath);
@@ -332,6 +338,9 @@ export class DocumentManager {
 
     const updated = deleteSection(snapshot.content, slug);
     await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated, { bypassValidation: true });
+
+    // Invalidate cache after write to ensure subsequent operations see fresh data
+    this.cache.invalidateDocument(docPath);
 
     // Update TOC if requested
     if (options.updateToc === true) {
@@ -470,6 +479,9 @@ export class DocumentManager {
 
     const updated = insertRelative(snapshot.content, referenceSlug, insertMode, finalDepth, title, content);
     await writeFileIfUnchanged(absolutePath, snapshot.mtimeMs, updated, { bypassValidation: true });
+
+    // Invalidate cache after write to ensure subsequent operations see fresh data
+    this.cache.invalidateDocument(docPath);
 
     // Update TOC if requested
     if (options.updateToc === true) {
