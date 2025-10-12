@@ -14,8 +14,9 @@ Debug and fix a reported issue using systematic failure triage and minimal repro
 
 ## Workflow
 
-Use the **Failure Triage & Minimal Repro** workflow:
-- Read: `.ai-prompt-guide/workflows/failure-triage-repro.md`
+Use the **workflow_failure-triage-repro** MCP prompt (available in your prompts/list).
+
+This workflow systematically isolates root cause through minimal reproduction and bisection.
 
 ## Process
 
@@ -71,10 +72,59 @@ Write test that:
 
 ## MCP Tools
 
-- `search_documents` - Find related code across codebase
-- `view_section` - Examine specific code sections
-- `task` - Track fix progress and notes
-- `section` - Update documentation if needed
+**Investigation Phase:**
+
+**search_documents** - Find related code patterns:
+```typescript
+search_documents({
+  query: "authentication error handling",
+  output_mode: "content",
+  type: "js"  // or "ts", "py", etc.
+})
+```
+
+**browse_documents** - Understand codebase structure:
+```typescript
+browse_documents({
+  path: "/api",
+  depth: 2
+})
+```
+
+**view_section** - Examine specific implementations:
+```typescript
+view_section({
+  document: "/api/auth.md#error-handling"
+})
+```
+
+**Tracking Phase:**
+
+**task** - Document bug investigation and fix:
+```typescript
+task({
+  document: "/bugs/auth-error.md",
+  operations: [{
+    operation: "create",
+    title: "Fix Token Validation Bug",
+    content: "Root cause: JWT validation not checking expiry.\n\nWorkflow: failure-triage-repro\n\n@/specs/auth-api.md#jwt-validation"
+  }]
+})
+```
+
+**Documentation Updates:**
+
+**section** - Update specifications or notes:
+```typescript
+section({
+  document: "/specs/auth-api.md",
+  operations: [{
+    section: "known-issues",
+    operation: "append",
+    content: "\n\n### Fixed: JWT Expiry Validation\nFixed in commit abc123..."
+  }]
+})
+```
 
 ## Deliverables
 

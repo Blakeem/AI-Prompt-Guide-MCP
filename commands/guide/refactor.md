@@ -14,8 +14,9 @@ Improve code structure, readability, and maintainability while preserving existi
 
 ## Workflow
 
-Use the **Multi-Option Trade-off** workflow for design decisions:
-- Read: `.ai-prompt-guide/workflows/multi-option-tradeoff.md`
+Use the **workflow_multi-option-tradeoff** MCP prompt (available in your prompts/list) for design decisions.
+
+This workflow helps evaluate multiple refactoring approaches quantitatively before choosing the best one.
 
 ## Process
 
@@ -54,10 +55,51 @@ For each potential refactoring, use the decision workflow:
 
 ## MCP Tools
 
-- `view_document` - Understand current code structure
-- `search_documents` - Find similar patterns to align with
-- `section` - Update related documentation
-- `task` - Track refactoring progress
+**Analysis Phase:**
+
+**view_document** - Understand current code structure:
+```typescript
+view_document({
+  document: "/api/authentication.md"
+})
+```
+
+**search_documents** - Find similar patterns to align with:
+```typescript
+search_documents({
+  query: "error handling pattern",
+  output_mode: "content",
+  scope: "/api/"
+})
+```
+
+**Planning Phase:**
+
+**task** - Track refactoring steps:
+```typescript
+task({
+  document: "/refactoring/auth-cleanup.md",
+  operations: [{
+    operation: "create",
+    title: "Extract Validation Logic",
+    content: "Extract token validation to separate module.\n\nWorkflow: multi-option-tradeoff\n\n@/api/authentication.md#validation"
+  }]
+})
+```
+
+**Documentation Updates:**
+
+**section** - Update related documentation:
+```typescript
+section({
+  document: "/api/authentication.md",
+  operations: [{
+    section: "architecture",
+    operation: "replace",
+    content: "## Architecture\n\nRefactored to separate validation concerns..."
+  }]
+})
+```
 
 ## Quality Standards
 

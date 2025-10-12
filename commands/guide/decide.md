@@ -14,8 +14,7 @@ Evaluate multiple implementation approaches and choose the best one using struct
 
 ## Workflow
 
-Use the **Multi-Option Trade-off Protocol**:
-- Read: `.ai-prompt-guide/workflows/multi-option-tradeoff.md`
+Use the **workflow_multi-option-tradeoff** MCP prompt (available in your prompts/list).
 
 This is one of the most powerful decision-making tools available. Use it whenever you face uncertainty about implementation approaches.
 
@@ -100,9 +99,55 @@ Example:
 
 ## MCP Tools
 
-- `browse_documents` - Understand existing patterns
-- `view_document` - Review related code
-- `search_documents` - Find similar implementations
+**Pattern Analysis:**
+
+**browse_documents** - Understand existing patterns and architecture:
+```typescript
+browse_documents({
+  path: "/",
+  depth: 2
+})
+```
+
+**view_document** - Review related implementations:
+```typescript
+view_document({
+  document: "/architecture/patterns.md"
+})
+```
+
+**search_documents** - Find similar implementations in codebase:
+```typescript
+search_documents({
+  query: "caching strategy implementation",
+  output_mode: "content"
+})
+```
+
+**Documentation:**
+
+**create_document** - Document decision:
+```typescript
+create_document({
+  namespace: "decisions",  // or "architecture", "design"
+  title: "API Caching Strategy Decision",
+  overview: "Evaluated 3 caching approaches, selected LRU cache...",
+  includeTasks: false
+})
+```
+
+**section** - Add decision details:
+```typescript
+section({
+  document: "/decisions/api-caching.md",
+  operations: [{
+    section: "evaluation",
+    operation: "append_child",
+    title: "Option Comparison Matrix",
+    content: "| Option | Correctness | Risk | Pattern | Score |\n|--------|-------------|------|---------|-------|..."
+  }]
+})
+```
 
 ## Deliverables
 

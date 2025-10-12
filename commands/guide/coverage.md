@@ -1,8 +1,8 @@
 ---
-description: Write tests for existing code
+description: Add test coverage to existing code
 ---
 
-# Write Tests
+# Add Test Coverage
 
 ## User Request
 
@@ -12,14 +12,22 @@ $ARGUMENTS
 
 Add test coverage for existing code, focusing on critical paths, edge cases, and ensuring long-term maintainability.
 
-## When to Use
+## Scope Distinction
 
+**Use /guide-coverage for:**
 - Adding tests to untested code
 - Increasing coverage for critical paths
-- Testing after bug fixes
+- Writing tests after bug fixes
 - Improving test quality
+- Creating test suites
 
-**Note:** For new features with TDD, use `/guide-feature` with TDD workflow instead.
+**Use /guide-feature for:**
+- New features with TDD approach
+- Test-first development
+
+**Use /guide-audit for:**
+- Quality assessment of entire codebase
+- Not about writing tests, but reviewing quality
 
 ## Process
 
@@ -79,9 +87,41 @@ Tests should be:
 
 ## MCP Tools
 
-- `view_document` - Examine code to test
-- `view_section` - View specific functions/components
-- `search_documents` - Find similar test patterns
+**Analysis Phase:**
+
+**view_document** - Examine code needing test coverage:
+```typescript
+view_document({
+  document: "/api/payment-service.md"
+})
+```
+
+**view_section** - View specific functions/components:
+```typescript
+view_section({
+  document: "/api/payment-service.md#process-payment,validate-transaction"
+})
+```
+
+**Pattern Discovery:**
+
+**search_documents** - Find similar test patterns in codebase:
+```typescript
+search_documents({
+  query: "describe\\(.*payment.*test",
+  type: "regex",
+  output_mode: "content",
+  scope: "/tests/"
+})
+```
+
+**browse_documents** - Understand test structure:
+```typescript
+browse_documents({
+  path: "/tests",
+  depth: 2
+})
+```
 
 ## Quality Standards
 

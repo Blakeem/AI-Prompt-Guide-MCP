@@ -14,8 +14,9 @@ Research and document a 3rd party API, library, or component by finding official
 
 ## Workflow
 
-Use the **Spec-First Integration** workflow:
-- Read: `.ai-prompt-guide/workflows/spec-first-integration.md`
+Use the **workflow_spec-first-integration** MCP prompt (available in your prompts/list).
+
+This workflow ensures you extract complete API contracts and integration requirements before implementation.
 
 ## Process
 
@@ -35,10 +36,37 @@ Document systematically:
 
 ### 3. Create Reference Documentation
 
-Use MCP tools to document:
-- `create_document` - Create new spec document if needed
-- `section` - Add comprehensive sections
-- `view_document` - Review existing docs
+Use these MCP tools:
+
+**create_document** - Create new specification document:
+```typescript
+create_document({
+  namespace: "api",  // or "specs", "integrations"
+  title: "OAuth 2.0 Authentication",
+  overview: "Complete reference for OAuth 2.0 integration...",
+  includeTasks: false  // Set true if planning implementation tasks
+})
+```
+
+**section** - Add detailed sections:
+```typescript
+section({
+  document: "/api/oauth-spec.md",
+  operations: [{
+    section: "endpoints",
+    operation: "append_child",
+    title: "Authorization Endpoint",
+    content: "## Authorization Endpoint\n\n**URL:** `/oauth/authorize`..."
+  }]
+})
+```
+
+**view_document** - Review structure:
+```typescript
+view_document({
+  document: "/api/oauth-spec.md"
+})
+```
 
 ### 4. Include Integration Guidance
 - Authentication patterns
@@ -46,12 +74,14 @@ Use MCP tools to document:
 - Error handling best practices
 - Example usage patterns
 
-## Reference Guides
+## Reference Guides (MCP Prompts)
 
-For best practices on documentation:
-- `.ai-prompt-guide/guides/activate-specification-documentation.md`
-- `.ai-prompt-guide/guides/research_best_practices.md`
-- `.ai-prompt-guide/guides/documentation_standards.md`
+Use these guide prompts for best practices:
+- **guide_activate-specification-documentation** - How to write effective technical specs
+- **guide_research_best_practices** - Research methodology and validation
+- **guide_documentation_standards** - Writing style and formatting standards
+
+Access via your MCP prompts system (prompts/list).
 
 ## Deliverables
 

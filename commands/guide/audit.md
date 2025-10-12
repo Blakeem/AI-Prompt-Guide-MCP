@@ -1,8 +1,8 @@
 ---
-description: System-wide quality audit with parallel agents
+description: Comprehensive quality audit with parallel agents
 ---
 
-# Comprehensive Quality Audit
+# Quality Audit (Comprehensive)
 
 ## User Request
 
@@ -12,20 +12,26 @@ $ARGUMENTS
 
 Perform comprehensive, system-wide quality audit using multiple parallel agents, each specializing in specific issue types.
 
-## Scope
+## Scope Distinction
 
-This is for **comprehensive, system-wide audit**:
+**Use /guide-audit for:**
 - Entire codebase analysis
 - Multiple quality dimensions
-- Deep, specialized analysis
+- Deep, specialized analysis with parallel agents
 - Pre-production readiness check
+- Finding systemic issues
 
-For **targeted review of specific changes**, use `/guide-review` instead.
+**Use /guide-review for:**
+- Specific pull request changes
+- Individual module review
+- Pre-merge review
+- Targeted feedback on specific code
 
 ## Workflow
 
-Use the **Issue-Based Parallel Review** workflow:
-- Read: `.ai-prompt-guide/workflows/code-review-issue-based.md`
+Use the **workflow_code-review-issue-based** MCP prompt (available in your prompts/list).
+
+This workflow orchestrates parallel agents, each specializing in one issue type for comprehensive analysis.
 
 ## Process
 
@@ -89,9 +95,41 @@ Include:
 
 ## MCP Tools
 
-- `browse_documents` - Understand codebase structure
-- `search_documents` - Find patterns across files
-- `view_document` - Examine specific files
+**Structure Analysis:**
+
+**browse_documents** - Understand codebase organization:
+```typescript
+browse_documents({
+  path: "/",
+  depth: 3
+})
+```
+
+**Pattern Discovery:**
+
+**search_documents** - Find issues across entire codebase:
+```typescript
+search_documents({
+  query: "TODO|FIXME|XXX",
+  output_mode: "content"
+})
+```
+
+**Deep Inspection:**
+
+**view_document** - Examine flagged files:
+```typescript
+view_document({
+  document: "/api/high-risk-module.md"
+})
+```
+
+**view_section** - Review specific problem areas:
+```typescript
+view_section({
+  document: "/api/high-risk-module.md#authentication,validation,error-handling"
+})
+```
 
 ## Severity Guidelines
 

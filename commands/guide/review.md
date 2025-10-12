@@ -1,8 +1,8 @@
 ---
-description: Review specific code changes or components
+description: Review specific changes, PRs, or components
 ---
 
-# Code Review
+# Code Review (Targeted)
 
 ## User Request
 
@@ -12,15 +12,20 @@ $ARGUMENTS
 
 Perform targeted code review of specific changes, pull requests, or components.
 
-## Scope
+## Scope Distinction
 
-This is for **targeted, focused review**:
+**Use /guide-review for:**
 - Specific pull request changes
 - Individual module or component
 - Recent commits
 - Specific file or function
+- Pre-merge review
 
-For **system-wide quality audit**, use `/guide-audit` instead.
+**Use /guide-audit for:**
+- Entire codebase analysis
+- Multiple quality dimensions with parallel agents
+- Pre-production readiness check
+- Comprehensive quality assessment
 
 ## Review Dimensions
 
@@ -88,9 +93,40 @@ For each issue:
 
 ## MCP Tools
 
-- `view_document` - Examine code structure
-- `view_section` - View specific sections
-- `search_documents` - Find patterns across codebase
+**Examination:**
+
+**view_document** - Examine code structure:
+```typescript
+view_document({
+  document: "/api/user-service.md"
+})
+```
+
+**view_section** - View specific sections:
+```typescript
+view_section({
+  document: "/api/user-service.md#authentication,validation"
+})
+```
+
+**Pattern Analysis:**
+
+**search_documents** - Find similar patterns:
+```typescript
+search_documents({
+  query: "input validation pattern",
+  output_mode: "content",
+  scope: "/api/"
+})
+```
+
+**browse_documents** - Understand module context:
+```typescript
+browse_documents({
+  path: "/api",
+  depth: 2
+})
+```
 
 ## Deliverables
 

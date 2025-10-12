@@ -762,6 +762,51 @@ The prompt system is resilient:
 
 ## Installation
 
+### For Claude Code (Recommended)
+
+The easiest way to use this MCP server is through the **Claude Code plugin system**, which bundles the server with specialized slash commands and subagents.
+
+**Quick Install:**
+```bash
+# Add the marketplace
+/plugin marketplace add https://github.com/Blakeem/AI-Prompt-Guide-MCP
+
+# Install the plugin (or use /plugin UI to browse and install)
+/plugin install ai-prompt-guide
+```
+
+**What You Get:**
+- **9 Slash Commands** - Quick access to common workflows (`/guide-feature`, `/guide-review`, `/guide-decide`, etc.)
+- **2 Specialized Subagents** - Code agent (implementation) and Review agent (quality analysis)
+- **14 MCP Tools** - Full document and task management automatically available
+- **6 Proven Workflows** - Incremental orchestration, TDD, code review, decision-making
+- **Automatic MCP Server** - Starts when plugin is enabled, no manual configuration
+
+**Available Slash Commands:**
+```bash
+/guide-spec-external   # Document 3rd party APIs/components
+/guide-spec-feature    # Document internal features
+/guide-feature         # Build new feature (incremental/TDD)
+/guide-fix             # Fix bug with triage workflow
+/guide-refactor        # Refactor code
+/guide-review          # Review specific changes
+/guide-audit           # System-wide quality audit
+/guide-test            # Write tests
+/guide-decide          # Multi-option decision making
+```
+
+**Plugin Management:**
+```bash
+/plugin list           # See installed plugins
+/plugin marketplace    # Browse available plugins
+/plugin update ai-prompt-guide
+/plugin remove ai-prompt-guide
+```
+
+**Documentation:** See [PLUGIN-README.md](PLUGIN-README.md) for complete plugin documentation.
+
+---
+
 ### For Claude Desktop
 
 Add this to your `claude_desktop_config.json`:

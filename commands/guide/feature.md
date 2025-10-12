@@ -12,19 +12,21 @@ $ARGUMENTS
 
 Build a new feature using incremental orchestration with quality gates and staged integration.
 
-## Workflow Selection
+## Workflow Selection (MCP Prompts)
 
 Choose based on testing requirements:
 
 ### Standard Approach (Flexible Testing)
-- **Workflow:** `.ai-prompt-guide/workflows/incremental-orchestration.md`
+- **Prompt:** **workflow_incremental-orchestration**
 - **When:** Tests added where complexity warrants, not rigidly required everywhere
 - **Best for:** Most features, pragmatic approach
 
 ### TDD Approach (Test-First Required)
-- **Workflow:** `.ai-prompt-guide/workflows/tdd-incremental-orchestration.md`
+- **Prompt:** **workflow_tdd-incremental-orchestration**
 - **When:** Tests MUST be written before implementation
 - **Best for:** Critical features, complex business logic, safety-critical code
+
+Access via your MCP prompts system (prompts/list).
 
 ## Core Process
 
@@ -50,11 +52,74 @@ For each work unit:
 
 ## MCP Tools
 
-- `create_document` - Create implementation task document (use `includeTasks: true`)
-- `task` - Create tasks for each work unit
-- `start_task` - Begin work (injects workflows and context)
-- `complete_task` - Mark done and get next task
-- `section` - Update documentation as needed
+**Planning Phase:**
+
+**create_document** - Create task tracking document:
+```typescript
+create_document({
+  namespace: "project",  // or "features", "implementation"
+  title: "User Dashboard Feature Tasks",
+  overview: "Implementation tasks for user dashboard...",
+  includeTasks: true  // Auto-creates Tasks section
+})
+```
+
+**task** - Create work units with workflows and references:
+```typescript
+task({
+  document: "/project/dashboard-tasks.md",
+  operations: [
+    {
+      operation: "create",
+      title: "Build API Endpoints",
+      content: "Implement REST endpoints.\n\nWorkflow: spec-first-integration\n\n@/specs/dashboard-api.md"
+    },
+    {
+      operation: "create",
+      title: "Create UI Components",
+      content: "Build React components.\n\n@/specs/dashboard-ui.md#components"
+    }
+  ]
+})
+```
+
+**Execution Phase:**
+
+**start_task** - Begin work with full context injection:
+```typescript
+// Sequential mode (first pending task):
+start_task({ document: "/project/dashboard-tasks.md" })
+
+// Ad-hoc mode (specific task):
+start_task({ document: "/project/dashboard-tasks.md#build-api-endpoints" })
+```
+- Automatically injects workflow prompts
+- Loads all @references hierarchically
+- Provides complete context for implementation
+
+**complete_task** - Mark done and get next task:
+```typescript
+complete_task({
+  document: "/project/dashboard-tasks.md",
+  note: "API endpoints implemented with full test coverage"
+})
+```
+- Returns next task with workflow injection
+- Builds audit trail of work completed
+
+**Documentation Updates:**
+
+**section** - Update related documentation:
+```typescript
+section({
+  document: "/docs/api.md",
+  operations: [{
+    section: "endpoints",
+    operation: "append",
+    content: "\n\n### Dashboard Endpoints\n..."
+  }]
+})
+```
 
 ## Quality Standards
 
