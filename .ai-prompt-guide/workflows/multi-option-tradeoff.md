@@ -22,11 +22,18 @@ whenToUse:
    - **Assumptions/Preconditions** (what must be true)
    - **Pros** (benefits, advantages, strengths)
    - **Cons** (drawbacks, risks, limitations)
-   - **Effort/Complexity** (Small/Medium/Large)
    - **Evidence/References** (docs, prior art, examples)
+   - **Pattern Analysis** (how well does it match existing codebase patterns?)
 
 3. **Compare quantitatively:**
-   - Choose 4-6 criteria: correctness, risk, cost/time, maintainability, performance, simplicity
+   - Choose 4-6 criteria from:
+     * **Correctness** - Solves the problem accurately
+     * **Risk** - Failure modes and likelihood
+     * **Pattern Consistency** - Aligns with existing codebase patterns (reduces cognitive load)
+     * **Maintainability** - Long-term code health
+     * **Testability** - Ease of verification and validation
+     * **Simplicity** - Minimal complexity for the requirements
+     * **Performance** - Runtime/memory efficiency (if applicable)
    - Score each option on each criterion (0-10 scale)
    - Apply weights to criteria based on context
    - Calculate: Score(option) = Σ w_i · normalized(criterion_i)
@@ -38,10 +45,14 @@ whenToUse:
 
 ## Example Decision Matrix
 
-| Option | Correctness | Risk | Time | Maintainability | Score |
-|--------|------------|------|------|-----------------|-------|
-| A      | 9          | 7    | 8    | 6               | 7.5   |
-| B      | 8          | 9    | 6    | 9               | 8.0 ✓ |
-| C      | 7          | 6    | 9    | 5               | 6.8   |
+**Scenario:** Choosing caching strategy for document loading
 
-**Decision: Option B** - Higher maintainability and lower risk outweigh slightly slower implementation time.
+| Option | Correctness | Risk | Pattern Consistency | Testability | Simplicity | Score |
+|--------|------------|------|---------------------|-------------|------------|-------|
+| A: LRU Cache | 9 | 8 | 9 | 8 | 7 | 8.2 ✓ |
+| B: Redis | 9 | 6 | 5 | 7 | 4 | 6.2 |
+| C: No Cache | 10 | 9 | 10 | 9 | 10 | 9.6* |
+
+**Decision: Option A (LRU Cache)** - Best balance of performance and simplicity. Option C scores highest but doesn't meet performance requirements. Option B adds external dependency and breaks from existing in-memory patterns.
+
+*Option C disqualified despite high score because it fails to meet performance requirements (non-functional requirement).

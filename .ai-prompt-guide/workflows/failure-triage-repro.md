@@ -4,78 +4,80 @@ description: "🐛 BUG REPORT: Convert symptoms into minimal reproduction and ac
 whenToUse:
   - "Bug reports without clear reproduction steps"
   - "Flaky tests that fail inconsistently"
-  - "Incidents requiring quick root cause identification"
   - "Production issues that work fine in development"
-  - "Edge cases that are hard to trigger manually"
 ---
 
-# Failure Triage & Minimal Repro Protocol (FTR)
+# Failure Triage & Minimal Repro Protocol
 
 ## Process
 
-1. **Capture context:**
-   - Inputs (data, parameters, state)
-   - Environment (OS, runtime, versions)
-   - Config (settings, feature flags)
-   - Timing (when did it start, frequency)
-   - Artifacts (logs, screenshots, dumps)
-   - Commit/version where issue occurs
+### 1. Capture Context
+Gather complete environmental information:
+- Inputs (data, parameters, state)
+- Environment (OS, runtime, versions, dependencies)
+- Configuration (settings, feature flags)
+- Timing (when started, frequency, patterns)
+- Artifacts (logs, screenshots, stack traces)
+- Commit/version where issue occurs
 
-2. **Reproduce locally:**
-   - Set up identical environment
-   - Follow exact reproduction steps
-   - Confirm failure occurs consistently
+### 2. Reproduce Locally
+- Set up identical environment
+- Follow exact reproduction steps
+- Confirm failure occurs consistently
 
-3. **Minimize iteratively:**
-   - Remove one input/condition at a time
-   - Keep removing until failure disappears
-   - Add back last removed element
-   - Result: **minimal failing case**
+### 3. Minimize Iteratively
+- Remove one input/condition at a time
+- Keep removing until failure disappears
+- Add back last removed element
+- **Goal:** Smallest possible failing case
 
-4. **Localize by bisection:**
-   - Binary search through:
-     * Git commits (git bisect)
-     * Feature flags (toggle on/off)
-     * Input data (halve dataset)
-     * Configuration options
-   - Isolate responsible change/component
+### 4. Localize by Bisection
+Use binary search to isolate:
+- Git commits (`git bisect`)
+- Feature flags (toggle on/off)
+- Input data (halve dataset)
+- Configuration options
 
-5. **Classify the failure:**
-   - Logic error (wrong algorithm, off-by-one)
-   - Data contract violation (type mismatch, null)
-   - Concurrency issue (race, deadlock)
-   - Resource exhaustion (memory, connections)
-   - Environment difference (config, dependencies)
-   - **Note the violated invariant**
+### 5. Classify Failure Type
+Identify root cause category:
+- Logic error (algorithm bug, off-by-one)
+- Data contract violation (type mismatch, null handling)
+- Concurrency issue (race condition, deadlock)
+- Resource exhaustion (memory, connections)
+- Environment difference (config, dependencies)
 
-6. **Design discriminating test:**
-   - Write test that fails on bad path
-   - Passes on correct path
-   - Choose test type:
-     * Unit test (isolated function)
-     * Property test (random inputs)
-     * Integration test (full flow)
+Document the violated invariant.
 
-7. **Fix → Validate → Harden:**
-   - Implement fix
-   - Verify test passes
-   - Add assertions to catch earlier
-   - Add metrics/logging to detect in production
+### 6. Create Discriminating Test
+Write test that:
+- Fails on the bad path (reproduces bug)
+- Passes on correct path (verifies fix)
+- Choose appropriate level (unit/integration/property-based)
 
-## Example Workflow
+### 7. Fix & Harden
+- Implement fix
+- Verify test passes
+- Add assertions to catch earlier
+- Add logging/metrics for production detection
 
-**Symptom:** "Search sometimes returns empty results"
+## Key Considerations
 
-**Context:** Last 3 days, ~5% of queries, production only
+**Reproduction:**
+- Exact environment match critical for consistency
+- Use production snapshots when possible
+- Document every reproduction step
 
-**Reproduce:** Use production DB snapshot → consistent repro
+**Minimization:**
+- Smaller test case = faster debugging
+- Remove complexity systematically
+- Single-factor changes only
 
-**Minimize:** Reduce to single query type → pagination edge case
+**Classification:**
+- Accurate classification guides fix approach
+- Note violated invariants explicitly
+- Consider multiple potential causes
 
-**Localize:** Git bisect → commit that changed page size calc
-
-**Classify:** Logic error (off-by-one in offset calculation)
-
-**Test:** Unit test for pagination boundary conditions
-
-**Fix:** Correct offset math + add assertion for valid range
+**Hardening:**
+- Fix symptoms AND root cause
+- Add guardrails to prevent recurrence
+- Improve observability for early detection
