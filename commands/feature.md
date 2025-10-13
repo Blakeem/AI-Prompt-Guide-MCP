@@ -12,21 +12,21 @@ $ARGUMENTS
 
 Build a new feature using incremental orchestration with quality gates and staged integration.
 
-## Workflow Selection (MCP Prompts)
+## Workflow Selection (**REQUIRED** MCP Prompts)
 
-Choose based on testing requirements:
+Choose based on your specific environment's testing requirements:
 
 ### Standard Approach (Flexible Testing)
 - **Prompt:** **workflow_incremental-orchestration**
 - **When:** Tests added where complexity warrants, not rigidly required everywhere
-- **Best for:** Most features, pragmatic approach
+- **Best for:** Most features, pragmatic approach, and for manual testing features
 
 ### TDD Approach (Test-First Required)
 - **Prompt:** **workflow_tdd-incremental-orchestration**
 - **When:** Tests MUST be written before implementation
 - **Best for:** Critical features, complex business logic, safety-critical code
 
-Access via your MCP prompts system (prompts/list).
+Access via your ai-prompt-guide MCP (prompts/list).
 
 ## Core Process
 

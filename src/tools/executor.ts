@@ -20,7 +20,9 @@ import {
   task,
   completeTask,
   startTask,
-  editDocument
+  editDocument,
+  executeGetWorkflow,
+  executeGetGuide
 } from './implementations/index.js';
 
 /**
@@ -51,7 +53,9 @@ const TOOL_REGISTRY: Record<string, ToolImplementation> = {
   'view_task': viewTask,
   task,
   'complete_task': completeTask,
-  'start_task': startTask
+  'start_task': startTask,
+  'get_workflow': executeGetWorkflow,
+  'get_guide': executeGetGuide
 };
 
 /**

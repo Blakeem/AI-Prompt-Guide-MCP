@@ -40,7 +40,7 @@ export interface TaskInputSchema {
           };
           content: {
             type: 'string';
-            description: 'Task content with optional @references and workflow metadata (Workflow: workflow_name, Main-Workflow: workflow_name). Available workflows are exposed as MCP prompts with the "workflow_" prefix - use prompts/list to discover all available workflow names.';
+            description: 'Task content with optional @references and workflow metadata (Workflow: workflow_name, Main-Workflow: workflow_name). Use the get_workflow tool to discover available workflow names.';
           };
           task: {
             type: 'string';
@@ -119,7 +119,7 @@ export function getTaskSchema(): TaskInputSchema {
             },
             content: {
               type: 'string',
-              description: 'Task content with optional @references and workflow metadata (Workflow: workflow_name, Main-Workflow: workflow_name). Available workflows are exposed as MCP prompts with the "workflow_" prefix - use prompts/list to discover all available workflow names.'
+              description: 'Task content with optional @references and workflow metadata (Workflow: workflow_name, Main-Workflow: workflow_name). Use the get_workflow tool to discover available workflow names.'
             },
             task: {
               type: 'string',

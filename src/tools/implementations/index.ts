@@ -16,3 +16,5 @@ export { viewTask } from './view-task.js';
 export { task } from './task.js';
 export { completeTask } from './complete-task.js';
 export { startTask } from './start-task.js';
+export { executeGetWorkflow } from './get-workflow.js';
+export { executeGetGuide } from './get-guide.js';

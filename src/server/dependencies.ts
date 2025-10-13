@@ -139,16 +139,6 @@ export interface HandlerProvider {
     sessionStore: SessionStore,
     config: ServerConfig
   ): void;
-
-  /**
-   * Registers prompt handlers on the MCP server
-   * @param server MCP server instance
-   * @param config Server configuration
-   */
-  registerPromptHandlers(
-    server: Server,
-    config: ServerConfig
-  ): void;
 }
 
 /**

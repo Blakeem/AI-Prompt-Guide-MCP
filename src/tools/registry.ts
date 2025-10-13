@@ -18,6 +18,8 @@ import { getStartTaskSchema } from './schemas/start-task-schemas.js';
 import { getMoveSchema } from './schemas/move-schemas.js';
 import { getEditDocumentSchema } from './schemas/edit-document-schemas.js';
 import { getSearchDocumentsSchema } from './schemas/search-documents-schemas.js';
+import { generateGetWorkflowSchema } from './schemas/get-workflow-schemas.js';
+import { generateGetGuideSchema } from './schemas/get-guide-schemas.js';
 
 /**
  * Get all available tools based on session state
@@ -102,6 +104,12 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
   ];
 
+  // Workflow and guide tools with dynamic schemas
+  const workflowTools: ToolDefinition[] = [
+    generateGetWorkflowSchema(),
+    generateGetGuideSchema(),
+  ];
+
   // Return all tools
-  return [...tools, ...documentManagementTools];
+  return [...tools, ...documentManagementTools, ...workflowTools];
 }

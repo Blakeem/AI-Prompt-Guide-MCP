@@ -50,7 +50,7 @@ import { loadConfig } from '../config.js';
 import { createLogger, setGlobalLogger } from '../utils/logger.js';
 import { ensureDirectoryExists } from '../fsio.js';
 import { getGlobalSessionStore } from '../session/session-store.js';
-import { registerToolHandlers, registerPromptHandlers } from './request-handlers/index.js';
+import { registerToolHandlers } from './request-handlers/index.js';
 import type {
   ConfigProvider,
   LoggerProvider,
@@ -132,7 +132,6 @@ export class DefaultServerProvider implements ServerProvider {
       {
         capabilities: {
           tools: {},
-          prompts: {},
         },
       }
     );
@@ -159,16 +158,6 @@ export class DefaultHandlerProvider implements HandlerProvider {
     config: Parameters<typeof registerToolHandlers>[2]
   ): void {
     registerToolHandlers(server, sessionStore, config);
-  }
-
-  /**
-   * Registers prompt handlers using the existing registration function
-   */
-  registerPromptHandlers(
-    server: Parameters<typeof registerPromptHandlers>[0],
-    config: Parameters<typeof registerPromptHandlers>[1]
-  ): void {
-    registerPromptHandlers(server, config);
   }
 }
 
