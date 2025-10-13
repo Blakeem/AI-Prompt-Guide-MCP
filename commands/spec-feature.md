@@ -19,8 +19,8 @@ get_workflow({ workflow: "spec-first-integration" })
 
 Access documentation best practices via get_guide:
 ```typescript
-get_guide({ guide: "activate-specification-documentation" })
-get_guide({ guide: "documentation_standards" })
+get_guide({ guide: "specification-writing" })
+get_guide({ guide: "writing-standards" })
 ```
 
 Defines complete API contracts, acceptance criteria, and design decisions before implementation.

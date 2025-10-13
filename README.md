@@ -230,10 +230,10 @@ The repository includes **five workflow protocols** (accessible via `get_workflo
 - `tdd-incremental-orchestration` – TDD-driven development with quality gates
 
 and **four documentation guides** (accessible via `get_guide`):
-- `activate-guide-documentation` – How to write actionable guides and tutorials
-- `activate-specification-documentation` – Technical specification writing
-- `documentation_standards` – Content organization and writing standards
-- `research_best_practices` – Research methodology and validation
+- `tutorial-writing` – How to write actionable guides and tutorials
+- `specification-writing` – Technical specification writing
+- `writing-standards` – Content organization and writing standards
+- `research-guide` – Research methodology and validation
 
 Access any workflow with: `get_workflow({ workflow: "workflow-name" })`
 Access any guide with: `get_guide({ guide: "guide-name" })`
@@ -350,10 +350,10 @@ Out-of-range depth values default to `3`. Cycle detection and node limits keep r
 │   └── tdd-incremental-orchestration.md
 │
 └── guides/                   # Documentation guides → accessible via get_guide tool
-    ├── activate-guide-documentation.md
-    ├── documentation_standards.md
-    ├── activate-specification-documentation.md
-    └── research_best_practices.md
+    ├── tutorial-writing.md
+    ├── specification-writing.md
+    ├── writing-standards.md
+    └── research-guide.md
 ```
 
 `docs/` feeds the MCP tools, while `workflows/` and `guides/` load at startup and become accessible via the `get_workflow` and `get_guide` tools.
