@@ -11,105 +11,60 @@ whenToUse:
 
 ## Process
 
-### 1. Define Issue Types (Choose 5-10)
-Select from standard types, customize for your domain:
+### 1. Select Issue Types (5-10)
+Choose from standard types:
 
 **Essential:**
-- Security Vulnerabilities (injection, auth flaws, data exposure)
-- Error Handling & Edge Cases (missing checks, unhandled exceptions)
-- Data Handling & Validation (input validation, type safety)
+- Security Vulnerabilities
+- Error Handling & Edge Cases
+- Data Handling & Validation
 
 **Common:**
-- Performance & Efficiency (N+1 queries, memory leaks, inefficient algorithms)
-- Code Complexity (high cyclomatic complexity, deep nesting, god objects)
-- Test Coverage & Quality (missing tests, brittle tests, edge case gaps)
-- Maintainability & Readability (naming, documentation, style)
-- Resource Management (memory/file/connection leaks)
-- Concurrency & Race Conditions (thread safety, deadlocks)
-- Anti-Patterns (language/framework misuse, code smells)
+- Performance & Efficiency
+- Code Complexity
+- Test Coverage & Quality
+- Maintainability & Readability
+- Resource Management
+- Concurrency & Race Conditions
+- Anti-Patterns
 
-### 2. Assign Agents (One Per Issue Type)
-For each agent, provide:
-- Issue type specialization
-- Files to review (exclude vendored/generated code)
-- Output format requirements:
-  * File: [filename:line]
-  * Severity: Critical | High | Medium | Low
-  * Issue: [description]
-  * Impact: [what could happen]
-  * Recommendation: [how to fix]
+### 2. Launch Parallel Agents
+For each issue type:
+- Create dedicated review document using create_document
+- Launch agent specializing in that issue type
+- Agent reviews entire codebase for their specific concern
+- Agent creates tasks for each issue found using task tool
 
-### 3. Launch All Agents in Parallel
-- Send all agents simultaneously
-- Each reviews entire codebase for their specific issue type
-- Agents provide findings organized by severity
+### 3. Agent Task Creation
+Each agent documents findings as tasks:
+- Use create_document to create review document
+- Use task tool to add each issue as a task
+- Include: file location, severity, description, impact, recommendation
+- Organize tasks by severity
+
+Severity levels:
+- Critical: security vulnerabilities, data loss, crashes
+- High: performance issues, major bugs, missing critical tests
+- Medium: code smells, moderate improvements
+- Low: style issues, minor optimizations
 
 ### 4. Synthesis & Prioritization
-**Cross-Reference Findings:**
+After all agents complete:
 - Identify files flagged by multiple agents (hot spots)
 - Look for patterns across dimensions
-- Create file-level risk assessment
+- Create prioritized action plan by severity
+- Generate executive summary with counts and recommendations
 
-**Prioritize Actions:**
-```
-CRITICAL (Before Release):
-- [file:line] - [issue type] - [description]
-
-HIGH (Soon):
-- [file:line] - [issue type] - [description]
-
-MEDIUM/LOW (Future):
-- [grouped by file or type for efficiency]
-```
-
-**Generate Report:**
-- Executive summary
-- Hot spot files (multiple issues)
-- Issue counts by severity and type
-- Recommended action plan
-
-## Agent Instructions Template
-
-```
-SPECIALIZED REVIEW: [Issue Type]
-
-Scope: [Files to review, excluding vendored/generated]
-
-Mission: Find ALL instances of [issue type] across codebase.
-
-Focus: [Specific concerns for this issue type]
-
-Output Format:
-For each issue:
-- File: [filename:line]
-- Severity: Critical | High | Medium | Low
-- Issue: [clear description]
-- Impact: [potential consequences]
-- Recommendation: [how to fix]
-
-Summary:
-- Total issues: [count by severity]
-- Most critical file: [filename]
-- Common patterns: [if any]
-- Quick wins: [high-impact, easy fixes]
-```
-
-## Key Considerations
+## Key Practices
 
 **Issue Type Selection:**
 - Avoid overlap between types (clear boundaries)
-- 5-10 agents optimal (fewer for small codebases, more for large)
-- Essential three: Security, Error Handling, Data Validation
-- Add project-specific types as needed
+- 5-10 agents optimal
+- Always include essential three
+- Customize for project domain
 
-**Severity Guidelines:**
-- Critical: Security vulnerabilities, data loss, crashes
-- High: Performance issues, major bugs, missing critical tests
-- Medium: Code smells, moderate improvements
-- Low: Style issues, minor optimizations
-
-**Synthesis Best Practices:**
-- Weight findings by business impact (security > style)
-- Cross-reference to find hot spot files
-- Create actionable plan, not just issue list
-- Group related fixes for efficiency
+**Task Documentation:**
+- Each issue becomes a task in review document
+- Tasks can be assigned and tracked
+- Clear severity and actionable recommendations
+- File location with line numbers where applicable

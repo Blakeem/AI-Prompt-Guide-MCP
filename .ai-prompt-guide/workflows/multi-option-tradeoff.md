@@ -13,46 +13,54 @@ whenToUse:
 
 ## Process
 
-1. **Generate 2-4 viable options**
-   - Be specific about what each approach entails
-   - Include both obvious and creative alternatives
+### 1. Generate 2-4 Viable Options
+- Be specific about what each approach entails
+- Include both obvious and creative alternatives
+- Ensure all options could reasonably work
 
-2. **For each option, document:**
-   - **Description** (1-2 sentences)
-   - **Assumptions/Preconditions** (what must be true)
-   - **Pros** (benefits, advantages, strengths)
-   - **Cons** (drawbacks, risks, limitations)
-   - **Evidence/References** (docs, prior art, examples)
-   - **Pattern Analysis** (how well does it match existing codebase patterns?)
+### 2. Document Each Option
+For each option:
+- Description: 1-2 sentence summary
+- Assumptions/Preconditions: what must be true
+- Pros: benefits, advantages, strengths
+- Cons: drawbacks, risks, limitations
+- Evidence/References: documentation, prior art, examples
+- Pattern Analysis: alignment with existing codebase patterns
 
-3. **Compare quantitatively:**
-   - Choose 4-6 criteria from:
-     * **Correctness** - Solves the problem accurately
-     * **Risk** - Failure modes and likelihood
-     * **Pattern Consistency** - Aligns with existing codebase patterns (reduces cognitive load)
-     * **Maintainability** - Long-term code health
-     * **Testability** - Ease of verification and validation
-     * **Simplicity** - Minimal complexity for the requirements
-     * **Performance** - Runtime/memory efficiency (if applicable)
-   - Score each option on each criterion (0-10 scale)
-   - Apply weights to criteria based on context
-   - Calculate: Score(option) = Σ w_i · normalized(criterion_i)
+### 3. Compare Quantitatively
+**Select 4-6 criteria from:**
+- Correctness: solves problem accurately
+- Risk: failure modes and likelihood
+- Pattern Consistency: aligns with codebase (reduces cognitive load)
+- Maintainability: long-term code health
+- Testability: ease of verification
+- Simplicity: minimal complexity for requirements
+- Performance: runtime/memory efficiency (if applicable)
 
-4. **Decide and justify:**
-   - Select the highest-scoring option
-   - **State why NOT the others** (key disqualifiers and trade-offs)
-   - Document the decision rationale
+**Create decision matrix:**
+- Score each option on each criterion (0-10 scale)
+- Apply weights to criteria based on context
+- Calculate: Score(option) = Σ weight × normalized(criterion)
 
-## Example Decision Matrix
+### 4. Decide and Justify
+- Select highest-scoring option
+- State why NOT the others (key disqualifiers and trade-offs)
+- Document decision rationale
+- Note any options disqualified for non-negotiable requirements
 
-**Scenario:** Choosing caching strategy for document loading
+## Key Considerations
 
-| Option | Correctness | Risk | Pattern Consistency | Testability | Simplicity | Score |
-|--------|------------|------|---------------------|-------------|------------|-------|
-| A: LRU Cache | 9 | 8 | 9 | 8 | 7 | 8.2 ✓ |
-| B: Redis | 9 | 6 | 5 | 7 | 4 | 6.2 |
-| C: No Cache | 10 | 9 | 10 | 9 | 10 | 9.6* |
+**Option Generation:**
+- Don't prematurely eliminate possibilities
+- Include at least one simple baseline option
+- Consider both incremental and radical approaches
 
-**Decision: Option A (LRU Cache)** - Best balance of performance and simplicity. Option C scores highest but doesn't meet performance requirements. Option B adds external dependency and breaks from existing in-memory patterns.
+**Scoring:**
+- Use consistent scale (0-10 recommended)
+- Weight criteria based on project priorities
+- Disqualify options that fail non-negotiable requirements regardless of score
 
-*Option C disqualified despite high score because it fails to meet performance requirements (non-functional requirement).
+**Decision:**
+- Highest score usually wins unless disqualified
+- Document trade-offs clearly
+- Note when simple option loses to complex option and justify why

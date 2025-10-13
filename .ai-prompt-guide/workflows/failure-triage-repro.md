@@ -11,73 +11,73 @@ whenToUse:
 
 ## Process
 
-### 1. Capture Context
-Gather complete environmental information:
-- Inputs (data, parameters, state)
-- Environment (OS, runtime, versions, dependencies)
-- Configuration (settings, feature flags)
-- Timing (when started, frequency, patterns)
-- Artifacts (logs, screenshots, stack traces)
+### 1. Capture Complete Context
+Gather all environmental information for exact environment match:
+- Inputs: data, parameters, state
+- Environment: OS, runtime, versions, dependencies
+- Configuration: settings, feature flags
+- Timing: when started, frequency, patterns
+- Artifacts: logs, screenshots, stack traces
 - Commit/version where issue occurs
 
+Use production snapshots when possible. Document every detail.
+
 ### 2. Reproduce Locally
-- Set up identical environment
+- Set up identical environment matching captured context
 - Follow exact reproduction steps
 - Confirm failure occurs consistently
+- If inconsistent, note conditions when it fails vs succeeds
 
 ### 3. Minimize Iteratively
-- Remove one input/condition at a time
+Create smallest possible failing case:
+- Remove one input/condition at a time (single-factor changes only)
 - Keep removing until failure disappears
 - Add back last removed element
-- **Goal:** Smallest possible failing case
+- Smaller test case enables faster debugging
 
 ### 4. Localize by Bisection
-Use binary search to isolate:
-- Git commits (`git bisect`)
-- Feature flags (toggle on/off)
-- Input data (halve dataset)
-- Configuration options
+Use binary search to isolate root cause:
+- Git commits: `git bisect` to find breaking commit
+- Feature flags: toggle on/off
+- Input data: halve dataset repeatedly
+- Configuration options: disable half at a time
 
 ### 5. Classify Failure Type
-Identify root cause category:
-- Logic error (algorithm bug, off-by-one)
-- Data contract violation (type mismatch, null handling)
-- Concurrency issue (race condition, deadlock)
-- Resource exhaustion (memory, connections)
-- Environment difference (config, dependencies)
+Identify root cause category to guide fix approach:
+- Logic error: algorithm bug, off-by-one
+- Data contract violation: type mismatch, null handling
+- Concurrency issue: race condition, deadlock
+- Resource exhaustion: memory, connections
+- Environment difference: config, dependencies
 
-Document the violated invariant.
+Document the violated invariant explicitly. Consider multiple potential causes.
 
 ### 6. Create Discriminating Test
-Write test that:
-- Fails on the bad path (reproduces bug)
+Write test that demonstrates the fix:
+- Fails on bad path (reproduces bug)
 - Passes on correct path (verifies fix)
-- Choose appropriate level (unit/integration/property-based)
+- Choose appropriate level: unit/integration/property-based
 
 ### 7. Fix & Harden
-- Implement fix
+- Implement fix addressing root cause, not just symptoms
 - Verify test passes
-- Add assertions to catch earlier
+- Add assertions to catch earlier in execution
 - Add logging/metrics for production detection
+- Improve observability for early detection of similar issues
 
-## Key Considerations
+## Key Practices
 
 **Reproduction:**
-- Exact environment match critical for consistency
-- Use production snapshots when possible
-- Document every reproduction step
-
-**Minimization:**
-- Smaller test case = faster debugging
-- Remove complexity systematically
-- Single-factor changes only
+- Exact environment match is critical for consistency
+- Systematic minimization prevents wasted debugging effort
+- Document all steps for team knowledge
 
 **Classification:**
-- Accurate classification guides fix approach
-- Note violated invariants explicitly
-- Consider multiple potential causes
+- Accurate classification guides fix strategy
+- Multiple causes may contribute
+- Note all violated invariants
 
 **Hardening:**
-- Fix symptoms AND root cause
 - Add guardrails to prevent recurrence
-- Improve observability for early detection
+- Make similar bugs easier to detect
+- Consider root cause category when adding protections
