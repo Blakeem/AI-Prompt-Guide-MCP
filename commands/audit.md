@@ -29,7 +29,10 @@ Perform comprehensive, system-wide quality audit using multiple parallel agents,
 
 ## Workflow
 
-Use the **workflow_code-review-issue-based** MCP prompt (available in your prompts/list).
+Use the **code-review-issue-based** workflow via the `get_workflow` tool:
+```typescript
+get_workflow({ workflow: "code-review-issue-based" })
+```
 
 This workflow orchestrates parallel agents, each specializing in one issue type for comprehensive analysis.
 

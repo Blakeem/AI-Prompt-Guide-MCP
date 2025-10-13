@@ -14,7 +14,10 @@ Create comprehensive specification documentation for an internal feature, defini
 
 ## Workflow
 
-Use the **workflow_spec-first-integration** MCP prompt (available in your prompts/list).
+Use the **spec-first-integration** workflow via the `get_workflow` tool:
+```typescript
+get_workflow({ workflow: "spec-first-integration" })
+```
 
 Apply these principles to internal feature design, ensuring complete contracts before implementation.
 
@@ -84,13 +87,17 @@ view_document({
 - Test scenarios (happy path, edge cases, errors)
 - Non-functional requirements (performance, security)
 
-## Reference Guides (MCP Prompts)
+## Reference Guides
 
-Use these guide prompts for specification best practices:
-- **guide_activate-specification-documentation** - How to write effective technical specifications
-- **guide_documentation_standards** - Writing style and formatting standards
+Use the `get_guide` tool for specification best practices:
+```typescript
+get_guide({ guide: "activate-specification-documentation" })
+get_guide({ guide: "documentation_standards" })
+```
 
-Access via your MCP prompts system (prompts/list).
+Available guides:
+- **activate-specification-documentation** - How to write effective technical specifications
+- **documentation_standards** - Writing style and formatting standards
 
 ## Deliverables
 

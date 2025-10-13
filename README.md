@@ -78,7 +78,7 @@ Use `start_task` whenever a session restarts; it re-injects the project’s main
 
 Two metadata fields control workflow injection:
 
-- **Main-Workflow** – Project-level methodology defined in the first task of a document. Reappears only when work restarts (e.g., after compression or new session). Popular choices include `incremental-orchestration` and `tdd-incremental-orchestration`.
+- **Main-Workflow** – Project-level methodology defined in the first task of a document. Reappears only when work restarts (e.g., after compression or new session). Recommended: `tdd-incremental-orchestration` for production-quality development with test-first discipline.
 - **Workflow** – Task-level guidance. Injected every time the task is addressed. Useful options include `spec-first-integration`, `multi-option-tradeoff`, `failure-triage-repro`, and `code-review-issue-based`.
 
 Example task definition:
@@ -86,8 +86,8 @@ Example task definition:
 ```markdown
 ### Design API Architecture
 - Status: pending
-- Main-Workflow: incremental-orchestration   # project methodology (first task only)
-- Workflow: spec-first-integration           # task-specific process
+- Main-Workflow: tdd-incremental-orchestration   # project methodology (first task only)
+- Workflow: spec-first-integration              # task-specific process
 
 Design the REST API architecture.
 
@@ -97,7 +97,7 @@ Design the REST API architecture.
 
 ## Tool Suite
 
-The server exposes 14 MCP tools grouped by workflow stage. Every tool uses unified addressing (`/doc.md#slug`) and context-aware responses.
+The server exposes 16 MCP tools grouped by workflow stage. Every tool uses unified addressing (`/doc.md#slug`) and context-aware responses.
 
 ### Document Discovery & Navigation
 - `create_document` – Progressive discovery flow that helps you choose a namespace and create a blank document with title and overview.
@@ -118,33 +118,42 @@ The server exposes 14 MCP tools grouped by workflow stage. Every tool uses unifi
 - `view_task` – Task-specific viewer with two modes: overview (metadata only) or detailed content with workflows and reference trees.
 
 ### Document Lifecycle
-- `edit_document` – Update a document’s title and overview without touching section structure.
+- `edit_document` – Update a document's title and overview without touching section structure.
 - `delete_document` – Permanently delete or archive with timestamped audit trail.
-- `move` – Relocate sections or tasks within or across documents with safe “create before delete” semantics.
+- `move` – Relocate sections or tasks within or across documents with safe "create before delete" semantics.
 - `move_document` – Move entire documents to new namespaces with automatic directory creation.
+
+### Workflow & Guide Access
+- `get_workflow` – Retrieve structured workflow protocol content with metadata (description, when_to_use, tags). Available workflows visible in tool enum.
+- `get_guide` – Access documentation and research best practice guides. Available guides visible in tool enum.
 
 **Design principles:** Context-aware operations, batch-friendly APIs, and deterministic behavior even in large documentation sets.
 
-## Workflow Prompts
+## Workflows & Guides
 
-### Prompt Loading
+### Tool-Based Access
 
-At startup the server loads Markdown files from two directories:
+Workflows and guides are accessed via two MCP tools that expose all available options in their enum schemas:
 
-```
-.ai-prompt-guide/workflows/ → workflow_* prompts
-.ai-prompt-guide/guides/    → guide_* prompts
-```
+- **`get_workflow`** – Retrieve workflow protocols with structured metadata
+- **`get_guide`** – Access documentation and research best practices
 
-Logs summarize the load:
+Both tools load content from Markdown files at startup:
 
 ```
-[INFO] Loading workflow prompts from directory { directory: '/workflows', fileCount: 6, prefix: 'workflow_' }
+.ai-prompt-guide/workflows/ → Workflow protocols (e.g., tdd-incremental-orchestration)
+.ai-prompt-guide/guides/    → Documentation guides (e.g., activate-specification-documentation)
+```
+
+Logs confirm loading:
+
+```
+[INFO] Loading workflow prompts from directory { directory: '/workflows', fileCount: 5, prefix: 'workflow_' }
 [INFO] Loading workflow prompts from directory { directory: '/guides', fileCount: 4, prefix: 'guide_' }
-[INFO] Workflow prompts loaded from all directories { loaded: 10, failed: 0, directories: 2 }
+[INFO] Workflow prompts loaded from all directories { loaded: 9, failed: 0, directories: 2 }
 ```
 
-Use your MCP client’s `prompts/list` command to discover them dynamically.
+**Discovery**: All available workflows and guides are visible in the tool enum schemas—no separate list command needed.
 
 ### File Format
 
@@ -186,44 +195,48 @@ Concrete example showing the workflow in action...
 
 ### Using Workflows in Tasks
 
-Reference workflows and guides directly in task metadata—omit the `workflow_` or `guide_` prefixes, they are added automatically during lookup:
+Reference workflows directly in task metadata—the system automatically looks them up:
 
 ```markdown
 ### Implement Authentication
 - Status: pending
 - Workflow: spec-first-integration
-- Main-Workflow: causal-flow-mapping
+- Main-Workflow: tdd-incremental-orchestration
 
 Implement JWT authentication following the API spec.
 
 @/specs/auth-api.md
 ```
 
-`start_task` and `complete_task` extract these names, load the corresponding prompt files, and inject full methodology alongside referenced documents.
+`start_task` and `complete_task` extract these names, load the workflow content via the internal workflow system, and inject full methodology alongside referenced documents.
+
+You can also access workflows directly using `get_workflow({ workflow: "spec-first-integration" })` for reference during planning or decision-making phases.
 
 ### Create Your Own
 
-1. Create a Markdown file in `.ai-prompt-guide/workflows/` (for process prompts) or `.ai-prompt-guide/guides/` (for documentation helpers). Use lowercase, descriptive filenames (`multi-option-tradeoff.md`, `code_review_checklist.md`).
+1. Create a Markdown file in `.ai-prompt-guide/workflows/` (for process workflows) or `.ai-prompt-guide/guides/` (for documentation guides). Use lowercase, descriptive filenames (`my-team-process.md`, `code_review_checklist.md`).
 2. Add YAML frontmatter with `title`, `description`, and `whenToUse`, followed by structured Markdown content.
-3. Restart the server (`pnpm build && npx @modelcontextprotocol/inspector node dist/index.js`) or reload your MCP client so the new prompt is detected.
-4. Run `prompts/list` to confirm the new prompt appears (e.g., `workflow_my-team-process`).
-5. Reference the workflow name (without prefix) from any task.
+3. Restart the server (`pnpm build && npx @modelcontextprotocol/inspector node dist/index.js`) or reload your MCP client so the new workflow is detected.
+4. Check the tool enum: workflows appear in `get_workflow` enum, guides in `get_guide` enum (e.g., `my-team-process`).
+5. Access via `get_workflow({ workflow: "my-team-process" })` or reference the workflow name from any task.
 
-### Built-In Prompts
+### Built-In Workflows & Guides
 
-The repository includes six workflow prompts:
-- `workflow_code-review-issue-based`
-- `workflow_failure-triage-repro`
-- `workflow_incremental-orchestration`
-- `workflow_multi-option-tradeoff`
-- `workflow_spec-first-integration`
-- `workflow_tdd-incremental-orchestration`
+The repository includes **five workflow protocols** (accessible via `get_workflow`):
+- `code-review-issue-based` – Parallel code review with specialized agents
+- `failure-triage-repro` – Bug triage and minimal reproduction
+- `multi-option-tradeoff` – Structured decision analysis
+- `spec-first-integration` – API/integration correctness workflow
+- `tdd-incremental-orchestration` – TDD-driven development with quality gates
 
-and four documentation guides:
-- `guide_activate-guide-documentation`
-- `guide_activate-specification-documentation`
-- `guide_documentation_standards`
-- `guide_research_best_practices`
+and **four documentation guides** (accessible via `get_guide`):
+- `activate-guide-documentation` – How to write actionable guides and tutorials
+- `activate-specification-documentation` – Technical specification writing
+- `documentation_standards` – Content organization and writing standards
+- `research_best_practices` – Research methodology and validation
+
+Access any workflow with: `get_workflow({ workflow: "workflow-name" })`
+Access any guide with: `get_guide({ guide: "guide-name" })`
 
 Consult `docs/WORKFLOW-PROMPTS.md` for detailed descriptions and authoring guidance.
 
@@ -329,22 +342,21 @@ Out-of-range depth values default to `3`. Cycle detection and node limits keep r
 │   └── workflows/
 │       └── development-process.md
 │
-├── workflows/                # Workflow prompts → loaded as workflow_* prompts
+├── workflows/                # Workflow protocols → accessible via get_workflow tool
 │   ├── code-review-issue-based.md
 │   ├── failure-triage-repro.md
-│   ├── incremental-orchestration.md
 │   ├── multi-option-tradeoff.md
 │   ├── spec-first-integration.md
 │   └── tdd-incremental-orchestration.md
 │
-└── guides/                   # Documentation guides → loaded as guide_* prompts
+└── guides/                   # Documentation guides → accessible via get_guide tool
     ├── activate-guide-documentation.md
     ├── documentation_standards.md
     ├── activate-specification-documentation.md
     └── research_best_practices.md
 ```
 
-`docs/` feeds the MCP tools, while `workflows/` and `guides/` load into the prompt system at startup.
+`docs/` feeds the MCP tools, while `workflows/` and `guides/` load at startup and become accessible via the `get_workflow` and `get_guide` tools.
 
 ## Codex & Other MCP Clients
 

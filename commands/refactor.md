@@ -14,7 +14,10 @@ Improve code structure, readability, and maintainability while preserving existi
 
 ## Workflow
 
-Use the **workflow_multi-option-tradeoff** MCP prompt (available in your prompts/list) for design decisions.
+Use the **multi-option-tradeoff** workflow via the `get_workflow` tool:
+```typescript
+get_workflow({ workflow: "multi-option-tradeoff" })
+```
 
 This workflow helps evaluate multiple refactoring approaches quantitatively before choosing the best one.
 

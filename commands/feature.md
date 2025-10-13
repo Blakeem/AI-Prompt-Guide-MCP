@@ -12,21 +12,18 @@ $ARGUMENTS
 
 Build a new feature using incremental orchestration with quality gates and staged integration.
 
-## Workflow Selection (**REQUIRED** MCP Prompts)
+## Workflow (**REQUIRED**)
 
-Choose based on your specific environment's testing requirements:
+Use the **tdd-incremental-orchestration** workflow via the `get_workflow` tool:
+```typescript
+get_workflow({ workflow: "tdd-incremental-orchestration" })
+```
 
-### Standard Approach (Flexible Testing)
-- **Prompt:** **workflow_incremental-orchestration**
-- **When:** Tests added where complexity warrants, not rigidly required everywhere
-- **Best for:** Most features, pragmatic approach, and for manual testing features
-
-### TDD Approach (Test-First Required)
-- **Prompt:** **workflow_tdd-incremental-orchestration**
-- **When:** Tests MUST be written before implementation
-- **Best for:** Critical features, complex business logic, safety-critical code
-
-Access via your ai-prompt-guide MCP (prompts/list).
+This workflow orchestrates multi-agent development with:
+- **TDD discipline**: Tests written BEFORE implementation
+- **Quality gates**: All tests, lint, typecheck, build must pass
+- **Staged integration**: Changes staged after each unit completion
+- **Best for**: All production features requiring reliability and maintainability
 
 ## Core Process
 

@@ -14,7 +14,10 @@ Evaluate multiple implementation approaches and choose the best one using struct
 
 ## Workflow (**REQUIRED**)
 
-Use the **workflow_multi-option-tradeoff** MCP prompt (available in your ai-prompt-guide prompts/list).
+Use the **multi-option-tradeoff** workflow via the `get_workflow` tool:
+```typescript
+get_workflow({ workflow: "multi-option-tradeoff" })
+```
 
 This is one of the most powerful decision-making tools available. Use it whenever you face uncertainty about implementation approaches.
 

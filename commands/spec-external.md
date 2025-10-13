@@ -14,7 +14,10 @@ Research and document a 3rd party API, library, or component by finding official
 
 ## Workflow
 
-Use the **workflow_spec-first-integration** MCP prompt (available in your prompts/list).
+Use the **spec-first-integration** workflow via the `get_workflow` tool:
+```typescript
+get_workflow({ workflow: "spec-first-integration" })
+```
 
 This workflow ensures you extract complete API contracts and integration requirements before implementation.
 
@@ -74,14 +77,19 @@ view_document({
 - Error handling best practices
 - Example usage patterns
 
-## Reference Guides (MCP Prompts)
+## Reference Guides
 
-Use these guide prompts for best practices:
-- **guide_activate-specification-documentation** - How to write effective technical specs
-- **guide_research_best_practices** - Research methodology and validation
-- **guide_documentation_standards** - Writing style and formatting standards
+Use the `get_guide` tool for best practices:
+```typescript
+get_guide({ guide: "activate-specification-documentation" })
+get_guide({ guide: "research_best_practices" })
+get_guide({ guide: "documentation_standards" })
+```
 
-Access via your MCP prompts system (prompts/list).
+Available guides:
+- **activate-specification-documentation** - How to write effective technical specs
+- **research_best_practices** - Research methodology and validation
+- **documentation_standards** - Writing style and formatting standards
 
 ## Deliverables
 

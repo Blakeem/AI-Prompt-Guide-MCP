@@ -14,7 +14,10 @@ Debug and fix a reported issue using systematic failure triage and minimal repro
 
 ## Workflow
 
-Use the **workflow_failure-triage-repro** MCP prompt (available in your prompts/list).
+Use the **failure-triage-repro** workflow via the `get_workflow` tool:
+```typescript
+get_workflow({ workflow: "failure-triage-repro" })
+```
 
 This workflow systematically isolates root cause through minimal reproduction and bisection.
 
