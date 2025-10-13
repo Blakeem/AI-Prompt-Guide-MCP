@@ -53,7 +53,6 @@ interface ViewDocumentResponse {
     total_sections: number;
     total_words: number;
     total_tasks?: number;
-    section_filter?: string;  // If filtering by section
   };
 
   // Context loading fields (optional, for all documents)
@@ -66,14 +65,6 @@ interface ViewDocumentResponse {
     title: string;
     relevance: 'primary' | 'secondary' | 'tertiary';
   }>;
-
-  // Section-specific viewing (optional, only for single document + section)
-  section_context?: {
-    current_section: string;
-    parent_sections: string[];
-    child_sections: string[];
-    sibling_sections: string[];
-  };
 }
 
 /**
@@ -113,7 +104,6 @@ export async function viewDocument(
 
   // Import helper functions (validation now handled by ToolIntegration)
   const {
-    normalizeSection,
     isValidLinkDepth
   } = await import('../schemas/view-document-schemas.js');
 
@@ -122,7 +112,6 @@ export async function viewDocument(
   const documents = ToolIntegration.validateArrayParameter(args['document'], 'document');
   ToolIntegration.validateCountLimit(documents, 5, 'documents');
 
-  const sectionSlug = normalizeSection(args['section'] as string);
   const includeLinked = args['include_linked'] as boolean ?? false;
   let linkDepth = args['link_depth'] as number ?? 2;
 
@@ -134,13 +123,11 @@ export async function viewDocument(
   // Process each document
   const processedDocuments: ViewDocumentResponse['documents'] = [];
   const allLinkedContext: ViewDocumentResponse['linked_context'] = [];
-  let sectionContext: ViewDocumentResponse['section_context'];
 
   for (const documentPath of documents) {
     // Use standardized document validation
     const { addresses } = ToolIntegration.validateAndParse({
-      document: documentPath,
-      ...(sectionSlug != null && sectionSlug !== '' && { section: sectionSlug })
+      document: documentPath
     });
 
     // Get document
@@ -152,8 +139,7 @@ export async function viewDocument(
     const processedDoc = await processDocument({
       manager,
       documentPath,
-      document,
-      sectionSlug
+      document
     });
     processedDocuments.push(processedDoc);
 
@@ -163,18 +149,13 @@ export async function viewDocument(
         const linkedContext = await loadLinkedDocumentContext(
           manager,
           documentPath,
-          sectionSlug,
+          undefined,
           linkDepth
         );
         allLinkedContext.push(...linkedContext);
       } catch (error) {
         console.warn('Failed to load linked context:', error);
       }
-    }
-
-    // Build section context if viewing specific section and single document
-    if (sectionSlug != null && sectionSlug !== '' && documents.length === 1) {
-      sectionContext = await buildSectionContext(document, sectionSlug);
     }
   }
 
@@ -183,8 +164,7 @@ export async function viewDocument(
     total_documents: processedDocuments.length,
     total_sections: processedDocuments.reduce((sum, doc) => sum + doc.sections.length, 0),
     total_words: processedDocuments.reduce((sum, doc) => sum + doc.wordCount, 0),
-    total_tasks: processedDocuments.reduce((sum, doc) => sum + (doc.tasks?.total ?? 0), 0),
-    ...(sectionSlug != null && { section_filter: sectionSlug })
+    total_tasks: processedDocuments.reduce((sum, doc) => sum + (doc.tasks?.total ?? 0), 0)
   };
 
   // Build final response
@@ -196,10 +176,6 @@ export async function viewDocument(
   // Add optional fields
   if (allLinkedContext.length > 0) {
     response.linked_context = allLinkedContext;
-  }
-
-  if (sectionContext != null) {
-    response.section_context = sectionContext;
   }
 
   return response;
@@ -260,12 +236,11 @@ async function extractDocumentMetadata(
 interface AnalyzeDocumentSectionsParams {
   documentPath: string;
   document: CachedDocument;
-  sectionSlug: string | undefined;
 }
 
 /**
  * Analyze document sections and build simple section overview
- * Returns only essential information: slug, title, and depth
+ * Returns only essential information: slug, title, and depth for ALL sections
  */
 async function analyzeDocumentSections(
   params: AnalyzeDocumentSectionsParams
@@ -274,23 +249,10 @@ async function analyzeDocumentSections(
   title: string;
   depth: number;
 }>> {
-  const { document, sectionSlug } = params;
-  // Determine which sections to show
-  let sectionsToShow = document.headings;
+  const { document } = params;
 
-  // If section-specific viewing, filter sections
-  if (sectionSlug != null && sectionSlug !== '') {
-    const targetSection = document.headings.find((h: { slug: string }) => h.slug === sectionSlug);
-    if (targetSection != null) {
-      // Include the target section and all its children
-      sectionsToShow = document.headings.filter((h: { slug: string }) => {
-        return h.slug === sectionSlug || h.slug.startsWith(`${sectionSlug}/`);
-      });
-    }
-  }
-
-  // Build simple sections with only essential information
-  const simpleSections = sectionsToShow.map((heading: { slug: string; title: string; depth: number }) => {
+  // Build simple sections with only essential information - ALWAYS show ALL sections
+  const simpleSections = document.headings.map((heading: { slug: string; title: string; depth: number }) => {
     return {
       slug: heading.slug,
       title: heading.title,
@@ -485,7 +447,6 @@ interface ProcessDocumentParams {
   manager: DocumentManager;
   documentPath: string;
   document: CachedDocument;
-  sectionSlug: string | undefined;
 }
 
 /**
@@ -494,15 +455,14 @@ interface ProcessDocumentParams {
 async function processDocument(
   params: ProcessDocumentParams
 ): Promise<ViewDocumentResponse['documents'][0]> {
-  const { manager, documentPath, document, sectionSlug } = params;
+  const { manager, documentPath, document } = params;
   // Extract document metadata
   const metadata = await extractDocumentMetadata(documentPath, document);
 
-  // Analyze document sections
+  // Analyze document sections - ALWAYS show ALL sections
   const sections = await analyzeDocumentSections({
     documentPath,
-    document,
-    sectionSlug
+    document
   });
 
   // Analyze document links
@@ -524,46 +484,6 @@ async function processDocument(
     documentLinks,
     tasks
   });
-}
-
-/**
- * Build section context for section-specific viewing
- */
-async function buildSectionContext(
-  document: CachedDocument,
-  sectionSlug: string
-): Promise<ViewDocumentResponse['section_context']> {
-  // Find parent sections (breadcrumb trail)
-  const { getParentSlug } = await import('../../shared/utilities.js');
-  const parentSections: string[] = [];
-  let currentParent = getParentSlug(sectionSlug);
-  while (currentParent != null) {
-    parentSections.unshift(currentParent);
-    currentParent = getParentSlug(currentParent);
-  }
-
-  // Find child sections
-  const childSections = document.headings
-    .filter((h: { slug: string }) => {
-      return h.slug.startsWith(`${sectionSlug}/`) && h.slug.split('/').length === sectionSlug.split('/').length + 1;
-    })
-    .map((h: { slug: string }) => h.slug);
-
-  // Find sibling sections (same parent, same depth)
-  const parentSlug = getParentSlug(sectionSlug);
-  const siblingPrefix = parentSlug != null && parentSlug !== '' ? `${parentSlug}/` : '';
-  const siblingPattern = new RegExp(`^${siblingPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^/]+$`);
-
-  const siblingSections = document.headings
-    .filter((h: { slug: string }) => h.slug !== sectionSlug && siblingPattern.test(h.slug))
-    .map((h: { slug: string }) => h.slug);
-
-  return {
-    current_section: sectionSlug,
-    parent_sections: parentSections,
-    child_sections: childSections,
-    sibling_sections: siblingSections
-  };
 }
 
 // getTaskHeadingsForViewDocument function moved to shared/task-utilities.ts to eliminate duplication

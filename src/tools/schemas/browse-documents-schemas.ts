@@ -7,12 +7,8 @@ export interface BrowseDocumentsInputSchema {
   properties: {
     path: {
       type: 'string';
-      description: 'Directory to browse or limit search scope (e.g., "/api", "/guides")';
+      description: 'Directory to browse (e.g., "/api", "/guides") or document path to view basic metadata';
       default: '/';
-    };
-    query: {
-      type: 'string';
-      description: 'Search terms (if empty, browse mode). When provided, performs content search across documents.';
     };
     depth: {
       type: 'number';
@@ -20,13 +16,6 @@ export interface BrowseDocumentsInputSchema {
       minimum: 1;
       maximum: 5;
       default: 2;
-    };
-    limit: {
-      type: 'number';
-      description: 'Maximum results for search mode';
-      minimum: 1;
-      maximum: 50;
-      default: 10;
     };
     include_related: {
       type: 'boolean';
@@ -53,11 +42,6 @@ export const BROWSE_DOCUMENTS_CONSTANTS = {
     MAX: 5,
     DEFAULT: 2,
   },
-  LIMIT: {
-    MIN: 1,
-    MAX: 50,
-    DEFAULT: 10,
-  },
   LINK_DEPTH: {
     MIN: 1,
     MAX: 6,
@@ -75,12 +59,8 @@ export function getBrowseDocumentsSchema(): BrowseDocumentsInputSchema {
     properties: {
       path: {
         type: 'string',
-        description: 'Directory to browse or limit search scope (e.g., "/api", "/guides")',
+        description: 'Directory to browse (e.g., "/api", "/guides") or document path to view basic metadata',
         default: BROWSE_DOCUMENTS_CONSTANTS.DEFAULT_PATH,
-      },
-      query: {
-        type: 'string',
-        description: 'Search terms (if empty, browse mode). When provided, performs content search across documents.',
       },
       depth: {
         type: 'number',
@@ -88,13 +68,6 @@ export function getBrowseDocumentsSchema(): BrowseDocumentsInputSchema {
         minimum: BROWSE_DOCUMENTS_CONSTANTS.DEPTH.MIN,
         maximum: BROWSE_DOCUMENTS_CONSTANTS.DEPTH.MAX,
         default: BROWSE_DOCUMENTS_CONSTANTS.DEPTH.DEFAULT,
-      },
-      limit: {
-        type: 'number',
-        description: 'Maximum results for search mode',
-        minimum: BROWSE_DOCUMENTS_CONSTANTS.LIMIT.MIN,
-        maximum: BROWSE_DOCUMENTS_CONSTANTS.LIMIT.MAX,
-        default: BROWSE_DOCUMENTS_CONSTANTS.LIMIT.DEFAULT,
       },
       include_related: {
         type: 'boolean',

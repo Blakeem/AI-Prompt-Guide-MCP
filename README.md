@@ -99,10 +99,10 @@ Design the REST API architecture.
 
 The server exposes 14 MCP tools grouped by workflow stage. Every tool uses unified addressing (`/doc.md#slug`) and context-aware responses.
 
-### Document Discovery & Creation
+### Document Discovery & Navigation
 - `create_document` – Progressive discovery flow that helps you choose a namespace and create a blank document with title and overview.
-- `browse_documents` – Directory-style browsing with optional relationship analysis.
-- `search_documents` – Full-text or regex search with contextual snippets and namespace scoping.
+- `browse_documents` – Navigate document hierarchy and list folders/documents with basic metadata.
+- `search_documents` – Full-text or regex search across all document content with match highlighting, line numbers, and contextual snippets.
 
 ### Content & Task Editing
 - `section` – Batch edit, append, insert, or remove sections across one or many documents while preserving structure.
@@ -113,9 +113,9 @@ The server exposes 14 MCP tools grouped by workflow stage. Every tool uses unifi
 - `complete_task` – Mark work finished, capture completion notes, and queue the next actionable task.
 
 ### View & Inspection
-- `view_document` – Full metadata, heading structure, link statistics, and word counts.
-- `view_section` – Fast overview mode (titles only) or detailed content retrieval for specific sections.
-- `view_task` – Overview of task metadata or full content with workflows and reference trees.
+- `view_document` – Complete document structure showing ALL sections (slug, title, depth) with comprehensive metadata including link statistics, task counts, and word counts.
+- `view_section` – Section-specific content viewer with two modes: overview (titles only) or detailed content retrieval for specific sections.
+- `view_task` – Task-specific viewer with two modes: overview (metadata only) or detailed content with workflows and reference trees.
 
 ### Document Lifecycle
 - `edit_document` – Update a document’s title and overview without touching section structure.

@@ -81,26 +81,6 @@ export interface ViewDocumentInputSchema {
     };
 
     /**
-     * Optional section slug for targeted viewing
-     *
-     * When specified, limits view to specific section and its subsections.
-     * Supports both flat slugs and hierarchical addressing patterns.
-     *
-     * @example Flat section slug
-     * "authentication"
-     *
-     * @example Hierarchical section path
-     * "api/endpoints/users"
-     *
-     * @example With hash prefix (normalized automatically)
-     * "#jwt-tokens"
-     */
-    section: {
-      type: 'string';
-      description: 'Optional section slug for section-specific viewing (e.g., "#authentication", "#endpoints", "api/auth/flows")';
-    };
-
-    /**
      * Enable linked document context loading
      *
      * When true, automatically loads content from documents referenced
@@ -180,12 +160,6 @@ export function normalizePath(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
-export function normalizeSection(section?: string): string | undefined {
-  if (section == null || section === '') return undefined;
-  // Remove # prefix if present, since document headings are stored without #
-  return section.startsWith('#') ? section.substring(1) : section;
-}
-
 export function validateDocumentCount(documents: string[]): boolean {
   return documents.length > 0 && documents.length <= VIEW_DOCUMENT_CONSTANTS.MAX_DOCUMENTS;
 }
@@ -205,10 +179,6 @@ export function getViewDocumentSchema(): ViewDocumentInputSchema {
       document: {
         type: 'string',
         description: 'Document path(s) to view (e.g., "/specs/auth-api.md" or ["/specs/auth-api.md", "/specs/user-api.md"] for multiple)',
-      },
-      section: {
-        type: 'string',
-        description: 'Optional section slug for section-specific viewing (e.g., "#authentication", "#endpoints", "api/auth/flows")',
       },
       include_linked: {
         type: 'boolean',

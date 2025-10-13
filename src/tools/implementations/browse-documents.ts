@@ -15,7 +15,6 @@ import {
   analyzeDocumentLinks,
   assessImplementationReadiness,
   analyzeSectionContent,
-  performSearch,
   getSectionStructure,
   parseSectionPath,
   generateBreadcrumb,
@@ -25,7 +24,6 @@ import {
   findRelatedByContent,
   type FolderInfo,
   type DocumentInfo,
-  type SearchMatch,
   type SectionInfo,
   type RelatedDocuments,
   type ImplementationReadiness
@@ -33,7 +31,6 @@ import {
 
 interface BrowseResponse {
   path?: string;
-  query?: string;
   structure: {
     folders: FolderInfo[];
     documents: DocumentInfo[];
@@ -46,7 +43,6 @@ interface BrowseResponse {
     current_section?: string; // The section being browsed (#endpoints)
   };
   sections?: SectionInfo[];
-  matches?: SearchMatch[];
   relatedTasks?: Array<{
     taskId: string;
     title: string;
@@ -109,10 +105,8 @@ export async function browseDocuments(
 ): Promise<BrowseResponse> {
   try {
     const requestedPath = (args['path'] as string) ?? '/';
-    const query = args['query'] as string | undefined;
     const includeRelated = (args['include_related'] as boolean) ?? false;
     const linkDepth = validateNumericParameter(args['link_depth'], 'link_depth', 1, 6, 2);
-    const limit = validateNumericParameter(args['limit'], 'limit', 1, 50, 10);
 
     // Normalize path
     const normalizedPath = requestedPath.startsWith('/') ? requestedPath : `/${requestedPath}`;
@@ -123,40 +117,7 @@ export async function browseDocuments(
     // Check if we're targeting a specific document with potential section
     const isDocumentPath = documentPath.endsWith('.md');
 
-    // Check if we're in search mode or browse mode
-    const isSearchMode = (query != null && query !== '') && query.trim() !== '';
-
-    if (isSearchMode) {
-      // Search mode
-      const pathFilter = normalizedPath !== '/' ? normalizedPath : undefined;
-      const { documents, matches } = await performSearch(manager, query, pathFilter);
-
-      // Limit results
-      const limitedDocuments = documents.slice(0, limit);
-      const limitedMatches = matches.slice(0, limit);
-
-      const result: BrowseResponse = {
-        query,
-        structure: {
-          folders: [], // No folder structure in search mode
-          documents: limitedDocuments
-        },
-        matches: limitedMatches,
-        totalItems: documents.length
-      };
-
-      if (pathFilter != null && pathFilter !== '') {
-        result.path = pathFilter;
-        result.breadcrumb = generateBreadcrumb(pathFilter);
-        const parent = getParentPath(pathFilter);
-        if (parent != null) {
-          result.parentPath = parent;
-        }
-      }
-
-      return result;
-
-    } else if (isDocumentPath) {
+    if (isDocumentPath) {
       // Document/Section browse mode - use addressing system for validation
       try {
         const documentAddress = parseDocumentAddress(documentPath);

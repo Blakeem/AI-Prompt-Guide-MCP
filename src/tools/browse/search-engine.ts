@@ -5,6 +5,7 @@
 import type { DocumentManager } from '../../document-manager.js';
 import { pathToNamespace, pathToSlug, getParentSlug } from '../../shared/utilities.js';
 
+// ts-unused-exports:disable-next-line
 export interface SearchMatch {
   document: string;
   section: string;
@@ -48,7 +49,10 @@ export interface SectionInfo {
 
 /**
  * Perform search across documents
+ * Note: This function is currently unused after refactoring browse_documents to remove search mode.
+ * It's kept here for future use by search_documents tool or other potential search features.
  */
+// ts-unused-exports:disable-next-line
 export async function performSearch(
   manager: DocumentManager,
   query: string,

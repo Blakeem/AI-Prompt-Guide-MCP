@@ -26,7 +26,7 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
   const tools: ToolDefinition[] = [
     {
       name: 'browse_documents',
-      description: 'Unified browsing and searching of documents with namespace awareness and cross-namespace linking. Browse mode (no query) shows folder/file structure. Search mode (with query) performs content search.',
+      description: 'Navigate document hierarchy and browse folders/documents with namespace awareness. Shows folder/file structure and basic document metadata. Use search_documents for content search.',
       inputSchema: getBrowseDocumentsSchema(),
     },
     {

@@ -21,9 +21,7 @@ export {
 
 // Search engine exports
 export {
-  performSearch,
   getSectionStructure,
-  type SearchMatch,
   type DocumentInfo,
   type SectionInfo
 } from './search-engine.js';
