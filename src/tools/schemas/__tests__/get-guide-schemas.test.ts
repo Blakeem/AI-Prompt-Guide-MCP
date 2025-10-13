@@ -113,12 +113,12 @@ describe('generateGetGuideSchema', () => {
       const properties = schema.inputSchema.properties as Record<string, unknown>;
       const guide = properties['guide'] as { enum: string[] };
 
-      // Check specific known guides
+      // Check specific known guides (updated to match current guide files)
       const expectedGuides = [
-        'activate-guide-documentation',
-        'activate-specification-documentation',
-        'documentation_standards',
-        'research_best_practices'
+        'research-guide',
+        'specification-writing',
+        'tutorial-writing',
+        'writing-standards'
       ];
 
       expectedGuides.forEach(expected => {
@@ -174,9 +174,9 @@ describe('generateGetGuideSchema', () => {
       const guide = properties['guide'] as { description: string; enum: string[] };
 
       // Guide files don't have YAML frontmatter, so descriptions may be empty
-      // but all guide names should still be listed
-      expect(guide.description).toContain('activate-guide-documentation');
-      expect(guide.description).toContain('activate-specification-documentation');
+      // but all guide names should still be listed (updated to match current guide files)
+      expect(guide.description).toContain('research-guide');
+      expect(guide.description).toContain('specification-writing');
     });
 
     test('should start with "Available guides:" prefix', () => {

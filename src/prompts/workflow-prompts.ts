@@ -7,8 +7,7 @@
  * Prompts are loaded dynamically from .md files in the workflows directory.
  */
 
-import { join } from 'path';
-import { loadConfig } from '../config.js';
+import { loadConfig, getWorkflowsPath, getGuidesPath } from '../config.js';
 import { PromptLoader } from './prompt-loader.js';
 
 /**
@@ -43,8 +42,8 @@ export async function loadWorkflowPrompts(): Promise<WorkflowPrompt[]> {
   }
 
   const config = loadConfig();
-  const workflowsDirectory = join(config.docsBasePath, '../workflows');
-  const guidesDirectory = join(config.docsBasePath, '../guides');
+  const workflowsDirectory = getWorkflowsPath(config.workflowsBasePath);
+  const guidesDirectory = getGuidesPath(config.guidesBasePath);
 
   const loader = new PromptLoader([
     { path: workflowsDirectory, prefix: 'workflow_' },

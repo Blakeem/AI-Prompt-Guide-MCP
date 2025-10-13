@@ -3,11 +3,16 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdirSync, rmSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 import { DEFAULT_CONFIG, ERROR_CODES } from '../constants/defaults.js';
 import type { SpecDocsError } from '../types/index.js';
 
 // Mock the process.env and dotenv
 const originalEnv = process.env;
+let testDir: string;
+let docsPath: string;
 
 // Mock dotenv to prevent loading .env file during tests
 vi.mock('dotenv', () => ({
@@ -16,19 +21,34 @@ vi.mock('dotenv', () => ({
 
 describe('loadConfig', () => {
   beforeEach(() => {
+    // Create temp directory for test
+    testDir = join(tmpdir(), `mcp-config-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+    mkdirSync(testDir, { recursive: true });
+
+    // Create docs directory
+    docsPath = join(testDir, 'docs');
+    mkdirSync(docsPath, { recursive: true });
+
     // Reset modules and environment before each test
     vi.resetModules();
     process.env = {};
   });
 
   afterEach(() => {
+    // Clean up temp directory
+    try {
+      rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+
     // Restore original environment
     process.env = originalEnv;
   });
 
   describe('referenceExtractionDepth configuration', () => {
     test('should use default value when REFERENCE_EXTRACTION_DEPTH is not set', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
 
       const { loadConfig } = await import('../config.js');
       const config = loadConfig();
@@ -38,7 +58,7 @@ describe('loadConfig', () => {
     });
 
     test('should use valid environment value for REFERENCE_EXTRACTION_DEPTH', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
       process.env['REFERENCE_EXTRACTION_DEPTH'] = '2';
 
       const { loadConfig } = await import('../config.js');
@@ -48,7 +68,7 @@ describe('loadConfig', () => {
     });
 
     test('should accept minimum valid value (1)', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
       process.env['REFERENCE_EXTRACTION_DEPTH'] = '1';
 
       const { loadConfig } = await import('../config.js');
@@ -58,7 +78,7 @@ describe('loadConfig', () => {
     });
 
     test('should accept maximum valid value (5)', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
       process.env['REFERENCE_EXTRACTION_DEPTH'] = '5';
 
       const { loadConfig } = await import('../config.js');
@@ -68,7 +88,7 @@ describe('loadConfig', () => {
     });
 
     test('should throw error for value below minimum (0)', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
       process.env['REFERENCE_EXTRACTION_DEPTH'] = '0';
 
       const { loadConfig } = await import('../config.js');
@@ -84,7 +104,7 @@ describe('loadConfig', () => {
     });
 
     test('should throw error for value above maximum (6)', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
       process.env['REFERENCE_EXTRACTION_DEPTH'] = '6';
 
       const { loadConfig } = await import('../config.js');
@@ -100,7 +120,7 @@ describe('loadConfig', () => {
     });
 
     test('should throw error for negative value', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
       process.env['REFERENCE_EXTRACTION_DEPTH'] = '-1';
 
       const { loadConfig } = await import('../config.js');
@@ -116,7 +136,7 @@ describe('loadConfig', () => {
     });
 
     test('should throw error for non-numeric value', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
       process.env['REFERENCE_EXTRACTION_DEPTH'] = 'invalid';
 
       const { loadConfig } = await import('../config.js');
@@ -132,7 +152,7 @@ describe('loadConfig', () => {
     });
 
     test('should throw error for empty string value', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
       process.env['REFERENCE_EXTRACTION_DEPTH'] = '';
 
       const { loadConfig } = await import('../config.js');
@@ -148,7 +168,7 @@ describe('loadConfig', () => {
     });
 
     test('should throw error for decimal value', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
       process.env['REFERENCE_EXTRACTION_DEPTH'] = '2.5';
 
       const { loadConfig } = await import('../config.js');
@@ -164,7 +184,7 @@ describe('loadConfig', () => {
     });
 
     test('should pass Zod validation for valid referenceExtractionDepth values', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
 
       // Test each valid value
       for (let depth = 1; depth <= 5; depth++) {
@@ -182,7 +202,7 @@ describe('loadConfig', () => {
 
   describe('complete configuration with referenceExtractionDepth', () => {
     test('should return complete configuration object with all fields including referenceExtractionDepth', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
       process.env['REFERENCE_EXTRACTION_DEPTH'] = '4';
 
       const { loadConfig } = await import('../config.js');
@@ -202,7 +222,7 @@ describe('loadConfig', () => {
       expect(config).toHaveProperty('referenceExtractionDepth');
 
       // Verify specific values
-      expect(config.docsBasePath).toBe('/test/docs');
+      expect(config.docsBasePath).toBe(docsPath);
       expect(config.referenceExtractionDepth).toBe(4);
 
       // Verify types
@@ -210,7 +230,7 @@ describe('loadConfig', () => {
     });
 
     test('should maintain backward compatibility when REFERENCE_EXTRACTION_DEPTH is not provided', async () => {
-      process.env['DOCS_BASE_PATH'] = '/test/docs';
+      process.env['DOCS_BASE_PATH'] = docsPath;
       // Explicitly ensure REFERENCE_EXTRACTION_DEPTH is not set
       delete process.env['REFERENCE_EXTRACTION_DEPTH'];
 
@@ -218,11 +238,14 @@ describe('loadConfig', () => {
       const config = loadConfig();
 
       expect(config.referenceExtractionDepth).toBe(DEFAULT_CONFIG.REFERENCE_EXTRACTION_DEPTH);
-      expect(config.docsBasePath).toBe('/test/docs');
+      expect(config.docsBasePath).toBe(docsPath);
     });
 
     test('should work with both required and optional configuration together', async () => {
-      process.env['DOCS_BASE_PATH'] = '/custom/docs';
+      const customDocsPath = join(testDir, 'custom-docs');
+      mkdirSync(customDocsPath, { recursive: true });
+
+      process.env['DOCS_BASE_PATH'] = customDocsPath;
       process.env['LOG_LEVEL'] = 'debug';
       process.env['REFERENCE_EXTRACTION_DEPTH'] = '2';
       process.env['MCP_SERVER_NAME'] = 'custom-server';
@@ -230,7 +253,7 @@ describe('loadConfig', () => {
       const { loadConfig } = await import('../config.js');
       const config = loadConfig();
 
-      expect(config.docsBasePath).toBe('/custom/docs');
+      expect(config.docsBasePath).toBe(customDocsPath);
       expect(config.logLevel).toBe('debug');
       expect(config.referenceExtractionDepth).toBe(2);
       expect(config.serverName).toBe('custom-server');

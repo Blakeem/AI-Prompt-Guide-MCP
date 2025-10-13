@@ -13,80 +13,106 @@ whenToUse:
 
 ### 1. Plan & Decompose (Coordinator)
 - Use TodoWrite for high-level milestones and coordinator tracking
-- Create MCP task document for subagent work queue
+- Create MCP task document for subagent work queue using `task` tool
 - Break requirement into logical, independent work units
 - Identify dependencies and sequence accordingly
 - Define specific, testable acceptance criteria for each unit
 
 **Tool Selection:**
-- TodoWrite: Coordinator planning (milestones like "Design API", "Implement Auth")
-- MCP Tasks: Subagent work queue (implementation units)
+- **TodoWrite**: Coordinator planning (high-level milestones)
+- **task**: Subagent work queue (implementation units with full context)
 
 ### 2. Assign to Agent (Silent Execution)
-Provide agent with:
-- Specific, atomic task description
-- Functional requirements
-- TDD mandate: write failing tests BEFORE implementation
-- Quality gates: tests, lint, typecheck, build must pass
-- Context: relevant files, patterns, constraints
 
-**Agent Instruction:**
-Work on [task]. Respond: "Done" or "Blocked: [reason]". No summaries.
+**Subagent Selection:**
+Choose the most specialized subagent for the work type:
+- Code implementation/debugging → code-focused subagents
+- Code quality/review → review-focused subagents
+- Backend/API work → API-focused subagents
+- Infrastructure/environment → appropriate specialized subagents
+- Refer to available subagent types in your context
 
-Agent completes work silently without progress updates or explanations.
+**Assignment Pattern:**
+Provide subagent with:
+1. **Unified task path** - Full path to task in MCP system
+2. **start_task() instruction** - Subagent retrieves full context
+3. **Non-overlapping guidance** - Only TDD requirements, quality gates, response format (not task details)
+4. **Completion requirements** - Must add detailed notes via complete_task()
+
+**Agent Response Format:**
+- "Done" or "Blocked: [reason]"
+- No summaries or progress updates
+
+**Context Conservation:**
+- Task context lives in MCP system (retrieved via start_task)
+- Coordinator provides only non-overlapping instructions
+- Eliminates duplication, maximizes token efficiency
 
 ### 3. Review Code Changes (Coordinator)
-Review CODE first, not agent notes:
+
+**Primary Review - CODE:**
 - Run quality gates to verify all pass
-- Review actual code changes (diffs, new files, modifications)
-- Verify TDD followed (test files created before implementation)
+- Review actual changes (diffs, new files, modifications)
+- Verify TDD followed (tests before implementation)
 - Check test quality (coverage, edge cases, assertions)
 - Check for regressions (existing functionality intact)
 - Review code quality (maintainability, patterns, clarity)
-- Manual verification (feature works as expected)
+- Manual verification as appropriate
 
-Read agent notes only if:
-- Quality gates fail
-- Code changes unclear
-- Unexpected behavior found
-- Need to understand blocking issues
+**Secondary Review - Task Completion Notes:**
+Check notes in MCP task system (added via complete_task):
+- Verify what was implemented
+- Check for warnings or issues
+- Audit only if code review raises questions
+
+**Use Notes For:**
+- Understanding blockers
+- Clarifying unexpected changes
+- Debugging quality gate failures
+- Tracking implementation decisions
 
 ### 4. Stage Completed Work (Coordinator)
-- Stage changes: `git add <files>`
+- Stage changes using version control
 - Verify staged files correct and complete
 - Ensure no unintended files staged
 
 ### 5. Repeat Until Complete (Coordinator)
-- Mark TodoWrite item complete
-- Assign next unit to new agent
-- Update context based on observed code changes
+- Mark TodoWrite item complete (coordinator milestone)
+- Task already complete in MCP system (marked by subagent)
+- Assign next task to new agent using unified path
+- Update context based on observed changes
 - Adjust plan if blockers discovered
 
 ### 6. Final Integration & Report (Coordinator)
-- Run full test suite on complete codebase
-- End-to-end system testing
+- Run full test suite
+- Integration/system testing as appropriate
 - Verify all acceptance criteria met
 - Report to user: terse completion signal
 
 **Report Format:**
-[Feature/Task] complete. Ready for your review.
+- [Feature/Task] complete. Ready for review.
+- Optional: Issues encountered (only if unexpected)
+- Optional: Review guidance (only if specific attention needed)
 
-[Optional: Issues encountered - only if unexpected]
-[Optional: Review guidance - only if specific attention needed]
-
-**Exclude from report:**
-- Files changed (visible in git status)
+**Exclude:**
+- Files changed (visible in version control)
 - Tests passed (expected quality gate)
-- Implementation details (code review shows this)
+- Implementation details (visible in code review)
 - Subagent information (internal orchestration)
 
 ## Why This Works
 
-**Silent Execution:**
+**Context Conservation:**
+- Task details stored once in MCP system
+- Subagents retrieve via `start_task()` - no duplication
+- Coordinator provides only non-overlapping guidance
+- Massive token savings on complex features
 - Reduces context pollution from repeated requirements
+
+**Silent Execution:**
 - Eliminates bias in coordinator review
 - Forces self-documenting code quality
-- Minimizes token usage
+- Minimizes unnecessary communication
 
 **Terse Reporting:**
 - Completion signal only
@@ -100,15 +126,17 @@ Read agent notes only if:
 - Quality gates first catches issues early
 
 **Tool Role Clarity:**
-- TodoWrite: Coordinator's planning
-- MCP Tasks: Subagent work queue
+- **TodoWrite**: Coordinator's planning (high-level milestones)
+- **task**: Subagent work queue (implementation units with full context)
+- **start_task**: Subagent context loading (retrieves from MCP)
+- **complete_task**: Subagent completion with notes
 - Clear separation prevents confusion
 
 ## Key Considerations
 
 **Test-Driven Development:**
 - Tests MUST be written before implementation
-- Follow project test patterns
+- Follow project test patterns and quality gates
 - Refactor while keeping tests green
 - Never skip TDD discipline
 
@@ -116,3 +144,8 @@ Read agent notes only if:
 - Never parallelize dependent components
 - Sequence strictly when dependencies exist
 - Parallel only for truly independent work
+
+**Quality Gates:**
+- Define project-specific quality gates (tests, linting, type checking, etc.)
+- All gates must pass before completion
+- Run gates during review, not during implementation

@@ -45,6 +45,8 @@ export interface ServerConfig {
   readonly serverVersion: string;
   readonly logLevel: string;
   readonly docsBasePath: string;
+  readonly workflowsBasePath: string;
+  readonly guidesBasePath: string;
   readonly maxFileSize: number;
   readonly maxFilesPerOperation: number;
   readonly rateLimitRequestsPerMinute: number;
@@ -60,5 +62,14 @@ export interface Logger {
   warn(message: string, context?: Record<string, unknown>): void;
   info(message: string, context?: Record<string, unknown>): void;
   debug(message: string, context?: Record<string, unknown>): void;
+}
+
+/** Project configuration from .mcp-config.json */
+export interface ProjectConfig {
+  readonly env: {
+    readonly DOCS_BASE_PATH?: string;
+    readonly WORKFLOWS_BASE_PATH?: string;
+    readonly GUIDES_BASE_PATH?: string;
+  };
 }
 

@@ -7,7 +7,7 @@
 
 import type { DocumentManager } from '../document-manager.js';
 import { DocumentManager as Manager } from '../document-manager.js';
-import { loadConfig } from '../config.js';
+import { loadConfig, getDocsPath } from '../config.js';
 import { createDocumentCache } from '../document-cache.js';
 import type { DocumentCache } from '../document-cache.js';
 import { FingerprintIndex } from '../fingerprint-index.js';
@@ -31,7 +31,7 @@ const logger = getGlobalLogger();
  */
 export function createDocumentManager(docsRoot?: string): DocumentManager {
   const config = loadConfig();
-  const root = docsRoot ?? config.docsBasePath;
+  const root = docsRoot ?? getDocsPath(config.docsBasePath);
 
   // Create cache instance with dependency injection using factory function
   const cache: DocumentCache = createDocumentCache(root, {

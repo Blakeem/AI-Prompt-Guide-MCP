@@ -4,12 +4,13 @@
 
 import { z } from 'zod';
 import { config as dotenvConfig } from 'dotenv';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { existsSync, readFileSync } from 'fs';
+import { join, dirname, isAbsolute } from 'path';
 import { fileURLToPath } from 'url';
 import { ERROR_CODES, DEFAULT_CONFIG } from './constants/defaults.js';
 import type { ServerConfig, SpecDocsError } from './types/index.js';
 import { createRequire } from 'node:module';
+import { getGlobalLogger } from './utils/logger.js';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json') as { version: string };
@@ -53,6 +54,68 @@ function getPackageInfo(): { name: string; version: string } {
 }
 
 /**
+ * Zod schema for project configuration from .mcp-config.json
+ * All paths are optional and will fallback to defaults if not provided
+ */
+export const ProjectConfigSchema = z.object({
+  env: z.object({
+    DOCS_BASE_PATH: z.string().min(1).optional(),
+    WORKFLOWS_BASE_PATH: z.string().min(1).optional(),
+    GUIDES_BASE_PATH: z.string().min(1).optional(),
+  }),
+});
+
+/**
+ * Loads and parses .mcp-config.json from process.cwd()
+ * Returns parsed env object or empty object if file doesn't exist
+ * Logs warnings for invalid JSON or invalid structure
+ */
+export function loadProjectConfig(): Record<string, unknown> {
+  const logger = getGlobalLogger();
+
+  try {
+    const configPath = join(process.cwd(), '.mcp-config.json');
+    const configContent = readFileSync(configPath, 'utf-8');
+
+    // Parse JSON
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(configContent);
+    } catch (error) {
+      logger.warn('Failed to parse .mcp-config.json as valid JSON, using defaults', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return {};
+    }
+
+    // Validate structure with Zod
+    const result = ProjectConfigSchema.safeParse(parsed);
+
+    if (!result.success) {
+      logger.warn('Invalid .mcp-config.json structure, using defaults', {
+        errors: result.error.issues.map((err: z.ZodIssue) =>
+          `${err.path.join('.')}: ${err.message}`
+        )
+      });
+      return {};
+    }
+
+    return result.data.env;
+  } catch (error) {
+    // File not found - silently return empty object (use defaults)
+    if (error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return {};
+    }
+
+    // Other errors - log warning and return empty object
+    logger.warn('Failed to load .mcp-config.json, using defaults', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return {};
+  }
+}
+
+/**
  * Zod schema for server configuration
  * Note: serverName and serverVersion are required and come from package.json
  */
@@ -61,6 +124,8 @@ const ServerConfigSchema = z.object({
   serverVersion: z.string().min(1),
   logLevel: z.enum(['error', 'warn', 'info', 'debug']),
   docsBasePath: z.string().min(1),
+  workflowsBasePath: z.string().min(1),
+  guidesBasePath: z.string().min(1),
   maxFileSize: z.number().int().positive(),
   maxFilesPerOperation: z.number().int().positive(),
   rateLimitRequestsPerMinute: z.number().int().positive(),
@@ -94,19 +159,35 @@ function loadEnvironmentVariables(): Record<string, string | undefined> {
 
     // Required: The only setting users must configure
     DOCS_BASE_PATH: process.env['DOCS_BASE_PATH'],
+
+    // Optional: Allow override of workflows and guides paths
+    WORKFLOWS_BASE_PATH: process.env['WORKFLOWS_BASE_PATH'],
+    GUIDES_BASE_PATH: process.env['GUIDES_BASE_PATH'],
   };
 }
 
 /**
  * Converts environment variables to typed configuration object
  * Uses sensible defaults for most settings, only requires DOCS_BASE_PATH from user
+ *
+ * @param env - Environment variables to parse
+ * @param projectConfig - Optional project config from .mcp-config.json (takes precedence)
  */
-function parseEnvironmentVariables(env: Record<string, string | undefined>): Record<string, unknown> {
+function parseEnvironmentVariables(
+  env: Record<string, string | undefined>,
+  projectConfig: Record<string, unknown> = {}
+): Record<string, unknown> {
   const config: Record<string, unknown> = {};
   const errors: string[] = [];
 
   // Get package info for name and version
   const packageInfo = getPackageInfo();
+
+  // Get plugin root for default paths
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const pluginRoot = join(__dirname, '..');
+  const defaultWorkflowsPath = join(pluginRoot, DEFAULT_CONFIG.WORKFLOWS_BASE_PATH);
+  const defaultGuidesPath = join(pluginRoot, DEFAULT_CONFIG.GUIDES_BASE_PATH);
 
   // Use package.json name unless MCP_SERVER_NAME is explicitly set (allows override for different instances)
   config['serverName'] = env['MCP_SERVER_NAME'] ?? packageInfo.name;
@@ -134,12 +215,51 @@ function parseEnvironmentVariables(env: Record<string, string | undefined>): Rec
     config['referenceExtractionDepth'] = DEFAULT_CONFIG.REFERENCE_EXTRACTION_DEPTH;
   }
 
+  // Determine if project config exists (has any keys)
+  const hasProjectConfig = Object.keys(projectConfig).length > 0;
+
   // Required: DOCS_BASE_PATH is the only setting users must provide
-  if (env['DOCS_BASE_PATH'] == null || env['DOCS_BASE_PATH'].length === 0) {
+  // Project config takes complete precedence - if project config exists, only use project config values
+  let docsBasePath: string | undefined;
+  if (hasProjectConfig) {
+    // Project config exists - only use project config value or process.env if not overridden
+    docsBasePath = (projectConfig['DOCS_BASE_PATH'] as string | undefined) ?? env['DOCS_BASE_PATH'];
+  } else {
+    // No project config - use process.env
+    docsBasePath = env['DOCS_BASE_PATH'];
+  }
+
+  if (docsBasePath == null || docsBasePath.length === 0) {
     errors.push('DOCS_BASE_PATH is required - specify the path to your documents directory');
   } else {
-    config['docsBasePath'] = env['DOCS_BASE_PATH'];
+    config['docsBasePath'] = docsBasePath;
   }
+
+  // Optional: WORKFLOWS_BASE_PATH with precedence merging
+  // If project config exists: project config value > default (ignore process.env)
+  // If no project config: process.env > default
+  let workflowsBasePath: string;
+  if (hasProjectConfig) {
+    // Project config exists - use project config value or default (ignore process.env)
+    workflowsBasePath = (projectConfig['WORKFLOWS_BASE_PATH'] as string | undefined) ?? defaultWorkflowsPath;
+  } else {
+    // No project config - use process.env or default
+    workflowsBasePath = env['WORKFLOWS_BASE_PATH'] ?? defaultWorkflowsPath;
+  }
+  config['workflowsBasePath'] = workflowsBasePath;
+
+  // Optional: GUIDES_BASE_PATH with precedence merging
+  // If project config exists: project config value > default (ignore process.env)
+  // If no project config: process.env > default
+  let guidesBasePath: string;
+  if (hasProjectConfig) {
+    // Project config exists - use project config value or default (ignore process.env)
+    guidesBasePath = (projectConfig['GUIDES_BASE_PATH'] as string | undefined) ?? defaultGuidesPath;
+  } else {
+    // No project config - use process.env or default
+    guidesBasePath = env['GUIDES_BASE_PATH'] ?? defaultGuidesPath;
+  }
+  config['guidesBasePath'] = guidesBasePath;
 
   // All other settings use sensible defaults (these are not currently enforced anyway)
   config['maxFileSize'] = DEFAULT_CONFIG.MAX_FILE_SIZE;
@@ -148,6 +268,33 @@ function parseEnvironmentVariables(env: Record<string, string | undefined>): Rec
   config['rateLimitBurstSize'] = DEFAULT_CONFIG.RATE_LIMIT_BURST_SIZE;
   config['enableFileSafetyChecks'] = DEFAULT_CONFIG.ENABLE_FILE_SAFETY_CHECKS;
   config['enableMtimePrecondition'] = DEFAULT_CONFIG.ENABLE_MTIME_PRECONDITION;
+
+  // Validate path existence after resolution
+  const logger = getGlobalLogger();
+
+  // Required: DOCS_BASE_PATH must exist
+  if (docsBasePath != null) {
+    const resolvedDocsPath = resolvePath(docsBasePath);
+    if (!existsSync(resolvedDocsPath)) {
+      errors.push(`DOCS_BASE_PATH directory does not exist: ${resolvedDocsPath}`);
+    }
+  }
+
+  // Optional: WORKFLOWS_BASE_PATH - log warning if doesn't exist
+  const resolvedWorkflowsPath = resolvePath(workflowsBasePath);
+  if (!existsSync(resolvedWorkflowsPath)) {
+    logger.warn('WORKFLOWS_BASE_PATH directory does not exist, features may be limited', {
+      path: resolvedWorkflowsPath
+    });
+  }
+
+  // Optional: GUIDES_BASE_PATH - log warning if doesn't exist
+  const resolvedGuidesPath = resolvePath(guidesBasePath);
+  if (!existsSync(resolvedGuidesPath)) {
+    logger.warn('GUIDES_BASE_PATH directory does not exist, features may be limited', {
+      path: resolvedGuidesPath
+    });
+  }
 
   if (errors.length > 0) {
     throw createError(
@@ -161,29 +308,59 @@ function parseEnvironmentVariables(env: Record<string, string | undefined>): Rec
 }
 
 /**
+ * Logs configuration details at startup
+ *
+ * @param config - The validated server configuration
+ * @param hasProjectConfig - Whether .mcp-config.json was loaded
+ */
+function logConfigurationStartup(config: ServerConfig, hasProjectConfig: boolean): void {
+  const logger = getGlobalLogger();
+
+  logger.info('Server configuration loaded', {
+    projectRoot: process.cwd(),
+    docsPath: getDocsPath(config.docsBasePath),
+    workflowsPath: getWorkflowsPath(config.workflowsBasePath),
+    guidesPath: getGuidesPath(config.guidesBasePath),
+    referenceExtractionDepth: config.referenceExtractionDepth,
+    hasProjectConfig
+  });
+}
+
+/**
  * Loads and validates server configuration
+ * Project config from .mcp-config.json takes precedence over process.env
  */
 export function loadConfig(): ServerConfig {
   try {
+    // Load project config first (from .mcp-config.json)
+    const projectConfig = loadProjectConfig();
+    const hasProjectConfig = Object.keys(projectConfig).length > 0;
+
+    // Load environment variables
     const env = loadEnvironmentVariables();
-    const parsedEnv = parseEnvironmentVariables(env);
-    
+
+    // Parse with project config precedence
+    const parsedEnv = parseEnvironmentVariables(env, projectConfig);
+
     const result = ServerConfigSchema.safeParse(parsedEnv);
-    
+
     if (!result.success) {
-      const errors = result.error.issues.map((err: z.ZodIssue) => 
+      const errors = result.error.issues.map((err: z.ZodIssue) =>
         `${err.path.join('.')}: ${err.message}`
       ).join(', ');
-      
+
       throw createError(
         `Configuration validation failed: ${errors}`,
         ERROR_CODES.CONFIG_VALIDATION_ERROR,
-        { 
+        {
           errors: result.error.issues,
-          receivedData: parsedEnv 
+          receivedData: parsedEnv
         }
       );
     }
+
+    // Log configuration after successful load
+    logConfigurationStartup(result.data, hasProjectConfig);
 
     return result.data;
   } catch (error) {
@@ -197,6 +374,59 @@ export function loadConfig(): ServerConfig {
       { error: error instanceof Error ? error.message : String(error) }
     );
   }
+}
+
+/**
+ * Resolves a path relative to process.cwd() or returns absolute path as-is
+ *
+ * @param path - Path to resolve (absolute or relative)
+ * @returns Resolved absolute path
+ */
+function resolvePath(path: string): string {
+  if (isAbsolute(path)) {
+    return path;
+  }
+  return join(process.cwd(), path);
+}
+
+/**
+ * Resolves the docs base path relative to project root
+ *
+ * @param docsPath - Docs path from configuration (absolute or relative)
+ * @returns Resolved absolute docs path
+ */
+export function getDocsPath(docsPath: string): string {
+  return resolvePath(docsPath);
+}
+
+/**
+ * Resolves the workflows base path relative to project root
+ *
+ * @param workflowsPath - Workflows path from configuration (absolute or relative)
+ * @returns Resolved absolute workflows path
+ *
+ * Note: This function is used in prompts/workflow-prompts.ts which is excluded
+ * from dead-code checking (see package.json ignoreFiles pattern). The function
+ * is exported for tool handler usage as per project requirements.
+ */
+// ts-unused-exports:disable-next-line
+export function getWorkflowsPath(workflowsPath: string): string {
+  return resolvePath(workflowsPath);
+}
+
+/**
+ * Resolves the guides base path relative to project root
+ *
+ * @param guidesPath - Guides path from configuration (absolute or relative)
+ * @returns Resolved absolute guides path
+ *
+ * Note: This function is used in prompts/workflow-prompts.ts which is excluded
+ * from dead-code checking (see package.json ignoreFiles pattern). The function
+ * is exported for tool handler usage as per project requirements.
+ */
+// ts-unused-exports:disable-next-line
+export function getGuidesPath(guidesPath: string): string {
+  return resolvePath(guidesPath);
 }
 
 

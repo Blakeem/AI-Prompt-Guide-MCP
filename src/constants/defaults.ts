@@ -85,4 +85,10 @@ export const DEFAULT_CONFIG = {
 
   /** Reference extraction depth - controls how deep to traverse document references */
   REFERENCE_EXTRACTION_DEPTH: 3,
+
+  /** Default workflows directory - relative to plugin root */
+  WORKFLOWS_BASE_PATH: '.ai-prompt-guide/workflows',
+
+  /** Default guides directory - relative to plugin root */
+  GUIDES_BASE_PATH: '.ai-prompt-guide/guides',
 } as const;

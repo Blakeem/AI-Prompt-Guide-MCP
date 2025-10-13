@@ -11,4 +11,5 @@ export type {
   SpecDocsError,
   ServerConfig,
   Logger,
+  ProjectConfig,
 } from './core.js';
