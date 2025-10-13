@@ -17,6 +17,9 @@ build/
 .env.test.local
 .env.production.local
 
+# Project-specific MCP configuration
+.mcp-config.json
+
 # IDE and editor files
 .vscode/
 .idea/

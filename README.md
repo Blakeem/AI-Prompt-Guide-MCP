@@ -281,6 +281,31 @@ Slash commands automatically route work to the right subagent and inject the cor
 
 The plugin will create a structured plan, spin up the code subagent with incremental orchestration, and load any referenced documents or workflows automatically.
 
+### Project-Specific Configuration
+
+When working on multiple projects with the Claude Code plugin, create a `.mcp-config.json` file in each project root to override default paths:
+
+```json
+{
+  "env": {
+    "DOCS_BASE_PATH": ".ai-prompt-guide/docs",
+    "WORKFLOWS_BASE_PATH": ".ai-prompt-guide/workflows",
+    "GUIDES_BASE_PATH": ".ai-prompt-guide/guides"
+  }
+}
+```
+
+**Configuration Precedence:**
+1. `.mcp-config.json` (project root) – highest priority
+2. Plugin defaults – fallback
+
+**Path Resolution:**
+- Relative paths resolve from project root (where `claude` command runs)
+- Absolute paths used as-is
+- Missing paths: docs required (throws error), workflows/guides optional (log warning)
+
+This allows each project to maintain its own documentation while sharing the plugin's workflows and guides, or customize all three independently.
+
 ## Getting Started
 
 ### Requirements
@@ -320,9 +345,15 @@ npx -y ai-prompt-guide-mcp
 
 ### Configuration
 
-- `DOCS_BASE_PATH` (required): Root directory for managed documents, e.g. `./.ai-prompt-guide/docs`.
-- `REFERENCE_EXTRACTION_DEPTH` (optional, default `3`): Recursive @reference depth from `1` (direct only) to `5` (maximum).
-- `LOG_LEVEL` (optional, default `info`): `debug`, `info`, `warn`, or `error`.
+Environment variables (set in MCP client config or via `.mcp-config.json`):
+
+- `DOCS_BASE_PATH` (required): Root directory for managed documents, e.g. `./.ai-prompt-guide/docs`
+- `WORKFLOWS_BASE_PATH` (optional): Directory for workflow protocols (defaults to plugin's bundled workflows)
+- `GUIDES_BASE_PATH` (optional): Directory for documentation guides (defaults to plugin's bundled guides)
+- `REFERENCE_EXTRACTION_DEPTH` (optional, default `3`): Recursive @reference depth from `1` (direct only) to `5` (maximum)
+- `LOG_LEVEL` (optional, default `info`): `debug`, `info`, `warn`, or `error`
+
+For project-specific overrides when using the Claude Code plugin, see [Project-Specific Configuration](#project-specific-configuration).
 
 Out-of-range depth values default to `3`. Cycle detection and node limits keep reference loading safe regardless of configuration.
 
@@ -360,7 +391,7 @@ Out-of-range depth values default to `3`. Cycle detection and node limits keep r
 
 ## Codex & Other MCP Clients
 
-Any MCP client that accepts a JSON configuration can launch the server the same way. Point the client to the CLI entry point and pass environment variables for your document root:
+Any MCP client that accepts a JSON configuration can launch the server. Point the client to the CLI entry point and pass environment variables:
 
 ```json
 {
@@ -370,6 +401,8 @@ Any MCP client that accepts a JSON configuration can launch the server the same 
       "args": ["-y", "ai-prompt-guide-mcp"],
       "env": {
         "DOCS_BASE_PATH": "./.ai-prompt-guide/docs",
+        "WORKFLOWS_BASE_PATH": "./.ai-prompt-guide/workflows",
+        "GUIDES_BASE_PATH": "./.ai-prompt-guide/guides",
         "REFERENCE_EXTRACTION_DEPTH": "3",
         "LOG_LEVEL": "info"
       }
@@ -378,11 +411,13 @@ Any MCP client that accepts a JSON configuration can launch the server the same 
 }
 ```
 
+Alternatively, use `.mcp-config.json` in your project root for per-project path overrides (see [Project-Specific Configuration](#project-specific-configuration)).
+
 ### Codex CLI Workflow
 
 1. Clone the repository and build it locally (`pnpm install && pnpm build`).
 2. Add an entry to your Codex MCP configuration referencing `node dist/index.js` (or the published `npx` command above).
-3. Export `DOCS_BASE_PATH` to the folder containing your docs, workflows, and guides.
+3. Export `DOCS_BASE_PATH` (and optionally `WORKFLOWS_BASE_PATH`/`GUIDES_BASE_PATH`) or create `.mcp-config.json` in project root.
 4. Validate the connection with `pnpm inspector` or `npx --yes @modelcontextprotocol/inspector node dist/index.js`.
 
 Codex and most other MCP clients watch for the `bin` executable, so once the server is built you can point directly at the generated binary without additional glue code.
