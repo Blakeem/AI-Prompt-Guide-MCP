@@ -71,7 +71,6 @@ export async function executeCreateDocumentPipeline(
   const namespace = args['namespace'] as string | undefined;
   const title = args['title'] as string | undefined;
   const overview = args['overview'] as string | undefined;
-  const includeTasks = args['includeTasks'] as boolean | undefined;
 
   // Get the global session store singleton
   const sessionStore = getGlobalSessionStore();
@@ -113,7 +112,7 @@ export async function executeCreateDocumentPipeline(
     }
   }
 
-  return await executeCreationStage(namespace, title, overview, includeTasks ?? false, manager);
+  return await executeCreationStage(namespace, title, overview, manager);
 }
 
 /**
@@ -123,7 +122,6 @@ async function executeCreationStage(
   namespace: string,
   title: string,
   overview: string,
-  includeTasks: boolean,
   manager: DocumentManager
 ): Promise<DocumentCreationResult | CreationErrorResult> {
   try {
@@ -171,8 +169,7 @@ async function executeCreationStage(
       manager,
       templateResult.content,
       templateResult.docPath,
-      templateResult.slug,
-      includeTasks
+      templateResult.slug
     );
 
     if ('error' in creationResult) {

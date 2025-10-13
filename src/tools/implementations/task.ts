@@ -25,6 +25,12 @@ import type {
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
 
 /**
+ * Maximum number of operations allowed in a single batch request
+ * Prevents performance issues and potential DoS attacks
+ */
+const MAX_BATCH_SIZE = 100;
+
+/**
  * Parse operation target with document override support
  * Supports three formats:
  * 1. Slug only: "task-slug" (uses default document)
@@ -252,6 +258,15 @@ async function processTaskOperations(
   operations: Array<Record<string, unknown>>,
   manager: DocumentManager
 ): Promise<TaskBulkResponse> {
+  // Validate batch size to prevent performance issues
+  if (operations.length > MAX_BATCH_SIZE) {
+    throw new AddressingError(
+      `Batch size ${operations.length} exceeds maximum of ${MAX_BATCH_SIZE}`,
+      'BATCH_TOO_LARGE',
+      { batchSize: operations.length, maxSize: MAX_BATCH_SIZE }
+    );
+  }
+
   const results: TaskOperationResult[] = [];
 
   for (const op of operations) {
@@ -640,15 +655,36 @@ async function ensureTasksSection(manager: DocumentManager, docPath: string): Pr
   );
 
   if (tasksSection == null) {
-    // No Tasks section exists, we need to create one
-    // This should be done by adding it to the document, not via performSectionEdit
-    throw new AddressingError(
-      'No Tasks section found in document. Please add a "## Tasks" section to the document first.',
-      'NO_TASKS_SECTION',
-      { document: docPath }
+    // No Tasks section exists - AUTO-CREATE IT
+
+    // Find the document title heading (H1) to append Tasks after it
+    const titleHeading = document.headings.find(h => h.depth === 1);
+
+    if (titleHeading == null) {
+      throw new AddressingError(
+        'Cannot auto-create Tasks section: document has no title heading (H1)',
+        'NO_TITLE_HEADING',
+        { document: docPath }
+      );
+    }
+
+    const titleSlug = titleHeading.slug;
+
+    // Create Tasks section as child of document title
+    // This will create an H2 section (depth 2) with proper content
+    await performSectionEdit(
+      manager,
+      docPath,
+      titleSlug,
+      'Task list for this document.',
+      'append_child',
+      'Tasks'
     );
+
+    // Invalidate cache to ensure Tasks section is available for subsequent operations
+    manager['cache'].invalidateDocument(docPath);
   }
-  // Tasks section exists, nothing to do
+  // Tasks section exists (either found or just created), nothing more to do
 }
 
 // getTaskHeadings function moved to shared/task-utilities.ts to eliminate duplication

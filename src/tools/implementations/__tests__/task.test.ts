@@ -372,4 +372,305 @@ describe('task tool - Bulk Operations', () => {
       expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
   });
+
+  describe('Batch Size Limits', () => {
+    it('should accept batch with 100 operations (at limit)', async () => {
+      // Create a test document
+      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docContent = '# Test\n\n## Tasks\n\n';
+      await writeFile(docPath, docContent);
+
+      // Generate exactly 100 operations
+      const operations = Array.from({ length: 100 }, (_, i) => ({
+        operation: 'create',
+        title: `Task ${i + 1}`,
+        content: `Status: pending\n\nContent ${i + 1}`
+      }));
+
+      const result = await task({
+        document: '/test.md',
+        operations
+      }, sessionState, manager);
+
+      expect(result.success).toBe(true);
+      expect(result.results).toHaveLength(100);
+    });
+
+    it('should reject batch with 101 operations (over limit)', async () => {
+      // Create a test document
+      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docContent = '# Test\n\n## Tasks\n\n';
+      await writeFile(docPath, docContent);
+
+      // Generate 101 operations (exceeds MAX_BATCH_SIZE)
+      const operations = Array.from({ length: 101 }, (_, i) => ({
+        operation: 'create',
+        title: `Task ${i + 1}`,
+        content: `Status: pending\n\nContent ${i + 1}`
+      }));
+
+      await expect(task({
+        document: '/test.md',
+        operations
+      }, sessionState, manager))
+        .rejects.toThrow('Batch size 101 exceeds maximum of 100');
+    });
+
+    it('should include helpful context in batch size error', async () => {
+      // Create a test document
+      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docContent = '# Test\n\n## Tasks\n\n';
+      await writeFile(docPath, docContent);
+
+      // Generate 101 operations
+      const operations = Array.from({ length: 101 }, (_, i) => ({
+        operation: 'create',
+        title: `Task ${i + 1}`,
+        content: `Status: pending\n\nContent ${i + 1}`
+      }));
+
+      try {
+        await task({
+          document: '/test.md',
+          operations
+        }, sessionState, manager);
+        // Should not reach here
+        expect(true).toBe(false);
+      } catch (error) {
+        // Verify error message includes batch size info
+        expect(error).toBeInstanceOf(Error);
+        if (error instanceof Error) {
+          expect(error.message).toContain('101');
+          expect(error.message).toContain('100');
+        }
+      }
+    });
+  });
+
+  describe('Auto-create Tasks Section (TDD)', () => {
+    it('should auto-create Tasks section if missing when creating first task', async () => {
+      // Create document WITHOUT Tasks section
+      const docPath = resolve(testDir, 'docs', 'test-autocreate.md');
+      const docContent = '# Test Document\n\nSome content here.\n\n';
+      await writeFile(docPath, docContent);
+
+      // Create a task - should auto-create Tasks section
+      const result = await task({
+        document: '/test-autocreate.md',
+        operations: [
+          {
+            operation: 'create',
+            title: 'First Task',
+            content: 'Status: pending\n\nThis is the first task'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Verify task was created successfully
+      expect(result.success).toBe(true);
+      expect(result.operations_completed).toBe(1);
+      expect(result.results[0]?.status).toBe('created');
+      expect(result.results[0]?.task?.slug).toBe('first-task');
+
+      // Verify Tasks section was created
+      const document = await manager.getDocument('/test-autocreate.md');
+      expect(document).not.toBeNull();
+      if (document != null) {
+        const tasksSection = document.headings.find(h =>
+          h.slug === 'tasks' || h.title.toLowerCase() === 'tasks'
+        );
+        expect(tasksSection).toBeDefined();
+        expect(tasksSection?.title).toBe('Tasks');
+
+        // Verify task is under Tasks section
+        const taskHeading = document.headings.find(h => h.slug === 'first-task');
+        expect(taskHeading).toBeDefined();
+        expect(taskHeading?.title).toBe('First Task');
+      }
+    });
+
+    it('should not duplicate Tasks section if already exists', async () => {
+      // Create document WITH Tasks section
+      const docPath = resolve(testDir, 'docs', 'test-existing.md');
+      const docContent = '# Test Document\n\n## Tasks\n\n';
+      await writeFile(docPath, docContent);
+
+      // Create a task
+      const result = await task({
+        document: '/test-existing.md',
+        operations: [
+          {
+            operation: 'create',
+            title: 'New Task',
+            content: 'Status: pending\n\nTask content'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Verify task was created successfully
+      expect(result.success).toBe(true);
+      expect(result.operations_completed).toBe(1);
+
+      // Verify only ONE Tasks section exists
+      const document = await manager.getDocument('/test-existing.md');
+      expect(document).not.toBeNull();
+      if (document != null) {
+        const tasksSections = document.headings.filter(h =>
+          h.slug === 'tasks' || h.title.toLowerCase() === 'tasks'
+        );
+        expect(tasksSections).toHaveLength(1);
+      }
+    });
+
+    it('should create Tasks section at correct depth (H2)', async () => {
+      // Create document with H1 title only
+      const docPath = resolve(testDir, 'docs', 'test-depth.md');
+      const docContent = '# Document Title\n\nSome overview content.\n\n';
+      await writeFile(docPath, docContent);
+
+      // Create a task (auto-creates Tasks)
+      const result = await task({
+        document: '/test-depth.md',
+        operations: [
+          {
+            operation: 'create',
+            title: 'Test Task',
+            content: 'Status: pending\n\nTask content'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Verify success
+      expect(result.success).toBe(true);
+
+      // Verify Tasks section is H2 (depth 2)
+      const document = await manager.getDocument('/test-depth.md');
+      expect(document).not.toBeNull();
+      if (document != null) {
+        const tasksSection = document.headings.find(h =>
+          h.slug === 'tasks' || h.title.toLowerCase() === 'tasks'
+        );
+        expect(tasksSection).toBeDefined();
+        expect(tasksSection?.depth).toBe(2);
+      }
+    });
+
+    it('should handle case-insensitive Tasks section detection', async () => {
+      // Create document with lowercase "tasks" section
+      const docPath = resolve(testDir, 'docs', 'test-case.md');
+      const docContent = '# Test Document\n\n## tasks\n\n';
+      await writeFile(docPath, docContent);
+
+      // Create a task
+      const result = await task({
+        document: '/test-case.md',
+        operations: [
+          {
+            operation: 'create',
+            title: 'Task One',
+            content: 'Status: pending\n\nContent'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Should not create duplicate, should use existing
+      expect(result.success).toBe(true);
+      expect(result.operations_completed).toBe(1);
+
+      // Verify only ONE tasks section exists
+      const document = await manager.getDocument('/test-case.md');
+      expect(document).not.toBeNull();
+      if (document != null) {
+        const tasksSections = document.headings.filter(h =>
+          h.slug === 'tasks' || h.title.toLowerCase() === 'tasks'
+        );
+        expect(tasksSections).toHaveLength(1);
+      }
+    });
+
+    it('should throw error if document has no title heading (H1)', async () => {
+      // Create document WITHOUT H1 title
+      const docPath = resolve(testDir, 'docs', 'test-notitle.md');
+      const docContent = '## Section One\n\nSome content.\n\n';
+      await writeFile(docPath, docContent);
+
+      // Try to create a task - should fail with helpful error
+      const result = await task({
+        document: '/test-notitle.md',
+        operations: [
+          {
+            operation: 'create',
+            title: 'Test Task',
+            content: 'Status: pending\n\nContent'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Should have error result
+      expect(result.results[0]?.status).toBe('error');
+      expect(result.results[0]?.error).toContain('title heading');
+    });
+
+    it('should create Tasks section with proper content on auto-create', async () => {
+      // Create document without Tasks section
+      const docPath = resolve(testDir, 'docs', 'test-content.md');
+      const docContent = '# My Document\n\nOverview content.\n\n';
+      await writeFile(docPath, docContent);
+
+      // Create a task (auto-creates Tasks)
+      await task({
+        document: '/test-content.md',
+        operations: [
+          {
+            operation: 'create',
+            title: 'First Task',
+            content: 'Status: pending\n\nTask details'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Verify Tasks section content
+      const sectionContent = await manager.getSectionContent('/test-content.md', 'tasks');
+      expect(sectionContent).toBeDefined();
+      expect(sectionContent).toContain('Task list for this document');
+    });
+
+    it('should handle multiple task creates with auto-created Tasks section', async () => {
+      // Create document without Tasks section
+      const docPath = resolve(testDir, 'docs', 'test-multiple.md');
+      const docContent = '# Test Doc\n\nContent.\n\n';
+      await writeFile(docPath, docContent);
+
+      // Create multiple tasks in one call
+      const result = await task({
+        document: '/test-multiple.md',
+        operations: [
+          { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nContent 1' },
+          { operation: 'create', title: 'Task 2', content: 'Status: pending\n\nContent 2' },
+          { operation: 'create', title: 'Task 3', content: 'Status: pending\n\nContent 3' }
+        ]
+      }, sessionState, manager);
+
+      // All should succeed
+      expect(result.success).toBe(true);
+      expect(result.operations_completed).toBe(3);
+      expect(result.results.every(r => r.status === 'created')).toBe(true);
+
+      // Verify Tasks section exists and contains all tasks
+      const document = await manager.getDocument('/test-multiple.md');
+      expect(document).not.toBeNull();
+      if (document != null) {
+        const tasksSection = document.headings.find(h => h.slug === 'tasks');
+        expect(tasksSection).toBeDefined();
+
+        const task1 = document.headings.find(h => h.slug === 'task-1');
+        const task2 = document.headings.find(h => h.slug === 'task-2');
+        const task3 = document.headings.find(h => h.slug === 'task-3');
+
+        expect(task1).toBeDefined();
+        expect(task2).toBeDefined();
+        expect(task3).toBeDefined();
+      }
+    });
+  });
 });

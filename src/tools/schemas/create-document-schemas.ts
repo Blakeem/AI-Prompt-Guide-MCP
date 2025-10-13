@@ -87,10 +87,6 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
         overview: {
           type: 'string',
           description: 'Content for overview section (required for creation)'
-        },
-        includeTasks: {
-          type: 'boolean',
-          description: 'Include a "## Tasks" section for task management (default: false)'
         }
       },
       required: ['namespace', 'title', 'overview'],
