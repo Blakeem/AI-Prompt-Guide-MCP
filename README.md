@@ -4,6 +4,16 @@
 
 An MCP server that orchestrates AI agents through structured markdown documents. Create linked specifications and tasks, assign work to specialized agents with a single command, and let the system handle context injection and workflow management automatically.
 
+## Table of Contents
+
+- [What It Does](#what-it-does)
+- [Key Features](#key-features)
+- [Getting Started](#getting-started)
+- [Claude Code Plugin](#claude-code-plugin)
+- [Tools Overview](#tools-overview)
+- [Use Case](#use-case)
+- [License](#license)
+
 ## What It Does
 
 This server enables you to:
