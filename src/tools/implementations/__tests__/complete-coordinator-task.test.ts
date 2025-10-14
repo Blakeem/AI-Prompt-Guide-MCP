@@ -101,7 +101,6 @@ describe('complete_coordinator_task tool', () => {
         note: 'Finished implementation and testing'
       }, sessionState, manager);
 
-      expect(result.mode).toBe('sequential');
       expect(result.completed_task.slug).toBe('task-1');
       expect(result.completed_task.note).toBe('Finished implementation and testing');
       expect(result.completed_task.completed_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -238,10 +237,8 @@ describe('complete_coordinator_task tool', () => {
         note: 'Completed successfully'
       }, sessionState, manager);
 
-      expect(result).toHaveProperty('mode');
       expect(result).toHaveProperty('completed_task');
       expect(result).toHaveProperty('timestamp');
-      expect(result.mode).toBe('sequential');
       expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
   });

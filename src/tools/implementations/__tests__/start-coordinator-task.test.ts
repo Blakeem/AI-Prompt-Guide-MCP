@@ -99,7 +99,6 @@ describe('start_coordinator_task tool', () => {
       // Start first task
       const result = await startCoordinatorTask({}, sessionState, manager);
 
-      expect(result.mode).toBe('sequential');
       expect(result.document).toBe('/coordinator/active.md');
       expect(result.task.slug).toBe('task-1');
       expect(result.task.title).toBe('Task 1');

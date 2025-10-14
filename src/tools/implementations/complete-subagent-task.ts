@@ -24,7 +24,6 @@ import { enrichTaskWithWorkflow } from '../../shared/workflow-prompt-utilities.j
 import { completeTaskOperation } from '../../shared/task-operations.js';
 
 interface CompleteSubagentTaskResult {
-  mode: 'sequential' | 'adhoc';
   completed_task: {
     slug: string;
     title: string;
@@ -208,7 +207,6 @@ export async function completeSubagentTask(
     }
 
     return {
-      mode,
       completed_task: {
         slug: completedTaskData.slug,
         title: completedTaskData.title,

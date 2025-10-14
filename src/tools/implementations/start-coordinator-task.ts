@@ -32,7 +32,6 @@ import { PATH_PREFIXES } from '../../shared/namespace-constants.js';
  * Response interface for start_coordinator_task tool
  */
 export interface StartCoordinatorTaskResponse {
-  mode: 'sequential';
   document: string;
   task: {
     slug: string;
@@ -142,7 +141,6 @@ export async function startCoordinatorTask(
 
     // RESPONSE
     return {
-      mode: 'sequential',
       document: documentPath,
       task: {
         slug: enriched.slug,

@@ -44,7 +44,6 @@ import { getTaskHeadings } from '../../shared/task-utilities.js';
  * Response interface for start_subagent_task tool
  */
 export interface StartSubagentTaskResponse {
-  mode: 'sequential' | 'adhoc';
   document: string;
   task: {
     slug: string;
@@ -301,7 +300,6 @@ export async function startSubagentTask(
 
     // ===== OUTPUT CONSTRUCTION =====
     return {
-      mode,
       document: addresses.document.path,
       task: {
         slug: fullyEnriched.slug,

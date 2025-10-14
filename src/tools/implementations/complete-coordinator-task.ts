@@ -31,7 +31,6 @@ import {
  * Response interface for complete_coordinator_task tool
  */
 export interface CompleteCoordinatorTaskResponse {
-  mode: 'sequential';
   completed_task: {
     slug: string;
     title: string;
@@ -111,7 +110,6 @@ export async function completeCoordinatorTask(
       const archiveResult = await archiveCoordinatorDocument(manager, documentPath);
 
       return {
-        mode: 'sequential',
         completed_task: completedTaskData,
         archived: true,
         archived_to: archiveResult.archived_to,
@@ -143,7 +141,6 @@ export async function completeCoordinatorTask(
     }
 
     return {
-      mode: 'sequential',
       completed_task: completedTaskData,
       ...(nextTask != null && { next_task: nextTask }),
       timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
