@@ -139,21 +139,62 @@ The plugin creates a plan, assigns work to specialized agents, and orchestrates 
 
 ## Tools Overview
 
-The server provides 20 MCP tools for document and task management:
+The server provides 20 MCP tools organized by function:
 
-**Documents**
-- Create, browse, search, edit, move, and archive documents
-- Navigate namespace hierarchies
-- Full-text and regex search
+### Document Discovery & Navigation
 
-**Tasks**
-- Coordinator tools for sequential project work
-- Subagent tools for flexible ad-hoc tasks
-- View tools for inspecting without starting work
+| Tool | Description |
+|------|-------------|
+| `create_document` | Create new documents with namespace selection |
+| `browse_documents` | Navigate document hierarchy and list contents |
+| `search_documents` | Full-text or regex search across all documents |
 
-**Workflows**
-- Access built-in workflow protocols
-- Load documentation and research guides
+### Content Editing
+
+| Tool | Description |
+|------|-------------|
+| `section` | Edit, append, insert, or remove sections in bulk |
+
+### Coordinator Task Management
+
+| Tool | Description |
+|------|-------------|
+| `coordinator_task` | Create, edit, or list coordinator tasks |
+| `start_coordinator_task` | Start the first pending task with full context |
+| `complete_coordinator_task` | Complete task and get next or auto-archive |
+| `view_coordinator_task` | View coordinator task details |
+
+### Subagent Task Management
+
+| Tool | Description |
+|------|-------------|
+| `subagent_task` | Create, edit, or list subagent tasks |
+| `start_subagent_task` | Start specific task with full context |
+| `complete_subagent_task` | Complete task and get next pending |
+| `view_subagent_task` | View subagent task details |
+
+### View & Inspection
+
+| Tool | Description |
+|------|-------------|
+| `view_document` | View complete document structure with metadata |
+| `view_section` | View section content without starting work |
+
+### Document Lifecycle
+
+| Tool | Description |
+|------|-------------|
+| `edit_document` | Update document title and overview |
+| `delete_document` | Delete or archive documents |
+| `move` | Move sections or tasks between documents |
+| `move_document` | Move documents to new namespaces |
+
+### Workflow & Guide Access
+
+| Tool | Description |
+|------|-------------|
+| `get_workflow` | Load workflow protocol content |
+| `get_guide` | Access documentation guides |
 
 All tools use consistent addressing (`/doc.md#section`) and work together seamlessly.
 
