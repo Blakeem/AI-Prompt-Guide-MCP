@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { startTask } from '../start-task.js';
+import { startSubagentTask } from '../start-subagent-task.js';
 import { createDocumentManager } from '../../../shared/utilities.js';
 import type { DocumentManager } from '../../../document-manager.js';
 import type { SessionState } from '../../../session/types.js';
@@ -30,13 +30,18 @@ describe('start_task tool', () => {
 
   describe('Parameter Validation', () => {
     it('should throw error when document parameter missing', async () => {
-      await expect(startTask({}, sessionState, manager))
+      await expect(startSubagentTask({}, sessionState, manager))
         .rejects.toThrow('document parameter is required');
     });
 
-    it('should accept sequential mode (document only)', async () => {
-      // Sequential mode - should find first pending/in_progress task
-      // This test verifies the parameter is accepted (actual behavior tested elsewhere)
+    it('should reject document path without #slug (ad-hoc mode required)', async () => {
+      // Subagent tools require #slug (ad-hoc only)
+      await expect(startSubagentTask({ document: '/docs/project/tasks.md' }, sessionState, manager))
+        .rejects.toThrow('Subagent tasks require #slug');
+    });
+
+    it('should accept ad-hoc mode with #slug', async () => {
+      // Ad-hoc mode - should start specific task
       const mockDocument = {
         content: '# Project\n\n## Tasks\n\n### First Task\n\n- Status: pending',
         headings: [
@@ -50,7 +55,7 @@ describe('start_task tool', () => {
           ['first-task', '- Status: pending']
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -61,22 +66,23 @@ describe('start_task tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('- Status: pending');
 
-      const result = await startTask({ document: '/project/tasks.md' }, sessionState, manager);
-      expect(result).toHaveProperty('mode', 'sequential');
+      const result = await startSubagentTask({ document: '/docs/project/tasks.md#first-task' }, sessionState, manager);
+      expect(result).toHaveProperty('mode', 'adhoc');
+      expect(result.task).toHaveProperty('slug', 'first-task');
     });
 
     it('should throw error when document parameter is empty string', async () => {
-      await expect(startTask({ document: '' }, sessionState, manager))
+      await expect(startSubagentTask({ document: '' }, sessionState, manager))
         .rejects.toThrow();
     });
 
     it('should throw error when task slug is empty after #', async () => {
-      await expect(startTask({ document: '/project/tasks.md#' }, sessionState, manager))
+      await expect(startSubagentTask({ document: '/docs/project/tasks.md#' }, sessionState, manager))
         .rejects.toThrow('Task slug cannot be empty after #');
     });
 
     it('should throw error when document parameter is null', async () => {
-      await expect(startTask({ document: null }, sessionState, manager))
+      await expect(startSubagentTask({ document: null }, sessionState, manager))
         .rejects.toThrow();
     });
   });
@@ -86,8 +92,8 @@ describe('start_task tool', () => {
       // Mock getDocument to return null
       vi.spyOn(manager, 'getDocument').mockResolvedValue(null);
 
-      await expect(startTask({
-        document: '/nonexistent/doc.md#some-task'
+      await expect(startSubagentTask({
+        document: '/docs/nonexistent/doc.md#some-task'
       }, sessionState, manager))
         .rejects.toThrow(DocumentNotFoundError);
     });
@@ -103,7 +109,7 @@ describe('start_task tool', () => {
           ['document', 'No tasks here']
         ]),
         metadata: {
-          path: '/project/doc.md',
+          path: '/docs/project/doc.md',
           title: 'Document',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -113,8 +119,8 @@ describe('start_task tool', () => {
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
 
-      await expect(startTask({
-        document: '/project/doc.md#some-task'
+      await expect(startSubagentTask({
+        document: '/docs/project/doc.md#some-task'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
@@ -134,7 +140,7 @@ describe('start_task tool', () => {
           ['other-task', 'Content']
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Document',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -145,8 +151,8 @@ describe('start_task tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(null);
 
-      await expect(startTask({
-        document: '/project/tasks.md#missing-task'
+      await expect(startSubagentTask({
+        document: '/docs/project/tasks.md#missing-task'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
@@ -168,7 +174,7 @@ describe('start_task tool', () => {
           ['real-task', 'Task content']
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Document',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -178,8 +184,8 @@ describe('start_task tool', () => {
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
 
-      await expect(startTask({
-        document: '/project/tasks.md#overview' // Not under tasks section
+      await expect(startSubagentTask({
+        document: '/docs/project/tasks.md#overview' // Not under tasks section
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
@@ -207,7 +213,7 @@ Set up the project structure following best practices.`;
           ['initialize-project', taskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -232,8 +238,8 @@ Set up the project structure following best practices.`;
         getWorkflowPrompts: vi.fn(() => [mockWorkflow])
       }));
 
-      const result = await startTask({
-        document: '/project/tasks.md#initialize-project'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#initialize-project'
       }, sessionState, manager);
 
       expect(result).toHaveProperty('task');
@@ -262,7 +268,7 @@ Just a simple task without workflow.`;
           ['simple-task', taskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -273,8 +279,8 @@ Just a simple task without workflow.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await startTask({
-        document: '/project/tasks.md#simple-task'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#simple-task'
       }, sessionState, manager);
 
       expect(result.task).not.toHaveProperty('workflow');
@@ -301,7 +307,7 @@ Task with invalid workflow reference.`;
           ['task-with-invalid-workflow', taskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -318,8 +324,8 @@ Task with invalid workflow reference.`;
         getWorkflowPrompts: vi.fn(() => [])
       }));
 
-      const result = await startTask({
-        document: '/project/tasks.md#task-with-invalid-workflow'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#task-with-invalid-workflow'
       }, sessionState, manager);
 
       // Should continue without workflow field
@@ -358,7 +364,7 @@ Implement the feature.`;
           ['implement-feature', currentTaskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -398,8 +404,8 @@ Implement the feature.`;
         getWorkflowPrompts: vi.fn(() => [mockMainWorkflow, mockTaskWorkflow])
       }));
 
-      const result = await startTask({
-        document: '/project/tasks.md#implement-feature'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#implement-feature'
       }, sessionState, manager);
 
       expect(result.task).toHaveProperty('slug', 'implement-feature');
@@ -437,7 +443,7 @@ Second task.`;
           ['second-task', currentTaskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -452,8 +458,8 @@ Second task.`;
         return null;
       });
 
-      const result = await startTask({
-        document: '/project/tasks.md#second-task'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#second-task'
       }, sessionState, manager);
 
       expect(result.task).not.toHaveProperty('main_workflow');
@@ -471,7 +477,7 @@ Second task.`;
           ['tasks', '']
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -482,8 +488,8 @@ Second task.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
 
       // This should throw because there are no tasks at all
-      await expect(startTask({
-        document: '/project/tasks.md#nonexistent'
+      await expect(startSubagentTask({
+        document: '/docs/project/tasks.md#nonexistent'
       }, sessionState, manager))
         .rejects.toThrow();
     });
@@ -509,7 +515,7 @@ Task with empty workflow field.`;
           ['task-with-empty-workflow', taskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -520,8 +526,8 @@ Task with empty workflow field.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await startTask({
-        document: '/project/tasks.md#task-with-empty-workflow'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#task-with-empty-workflow'
       }, sessionState, manager);
 
       // Empty workflow field should not add workflow property
@@ -551,7 +557,7 @@ Set up the database following the schema specification.`;
           ['setup-database', taskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -562,8 +568,8 @@ Set up the database following the schema specification.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await startTask({
-        document: '/project/tasks.md#setup-database'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#setup-database'
       }, sessionState, manager);
 
       // Should attempt to load references (may fail due to mocking limitations)
@@ -592,7 +598,7 @@ No references in this task.`;
           ['simple-task', taskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -603,8 +609,8 @@ No references in this task.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await startTask({
-        document: '/project/tasks.md#simple-task'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#simple-task'
       }, sessionState, manager);
 
       // Should not have referenced_documents if none present
@@ -634,7 +640,7 @@ Task referencing a non-existent document.`;
           ['task-with-invalid-reference', taskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -646,8 +652,8 @@ Task referencing a non-existent document.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       // Should not throw, even with invalid reference
-      const result = await startTask({
-        document: '/project/tasks.md#task-with-invalid-reference'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#task-with-invalid-reference'
       }, sessionState, manager);
 
       expect(result.task).toHaveProperty('slug', 'task-with-invalid-reference');
@@ -689,7 +695,7 @@ Implement the REST API endpoints.`;
           ['implement-api', currentTaskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -704,12 +710,12 @@ Implement the REST API endpoints.`;
         return null;
       });
 
-      const result = await startTask({
-        document: '/project/tasks.md#implement-api'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#implement-api'
       }, sessionState, manager);
 
       // Verify basic task data
-      expect(result).toHaveProperty('document', '/project/tasks.md');
+      expect(result).toHaveProperty('document', '/docs/project/tasks.md');
       expect(result.task).toHaveProperty('slug', 'implement-api');
       expect(result.task).toHaveProperty('title', 'Implement API');
       expect(result.task).toHaveProperty('status', 'in_progress');
@@ -741,7 +747,7 @@ A task with minimal metadata but has references.`;
           ['minimal-task', taskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -752,8 +758,8 @@ A task with minimal metadata but has references.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await startTask({
-        document: '/project/tasks.md#minimal-task'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#minimal-task'
       }, sessionState, manager);
 
       expect(result.task).toHaveProperty('slug', 'minimal-task');
@@ -783,7 +789,7 @@ Test task content.`;
           ['test-task', taskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -794,8 +800,8 @@ Test task content.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await startTask({
-        document: '/project/tasks.md#test-task'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#test-task'
       }, sessionState, manager);
 
       // Verify response structure matches specification
@@ -841,7 +847,7 @@ Implement a specific subtask.`;
           ['subtask-implementation', taskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -852,8 +858,8 @@ Implement a specific subtask.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await startTask({
-        document: '/project/tasks.md#subtask-implementation'
+      const result = await startSubagentTask({
+        document: '/docs/project/tasks.md#subtask-implementation'
       }, sessionState, manager);
 
       expect(result.task).toHaveProperty('slug', 'subtask-implementation');
@@ -866,14 +872,14 @@ Implement a specific subtask.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(null);
 
       try {
-        await startTask({
-          document: '/missing/doc.md#some-task'
+        await startSubagentTask({
+          document: '/docs/missing/doc.md#some-task'
         }, sessionState, manager);
         expect.fail('Should have thrown error');
       } catch (error) {
         expect(error).toBeInstanceOf(DocumentNotFoundError);
         if (error instanceof DocumentNotFoundError) {
-          expect(error.message).toContain('/missing/doc.md');
+          expect(error.message).toContain('/docs/missing/doc.md');
         }
       }
     });
@@ -892,7 +898,7 @@ Implement a specific subtask.`;
           ['other-task', 'Content']
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -904,8 +910,8 @@ Implement a specific subtask.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(null);
 
       try {
-        await startTask({
-          document: '/project/tasks.md#missing-task'
+        await startSubagentTask({
+          document: '/docs/project/tasks.md#missing-task'
         }, sessionState, manager);
         expect.fail('Should have thrown error');
       } catch (error) {
@@ -919,8 +925,8 @@ Implement a specific subtask.`;
     it('should handle document manager errors gracefully', async () => {
       vi.spyOn(manager, 'getDocument').mockRejectedValue(new Error('Filesystem error'));
 
-      await expect(startTask({
-        document: '/project/tasks.md#some-task'
+      await expect(startSubagentTask({
+        document: '/docs/project/tasks.md#some-task'
       }, sessionState, manager))
         .rejects.toThrow('Filesystem error');
     });

@@ -47,10 +47,17 @@ export async function processTemplate(
   try {
     // Import slug utilities
     const { titleToSlug } = await import('../../slug.js');
+    const { PATH_PREFIXES } = await import('../../shared/namespace-constants.js');
 
     // Generate path from title and namespace
     const slug = titleToSlug(title);
-    const docPath = `/${namespace}/${slug}.md`;
+
+    // Prepend /docs/ prefix if not already present (coordinator namespace is explicit)
+    const normalizedNamespace = namespace.startsWith('coordinator')
+      ? PATH_PREFIXES.COORDINATOR.slice(1, -1) // Remove leading and trailing slashes
+      : `${PATH_PREFIXES.DOCS.slice(1)}${namespace}`; // /docs/ + namespace
+
+    const docPath = `/${normalizedNamespace}/${slug}.md`;
 
     // Validate the generated document path using addressing system
     try {

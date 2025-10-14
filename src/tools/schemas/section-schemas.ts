@@ -16,7 +16,7 @@
  * @example Single section edit (uses operations array)
  * ```typescript
  * const editInput = {
- *   document: '/api/authentication.md',
+ *   document: '/docs/api/authentication.md',
  *   operations: [{
  *     section: 'jwt-tokens',
  *     content: 'Updated JWT token documentation...',
@@ -28,7 +28,7 @@
  * @example Creating new section (uses operations array)
  * ```typescript
  * const createInput = {
- *   document: '/api/endpoints.md',
+ *   document: '/docs/api/endpoints.md',
  *   operations: [{
  *     section: 'users',  // Reference section for placement
  *     content: 'New OAuth section content...',
@@ -41,7 +41,7 @@
  * @example Multiple operations in one call
  * ```typescript
  * const multiInput = {
- *   document: '/api/specs.md',
+ *   document: '/docs/api/specs.md',
  *   operations: [
  *     {
  *       section: 'overview',
@@ -79,17 +79,17 @@ export interface SectionInputSchema {
      * Document must exist before performing section operations.
      *
      * @example Standard document paths
-     * "/specs/authentication.md"
-     * "/api/endpoints/users.md"
-     * "/guides/setup-guide.md"
+     * "/docs/specs/authentication.md"
+     * "/docs/api/endpoints/users.md"
+     * "/docs/guides/setup-guide.md"
      *
      * @example Namespace organization
-     * "/api/specs/oauth-flows.md"
+     * "/docs/api/specs/oauth-flows.md"
      * "/docs/user-guides/admin-panel.md"
      */
     document: {
       type: 'string';
-      description: 'Document path (e.g., "/specs/search-api.md"). ALWAYS required - provides default context for all operations. Individual section fields can override with full path "/other.md#slug" for multi-document operations.';
+      description: 'Document path (e.g., "/docs/specs/search-api.md"). ALWAYS required - provides default context for all operations. Individual section fields can override with full path "/other.md#slug" for multi-document operations.';
     };
 
     /**
@@ -106,7 +106,7 @@ export interface SectionInputSchema {
         properties: {
           section: {
             type: 'string';
-            description: 'Section slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/api/auth.md" with section="/api/security.md#authentication" edits security.md instead.';
+            description: 'Section slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/docs/api/auth.md" with section="/docs/api/security.md#authentication" edits security.md instead.';
           };
           operation: {
             type: 'string';
@@ -395,7 +395,7 @@ export function getSectionSchema(): SectionInputSchema {
     properties: {
       document: {
         type: 'string',
-        description: 'Document path (e.g., "/specs/search-api.md"). ALWAYS required - provides default context for all operations. Individual section fields can override with full path "/other.md#slug" for multi-document operations.',
+        description: 'Document path (e.g., "/docs/specs/search-api.md"). ALWAYS required - provides default context for all operations. Individual section fields can override with full path "/other.md#slug" for multi-document operations.',
       },
       operations: {
         type: 'array',
@@ -405,7 +405,7 @@ export function getSectionSchema(): SectionInputSchema {
           properties: {
             section: {
               type: 'string',
-              description: 'Section slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/api/auth.md" with section="/api/security.md#authentication" edits security.md instead.',
+              description: 'Section slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/docs/api/auth.md" with section="/docs/api/security.md#authentication" edits security.md instead.',
             },
             operation: {
               type: 'string',

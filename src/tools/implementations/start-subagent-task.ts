@@ -1,17 +1,22 @@
 /**
- * Implementation for the start_task tool
+ * Implementation for the start_subagent_task tool
  *
  * Signals "I'm starting work on this task" and provides FULL CONTEXT including:
  * - Task-specific workflow (if present in task metadata)
- * - Main workflow from first task (if present in first task metadata)
+ * - Main workflow from first task (if present in first task metadata, ONLY in sequential mode)
  * - Referenced documents (hierarchical @reference loading)
  *
+ * SUBAGENT MODE:
+ * - REQUIRES #slug (ad-hoc mode only)
+ * - Works with /docs/ namespace
+ * - No main workflow injection (task workflow only)
+ *
  * This tool is used for:
- * - Starting work on a task (new session)
+ * - Starting work on an assigned subagent task
  * - Resuming work after context compression
  *
- * Unlike view_task (passive inspection) or complete_task (work continuation),
- * start_task provides full workflow injection for new/resumed sessions.
+ * Unlike view_task (passive inspection) or complete_subagent_task (work continuation),
+ * start_subagent_task provides full workflow injection for new/resumed sessions.
  */
 
 import type { SessionState } from '../../session/types.js';
@@ -21,6 +26,7 @@ import {
   AddressingError,
   DocumentNotFoundError
 } from '../../shared/addressing-system.js';
+import { validateSubagentTaskAccess } from '../../shared/task-validation.js';
 import {
   enrichTaskWithReferences,
   extractTaskField,
@@ -35,9 +41,9 @@ import type { HierarchicalContent } from '../../shared/reference-loader.js';
 import { getTaskHeadings } from '../../shared/task-utilities.js';
 
 /**
- * Response interface for start_task tool
+ * Response interface for start_subagent_task tool
  */
-export interface StartTaskResponse {
+export interface StartSubagentTaskResponse {
   mode: 'sequential' | 'adhoc';
   document: string;
   task: {
@@ -53,20 +59,22 @@ export interface StartTaskResponse {
 }
 
 /**
- * Start work on a task with full context injection
+ * Start work on a subagent task with full context injection
  *
- * @param args - Tool arguments containing document path (and optional task slug after #)
+ * VALIDATION: Requires #slug (ad-hoc mode), enforces /docs/ namespace (explicit path prefix required)
+ *
+ * @param args - Tool arguments containing document path with task slug (format: /docs/path.md#task-slug)
  * @param _state - Session state (unused but required by tool signature)
  * @param manager - Document manager for accessing documents
  * @returns Promise resolving to enriched task data with full workflow context
  * @throws {AddressingError} When parameters are invalid or task validation fails
  * @throws {DocumentNotFoundError} When document doesn't exist
  */
-export async function startTask(
+export async function startSubagentTask(
   args: Record<string, unknown>,
   _state: SessionState,
   manager: DocumentManager
-): Promise<StartTaskResponse> {
+): Promise<StartSubagentTaskResponse> {
   try {
     // ===== INPUT VALIDATION AND MODE DETECTION =====
     const documentParam = ToolIntegration.validateStringParameter(args['document'], 'document');
@@ -94,6 +102,10 @@ export async function startTask(
       taskSlug = undefined;
       mode = 'sequential';
     }
+
+    // ===== SUBAGENT-SPECIFIC VALIDATION =====
+    // Enforce ad-hoc mode with #slug and /docs/ namespace
+    validateSubagentTaskAccess(docPath, taskSlug);
 
     // ===== ADDRESS PARSING =====
     const { addresses } = ToolIntegration.validateAndParse({

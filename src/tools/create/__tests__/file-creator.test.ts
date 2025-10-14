@@ -51,7 +51,7 @@ describe('createDocumentFile', () => {
   describe('Tasks section creation', () => {
     it('should create document without Tasks section', async () => {
       const content = '# Test Document\n\nTest overview.\n\n## Table of Contents\n';
-      const docPath = '/test-file-creator/no-tasks.md';
+      const docPath = '/docs/test-file-creator/no-tasks.md';
 
       const result = await createDocumentFile(
         'test-file-creator',
@@ -81,7 +81,7 @@ describe('createDocumentFile', () => {
       // This test verifies that the task tool can auto-create the Tasks section
       // when the first task is added (Unit 2 feature)
       const content = '# Test Document\n\nTest overview.\n\n## Table of Contents\n';
-      const docPath = '/test-file-creator/auto-tasks.md';
+      const docPath = '/docs/test-file-creator/auto-tasks.md';
 
       const result = await createDocumentFile(
         'test-file-creator',
@@ -96,7 +96,7 @@ describe('createDocumentFile', () => {
       expect(result).toHaveProperty('success', true);
       if ('success' in result && result.success) {
         // Import task tool functionality
-        const { task } = await import('../../implementations/task.js');
+        const { subagentTask } = await import('../../implementations/subagent-task.js');
 
         const mockSessionState: SessionState = {
           sessionId: 'test-session',
@@ -104,7 +104,7 @@ describe('createDocumentFile', () => {
         };
 
         // Create a task - should auto-create Tasks section (Unit 2 feature)
-        const taskResult = await task(
+        const taskResult = await subagentTask(
           {
             document: docPath,
             operations: [{
@@ -153,7 +153,7 @@ describe('createDocumentFile', () => {
 
     it('should handle empty content gracefully', async () => {
       const content = '';
-      const docPath = '/test-file-creator/empty.md';
+      const docPath = '/docs/test-file-creator/empty.md';
 
       const result = await createDocumentFile(
         'test-file-creator',
@@ -173,7 +173,7 @@ describe('createDocumentFile', () => {
   describe('Cache refresh behavior', () => {
     it('should refresh cache after document creation', async () => {
       const content = '# Fresh Document\n\nContent here.\n\n## Table of Contents\n';
-      const docPath = '/test-file-creator/fresh.md';
+      const docPath = '/docs/test-file-creator/fresh.md';
 
       const result = await createDocumentFile(
         'test-file-creator',

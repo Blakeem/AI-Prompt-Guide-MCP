@@ -86,7 +86,7 @@ export async function createDocumentFile(
     });
 
     // Write the structured content to the file
-    await writeDocumentContent(docPath, content);
+    await writeDocumentContent(manager, docPath, content);
 
     // Refresh the cache to get the updated document
     await refreshDocumentCache(manager, docPath);
@@ -157,13 +157,17 @@ export async function createDocumentFile(
 /**
  * Write content to document file
  */
-async function writeDocumentContent(docPath: string, content: string): Promise<void> {
+async function writeDocumentContent(manager: DocumentManager, docPath: string, content: string): Promise<void> {
   const fs = await import('node:fs/promises');
   const path = await import('node:path');
-  const config = await import('../../config.js');
 
-  const loadedConfig = config.loadConfig();
-  const fullPath = path.join(loadedConfig.docsBasePath, docPath);
+  // Get the docs root from the manager (supports testing with custom paths)
+  const docsRoot = (manager as unknown as { docsRoot: string }).docsRoot;
+  const fullPath = path.join(docsRoot, docPath);
+
+  // Ensure parent directory exists
+  const parentDir = path.dirname(fullPath);
+  await fs.mkdir(parentDir, { recursive: true });
 
   await fs.writeFile(fullPath, content, 'utf8');
 }

@@ -21,9 +21,9 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
     enableLogging: false,
     mockFileSystemOptions: {
       initialFiles: {
-        '/test-document.md': STANDARD_TEST_DOCUMENTS.COMPLEX_DOC,
-        '/simple-document.md': STANDARD_TEST_DOCUMENTS.SIMPLE_DOC,
-        '/hierarchical-document.md': STANDARD_TEST_DOCUMENTS.HIERARCHICAL_DOC
+        '/docs/test-document.md': STANDARD_TEST_DOCUMENTS.COMPLEX_DOC,
+        '/docs/simple-document.md': STANDARD_TEST_DOCUMENTS.SIMPLE_DOC,
+        '/docs/hierarchical-document.md': STANDARD_TEST_DOCUMENTS.HIERARCHICAL_DOC
       },
       simulateErrors: false
     }
@@ -41,7 +41,7 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
   describe('Basic Operations', () => {
     test('should replace section content', async () => {
       const args = {
-        document: '/test-document.md',
+        document: '/docs/test-document.md',
         operations: [{
           section: 'overview',
           content: 'Updated overview content with new information.',
@@ -53,7 +53,7 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
 
       expect(result).toMatchObject({
         success: true,
-        document: '/test-document.md',
+        document: '/docs/test-document.md',
         operations_completed: 1,
         results: [{ section: 'overview', operation: 'edited', status: 'updated' }],
         timestamp: expect.any(String)
@@ -62,7 +62,7 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
 
     test('should handle multiple operations', async () => {
       const args = {
-        document: '/test-document.md',
+        document: '/docs/test-document.md',
         operations: [
           { section: 'overview', content: 'Updated overview.', operation: 'replace' },
           { section: 'configuration', content: 'New section.', operation: 'insert_after', title: 'Troubleshooting' }
@@ -85,7 +85,7 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
   describe('Error Handling', () => {
     test('should reject missing operations array', async () => {
       const args = {
-        document: '/test-document.md'
+        document: '/docs/test-document.md'
       };
 
       await expect(section(args, mockSessionState, mockDocumentManager))
@@ -95,7 +95,7 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
 
     test('should reject empty operations array', async () => {
       const args = {
-        document: '/test-document.md',
+        document: '/docs/test-document.md',
         operations: []
       };
 
@@ -106,7 +106,7 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
 
     test('should handle missing title for creation operations', async () => {
       const args = {
-        document: '/simple-document.md',
+        document: '/docs/simple-document.md',
         operations: [{
           section: 'features',
           content: 'Test content',
@@ -129,7 +129,7 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
 
     test('should handle document not found error', async () => {
       const args = {
-        document: '/non-existent.md',
+        document: '/docs/non-existent.md',
         operations: [{
           section: 'overview',
           content: 'Test content',
@@ -155,7 +155,7 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
       const longContent = 'Very long content. '.repeat(1000);
 
       const args = {
-        document: '/simple-document.md',
+        document: '/docs/simple-document.md',
         operations: [{
           section: 'features',
           content: longContent,
@@ -174,7 +174,7 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
   describe('Batch Operations', () => {
     test('should handle batch operations with partial failures', async () => {
       const args = {
-        document: '/test-document.md',
+        document: '/docs/test-document.md',
         operations: [
           {
             section: 'overview',
@@ -212,7 +212,7 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
     test('should handle multiple concurrent operations', async () => {
       const concurrentOperations = Array.from({ length: 10 }, (_, i) => {
         const args = {
-          document: '/test-document.md',
+          document: '/docs/test-document.md',
           operations: [{
             section: 'overview',
             content: `Concurrent update ${i}`,

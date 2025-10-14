@@ -9,7 +9,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { DocumentManager } from '../../../document-manager.js';
 import { DocumentCache } from '../../../document-cache.js';
-import { completeTask } from '../complete-task.js';
+import { completeSubagentTask } from '../complete-subagent-task.js';
 import { viewTask } from '../view-task.js';
 import type { SessionState } from '../../../session/types.js';
 
@@ -17,7 +17,7 @@ describe('Complete Task - Completion Notes Display', () => {
   let testDir: string;
   let cache: DocumentCache;
   let manager: DocumentManager;
-  const testDoc = '/test-completion-notes.md';
+  const testDoc = '/docs/test-completion-notes.md';
   const mockSessionState: SessionState = {
     sessionId: 'test-session',
     createDocumentStage: 0
@@ -27,6 +27,10 @@ describe('Complete Task - Completion Notes Display', () => {
     // Create temporary test directory
     testDir = path.join(os.tmpdir(), `mcp-completion-notes-test-${Date.now()}`);
     await fs.mkdir(testDir, { recursive: true });
+
+    // Create /docs/ subdirectory (required for subagent tools)
+    const docsDir = path.join(testDir, 'docs');
+    await fs.mkdir(docsDir, { recursive: true });
 
     // Create cache and manager instances
     cache = new DocumentCache(testDir);
@@ -42,7 +46,7 @@ describe('Complete Task - Completion Notes Display', () => {
 
 This is a test task for completion notes.
 `;
-    const testPath = path.join(testDir, 'test-completion-notes.md');
+    const testPath = path.join(docsDir, 'test-completion-notes.md');
     await fs.writeFile(testPath, testContent, 'utf-8');
   });
 
@@ -61,7 +65,7 @@ This is a test task for completion notes.
 
   it('should save and display completion notes when task is completed', async () => {
     // Complete the task with a note
-    const completeResult = await completeTask(
+    const completeResult = await completeSubagentTask(
       {
         document: `${testDoc}#test-task`,
         note: 'Successfully implemented authentication with JWT tokens'
@@ -108,14 +112,15 @@ This is a test task for completion notes.
 
 Task using asterisk list markers.
 `;
-    const testPath = path.join(testDir, 'test-completion-notes.md');
+    const docsDir = path.join(testDir, 'docs');
+    const testPath = path.join(docsDir, 'test-completion-notes.md');
     await fs.writeFile(testPath, testContent, 'utf-8');
 
     // Invalidate cache to reload document
     cache.invalidateDocument(testDoc);
 
     // Complete the task
-    await completeTask(
+    await completeSubagentTask(
       {
         document: `${testDoc}#asterisk-task`,
         note: 'Task completed successfully'
@@ -144,7 +149,7 @@ Task using asterisk list markers.
 
   it('should preserve list marker format in completion notes', async () => {
     // Complete the task
-    await completeTask(
+    await completeSubagentTask(
       {
         document: `${testDoc}#test-task`,
         note: 'Completion note for marker test'
@@ -182,7 +187,7 @@ Task using asterisk list markers.
 
   it('should include completion date in ISO format', async () => {
     // Complete the task
-    const completeResult = await completeTask(
+    const completeResult = await completeSubagentTask(
       {
         document: `${testDoc}#test-task`,
         note: 'Date format test'

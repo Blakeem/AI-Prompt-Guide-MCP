@@ -51,19 +51,19 @@ export function getViewTaskSchema(): ViewTaskInputSchema {
         description: `Document path with optional task slug(s).
 
 TWO MODES:
-1. Overview: "/project/tasks.md"
+1. Overview: "/docs/project/tasks.md"
    → Returns list of ALL tasks with slug, title, and status (no content)
    → Use for browsing available tasks in a document
 
-2. Detail: "/project/tasks.md#implement-auth"
+2. Detail: "/docs/project/tasks.md#implement-auth"
    → Returns FULL task content for the specified task
-   → Supports multiple tasks: "/project/tasks.md#task1,task2,task3"
+   → Supports multiple tasks: "/docs/project/tasks.md#task1,task2,task3"
    → Use for viewing specific task details
 
 Examples:
-- Overview: "/api/tasks.md" → All tasks (titles + status only)
-- Single detail: "/api/tasks.md#implement-auth" → Full task content
-- Multiple detail: "/api/tasks.md#task1,task2" → Multiple full contents`,
+- Overview: "/docs/api/tasks.md" → All tasks (titles + status only)
+- Single detail: "/docs/api/tasks.md#implement-auth" → Full task content
+- Multiple detail: "/docs/api/tasks.md#task1,task2" → Multiple full contents`,
       },
     },
     required: ['document'],

@@ -17,21 +17,21 @@
  * @example Basic document viewing
  * ```typescript
  * const basicInput = {
- *   document: '/api/authentication.md'
+ *   document: '/docs/api/authentication.md'
  * };
  * ```
  *
  * @example Multiple document viewing
  * ```typescript
  * const multiInput = {
- *   document: ['/api/auth.md', '/api/users.md', '/api/tokens.md']
+ *   document: ['/docs/api/auth.md', '/docs/api/users.md', '/docs/api/tokens.md']
  * };
  * ```
  *
  * @example Section-specific viewing
  * ```typescript
  * const sectionInput = {
- *   document: '/api/authentication.md',
+ *   document: '/docs/api/authentication.md',
  *   section: 'jwt-tokens'  // or '#jwt-tokens'
  * };
  * ```
@@ -39,7 +39,7 @@
  * @example Linked context loading
  * ```typescript
  * const linkedInput = {
- *   document: '/api/overview.md',
+ *   document: '/docs/api/overview.md',
  *   include_linked: true,
  *   link_depth: 3  // Load links up to 3 levels deep
  * };
@@ -48,7 +48,7 @@
  * @example Hierarchical section addressing
  * ```typescript
  * const hierarchicalInput = {
- *   document: '/specs/api-design.md',
+ *   document: '/docs/specs/api-design.md',
  *   section: 'authentication/oauth/flows',
  *   include_linked: true
  * };
@@ -67,17 +67,17 @@ export interface ViewDocumentInputSchema {
      * Paths should be absolute from document root and include .md extension.
      *
      * @example Single document
-     * "/specs/authentication.md"
+     * "/docs/specs/authentication.md"
      *
      * @example Multiple documents
-     * ["/specs/auth.md", "/specs/users.md"]
+     * ["/docs/specs/auth.md", "/docs/specs/users.md"]
      *
      * @example Namespace paths
-     * "/api/specs/oauth-flows.md"
+     * "/docs/api/specs/oauth-flows.md"
      */
     document: {
       type: 'string' | 'array';
-      description: 'Document path(s) to view (e.g., "/specs/auth-api.md" or ["/specs/auth-api.md", "/specs/user-api.md"] for multiple)';
+      description: 'Document path(s) to view (e.g., "/docs/specs/auth-api.md" or ["/docs/specs/auth-api.md", "/docs/specs/user-api.md"] for multiple)';
     };
 
     /**
@@ -88,8 +88,8 @@ export interface ViewDocumentInputSchema {
      * context for understanding document relationships.
      *
      * @example Link syntax patterns
-     * "See @/api/auth.md#tokens for details"
-     * "References: @/specs/oauth.md and @/guides/setup.md#config"
+     * "See @/docs/api/auth.md#tokens for details"
+     * "References: @/docs/specs/oauth.md and @/docs/guides/setup.md#config"
      *
      * @default false
      */
@@ -178,7 +178,7 @@ export function getViewDocumentSchema(): ViewDocumentInputSchema {
     properties: {
       document: {
         type: 'string',
-        description: 'Document path(s) to view (e.g., "/specs/auth-api.md" or ["/specs/auth-api.md", "/specs/user-api.md"] for multiple)',
+        description: 'Document path(s) to view (e.g., "/docs/specs/auth-api.md" or ["/docs/specs/auth-api.md", "/docs/specs/user-api.md"] for multiple)',
       },
       include_linked: {
         type: 'boolean',

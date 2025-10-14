@@ -50,7 +50,7 @@ describe('view_task tool', () => {
           ['first-task', '- Status: pending']
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -61,7 +61,7 @@ describe('view_task tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('- Status: pending');
 
-      const result = await viewTask({ document: '/project/tasks.md' }, sessionState, manager);
+      const result = await viewTask({ document: '/docs/project/tasks.md' }, sessionState, manager);
       expect(result).toHaveProperty('mode', 'overview');
     });
 
@@ -71,7 +71,7 @@ describe('view_task tool', () => {
     });
 
     it('should throw error when task slug is empty after #', async () => {
-      await expect(viewTask({ document: '/project/tasks.md#' }, sessionState, manager))
+      await expect(viewTask({ document: '/docs/project/tasks.md#' }, sessionState, manager))
         .rejects.toThrow('Task slug(s) cannot be empty after #');
     });
 
@@ -84,7 +84,7 @@ describe('view_task tool', () => {
       const tasks = Array.from({ length: 11 }, (_, i) => `task-${i}`).join(',');
 
       await expect(viewTask({
-        document: `/project/tasks.md#${tasks}`
+        document: `/docs/project/tasks.md#${tasks}`
       }, sessionState, manager))
         .rejects.toThrow();
     });
@@ -129,7 +129,7 @@ Third task content.`;
           ['third-task', task3Content]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -145,7 +145,7 @@ Third task content.`;
         return null;
       });
 
-      const result = await viewTask({ document: '/project/tasks.md' }, sessionState, manager);
+      const result = await viewTask({ document: '/docs/project/tasks.md' }, sessionState, manager);
 
       expect(result.mode).toBe('overview');
       expect(result.tasks.length).toBe(3);
@@ -198,7 +198,7 @@ Third task content.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(null);
 
       await expect(viewTask({
-        document: '/nonexistent/doc.md#some-task'
+        document: '/docs/nonexistent/doc.md#some-task'
       }, sessionState, manager))
         .rejects.toThrow(DocumentNotFoundError);
     });
@@ -213,7 +213,7 @@ Third task content.`;
           ['document', 'No tasks here']
         ]),
         metadata: {
-          path: '/project/doc.md',
+          path: '/docs/project/doc.md',
           title: 'Document',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -224,7 +224,7 @@ Third task content.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
 
       await expect(viewTask({
-        document: '/project/doc.md#some-task'
+        document: '/docs/project/doc.md#some-task'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
@@ -243,7 +243,7 @@ Third task content.`;
           ['other-task', 'Content']
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Document',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -255,7 +255,7 @@ Third task content.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(null);
 
       await expect(viewTask({
-        document: '/project/tasks.md#missing-task'
+        document: '/docs/project/tasks.md#missing-task'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
@@ -276,7 +276,7 @@ Third task content.`;
           ['real-task', 'Task content']
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Document',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -287,7 +287,7 @@ Third task content.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
 
       await expect(viewTask({
-        document: '/project/tasks.md#overview'
+        document: '/docs/project/tasks.md#overview'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
@@ -315,7 +315,7 @@ Task content here.`;
           ['test-task', taskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -327,7 +327,7 @@ Task content here.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md#test-task'
+        document: '/docs/test.md#test-task'
       }, sessionState, manager);
 
       expect(result.tasks).toHaveLength(1);
@@ -358,7 +358,7 @@ No workflow here.`;
           ['simple-task', taskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -370,7 +370,7 @@ No workflow here.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md#simple-task'
+        document: '/docs/test.md#simple-task'
       }, sessionState, manager);
 
       expect(result.tasks[0]).not.toHaveProperty('workflow_name');
@@ -398,7 +398,7 @@ Empty workflow field.`;
           ['task-with-empty-workflow', taskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -410,7 +410,7 @@ Empty workflow field.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md#task-with-empty-workflow'
+        document: '/docs/test.md#task-with-empty-workflow'
       }, sessionState, manager);
 
       expect(result.tasks[0]).not.toHaveProperty('workflow_name');
@@ -455,7 +455,7 @@ Empty workflow.`;
           ['task-with-empty-workflow', task3Content]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -472,7 +472,7 @@ Empty workflow.`;
       });
 
       const result = await viewTask({
-        document: '/test.md#task-with-workflow,task-without-workflow,task-with-empty-workflow'
+        document: '/docs/test.md#task-with-workflow,task-without-workflow,task-with-empty-workflow'
       }, sessionState, manager);
 
       expect(result.tasks).toHaveLength(3);
@@ -522,7 +522,7 @@ Second task content.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -538,7 +538,7 @@ Second task content.`;
       });
 
       const result = await viewTask({
-        document: '/test.md#first-task,second-task'
+        document: '/docs/test.md#first-task,second-task'
       }, sessionState, manager);
 
       // Both tasks should have main_workflow_name
@@ -579,7 +579,7 @@ Second task.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -595,7 +595,7 @@ Second task.`;
       });
 
       const result = await viewTask({
-        document: '/test.md#first-task,second-task'
+        document: '/docs/test.md#first-task,second-task'
       }, sessionState, manager);
 
       // Neither task should have main_workflow_name
@@ -624,7 +624,7 @@ Empty main workflow field.`;
           ['first-task', firstTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -636,7 +636,7 @@ Empty main workflow field.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(firstTaskContent);
 
       const result = await viewTask({
-        document: '/test.md#first-task'
+        document: '/docs/test.md#first-task'
       }, sessionState, manager);
 
       expect(result.tasks[0]).not.toHaveProperty('main_workflow_name');
@@ -672,7 +672,7 @@ Second task.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -689,7 +689,7 @@ Second task.`;
 
       // View only second task
       const result = await viewTask({
-        document: '/test.md#second-task'
+        document: '/docs/test.md#second-task'
       }, sessionState, manager);
 
       // Second task should still get main_workflow_name from first task
@@ -728,7 +728,7 @@ No workflow.`;
           ['task-2', task2Content]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -744,7 +744,7 @@ No workflow.`;
       });
 
       const result = await viewTask({
-        document: '/test.md#task-1,task-2'
+        document: '/docs/test.md#task-1,task-2'
       }, sessionState, manager);
 
       expect(result.summary).toHaveProperty('tasks_with_workflows', 1);
@@ -779,7 +779,7 @@ Second task.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -795,7 +795,7 @@ Second task.`;
       });
 
       const result = await viewTask({
-        document: '/test.md#first-task,second-task'
+        document: '/docs/test.md#first-task,second-task'
       }, sessionState, manager);
 
       // Both tasks have access to main workflow from first task
@@ -830,7 +830,7 @@ Also no workflow.`;
           ['task-2', task2Content]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -846,7 +846,7 @@ Also no workflow.`;
       });
 
       const result = await viewTask({
-        document: '/test.md#task-1,task-2'
+        document: '/docs/test.md#task-1,task-2'
       }, sessionState, manager);
 
       expect(result.summary).toHaveProperty('tasks_with_workflows', 0);
@@ -874,7 +874,7 @@ Task content.`;
           ['test-task', taskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -886,7 +886,7 @@ Task content.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md#test-task'
+        document: '/docs/test.md#test-task'
       }, sessionState, manager);
 
       // Verify existing summary fields
@@ -923,7 +923,7 @@ Task content.`;
           ['test-task', taskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -935,7 +935,7 @@ Task content.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md#test-task'
+        document: '/docs/test.md#test-task'
       }, sessionState, manager);
 
       // Verify workflow_name is a string
@@ -969,7 +969,7 @@ First task.`;
           ['first-task', firstTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -981,7 +981,7 @@ First task.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(firstTaskContent);
 
       const result = await viewTask({
-        document: '/test.md#first-task'
+        document: '/docs/test.md#first-task'
       }, sessionState, manager);
 
       // Verify main_workflow_name is a string
@@ -1016,7 +1016,7 @@ Task with both workflow types.`;
           ['test-task', taskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -1028,7 +1028,7 @@ Task with both workflow types.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md#test-task'
+        document: '/docs/test.md#test-task'
       }, sessionState, manager);
 
       // Should have name fields only
@@ -1072,7 +1072,7 @@ Test task content.`;
           ['test-task', taskContent]
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -1084,7 +1084,7 @@ Test task content.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/project/tasks.md#test-task'
+        document: '/docs/project/tasks.md#test-task'
       }, sessionState, manager);
 
       // Verify response structure
@@ -1139,7 +1139,7 @@ Second task.`;
           ['task-2', task2Content]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -1155,7 +1155,7 @@ Second task.`;
       });
 
       const result = await viewTask({
-        document: '/test.md#task-1,task-2'
+        document: '/docs/test.md#task-1,task-2'
       }, sessionState, manager);
 
       expect(result.tasks).toHaveLength(2);
@@ -1186,7 +1186,7 @@ Implement feature according to specification.`;
           ['complex-task', taskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -1198,7 +1198,7 @@ Implement feature according to specification.`;
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
       const result = await viewTask({
-        document: '/test.md#complex-task'
+        document: '/docs/test.md#complex-task'
       }, sessionState, manager);
 
       const task = result.tasks[0];
@@ -1244,7 +1244,7 @@ Second task with its own workflow.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -1260,7 +1260,7 @@ Second task with its own workflow.`;
       });
 
       const result = await viewTask({
-        document: '/test.md#first-task,second-task'
+        document: '/docs/test.md#first-task,second-task'
       }, sessionState, manager);
 
       // Both should have main_workflow_name from first task

@@ -11,14 +11,14 @@ import path from 'node:path';
 import os from 'node:os';
 import { DocumentManager } from '../../../document-manager.js';
 import { DocumentCache } from '../../../document-cache.js';
-import { task } from '../task.js';
+import { subagentTask } from '../subagent-task.js';
 import type { SessionState } from '../../../session/types.js';
 
 describe('Task Batch Operations - Cache Consistency', () => {
   let testDir: string;
   let cache: DocumentCache;
   let manager: DocumentManager;
-  const testDoc = '/test-batch-tasks.md';
+  const testDoc = '/docs/test-batch-tasks.md';
   const mockSessionState: SessionState = {
     sessionId: 'test-session',
     createDocumentStage: 0
@@ -28,6 +28,9 @@ describe('Task Batch Operations - Cache Consistency', () => {
     // Create temporary test directory
     testDir = path.join(os.tmpdir(), `mcp-task-batch-test-${Date.now()}`);
     await fs.mkdir(testDir, { recursive: true });
+
+    // Create /docs/ subdirectory for subagent tasks (namespace requirement)
+    await fs.mkdir(path.join(testDir, 'docs'), { recursive: true });
 
     // Create cache and manager instances
     cache = new DocumentCache(testDir);
@@ -39,7 +42,7 @@ describe('Task Batch Operations - Cache Consistency', () => {
 ## Tasks
 
 `;
-    const testPath = path.join(testDir, 'test-batch-tasks.md');
+    const testPath = path.join(testDir, 'docs', 'test-batch-tasks.md');
     await fs.writeFile(testPath, testContent, 'utf-8');
   });
 
@@ -58,7 +61,7 @@ describe('Task Batch Operations - Cache Consistency', () => {
 
   it('should handle sequential task creation in batch without race conditions', async () => {
     // Create multiple tasks in sequence - each depends on previous tasks existing
-    const result = await task(
+    const result = await subagentTask(
       {
         document: testDoc,
         operations: [
@@ -108,7 +111,7 @@ describe('Task Batch Operations - Cache Consistency', () => {
 
   it('should handle create followed by edit in batch', async () => {
     // First create a task, then edit it in the same batch
-    const result = await task(
+    const result = await subagentTask(
       {
         document: testDoc,
         operations: [
@@ -145,7 +148,7 @@ describe('Task Batch Operations - Cache Consistency', () => {
 
   it('should handle create followed by list in batch', async () => {
     // Create tasks and then list them in the same batch
-    const result = await task(
+    const result = await subagentTask(
       {
         document: testDoc,
         operations: [
@@ -188,7 +191,7 @@ describe('Task Batch Operations - Cache Consistency', () => {
 
   it('should handle mixed operations without cache inconsistencies', async () => {
     // Complex scenario: create, edit, list, create, list
-    const result = await task(
+    const result = await subagentTask(
       {
         document: testDoc,
         operations: [

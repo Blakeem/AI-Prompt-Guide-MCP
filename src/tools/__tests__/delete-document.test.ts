@@ -14,7 +14,7 @@ import type { SessionState } from '../../session/types.js';
 import { AddressingError, DocumentNotFoundError } from '../../shared/addressing-system.js';
 
 describe('delete_document', () => {
-  const testDocsRoot = path.resolve(process.cwd(), '.ai-prompt-guide/docs');
+  const testDocsRoot = path.resolve(process.cwd(), '.ai-prompt-guide');
 
   let cache: DocumentCache;
   let manager: DocumentManager;
@@ -26,8 +26,8 @@ describe('delete_document', () => {
     testCounter++;
     const timestamp = Date.now();
     const slug = `test-del-doc-${timestamp}-${testCounter}`;
-    const docPath = `/${slug}.md`;
-    const absPath = path.join(testDocsRoot, `${slug}.md`);
+    const docPath = `/docs/${slug}.md`;
+    const absPath = path.join(testDocsRoot, `docs/${slug}.md`);
     const content = `# Test Document ${testCounter}\n\n## Overview\nTest content.\n`;
 
     // Ensure file is written and synced
@@ -42,7 +42,7 @@ describe('delete_document', () => {
   }
 
   beforeEach(async () => {
-    await fs.mkdir(testDocsRoot, { recursive: true });
+    await fs.mkdir(path.join(testDocsRoot, 'docs'), { recursive: true });
     cache = new DocumentCache(testDocsRoot);
     manager = new DocumentManager(testDocsRoot, cache);
     sessionState = {
@@ -95,7 +95,7 @@ describe('delete_document', () => {
 
       expect(result.document_info).toBeDefined();
       expect(result.document_info.slug).toBe(slug);
-      expect(result.document_info.namespace).toBe('root');
+      expect(result.document_info.namespace).toBe('docs');
     });
   });
 
@@ -118,10 +118,10 @@ describe('delete_document', () => {
 
       await expect(fs.access(absPath)).rejects.toThrow();
 
-      const archivedPath = path.join(testDocsRoot, 'archived', `${slug}.md`);
+      const archivedPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md`);
       await expect(fs.access(archivedPath)).resolves.not.toThrow();
 
-      const auditPath = path.join(testDocsRoot, 'archived', `${slug}.md.audit`);
+      const auditPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md.audit`);
       await expect(fs.access(auditPath)).resolves.not.toThrow();
 
       // Cleanup archived files
@@ -143,8 +143,8 @@ describe('delete_document', () => {
       expect(result.audit_file).toContain('.audit');
 
       // Cleanup
-      const archivedPath = path.join(testDocsRoot, 'archived', `${slug}.md`);
-      const auditPath = path.join(testDocsRoot, 'archived', `${slug}.md.audit`);
+      const archivedPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md`);
+      const auditPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md.audit`);
       await fs.unlink(archivedPath);
       await fs.unlink(auditPath);
     });
@@ -160,11 +160,11 @@ describe('delete_document', () => {
 
       expect(result.document_info).toBeDefined();
       expect(result.document_info.slug).toBe(slug);
-      expect(result.document_info.namespace).toBe('root');
+      expect(result.document_info.namespace).toBe('docs');
 
       // Cleanup
-      const archivedPath = path.join(testDocsRoot, 'archived', `${slug}.md`);
-      const auditPath = path.join(testDocsRoot, 'archived', `${slug}.md.audit`);
+      const archivedPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md`);
+      const auditPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md.audit`);
       await fs.unlink(archivedPath);
       await fs.unlink(auditPath);
     });
@@ -174,7 +174,7 @@ describe('delete_document', () => {
     it('should throw DocumentNotFoundError when document does not exist', async () => {
       await expect(
         deleteDocument(
-          { document: '/nonexistent.md', archive: false },
+          { document: '/docs/nonexistent.md', archive: false },
           sessionState,
           manager
         )
@@ -233,8 +233,8 @@ describe('delete_document', () => {
       expect(cachedAfter).toBeNull();
 
       // Cleanup
-      const archivedPath = path.join(testDocsRoot, 'archived', `${slug}.md`);
-      const auditPath = path.join(testDocsRoot, 'archived', `${slug}.md.audit`);
+      const archivedPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md`);
+      const auditPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md.audit`);
       await fs.unlink(archivedPath);
       await fs.unlink(auditPath);
     });

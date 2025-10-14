@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { task } from '../task.js';
+import { subagentTask } from '../subagent-task.js';
 import type { DocumentManager } from '../../../document-manager.js';
 import type { SessionState } from '../../../session/types.js';
 import { createDocumentManager } from '../../../shared/utilities.js';
@@ -27,7 +27,8 @@ describe('task tool - Bulk Operations', () => {
     await mkdir(docsDir, { recursive: true });
 
     // Create document manager using shared utility
-    manager = createDocumentManager(docsDir);
+    // Note: testDir is the root, docsDir is {testDir}/docs
+    manager = createDocumentManager(testDir);
 
     sessionState = {
       sessionId: `test-${Date.now()}-${Math.random()}`,
@@ -47,30 +48,30 @@ describe('task tool - Bulk Operations', () => {
 
   describe('Parameter Validation', () => {
     it('should throw error when operations array is missing', async () => {
-      await expect(task({
-        document: '/test.md'
+      await expect(subagentTask({
+        document: '/docs/test.md'
       }, sessionState, manager))
         .rejects.toThrow('operations array is required');
     });
 
     it('should throw error when operations is not an array', async () => {
-      await expect(task({
-        document: '/test.md',
+      await expect(subagentTask({
+        document: '/docs/test.md',
         operations: 'not-an-array'
       }, sessionState, manager))
         .rejects.toThrow('operations array is required');
     });
 
     it('should throw error when operations array is empty', async () => {
-      await expect(task({
-        document: '/test.md',
+      await expect(subagentTask({
+        document: '/docs/test.md',
         operations: []
       }, sessionState, manager))
         .rejects.toThrow('operations array cannot be empty');
     });
 
     it('should throw error when document parameter is missing', async () => {
-      await expect(task({
+      await expect(subagentTask({
         operations: [{ operation: 'list' }]
       }, sessionState, manager))
         .rejects.toThrow('document');
@@ -80,12 +81,12 @@ describe('task tool - Bulk Operations', () => {
   describe('Single Create Operation', () => {
     it('should create a single task via operations array', async () => {
       // Create a test document with Tasks section
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           {
             operation: 'create',
@@ -96,7 +97,7 @@ describe('task tool - Bulk Operations', () => {
       }, sessionState, manager);
 
       expect(result.success).toBe(true);
-      expect(result.document).toBe('/test.md');
+      expect(result.document).toBe('/docs/test.md');
       expect(result.operations_completed).toBe(1);
       expect(result.results).toHaveLength(1);
       expect(result.results[0]?.operation).toBe('create');
@@ -107,12 +108,12 @@ describe('task tool - Bulk Operations', () => {
 
     it('should return error when create operation missing required fields', async () => {
       // Create a test document
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           {
             operation: 'create',
@@ -129,12 +130,12 @@ describe('task tool - Bulk Operations', () => {
   describe('Multiple Create Operations', () => {
     it('should create multiple tasks in one call', async () => {
       // Create a test document
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nContent 1' },
           { operation: 'create', title: 'Task 2', content: 'Status: pending\n\nContent 2' },
@@ -154,12 +155,12 @@ describe('task tool - Bulk Operations', () => {
   describe('Single List Operation', () => {
     it('should list tasks via operations array', async () => {
       // Create a test document with a task
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n### Existing Task\n\nStatus: pending\n\nTask content';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           { operation: 'list' }
         ]
@@ -175,12 +176,12 @@ describe('task tool - Bulk Operations', () => {
 
     it('should list tasks with status filter', async () => {
       // Create a test document with multiple tasks
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n### Task 1\n\nStatus: pending\n\nContent\n\n### Task 2\n\nStatus: completed\n\nContent';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           { operation: 'list', status: 'pending' }
         ]
@@ -199,12 +200,12 @@ describe('task tool - Bulk Operations', () => {
   describe('Single Edit Operation', () => {
     it('should edit a task via operations array', async () => {
       // Create a test document with a task
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n### Existing Task\n\nStatus: pending\n\nOld content';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           {
             operation: 'edit',
@@ -222,12 +223,12 @@ describe('task tool - Bulk Operations', () => {
 
     it('should return error when edit operation missing required fields', async () => {
       // Create a test document
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           {
             operation: 'edit',
@@ -244,12 +245,12 @@ describe('task tool - Bulk Operations', () => {
   describe('Mixed Operations', () => {
     it('should handle create and list in one call', async () => {
       // Create a test document
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           { operation: 'create', title: 'New Task', content: 'Status: pending\n\nContent' },
           { operation: 'list' }
@@ -265,12 +266,12 @@ describe('task tool - Bulk Operations', () => {
 
     it('should handle multiple operation types in sequence', async () => {
       // Create a test document with a task
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n### Existing Task\n\nStatus: pending\n\nOld content';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           { operation: 'create', title: 'New Task 1', content: 'Status: pending\n\nContent 1' },
           { operation: 'create', title: 'New Task 2', content: 'Status: pending\n\nContent 2' },
@@ -288,12 +289,12 @@ describe('task tool - Bulk Operations', () => {
   describe('Error Handling', () => {
     it('should handle partial failures gracefully', async () => {
       // Create a test document
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           { operation: 'create', title: 'Valid Task', content: 'Status: pending\n\nContent' },
           { operation: 'edit', task: 'nonexistent', content: 'Will fail' }
@@ -307,12 +308,12 @@ describe('task tool - Bulk Operations', () => {
 
     it('should continue processing after encountering an error', async () => {
       // Create a test document
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nContent' },
           { operation: 'create', title: 'Missing content' }, // Will fail
@@ -330,12 +331,12 @@ describe('task tool - Bulk Operations', () => {
   describe('Response Structure', () => {
     it('should return properly formatted bulk response', async () => {
       // Create a test document
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           { operation: 'create', title: 'Test Task', content: 'Status: pending\n\nContent' }
         ]
@@ -349,7 +350,7 @@ describe('task tool - Bulk Operations', () => {
       expect(result).toHaveProperty('timestamp');
 
       expect(result.success).toBe(true);
-      expect(result.document).toBe('/test.md');
+      expect(result.document).toBe('/docs/test.md');
       expect(typeof result.operations_completed).toBe('number');
       expect(Array.isArray(result.results)).toBe(true);
       expect(typeof result.timestamp).toBe('string');
@@ -357,12 +358,12 @@ describe('task tool - Bulk Operations', () => {
 
     it('should use date-only timestamp format', async () => {
       // Create a test document
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations: [
           { operation: 'create', title: 'Test Task', content: 'Status: pending\n\nContent' }
         ]
@@ -376,7 +377,7 @@ describe('task tool - Bulk Operations', () => {
   describe('Batch Size Limits', () => {
     it('should accept batch with 100 operations (at limit)', async () => {
       // Create a test document
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
@@ -387,8 +388,8 @@ describe('task tool - Bulk Operations', () => {
         content: `Status: pending\n\nContent ${i + 1}`
       }));
 
-      const result = await task({
-        document: '/test.md',
+      const result = await subagentTask({
+        document: '/docs/test.md',
         operations
       }, sessionState, manager);
 
@@ -398,7 +399,7 @@ describe('task tool - Bulk Operations', () => {
 
     it('should reject batch with 101 operations (over limit)', async () => {
       // Create a test document
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
@@ -409,8 +410,8 @@ describe('task tool - Bulk Operations', () => {
         content: `Status: pending\n\nContent ${i + 1}`
       }));
 
-      await expect(task({
-        document: '/test.md',
+      await expect(subagentTask({
+        document: '/docs/test.md',
         operations
       }, sessionState, manager))
         .rejects.toThrow('Batch size 101 exceeds maximum of 100');
@@ -418,7 +419,7 @@ describe('task tool - Bulk Operations', () => {
 
     it('should include helpful context in batch size error', async () => {
       // Create a test document
-      const docPath = resolve(testDir, 'docs', 'test.md');
+      const docPath = resolve(docsDir, 'test.md');
       const docContent = '# Test\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
@@ -430,8 +431,8 @@ describe('task tool - Bulk Operations', () => {
       }));
 
       try {
-        await task({
-          document: '/test.md',
+        await subagentTask({
+          document: '/docs/test.md',
           operations
         }, sessionState, manager);
         // Should not reach here
@@ -450,13 +451,13 @@ describe('task tool - Bulk Operations', () => {
   describe('Auto-create Tasks Section (TDD)', () => {
     it('should auto-create Tasks section if missing when creating first task', async () => {
       // Create document WITHOUT Tasks section
-      const docPath = resolve(testDir, 'docs', 'test-autocreate.md');
+      const docPath = resolve(docsDir, 'test-autocreate.md');
       const docContent = '# Test Document\n\nSome content here.\n\n';
       await writeFile(docPath, docContent);
 
       // Create a task - should auto-create Tasks section
-      const result = await task({
-        document: '/test-autocreate.md',
+      const result = await subagentTask({
+        document: '/docs/test-autocreate.md',
         operations: [
           {
             operation: 'create',
@@ -473,7 +474,7 @@ describe('task tool - Bulk Operations', () => {
       expect(result.results[0]?.task?.slug).toBe('first-task');
 
       // Verify Tasks section was created
-      const document = await manager.getDocument('/test-autocreate.md');
+      const document = await manager.getDocument('/docs/test-autocreate.md');
       expect(document).not.toBeNull();
       if (document != null) {
         const tasksSection = document.headings.find(h =>
@@ -491,13 +492,13 @@ describe('task tool - Bulk Operations', () => {
 
     it('should not duplicate Tasks section if already exists', async () => {
       // Create document WITH Tasks section
-      const docPath = resolve(testDir, 'docs', 'test-existing.md');
+      const docPath = resolve(docsDir, 'test-existing.md');
       const docContent = '# Test Document\n\n## Tasks\n\n';
       await writeFile(docPath, docContent);
 
       // Create a task
-      const result = await task({
-        document: '/test-existing.md',
+      const result = await subagentTask({
+        document: '/docs/test-existing.md',
         operations: [
           {
             operation: 'create',
@@ -512,7 +513,7 @@ describe('task tool - Bulk Operations', () => {
       expect(result.operations_completed).toBe(1);
 
       // Verify only ONE Tasks section exists
-      const document = await manager.getDocument('/test-existing.md');
+      const document = await manager.getDocument('/docs/test-existing.md');
       expect(document).not.toBeNull();
       if (document != null) {
         const tasksSections = document.headings.filter(h =>
@@ -524,13 +525,13 @@ describe('task tool - Bulk Operations', () => {
 
     it('should create Tasks section at correct depth (H2)', async () => {
       // Create document with H1 title only
-      const docPath = resolve(testDir, 'docs', 'test-depth.md');
+      const docPath = resolve(docsDir, 'test-depth.md');
       const docContent = '# Document Title\n\nSome overview content.\n\n';
       await writeFile(docPath, docContent);
 
       // Create a task (auto-creates Tasks)
-      const result = await task({
-        document: '/test-depth.md',
+      const result = await subagentTask({
+        document: '/docs/test-depth.md',
         operations: [
           {
             operation: 'create',
@@ -544,7 +545,7 @@ describe('task tool - Bulk Operations', () => {
       expect(result.success).toBe(true);
 
       // Verify Tasks section is H2 (depth 2)
-      const document = await manager.getDocument('/test-depth.md');
+      const document = await manager.getDocument('/docs/test-depth.md');
       expect(document).not.toBeNull();
       if (document != null) {
         const tasksSection = document.headings.find(h =>
@@ -557,13 +558,13 @@ describe('task tool - Bulk Operations', () => {
 
     it('should handle case-insensitive Tasks section detection', async () => {
       // Create document with lowercase "tasks" section
-      const docPath = resolve(testDir, 'docs', 'test-case.md');
+      const docPath = resolve(docsDir, 'test-case.md');
       const docContent = '# Test Document\n\n## tasks\n\n';
       await writeFile(docPath, docContent);
 
       // Create a task
-      const result = await task({
-        document: '/test-case.md',
+      const result = await subagentTask({
+        document: '/docs/test-case.md',
         operations: [
           {
             operation: 'create',
@@ -578,7 +579,7 @@ describe('task tool - Bulk Operations', () => {
       expect(result.operations_completed).toBe(1);
 
       // Verify only ONE tasks section exists
-      const document = await manager.getDocument('/test-case.md');
+      const document = await manager.getDocument('/docs/test-case.md');
       expect(document).not.toBeNull();
       if (document != null) {
         const tasksSections = document.headings.filter(h =>
@@ -590,13 +591,13 @@ describe('task tool - Bulk Operations', () => {
 
     it('should throw error if document has no title heading (H1)', async () => {
       // Create document WITHOUT H1 title
-      const docPath = resolve(testDir, 'docs', 'test-notitle.md');
+      const docPath = resolve(docsDir, 'test-notitle.md');
       const docContent = '## Section One\n\nSome content.\n\n';
       await writeFile(docPath, docContent);
 
       // Try to create a task - should fail with helpful error
-      const result = await task({
-        document: '/test-notitle.md',
+      const result = await subagentTask({
+        document: '/docs/test-notitle.md',
         operations: [
           {
             operation: 'create',
@@ -613,13 +614,13 @@ describe('task tool - Bulk Operations', () => {
 
     it('should create Tasks section with proper content on auto-create', async () => {
       // Create document without Tasks section
-      const docPath = resolve(testDir, 'docs', 'test-content.md');
+      const docPath = resolve(docsDir, 'test-content.md');
       const docContent = '# My Document\n\nOverview content.\n\n';
       await writeFile(docPath, docContent);
 
       // Create a task (auto-creates Tasks)
-      await task({
-        document: '/test-content.md',
+      await subagentTask({
+        document: '/docs/test-content.md',
         operations: [
           {
             operation: 'create',
@@ -630,20 +631,20 @@ describe('task tool - Bulk Operations', () => {
       }, sessionState, manager);
 
       // Verify Tasks section content
-      const sectionContent = await manager.getSectionContent('/test-content.md', 'tasks');
+      const sectionContent = await manager.getSectionContent('/docs/test-content.md', 'tasks');
       expect(sectionContent).toBeDefined();
       expect(sectionContent).toContain('Task list for this document');
     });
 
     it('should handle multiple task creates with auto-created Tasks section', async () => {
       // Create document without Tasks section
-      const docPath = resolve(testDir, 'docs', 'test-multiple.md');
+      const docPath = resolve(docsDir, 'test-multiple.md');
       const docContent = '# Test Doc\n\nContent.\n\n';
       await writeFile(docPath, docContent);
 
       // Create multiple tasks in one call
-      const result = await task({
-        document: '/test-multiple.md',
+      const result = await subagentTask({
+        document: '/docs/test-multiple.md',
         operations: [
           { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nContent 1' },
           { operation: 'create', title: 'Task 2', content: 'Status: pending\n\nContent 2' },
@@ -657,7 +658,7 @@ describe('task tool - Bulk Operations', () => {
       expect(result.results.every(r => r.status === 'created')).toBe(true);
 
       // Verify Tasks section exists and contains all tasks
-      const document = await manager.getDocument('/test-multiple.md');
+      const document = await manager.getDocument('/docs/test-multiple.md');
       expect(document).not.toBeNull();
       if (document != null) {
         const tasksSection = document.headings.find(h => h.slug === 'tasks');

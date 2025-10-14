@@ -4,6 +4,7 @@
 
 import { join, resolve, dirname, extname, basename } from 'path';
 import { fileExists } from '../fsio.js';
+import { FOLDER_NAMES } from '../shared/namespace-constants.js';
 
 /**
  * Path validation and normalization utilities
@@ -87,9 +88,9 @@ export class PathHandler {
    * Generate unique archive path to handle duplicates
    */
   async generateUniqueArchivePath(normalizedPath: string): Promise<string> {
-    const archiveBase = join(this.docsBasePath, 'archived');
+    const archiveBase = join(this.docsBasePath, FOLDER_NAMES.ARCHIVED);
     const relativePath = normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath;
-    
+
     let archivePath = join(archiveBase, relativePath);
     let counter = 1;
 
@@ -98,7 +99,7 @@ export class PathHandler {
       const dir = dirname(archivePath);
       const ext = extname(archivePath);
       const name = basename(archivePath, ext);
-      
+
       archivePath = join(dir, `${name}_${counter}${ext}`);
       counter++;
     }

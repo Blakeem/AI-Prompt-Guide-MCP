@@ -4,6 +4,7 @@
 
 // Import BrokenReference from document-analysis
 import type { BrokenReference } from '../../shared/document-analysis.js';
+import { PATH_PREFIXES } from '../../shared/namespace-constants.js';
 
 // Suggestion interface definitions for Stage 2.5
 export interface RelatedDocumentSuggestion {
@@ -61,7 +62,7 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
           id: 'api/specs',
           name: 'API Specifications',
           description: 'Document REST APIs with endpoints, schemas, and examples',
-          folder: '/api/specs'
+          folder: '/docs/api/specs'
         }
         // ... other namespaces
       ],
@@ -95,9 +96,9 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
     responseExample: {
       stage: 'creation',
       success: true,
-      created: '/api/specs/search-api.md',
+      created: '/docs/api/specs/search-api.md',
       document: {
-        path: '/api/specs/search-api.md',
+        path: '/docs/api/specs/search-api.md',
         slug: 'search-api',
         title: 'Search API',
         namespace: 'api/specs',
@@ -107,7 +108,7 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
       suggestions: {
         related_documents: [
           {
-            path: '/api/specs/user-api.md',
+            path: '/docs/api/specs/user-api.md',
             title: 'User API',
             namespace: 'api/specs',
             reason: 'Related documentation in api/specs',
@@ -118,7 +119,7 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
       },
       namespace_patterns: {
         common_sections: ['#overview', '#authentication', '#endpoints'],
-        frequent_links: ['/api/guides/auth-implementation'],
+        frequent_links: ['/docs/api/guides/auth-implementation'],
         typical_tasks: ['Implement endpoint validation']
       }
     }
@@ -169,42 +170,50 @@ export function getNextCreateDocumentStage(currentStage: number): number {
 
 /**
  * Available document namespaces for create_document tool
+ * All paths use explicit /docs/ or /coordinator/ prefixes for deterministic resolution
  */
 const DOCUMENT_NAMESPACES = {
   'api/specs': {
     id: 'api/specs',
     name: 'API Specifications',
     description: 'Document REST APIs with endpoints, schemas, and examples',
-    folder: '/api/specs',
+    folder: `${PATH_PREFIXES.DOCS}api/specs`,
     template: 'api_spec'
   },
   'api/guides': {
     id: 'api/guides',
     name: 'API Implementation Guides',
     description: 'Step-by-step API implementation instructions with code examples',
-    folder: '/api/guides',
+    folder: `${PATH_PREFIXES.DOCS}api/guides`,
     template: 'implementation_guide'
   },
   'frontend/components': {
     id: 'frontend/components',
     name: 'Frontend Component Documentation',
     description: 'UI component specifications, usage guides, and design patterns',
-    folder: '/frontend/components',
+    folder: `${PATH_PREFIXES.DOCS}frontend/components`,
     template: 'component_doc'
   },
   'backend/services': {
     id: 'backend/services',
     name: 'Backend Service Documentation',
     description: 'Service architecture, APIs, and implementation details',
-    folder: '/backend/services',
+    folder: `${PATH_PREFIXES.DOCS}backend/services`,
     template: 'architecture_doc'
   },
   'docs/troubleshooting': {
     id: 'docs/troubleshooting',
     name: 'Troubleshooting Guides',
     description: 'Problem diagnosis, solutions, and debugging workflows',
-    folder: '/docs/troubleshooting',
+    folder: `${PATH_PREFIXES.DOCS}docs/troubleshooting`,
     template: 'troubleshooting'
+  },
+  'coordinator': {
+    id: 'coordinator',
+    name: 'Coordinator Tasks',
+    description: 'Task coordination and management documents',
+    folder: `${PATH_PREFIXES.COORDINATOR}`,
+    template: 'coordinator'
   }
 };
 

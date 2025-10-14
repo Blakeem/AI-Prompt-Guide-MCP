@@ -1,24 +1,29 @@
 /**
- * Implementation for the complete_task tool
- * Mark tasks as completed and show next available task
+ * Implementation for the complete_subagent_task tool
+ * Mark subagent tasks as completed (requires #slug)
+ *
+ * SUBAGENT MODE:
+ * - REQUIRES #slug (ad-hoc mode only)
+ * - Works with /docs/ namespace
+ * - No next task returned (subagents work on assigned tasks only)
  */
 
 import type { SessionState } from '../../session/types.js';
 import type { DocumentManager } from '../../document-manager.js';
-import { performSectionEdit } from '../../shared/utilities.js';
 import {
   ToolIntegration,
   AddressingError,
   DocumentNotFoundError
 } from '../../shared/addressing-system.js';
+import { validateSubagentTaskAccess } from '../../shared/task-validation.js';
 import {
-  extractTaskTitle,
   findNextAvailableTask
 } from '../../shared/task-view-utilities.js';
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
 import { enrichTaskWithWorkflow } from '../../shared/workflow-prompt-utilities.js';
+import { completeTaskOperation } from '../../shared/task-operations.js';
 
-interface CompleteTaskResult {
+interface CompleteSubagentTaskResult {
   mode: 'sequential' | 'adhoc';
   completed_task: {
     slug: string;
@@ -44,11 +49,23 @@ interface CompleteTaskResult {
   timestamp: string;
 }
 
-export async function completeTask(
+/**
+ * Complete a subagent task
+ *
+ * VALIDATION: Requires #slug (ad-hoc mode), enforces /docs/ namespace (explicit path prefix required)
+ *
+ * @param args - Tool arguments containing document path with task slug (format: /docs/path.md#task-slug)
+ * @param _state - Session state (unused but required by tool signature)
+ * @param manager - Document manager for accessing documents
+ * @returns Promise resolving to completion result
+ * @throws {AddressingError} When parameters are invalid or task validation fails
+ * @throws {DocumentNotFoundError} When document doesn't exist
+ */
+export async function completeSubagentTask(
   args: Record<string, unknown>,
   _state: SessionState,
   manager: DocumentManager
-): Promise<CompleteTaskResult> {
+): Promise<CompleteSubagentTaskResult> {
   try {
 
     // Mode Detection: Parse document parameter to detect mode
@@ -78,6 +95,10 @@ export async function completeTask(
       taskSlug = undefined;
       mode = 'sequential';
     }
+
+    // ===== SUBAGENT-SPECIFIC VALIDATION =====
+    // Enforce ad-hoc mode with #slug and /docs/ namespace
+    validateSubagentTaskAccess(docPath, taskSlug);
 
     // Use addressing system for validation and parsing
     const { addresses } = ToolIntegration.validateAndParse({
@@ -116,24 +137,13 @@ export async function completeTask(
       targetTaskSlug = nextTask.slug;
     }
 
-    // Get current task content using target task slug
-    const currentContent = await manager.getSectionContent(addresses.document.path, targetTaskSlug);
-    if (currentContent == null || currentContent === '') {
-      throw new AddressingError(`Task not found: ${targetTaskSlug}`, 'TASK_NOT_FOUND', {
-        document: addresses.document.path,
-        task: targetTaskSlug
-      });
-    }
-
-    // Get task title for response
-    const taskTitle = extractTaskTitle(currentContent);
-
-    // Update task status to completed and add completion note
-    const completedDate = new Date().toISOString().substring(0, 10);  // YYYY-MM-DD format
-    const updatedContent = updateTaskStatus(currentContent, 'completed', note, completedDate);
-
-    // Update the task section with target task slug
-    await performSectionEdit(manager, addresses.document.path, targetTaskSlug, updatedContent, 'replace');
+    // Complete the task using shared operation
+    const completedTaskData = await completeTaskOperation(
+      manager,
+      addresses.document.path,
+      targetTaskSlug,
+      note
+    );
 
     // Get next available task based on mode
     let nextTaskData: { slug: string; title: string; status: string; link?: string; referencedDocuments?: HierarchicalContent[] } | null = null;
@@ -200,10 +210,10 @@ export async function completeTask(
     return {
       mode,
       completed_task: {
-        slug: targetTaskSlug,
-        title: taskTitle,
-        note,
-        completed_date: completedDate
+        slug: completedTaskData.slug,
+        title: completedTaskData.title,
+        note: completedTaskData.note,
+        completed_date: completedTaskData.completed_date
       },
       ...(nextTask != null && { next_task: nextTask }),
       timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
@@ -220,25 +230,4 @@ export async function completeTask(
   }
 }
 
-// findNextAvailableTask function moved to shared/task-view-utilities.ts to eliminate duplication
-
-/**
- * Helper functions for task completion
- */
-
-function updateTaskStatus(content: string, newStatus: string, note: string, completedDate: string): string {
-  // Detect and preserve the list marker used in the status line (- or *)
-  const statusMatch = content.match(/^([*-]) Status:\s*.+$/m);
-  const listMarker = statusMatch?.[1] ?? '-';
-
-  // Update status line (support both - and * list markers)
-  let updated = content.replace(/^[*-] Status:\s*.+$/m, `${listMarker} Status: ${newStatus}`);
-
-  // Add completion info using the same list marker
-  updated += `\n${listMarker} Completed: ${completedDate}`;
-  updated += `\n${listMarker} Note: ${note}`;
-
-  return updated;
-}
-
-// Other utility functions moved to shared/task-view-utilities.ts to eliminate duplication
+// Helper functions moved to shared/task-operations.ts and shared/task-view-utilities.ts

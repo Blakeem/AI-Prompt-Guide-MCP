@@ -21,15 +21,16 @@ This workflow uses manual verification and iterative development, ideal for:
 ## Core Flow
 
 ### 1. Plan & Decompose (Coordinator)
-- Use TodoWrite for high-level milestones and coordinator tracking
-- Create MCP task document for subagent work queue using `task` tool
+- Use `coordinator_task` to create sequential task list in `/coordinator/active.md`
 - Break requirement into logical, independent work units
 - Identify dependencies and sequence accordingly
 - Define specific, verifiable acceptance criteria for each unit (what to manually check)
+- Add Main-Workflow metadata to first task only
+- Add task-specific Workflow metadata as needed (e.g., `spec-first-integration`)
 
 **Tool Selection:**
-- **TodoWrite**: Coordinator planning (high-level milestones)
-- **task**: Subagent work queue (implementation units with full context)
+- **coordinator_task**: Create sequential project tasks (auto-archives when all complete)
+- **subagent_task**: Optional - for detailed subtasks within larger implementation units
 
 ### 2. Assign to Agent (Silent Execution)
 
@@ -43,17 +44,16 @@ Choose the most specialized subagent for the work type:
 
 **Assignment Pattern:**
 Provide subagent with:
-1. **Unified task path** - Full path to task in MCP system
-2. **start_task() instruction** - Subagent retrieves full context
-3. **Non-overlapping guidance** - Only verification requirements, response format (not task details)
-4. **Completion requirements** - Must add detailed notes via complete_task()
+1. **start_coordinator_task() instruction** - Retrieves first pending task with full context
+2. **Non-overlapping guidance** - Only verification requirements, response format (not task details)
+3. **Completion requirements** - Must add detailed notes via complete_coordinator_task()
 
 **Agent Response Format:**
 - "Done" or "Blocked: [reason]"
 - No summaries or progress updates
 
 **Context Conservation:**
-- Task context lives in MCP system (retrieved via start_task)
+- Task context lives in coordinator system (retrieved via start_coordinator_task)
 - Coordinator provides only non-overlapping instructions
 - Eliminates duplication, maximizes token efficiency
 
@@ -76,7 +76,7 @@ Provide subagent with:
 - **[Linters available]** Run linters if configured
 
 **Secondary Review - Task Completion Notes:**
-Check notes in MCP task system (added via complete_task):
+Check notes in coordinator task system (added via complete_coordinator_task):
 - Verify what was implemented
 - Check for warnings or issues flagged by subagent
 - Review implementation decisions
@@ -94,16 +94,17 @@ Check notes in MCP task system (added via complete_task):
 - Ensure no unintended files staged
 
 **If No Git:**
-- Mark completion in TodoWrite
 - Document changes in task notes
 - Continue to next unit
 
 ### 5. Repeat Until Complete (Coordinator)
-- Mark TodoWrite item complete (coordinator milestone)
-- Task already complete in MCP system (marked by subagent)
-- Assign next task to new agent using unified path
+- Task marked complete by subagent via complete_coordinator_task
+- System automatically provides next task or archives if all complete
+- Assign next task to new agent (already queued from completion)
 - Update context based on observed changes and verification results
 - Adjust plan if issues or blockers discovered
+
+**Note:** When all tasks are complete, `/coordinator/active.md` automatically archives to `/archived/coordinator/` with timestamp.
 
 ### 6. Final Verification & Report (Coordinator)
 
@@ -128,8 +129,8 @@ Check notes in MCP task system (added via complete_task):
 ## Why This Works
 
 **Context Conservation:**
-- Task details stored once in MCP system
-- Subagents retrieve via `start_task()` - no duplication
+- Task details stored once in coordinator system
+- Subagents retrieve via `start_coordinator_task()` - no duplication
 - Coordinator provides only non-overlapping guidance
 - Massive token savings on complex features
 
@@ -155,11 +156,16 @@ Check notes in MCP task system (added via complete_task):
 - One action per step ensures attention
 - Manual checkpoints catch issues early
 
+**Auto-Archive:**
+- Completed projects automatically archive to `/archived/coordinator/`
+- Preserves full task history with timestamps
+- Keeps workspace clean for new projects
+
 **Tool Role Clarity:**
-- **TodoWrite**: Coordinator's planning (high-level milestones)
-- **task**: Subagent work queue (implementation units with full context)
-- **start_task**: Subagent context loading (retrieves from MCP)
-- **complete_task**: Subagent completion with detailed notes
+- **coordinator_task**: Sequential project orchestration (auto-archives when complete)
+- **start_coordinator_task**: Load first pending task with full context
+- **complete_coordinator_task**: Mark task done, get next task or archive
+- **subagent_task**: Optional detailed subtasks for complex implementations
 
 ## Key Considerations
 

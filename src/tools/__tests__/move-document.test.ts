@@ -18,13 +18,13 @@ import { moveDocument } from '../implementations/move-document.js';
 import type { SessionState } from '../../session/types.js';
 
 describe('move_document Tool', () => {
-  const testDocsRoot = path.resolve(process.cwd(), '.ai-prompt-guide/docs');
-  const testSourcePath = '/api/test-move-source.md';
-  const testDestPath = '/api/test-move-destination.md';
-  const testNestedDestPath = '/api/nested/deep/test-move-nested.md';
-  const testSourceAbsolutePath = path.join(testDocsRoot, testSourcePath);
-  const testDestAbsolutePath = path.join(testDocsRoot, testDestPath);
-  const testNestedDestAbsolutePath = path.join(testDocsRoot, testNestedDestPath);
+  const testDocsRoot = path.resolve(process.cwd(), '.ai-prompt-guide');
+  const testSourcePath = '/docs/api/test-move-source.md';
+  const testDestPath = '/docs/api/test-move-destination.md';
+  const testNestedDestPath = '/docs/api/nested/deep/test-move-nested.md';
+  const testSourceAbsolutePath = path.join(testDocsRoot, 'docs/api/test-move-source.md');
+  const testDestAbsolutePath = path.join(testDocsRoot, 'docs/api/test-move-destination.md');
+  const testNestedDestAbsolutePath = path.join(testDocsRoot, 'docs/api/nested/deep/test-move-nested.md');
 
   let cache: DocumentCache;
   let manager: DocumentManager;
@@ -76,7 +76,7 @@ Content for section two.
       // File might not exist
     }
     try {
-      await fs.rm(path.join(testDocsRoot, 'api/nested'), { recursive: true, force: true });
+      await fs.rm(path.join(testDocsRoot, 'docs/api'), { recursive: true, force: true });
     } catch {
       // Directory might not exist
     }
@@ -105,7 +105,7 @@ Content for section two.
     // Verify document_info structure
     const documentInfo = result['document_info'] as Record<string, unknown>;
     expect(documentInfo['slug']).toBe('test-move-destination');
-    expect(documentInfo['namespace']).toBe('api');
+    expect(documentInfo['namespace']).toBe('docs/api');
 
     // Verify source file no longer exists
     await expect(fs.access(testSourceAbsolutePath)).rejects.toThrow();
@@ -147,7 +147,7 @@ Content for section two.
     await expect(
       moveDocument(
         {
-          from: '/api/non-existent.md',
+          from: '/docs/api/non-existent.md',
           to: testDestPath,
         },
         sessionState,
@@ -181,14 +181,14 @@ Content for section two.
     const result = await moveDocument(
       {
         from: testSourcePath,
-        to: 'api/test-move-destination',
+        to: 'docs/api/test-move-destination',
       },
       sessionState,
       manager
     ) as Record<string, unknown>;
 
     // Verify path was normalized
-    expect(result['to']).toBe('/api/test-move-destination.md');
+    expect(result['to']).toBe('/docs/api/test-move-destination.md');
 
     // Verify file exists at correct location
     await expect(fs.access(testDestAbsolutePath)).resolves.toBeUndefined();
@@ -242,13 +242,13 @@ Content for section two.
     const result2 = await moveDocument(
       {
         from: testSourcePath,
-        to: '/api/test-move-destination',
+        to: '/docs/api/test-move-destination',
       },
       sessionState,
       manager
     ) as Record<string, unknown>;
 
-    expect(result2['to']).toBe('/api/test-move-destination.md');
+    expect(result2['to']).toBe('/docs/api/test-move-destination.md');
     await expect(fs.access(testDestAbsolutePath)).resolves.toBeUndefined();
   });
 

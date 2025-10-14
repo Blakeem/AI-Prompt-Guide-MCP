@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { completeTask } from '../complete-task.js';
+import { completeSubagentTask } from '../complete-subagent-task.js';
 import { createDocumentManager } from '../../../shared/utilities.js';
 import type { DocumentManager } from '../../../document-manager.js';
 import type { SessionState } from '../../../session/types.js';
@@ -40,56 +40,32 @@ describe('complete_task tool', () => {
 
   describe('Parameter Validation', () => {
     it('should throw error when document parameter missing', async () => {
-      await expect(completeTask({
+      await expect(completeSubagentTask({
         task: 'some-task',
         note: 'Done'
       }, sessionState, manager))
         .rejects.toThrow('document parameter is required');
     });
 
-    it('should throw error when task parameter missing in sequential mode (no pending tasks)', async () => {
-      // In sequential mode (no # in document path), it tries to find next available task
-      const mockDocument = {
-        content: '# Project\n\n## Tasks\n\n### Completed Task\n\n- Status: completed',
-        headings: [
-          { slug: 'project', title: 'Project', depth: 1 },
-          { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'completed-task', title: 'Completed Task', depth: 3 }
-        ],
-        sections: new Map([
-          ['project', ''],
-          ['tasks', ''],
-          ['completed-task', '- Status: completed']
-        ]),
-        metadata: {
-          path: '/project/tasks.md',
-          title: 'Project',
-          lastModified: new Date(),
-          contentHash: 'mock-hash',
-          wordCount: 8
-        }
-      } as unknown as CachedDocument;
-
-      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
-      vi.spyOn(manager, 'getSectionContent').mockResolvedValue('- Status: completed');
-
-      await expect(completeTask({
-        document: '/project/tasks.md',
+    it('should reject document path without #slug (ad-hoc mode required)', async () => {
+      // Subagent tools require #slug (ad-hoc only)
+      await expect(completeSubagentTask({
+        document: '/docs/project/tasks.md',
         note: 'Done'
       }, sessionState, manager))
-        .rejects.toThrow('No pending or in_progress tasks found');
+        .rejects.toThrow('Subagent tasks require #slug');
     });
 
     it('should throw error when note parameter missing', async () => {
-      await expect(completeTask({
-        document: '/project/tasks.md',
+      await expect(completeSubagentTask({
+        document: '/docs/project/tasks.md',
         task: 'some-task'
       }, sessionState, manager))
         .rejects.toThrow('note parameter is required');
     });
 
     it('should throw error when document parameter is empty string', async () => {
-      await expect(completeTask({
+      await expect(completeSubagentTask({
         document: '',
         task: 'some-task',
         note: 'Done'
@@ -98,16 +74,16 @@ describe('complete_task tool', () => {
     });
 
     it('should throw error when task slug is empty after # in ad-hoc mode', async () => {
-      await expect(completeTask({
-        document: '/project/tasks.md#',
+      await expect(completeSubagentTask({
+        document: '/docs/project/tasks.md#',
         note: 'Done'
       }, sessionState, manager))
         .rejects.toThrow('Task slug cannot be empty after #');
     });
 
     it('should throw error when note parameter is empty string', async () => {
-      await expect(completeTask({
-        document: '/project/tasks.md',
+      await expect(completeSubagentTask({
+        document: '/docs/project/tasks.md',
         task: 'some-task',
         note: ''
       }, sessionState, manager))
@@ -119,9 +95,8 @@ describe('complete_task tool', () => {
     it('should throw DocumentNotFoundError when document does not exist', async () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(null);
 
-      await expect(completeTask({
-        document: '/nonexistent/doc.md',
-        task: 'some-task',
+      await expect(completeSubagentTask({
+        document: '/docs/nonexistent/doc.md#some-task',
         note: 'Done'
       }, sessionState, manager))
         .rejects.toThrow(DocumentNotFoundError);
@@ -141,7 +116,7 @@ describe('complete_task tool', () => {
           ['other-task', 'Content']
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -152,9 +127,8 @@ describe('complete_task tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(null);
 
-      await expect(completeTask({
-        document: '/project/tasks.md',
-        task: 'missing-task',
+      await expect(completeSubagentTask({
+        document: '/docs/project/tasks.md#missing-task',
         note: 'Done'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
@@ -191,7 +165,7 @@ Second task with workflow.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -226,8 +200,8 @@ Second task with workflow.`;
         getWorkflowPrompts: vi.fn(() => [mockWorkflow])
       }));
 
-      const result = await completeTask({
-        document: '/test.md#first-task',
+      const result = await completeSubagentTask({
+        document: '/docs/test.md#first-task',
         note: 'Completed first task'
       }, sessionState, manager);
 
@@ -292,7 +266,7 @@ Second task without workflow.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -307,8 +281,8 @@ Second task without workflow.`;
         return null;
       });
 
-      const result = await completeTask({
-        document: '/test.md#first-task',
+      const result = await completeSubagentTask({
+        document: '/docs/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -345,7 +319,7 @@ Second task with empty workflow field.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -360,8 +334,8 @@ Second task with empty workflow field.`;
         return null;
       });
 
-      const result = await completeTask({
-        document: '/test.md#first-task',
+      const result = await completeSubagentTask({
+        document: '/docs/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -398,7 +372,7 @@ Second task with invalid workflow.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -419,8 +393,8 @@ Second task with invalid workflow.`;
         getWorkflowPrompts: vi.fn(() => [])
       }));
 
-      const result = await completeTask({
-        document: '/test.md#first-task',
+      const result = await completeSubagentTask({
+        document: '/docs/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -461,7 +435,7 @@ Second task.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -489,8 +463,8 @@ Second task.`;
         getWorkflowPrompts: vi.fn(() => [mockTaskWorkflow])
       }));
 
-      const result = await completeTask({
-        document: '/test.md#first-task',
+      const result = await completeSubagentTask({
+        document: '/docs/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -528,7 +502,7 @@ Second task.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -543,8 +517,8 @@ Second task.`;
         return null;
       });
 
-      const result = await completeTask({
-        document: '/test.md#first-task',
+      const result = await completeSubagentTask({
+        document: '/docs/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -583,7 +557,7 @@ Second task.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -611,8 +585,8 @@ Second task.`;
         getWorkflowPrompts: vi.fn(() => [mockWorkflow])
       }));
 
-      const result = await completeTask({
-        document: '/test.md#first-task',
+      const result = await completeSubagentTask({
+        document: '/docs/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -642,7 +616,7 @@ Only task in document.`;
           ['only-task', singleTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -653,8 +627,8 @@ Only task in document.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(singleTaskContent);
 
-      const result = await completeTask({
-        document: '/test.md#only-task',
+      const result = await completeSubagentTask({
+        document: '/docs/test.md#only-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -699,7 +673,7 @@ Third task content.`;
           ['third-task', thirdTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -715,8 +689,8 @@ Third task content.`;
         return null;
       });
 
-      const result = await completeTask({
-        document: '/test.md#first-task',
+      const result = await completeSubagentTask({
+        document: '/docs/test.md#first-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -752,7 +726,7 @@ Last pending task.`;
           ['second-task', secondTaskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -767,8 +741,8 @@ Last pending task.`;
         return null;
       });
 
-      const result = await completeTask({
-        document: '/test.md#second-task',
+      const result = await completeSubagentTask({
+        document: '/docs/test.md#second-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -799,7 +773,7 @@ Task content.`;
           ['test-task', taskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -810,8 +784,8 @@ Task content.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await completeTask({
-        document: '/test.md#test-task',
+      const result = await completeSubagentTask({
+        document: '/docs/test.md#test-task',
         note: 'Successfully completed all requirements'
       }, sessionState, manager);
 
@@ -842,7 +816,7 @@ Task content.`;
           ['test-task', taskContent]
         ]),
         metadata: {
-          path: '/test.md',
+          path: '/docs/test.md',
           title: 'Test',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -853,8 +827,8 @@ Task content.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await completeTask({
-        document: '/test.md#test-task',
+      const result = await completeSubagentTask({
+        document: '/docs/test.md#test-task',
         note: 'Done'
       }, sessionState, manager);
 
@@ -886,16 +860,15 @@ Task content.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(null);
 
       try {
-        await completeTask({
-          document: '/missing/doc.md',
-          task: 'some-task',
+        await completeSubagentTask({
+          document: '/docs/missing/doc.md#some-task',
           note: 'Done'
         }, sessionState, manager);
         expect.fail('Should have thrown error');
       } catch (error) {
         expect(error).toBeInstanceOf(DocumentNotFoundError);
         if (error instanceof DocumentNotFoundError) {
-          expect(error.message).toContain('/missing/doc.md');
+          expect(error.message).toContain('/docs/missing/doc.md');
         }
       }
     });
@@ -914,7 +887,7 @@ Task content.`;
           ['other-task', 'Content']
         ]),
         metadata: {
-          path: '/project/tasks.md',
+          path: '/docs/project/tasks.md',
           title: 'Project',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -927,8 +900,8 @@ Task content.`;
 
       try {
         // Use ad-hoc mode with # to specify task directly
-        await completeTask({
-          document: '/project/tasks.md#missing-task',
+        await completeSubagentTask({
+          document: '/docs/project/tasks.md#missing-task',
           note: 'Done'
         }, sessionState, manager);
         expect.fail('Should have thrown error');
@@ -943,9 +916,8 @@ Task content.`;
     it('should handle document manager errors gracefully', async () => {
       vi.spyOn(manager, 'getDocument').mockRejectedValue(new Error('Filesystem error'));
 
-      await expect(completeTask({
-        document: '/project/tasks.md',
-        task: 'some-task',
+      await expect(completeSubagentTask({
+        document: '/docs/project/tasks.md#some-task',
         note: 'Done'
       }, sessionState, manager))
         .rejects.toThrow('Filesystem error');

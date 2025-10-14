@@ -7,34 +7,40 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { promises as fs } from 'node:fs';
+import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
 import { DocumentManager } from '../../../document-manager.js';
 import { DocumentCache } from '../../../document-cache.js';
 import { viewDocument } from '../view-document.js';
 import type { SessionState } from '../../../session/types.js';
 
 describe('view_document Simplification', () => {
-  const testDocsRoot = path.resolve(process.cwd(), '.ai-prompt-guide/docs');
   const testDocPath = '/view-test.md';
-  const testDocAbsolutePath = path.join(testDocsRoot, 'view-test.md');
 
+  let testDir: string;
+  let docsDir: string;
   let cache: DocumentCache;
   let manager: DocumentManager;
   let sessionState: SessionState;
 
   beforeEach(async () => {
-    // Initialize cache and manager
-    cache = new DocumentCache(testDocsRoot);
-    manager = new DocumentManager(testDocsRoot, cache);
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    testDir = await mkdtemp(path.resolve(tmpdir(), `view-doc-test-${uniqueId}-`));
+    docsDir = path.resolve(testDir, 'docs');
+
+    // Initialize cache and manager with docsDir root
+    cache = new DocumentCache(docsDir);
+    manager = new DocumentManager(docsDir, cache);
 
     sessionState = {
       sessionId: 'test-session',
       createDocumentStage: 0
     };
 
-    // Ensure test directory exists
-    await fs.mkdir(path.dirname(testDocAbsolutePath), { recursive: true });
+    // Create test directory structure
+    const testDocAbsolutePath = path.join(docsDir, 'view-test.md');
+    await mkdir(path.dirname(testDocAbsolutePath), { recursive: true });
 
     // Create test document with sections and links
     const testContent = `# View Test Document
@@ -55,16 +61,13 @@ Feature B details.
 Implementation section.
 `;
 
-    await fs.writeFile(testDocAbsolutePath, testContent, 'utf8');
+    await writeFile(testDocAbsolutePath, testContent, 'utf8');
   });
 
   afterEach(async () => {
-    // Cleanup
     await cache.destroy();
-    try {
-      await fs.unlink(testDocAbsolutePath);
-    } catch {
-      // Ignore errors if file doesn't exist
+    if (testDir != null) {
+      await rm(testDir, { recursive: true, force: true });
     }
   });
 

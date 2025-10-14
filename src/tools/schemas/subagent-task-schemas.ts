@@ -1,11 +1,12 @@
 /**
- * Schema definitions for task tool - Bulk operations only
+ * Schema definitions for subagent_task tool - Bulk operations only
+ * Works with /docs/ namespace for ad-hoc subagent task management
  */
 
 /**
  * Individual task operation within the operations array
  */
-export interface TaskOperationSchema {
+export interface SubagentTaskOperationSchema {
   operation: 'create' | 'edit' | 'list';
   title?: string;
   content?: string;
@@ -14,14 +15,14 @@ export interface TaskOperationSchema {
 }
 
 /**
- * Main input schema for bulk task operations
+ * Main input schema for bulk subagent task operations
  */
-export interface TaskInputSchema {
+export interface SubagentTaskInputSchema {
   type: 'object';
   properties: {
     document: {
       type: 'string';
-      description: 'Document path (e.g., "/specs/search-api.md"). ALWAYS required - provides default context for all operations. Individual task fields can override with full path "/other.md#slug" for multi-document operations.';
+      description: 'Document path (e.g., "/docs/project/tasks.md"). ALWAYS required - provides default context for all operations. Individual task fields can override with full path "/docs/other.md#slug" for multi-document operations. NOTE: Subagent tasks should use /docs/ namespace.';
     };
     operations: {
       type: 'array';
@@ -44,7 +45,7 @@ export interface TaskInputSchema {
           };
           task: {
             type: 'string';
-            description: 'Task slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/project/main.md" with task="/project/sub.md#task-1" creates task in sub.md instead. Required for edit operation.';
+            description: 'Task slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/docs/project/main.md" with task="/docs/project/sub.md#task-1" creates task in sub.md instead. Required for edit operation.';
           };
           status: {
             type: 'string';
@@ -61,9 +62,9 @@ export interface TaskInputSchema {
 }
 
 /**
- * Schema constants for task tool
+ * Schema constants for subagent task tool
  */
-export const TASK_CONSTANTS = {
+export const SUBAGENT_TASK_CONSTANTS = {
   OPERATIONS: {
     CREATE: 'create',
     EDIT: 'edit',
@@ -81,26 +82,26 @@ export const TASK_CONSTANTS = {
 } as const;
 
 /**
- * Helper functions for task validation
+ * Helper functions for subagent task validation
  */
-export function isValidTaskOperation(operation: string): boolean {
-  return Object.values(TASK_CONSTANTS.OPERATIONS).includes(operation as 'list' | 'create' | 'edit');
+export function isValidSubagentTaskOperation(operation: string): boolean {
+  return Object.values(SUBAGENT_TASK_CONSTANTS.OPERATIONS).includes(operation as 'list' | 'create' | 'edit');
 }
 
-export function isValidTaskStatus(status: string): boolean {
-  return Object.values(TASK_CONSTANTS.STATUSES).includes(status as 'pending' | 'in_progress' | 'completed' | 'blocked');
+export function isValidSubagentTaskStatus(status: string): boolean {
+  return Object.values(SUBAGENT_TASK_CONSTANTS.STATUSES).includes(status as 'pending' | 'in_progress' | 'completed' | 'blocked');
 }
 
 /**
- * Get the input schema for task tool (bulk operations only)
+ * Get the input schema for subagent_task tool (bulk operations only)
  */
-export function getTaskSchema(): TaskInputSchema {
+export function getSubagentTaskSchema(): SubagentTaskInputSchema {
   return {
     type: 'object',
     properties: {
       document: {
         type: 'string',
-        description: 'Document path (e.g., "/specs/search-api.md"). ALWAYS required - provides default context for all operations. Individual task fields can override with full path "/other.md#slug" for multi-document operations.',
+        description: 'Document path (e.g., "/docs/project/tasks.md"). ALWAYS required - provides default context for all operations. Individual task fields can override with full path "/docs/other.md#slug" for multi-document operations. NOTE: Subagent tasks should use /docs/ namespace.',
       },
       operations: {
         type: 'array',
@@ -123,7 +124,7 @@ export function getTaskSchema(): TaskInputSchema {
             },
             task: {
               type: 'string',
-              description: 'Task slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/project/main.md" with task="/project/sub.md#task-1" creates task in sub.md instead. Required for edit operation.'
+              description: 'Task slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/docs/project/main.md" with task="/docs/project/sub.md#task-1" creates task in sub.md instead. Required for edit operation.'
             },
             status: {
               type: 'string',

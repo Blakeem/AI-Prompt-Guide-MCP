@@ -31,7 +31,7 @@ export function getEditDocumentSchema(): EditDocumentInputSchema {
     properties: {
       document: {
         type: 'string',
-        description: 'Document path (e.g., "/api/auth.md")',
+        description: 'Document path (e.g., "/docs/api/auth.md")',
       },
       title: {
         type: 'string',

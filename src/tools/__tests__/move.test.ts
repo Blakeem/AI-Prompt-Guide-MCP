@@ -46,7 +46,7 @@ describe('move tool', () => {
   describe('Parameter Validation', () => {
     it('should throw error when from parameter missing', async () => {
       await expect(move({
-        to: '/api/doc.md',
+        to: '/docs/api/doc.md',
         reference: 'overview',
         position: 'after'
       }, sessionState, manager))
@@ -55,7 +55,7 @@ describe('move tool', () => {
 
     it('should throw error when to parameter missing', async () => {
       await expect(move({
-        from: '/api/doc.md#section',
+        from: '/docs/api/doc.md#section',
         reference: 'overview',
         position: 'after'
       }, sessionState, manager))
@@ -64,8 +64,8 @@ describe('move tool', () => {
 
     it('should throw error when reference parameter missing', async () => {
       await expect(move({
-        from: '/api/doc.md#section',
-        to: '/api/doc.md',
+        from: '/docs/api/doc.md#section',
+        to: '/docs/api/doc.md',
         position: 'after'
       }, sessionState, manager))
         .rejects.toThrow('reference parameter is required');
@@ -73,8 +73,8 @@ describe('move tool', () => {
 
     it('should throw error when position parameter missing', async () => {
       await expect(move({
-        from: '/api/doc.md#section',
-        to: '/api/doc.md',
+        from: '/docs/api/doc.md#section',
+        to: '/docs/api/doc.md',
         reference: 'overview'
       }, sessionState, manager))
         .rejects.toThrow('position parameter is required');
@@ -82,8 +82,8 @@ describe('move tool', () => {
 
     it('should throw error when position is invalid', async () => {
       await expect(move({
-        from: '/api/doc.md#section',
-        to: '/api/doc.md',
+        from: '/docs/api/doc.md#section',
+        to: '/docs/api/doc.md',
         reference: 'overview',
         position: 'invalid'
       }, sessionState, manager))
@@ -92,8 +92,8 @@ describe('move tool', () => {
 
     it('should throw error when from path does not include section', async () => {
       await expect(move({
-        from: '/api/doc.md',
-        to: '/api/other.md',
+        from: '/docs/api/doc.md',
+        to: '/docs/api/other.md',
         reference: 'overview',
         position: 'after'
       }, sessionState, manager))
@@ -102,8 +102,8 @@ describe('move tool', () => {
 
     it('should throw error when from path has invalid format', async () => {
       await expect(move({
-        from: '/api/doc.md#',
-        to: '/api/other.md',
+        from: '/docs/api/doc.md#',
+        to: '/docs/api/other.md',
         reference: 'overview',
         position: 'after'
       }, sessionState, manager))
@@ -116,8 +116,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(null);
 
       await expect(move({
-        from: '/nonexistent/doc.md#section',
-        to: '/api/doc.md',
+        from: '/docs/nonexistent/doc.md#section',
+        to: '/docs/api/doc.md',
         reference: 'overview',
         position: 'after'
       }, sessionState, manager))
@@ -136,7 +136,7 @@ describe('move tool', () => {
           ['overview', 'Content']
         ]),
         metadata: {
-          path: '/api/source.md',
+          path: '/docs/api/source.md',
           title: 'Source',
           lastModified: new Date(),
           contentHash: 'hash1',
@@ -147,8 +147,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockSourceDoc);
 
       await expect(move({
-        from: '/api/source.md#nonexistent',
-        to: '/api/dest.md',
+        from: '/docs/api/source.md#nonexistent',
+        to: '/docs/api/dest.md',
         reference: 'overview',
         position: 'after'
       }, sessionState, manager))
@@ -167,7 +167,7 @@ describe('move tool', () => {
           ['section', 'Content']
         ]),
         metadata: {
-          path: '/api/source.md',
+          path: '/docs/api/source.md',
           title: 'Source',
           lastModified: new Date(),
           contentHash: 'hash1',
@@ -179,8 +179,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(null);
 
       await expect(move({
-        from: '/api/source.md#section',
-        to: '/api/dest.md',
+        from: '/docs/api/source.md#section',
+        to: '/docs/api/dest.md',
         reference: 'overview',
         position: 'after'
       }, sessionState, manager))
@@ -201,7 +201,7 @@ describe('move tool', () => {
           ['section', 'Content']
         ]),
         metadata: {
-          path: '/api/source.md',
+          path: '/docs/api/source.md',
           title: 'Source',
           lastModified: new Date(),
           contentHash: 'hash1',
@@ -215,8 +215,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Content');
 
       await expect(move({
-        from: '/api/source.md#section',
-        to: '/nonexistent/dest.md',
+        from: '/docs/api/source.md#section',
+        to: '/docs/nonexistent/dest.md',
         reference: 'overview',
         position: 'after'
       }, sessionState, manager))
@@ -235,7 +235,7 @@ describe('move tool', () => {
           ['section', 'Source content']
         ]),
         metadata: {
-          path: '/api/source.md',
+          path: '/docs/api/source.md',
           title: 'Source',
           lastModified: new Date(),
           contentHash: 'hash1',
@@ -254,7 +254,7 @@ describe('move tool', () => {
           ['other', 'Dest content']
         ]),
         metadata: {
-          path: '/api/dest.md',
+          path: '/docs/api/dest.md',
           title: 'Destination',
           lastModified: new Date(),
           contentHash: 'hash2',
@@ -268,8 +268,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Source content');
 
       await expect(move({
-        from: '/api/source.md#section',
-        to: '/api/dest.md',
+        from: '/docs/api/source.md#section',
+        to: '/docs/api/dest.md',
         reference: 'nonexistent',
         position: 'after'
       }, sessionState, manager))
@@ -292,7 +292,7 @@ describe('move tool', () => {
           ['section-two', 'Content two']
         ]),
         metadata: {
-          path: '/api/doc.md',
+          path: '/docs/api/doc.md',
           title: 'Doc',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -304,8 +304,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Content two');
 
       const result = await move({
-        from: '/api/doc.md#section-two',
-        to: '/api/doc.md',
+        from: '/docs/api/doc.md#section-two',
+        to: '/docs/api/doc.md',
         reference: 'section-one',
         position: 'before'
       }, sessionState, manager) as Record<string, unknown>;
@@ -317,7 +317,7 @@ describe('move tool', () => {
       expect(performSectionEditSpy).toHaveBeenNthCalledWith(
         1,
         manager,
-        '/api/doc.md',
+        '/docs/api/doc.md',
         'section-one',
         'Content two',
         'insert_before',
@@ -328,7 +328,7 @@ describe('move tool', () => {
       expect(performSectionEditSpy).toHaveBeenNthCalledWith(
         2,
         manager,
-        '/api/doc.md',
+        '/docs/api/doc.md',
         'section-two',
         '',
         'remove'
@@ -338,11 +338,11 @@ describe('move tool', () => {
       expect(result['action']).toBe('moved');
       expect(result['type']).toBe('section');
       expect(result['from']).toEqual({
-        document: '/api/doc.md',
+        document: '/docs/api/doc.md',
         section: 'section-two'
       });
       expect(result['to']).toEqual({
-        document: '/api/doc.md',
+        document: '/docs/api/doc.md',
         section: 'section-two',
         reference: 'section-one',
         position: 'before'
@@ -363,7 +363,7 @@ describe('move tool', () => {
           ['section-two', 'Content two']
         ]),
         metadata: {
-          path: '/api/doc.md',
+          path: '/docs/api/doc.md',
           title: 'Doc',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -375,8 +375,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Content one');
 
       const result = await move({
-        from: '/api/doc.md#section-one',
-        to: '/api/doc.md',
+        from: '/docs/api/doc.md#section-one',
+        to: '/docs/api/doc.md',
         reference: 'section-two',
         position: 'after'
       }, sessionState, manager) as Record<string, unknown>;
@@ -385,7 +385,7 @@ describe('move tool', () => {
       expect(performSectionEditSpy).toHaveBeenNthCalledWith(
         1,
         manager,
-        '/api/doc.md',
+        '/docs/api/doc.md',
         'section-two',
         'Content one',
         'insert_after',
@@ -409,7 +409,7 @@ describe('move tool', () => {
           ['section', 'Section content']
         ]),
         metadata: {
-          path: '/api/doc.md',
+          path: '/docs/api/doc.md',
           title: 'Doc',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -421,8 +421,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Section content');
 
       const result = await move({
-        from: '/api/doc.md#section',
-        to: '/api/doc.md',
+        from: '/docs/api/doc.md#section',
+        to: '/docs/api/doc.md',
         reference: 'parent',
         position: 'child'
       }, sessionState, manager) as Record<string, unknown>;
@@ -431,7 +431,7 @@ describe('move tool', () => {
       expect(performSectionEditSpy).toHaveBeenNthCalledWith(
         1,
         manager,
-        '/api/doc.md',
+        '/docs/api/doc.md',
         'parent',
         'Section content',
         'append_child',
@@ -455,7 +455,7 @@ describe('move tool', () => {
           ['section', 'Source content']
         ]),
         metadata: {
-          path: '/api/source.md',
+          path: '/docs/api/source.md',
           title: 'Source',
           lastModified: new Date(),
           contentHash: 'hash1',
@@ -474,7 +474,7 @@ describe('move tool', () => {
           ['overview', 'Dest content']
         ]),
         metadata: {
-          path: '/api/dest.md',
+          path: '/docs/api/dest.md',
           title: 'Destination',
           lastModified: new Date(),
           contentHash: 'hash2',
@@ -490,8 +490,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Source content');
 
       const result = await move({
-        from: '/api/source.md#section',
-        to: '/api/dest.md',
+        from: '/docs/api/source.md#section',
+        to: '/docs/api/dest.md',
         reference: 'overview',
         position: 'after'
       }, sessionState, manager) as Record<string, unknown>;
@@ -503,7 +503,7 @@ describe('move tool', () => {
       expect(performSectionEditSpy).toHaveBeenNthCalledWith(
         1,
         manager,
-        '/api/dest.md',
+        '/docs/api/dest.md',
         'overview',
         'Source content',
         'insert_after',
@@ -514,7 +514,7 @@ describe('move tool', () => {
       expect(performSectionEditSpy).toHaveBeenNthCalledWith(
         2,
         manager,
-        '/api/source.md',
+        '/docs/api/source.md',
         'section',
         '',
         'remove'
@@ -523,11 +523,11 @@ describe('move tool', () => {
       // Verify result
       expect(result['action']).toBe('moved');
       expect(result['from']).toEqual({
-        document: '/api/source.md',
+        document: '/docs/api/source.md',
         section: 'section'
       });
       expect(result['to']).toEqual({
-        document: '/api/dest.md',
+        document: '/docs/api/dest.md',
         section: 'section',
         reference: 'overview',
         position: 'after'
@@ -536,11 +536,11 @@ describe('move tool', () => {
       // Verify document info for both source and destination
       const sourceInfo = result['source_document_info'] as Record<string, unknown>;
       expect(sourceInfo['slug']).toBe('source');
-      expect(sourceInfo['namespace']).toBe('api');
+      expect(sourceInfo['namespace']).toBe('docs/api');
 
       const destInfo = result['destination_document_info'] as Record<string, unknown>;
       expect(destInfo['slug']).toBe('dest');
-      expect(destInfo['namespace']).toBe('api');
+      expect(destInfo['namespace']).toBe('docs/api');
     });
   });
 
@@ -559,7 +559,7 @@ describe('move tool', () => {
           ['task-one', '- Status: pending\n\nTask content']
         ]),
         metadata: {
-          path: '/project/source.md',
+          path: '/docs/project/source.md',
           title: 'Source',
           lastModified: new Date(),
           contentHash: 'hash1',
@@ -580,7 +580,7 @@ describe('move tool', () => {
           ['task-two', '- Status: completed\n\nDone']
         ]),
         metadata: {
-          path: '/project/dest.md',
+          path: '/docs/project/dest.md',
           title: 'Destination',
           lastModified: new Date(),
           contentHash: 'hash2',
@@ -598,8 +598,8 @@ describe('move tool', () => {
       vi.spyOn(await import('../../shared/addressing-system.js'), 'isTaskSection').mockResolvedValue(true);
 
       const result = await move({
-        from: '/project/source.md#task-one',
-        to: '/project/dest.md',
+        from: '/docs/project/source.md#task-one',
+        to: '/docs/project/dest.md',
         reference: 'task-two',
         position: 'after'
       }, sessionState, manager) as Record<string, unknown>;
@@ -623,7 +623,7 @@ describe('move tool', () => {
           ['section', 'Content']
         ]),
         metadata: {
-          path: '/api/source.md',
+          path: '/docs/api/source.md',
           title: 'Source',
           lastModified: new Date(),
           contentHash: 'hash1',
@@ -642,7 +642,7 @@ describe('move tool', () => {
           ['overview', 'Content']
         ]),
         metadata: {
-          path: '/api/dest.md',
+          path: '/docs/api/dest.md',
           title: 'Dest',
           lastModified: new Date(),
           contentHash: 'hash2',
@@ -657,8 +657,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Content');
 
       await move({
-        from: '/api/source.md#section',
-        to: '/api/dest.md',
+        from: '/docs/api/source.md#section',
+        to: '/docs/api/dest.md',
         reference: '#overview', // With leading #
         position: 'after'
       }, sessionState, manager);
@@ -667,7 +667,7 @@ describe('move tool', () => {
       expect(performSectionEditSpy).toHaveBeenNthCalledWith(
         1,
         manager,
-        '/api/dest.md',
+        '/docs/api/dest.md',
         'overview', // No leading #
         'Content',
         'insert_after',
@@ -687,7 +687,7 @@ describe('move tool', () => {
           ['section', 'Content']
         ]),
         metadata: {
-          path: '/api/source.md',
+          path: '/docs/api/source.md',
           title: 'Source',
           lastModified: new Date(),
           contentHash: 'hash1',
@@ -706,7 +706,7 @@ describe('move tool', () => {
           ['overview', 'Content']
         ]),
         metadata: {
-          path: '/api/dest.md',
+          path: '/docs/api/dest.md',
           title: 'Dest',
           lastModified: new Date(),
           contentHash: 'hash2',
@@ -721,8 +721,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Content');
 
       await move({
-        from: '/api/source.md#section',
-        to: '/api/dest.md',
+        from: '/docs/api/source.md#section',
+        to: '/docs/api/dest.md',
         reference: 'overview', // Without leading #
         position: 'after'
       }, sessionState, manager);
@@ -731,7 +731,7 @@ describe('move tool', () => {
       expect(performSectionEditSpy).toHaveBeenNthCalledWith(
         1,
         manager,
-        '/api/dest.md',
+        '/docs/api/dest.md',
         'overview',
         'Content',
         'insert_after',
@@ -755,7 +755,7 @@ describe('move tool', () => {
           ['section-two', 'Content two']
         ]),
         metadata: {
-          path: '/api/doc.md',
+          path: '/docs/api/doc.md',
           title: 'Doc',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -767,8 +767,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Content two');
 
       await move({
-        from: '/api/doc.md#section-two',
-        to: '/api/doc.md',
+        from: '/docs/api/doc.md#section-two',
+        to: '/docs/api/doc.md',
         reference: 'section-one',
         position: 'before'
       }, sessionState, manager);
@@ -796,7 +796,7 @@ describe('move tool', () => {
           ['section', 'Content']
         ]),
         metadata: {
-          path: '/api/doc.md',
+          path: '/docs/api/doc.md',
           title: 'Doc',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -811,8 +811,8 @@ describe('move tool', () => {
       performSectionEditSpy.mockRejectedValueOnce(new Error('Creation failed'));
 
       await expect(move({
-        from: '/api/doc.md#section',
-        to: '/api/doc.md',
+        from: '/docs/api/doc.md#section',
+        to: '/docs/api/doc.md',
         reference: 'doc',
         position: 'child'
       }, sessionState, manager))
@@ -836,7 +836,7 @@ describe('move tool', () => {
           ['section', 'Content']
         ]),
         metadata: {
-          path: '/api/source.md',
+          path: '/docs/api/source.md',
           title: 'Source',
           lastModified: new Date(),
           contentHash: 'hash1',
@@ -855,7 +855,7 @@ describe('move tool', () => {
           ['overview', 'Content']
         ]),
         metadata: {
-          path: '/api/dest.md',
+          path: '/docs/api/dest.md',
           title: 'Dest',
           lastModified: new Date(),
           contentHash: 'hash2',
@@ -870,8 +870,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Content');
 
       const result = await move({
-        from: '/api/source.md#section',
-        to: '/api/dest.md',
+        from: '/docs/api/source.md#section',
+        to: '/docs/api/dest.md',
         reference: 'overview',
         position: 'after'
       }, sessionState, manager) as Record<string, unknown>;
@@ -923,7 +923,7 @@ describe('move tool', () => {
           ['section-two', 'Two']
         ]),
         metadata: {
-          path: '/api/doc.md',
+          path: '/docs/api/doc.md',
           title: 'Doc',
           lastModified: new Date(),
           contentHash: 'hash',
@@ -935,8 +935,8 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Two');
 
       const result = await move({
-        from: '/api/doc.md#section-two',
-        to: '/api/doc.md',
+        from: '/docs/api/doc.md#section-two',
+        to: '/docs/api/doc.md',
         reference: 'section-one',
         position: 'before'
       }, sessionState, manager) as Record<string, unknown>;

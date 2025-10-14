@@ -41,7 +41,7 @@ Should not appear in authentication.
 
     writeFileSync(join(docsDir, 'test-api.md'), testContent);
 
-    // Initialize cache and manager
+    // Initialize cache and manager (docsDir already includes /docs)
     cache = new DocumentCache(docsDir);
     manager = new DocumentManager(docsDir, cache);
   });

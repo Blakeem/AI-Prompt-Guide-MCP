@@ -56,7 +56,7 @@ export async function move(
   // Parse source path - must include section slug
   if (!fromPath.includes('#')) {
     throw new AddressingError(
-      'Source path must include section slug (e.g., "/api/auth.md#section")',
+      'Source path must include section slug (e.g., "/docs/api/auth.md#section")',
       'INVALID_SOURCE_PATH',
       { from: fromPath }
     );

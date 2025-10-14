@@ -185,7 +185,7 @@ async function processSectionOperation(
  * @example
  * // Single section edit (uses operations array)
  * const result = await section({
- *   document: "/api/auth.md",
+ *   document: "/docs/api/auth.md",
  *   operations: [{
  *     section: "overview",
  *     content: "Updated content",
@@ -195,7 +195,7 @@ async function processSectionOperation(
  *
  * // Multiple operations
  * const result = await section({
- *   document: "/api/auth.md",
+ *   document: "/docs/api/auth.md",
  *   operations: [
  *     { section: "overview", content: "New content", operation: "replace" },
  *     { section: "examples", content: "Example content", operation: "append_child", title: "Examples" }

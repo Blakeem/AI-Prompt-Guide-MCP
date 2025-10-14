@@ -11,7 +11,7 @@ export interface SearchDocumentsInputSchema {
     };
     scope: {
       type: 'string';
-      description: 'Optional namespace path like "/api/" to limit search';
+      description: 'Optional namespace path like "/docs/api/" to limit search';
     };
     type: {
       type: 'string';
@@ -74,7 +74,7 @@ export function getSearchDocumentsSchema(): SearchDocumentsInputSchema {
       },
       scope: {
         type: 'string',
-        description: 'Optional namespace path like "/api/" to limit search',
+        description: 'Optional namespace path like "/docs/api/" to limit search',
       },
       type: {
         type: 'string',

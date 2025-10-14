@@ -7,27 +7,35 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DocumentManager } from '../../document-manager.js';
 import { DocumentCache } from '../../document-cache.js';
 
 describe('Write Operations Integration', () => {
-  const testDocsRoot = path.resolve(process.cwd(), '.ai-prompt-guide/docs');
+  let testDir: string;
+  let docsDir: string;
   const testDocPath = '/api/specs/test-api.md';
-  const testDocAbsolutePath = path.join(testDocsRoot, 'api/specs/test-api.md');
 
   let cache: DocumentCache;
   let manager: DocumentManager;
 
   beforeEach(async () => {
-    // Initialize cache and manager
-    cache = new DocumentCache(testDocsRoot);
-    manager = new DocumentManager(testDocsRoot, cache);
+    // Create unique temporary directory
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    testDir = await mkdtemp(path.resolve(tmpdir(), `write-ops-test-${uniqueId}-`));
+    docsDir = path.resolve(testDir, 'docs');
 
-    // Ensure test directory exists
+    // Initialize cache and manager with docsDir as the base path
+    cache = new DocumentCache(docsDir);
+    manager = new DocumentManager(docsDir, cache);
+
+    // Create test directory structure
+    const testDocAbsolutePath = path.join(docsDir, 'api/specs/test-api.md');
     await fs.mkdir(path.dirname(testDocAbsolutePath), { recursive: true });
 
-    // Create test document if it doesn't exist
+    // Create test document
     const testContent = `# Test API
 
 ## Overview
@@ -78,7 +86,10 @@ Rate limiting policies and headers.
 
   afterEach(async () => {
     // Cleanup
-    await cache.destroy();
+    await manager.destroy();
+    if (testDir != null) {
+      await rm(testDir, { recursive: true, force: true });
+    }
   });
 
   it('should successfully read a document that exists', async () => {

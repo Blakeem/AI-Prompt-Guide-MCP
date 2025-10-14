@@ -29,11 +29,11 @@ export function getMoveDocumentSchema(): MoveDocumentInputSchema {
     properties: {
       from: {
         type: 'string',
-        description: 'Source document path (e.g., "/api/auth.md")',
+        description: 'Source document path (e.g., "/docs/api/auth.md")',
       },
       to: {
         type: 'string',
-        description: 'Destination document path (e.g., "/api/security/auth.md")',
+        description: 'Destination document path (e.g., "/docs/api/security/auth.md")',
       },
     },
     required: ['from', 'to'],

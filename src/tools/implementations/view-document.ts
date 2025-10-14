@@ -80,12 +80,12 @@ interface ViewDocumentResponse {
  * @example
  * // Single document view
  * const result = await viewDocument({
- *   document: "api/authentication.md"
+ *   document: "/docs/api/authentication.md"
  * });
  *
  * // Multiple documents with linked context loading
  * const result = await viewDocument({
- *   documents: ["api/auth.md", "api/users.md"],
+ *   documents: ["/docs/api/auth.md", "/docs/api/users.md"],
  *   include_linked_context: true
  * });
  *

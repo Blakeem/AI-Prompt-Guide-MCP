@@ -12,9 +12,12 @@ import { getViewSectionSchema } from './schemas/view-section-schemas.js';
 import { getViewTaskSchema } from './schemas/view-task-schemas.js';
 import { getDeleteDocumentSchema } from './schemas/delete-document-schemas.js';
 import { getMoveDocumentSchema } from './schemas/move-document-schemas.js';
-import { getTaskSchema } from './schemas/task-schemas.js';
-import { getCompleteTaskSchema } from './schemas/complete-task-schemas.js';
-import { getStartTaskSchema } from './schemas/start-task-schemas.js';
+import { getSubagentTaskSchema } from './schemas/subagent-task-schemas.js';
+import { getCompleteSubagentTaskSchema } from './schemas/complete-subagent-task-schemas.js';
+import { getStartSubagentTaskSchema } from './schemas/start-subagent-task-schemas.js';
+import { getCoordinatorTaskSchema } from './schemas/coordinator-task-schemas.js';
+import { getCompleteCoordinatorTaskSchema } from './schemas/complete-coordinator-task-schemas.js';
+import { getStartCoordinatorTaskSchema } from './schemas/start-coordinator-task-schemas.js';
 import { getMoveSchema } from './schemas/move-schemas.js';
 import { getEditDocumentSchema } from './schemas/edit-document-schemas.js';
 import { getSearchDocumentsSchema } from './schemas/search-documents-schemas.js';
@@ -73,19 +76,34 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
       inputSchema: getMoveDocumentSchema(),
     },
     {
-      name: 'task',
-      description: 'Bulk task operations with unified path support. Document parameter ALWAYS required (default context). Task field supports: 1) "slug" (uses document), 2) "#slug" (uses document), 3) "/doc.md#slug" (overrides document). Enables cross-document task creation in single batch.',
-      inputSchema: getTaskSchema(),
+      name: 'subagent_task',
+      description: 'Bulk task operations for subagent tasks (ad-hoc mode). Document parameter ALWAYS required (default context). Task field supports: 1) "slug" (uses document), 2) "#slug" (uses document), 3) "/docs/doc.md#slug" (overrides document). Works with /docs/ namespace for assigned subagent tasks.',
+      inputSchema: getSubagentTaskSchema(),
     },
     {
-      name: 'complete_task',
-      description: 'Mark a task as completed. TWO MODES: Sequential ("/doc.md") completes next pending task and returns next task. Ad-hoc ("/doc.md#task") completes ONLY that specific task (no next task returned). ⚠️ CRITICAL: Always use FULL PATH with #slug for assigned tasks or you will complete the WRONG TASK!',
-      inputSchema: getCompleteTaskSchema(),
+      name: 'complete_subagent_task',
+      description: 'Mark a subagent task as completed (REQUIRES #slug). Ad-hoc mode only: "/docs/doc.md#task" completes the specified task (no next task returned). ⚠️ CRITICAL: Must include #slug and be in /docs/ namespace!',
+      inputSchema: getCompleteSubagentTaskSchema(),
     },
     {
-      name: 'start_task',
-      description: 'Start work on a task. TWO MODES: Sequential ("/doc.md") starts first pending task with main+task workflows. Ad-hoc ("/doc.md#task") starts ONLY that task with task workflow only (no main workflow). ⚠️ CRITICAL: Always use FULL PATH with #slug for assigned tasks or you will start the WRONG TASK!',
-      inputSchema: getStartTaskSchema(),
+      name: 'start_subagent_task',
+      description: 'Start work on a subagent task (REQUIRES #slug). Ad-hoc mode only: "/docs/doc.md#task" starts the specified task with task workflow (no main workflow). ⚠️ CRITICAL: Must include #slug and be in /docs/ namespace!',
+      inputSchema: getStartSubagentTaskSchema(),
+    },
+    {
+      name: 'coordinator_task',
+      description: 'Bulk task operations for coordinator tasks (sequential mode). Document is always /coordinator/active.md (no document parameter). Task operations work with sequential task list. Auto-creates document if needed.',
+      inputSchema: getCoordinatorTaskSchema(),
+    },
+    {
+      name: 'complete_coordinator_task',
+      description: 'Complete current coordinator task (sequential mode). Auto-finds next pending task, completes it, returns next task. Auto-archives to /archived/coordinator/ when all tasks complete. ⚠️ Sequential only - NO #slug allowed!',
+      inputSchema: getCompleteCoordinatorTaskSchema(),
+    },
+    {
+      name: 'start_coordinator_task',
+      description: 'Start work on coordinator task (sequential mode). Auto-finds next pending task, injects Main-Workflow from first task + task workflow. ⚠️ Sequential only - NO #slug allowed!',
+      inputSchema: getStartCoordinatorTaskSchema(),
     },
     {
       name: 'view_document',

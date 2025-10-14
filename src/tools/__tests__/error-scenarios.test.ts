@@ -18,7 +18,7 @@ describe('Error Scenario Testing (Bulk Operations)', () => {
   beforeEach(() => {
     mockDocumentManager = createMockDocumentManager({
       initialDocuments: {
-        '/test-document.md': `# Test Document
+        '/docs/test-document.md': `# Test Document
 
 ## Overview
 This is a test document for error scenario testing.
@@ -33,7 +33,7 @@ Configuration section content.
   describe('Missing Operations Array', () => {
     test('should reject missing operations', async () => {
       const args = {
-        document: '/test-document.md'
+        document: '/docs/test-document.md'
       };
 
       await expect(section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager))
@@ -43,7 +43,7 @@ Configuration section content.
 
     test('should reject empty operations array', async () => {
       const args = {
-        document: '/test-document.md',
+        document: '/docs/test-document.md',
         operations: []
       };
 
@@ -56,7 +56,7 @@ Configuration section content.
   describe('Batch Error Handling', () => {
     test('should handle partial failures gracefully', async () => {
       const args = {
-        document: '/test-document.md',
+        document: '/docs/test-document.md',
         operations: [
           { section: 'overview', content: 'Valid', operation: 'replace' },
           { section: 'nonexistent', content: 'Invalid', operation: 'replace' },
@@ -82,7 +82,7 @@ Configuration section content.
     test('should handle multiple concurrent operations', async () => {
       const concurrentOps = Array.from({ length: 10 }, (_, i) => {
         const args = {
-          document: '/test-document.md',
+          document: '/docs/test-document.md',
           operations: [{
             section: 'overview',
             content: `Update ${i}`,

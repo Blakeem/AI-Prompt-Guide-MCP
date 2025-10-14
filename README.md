@@ -11,9 +11,10 @@ A Model Context Protocol server that manages structured markdown knowledge graph
 AI projects stall when agents need to be micromanaged with copy-pasted specs, decision frameworks, and status updates. AI Prompt Guide MCP removes that friction with structured markdown knowledge graphs that form a navigable, deterministic system subagents can explore on demand.
 
 ### Key Capabilities
-- Task-driven context loading (`start_task`, `complete_task`) that automatically injects linked documentation, workflows, and follow-up tasks.
+- **Dual task system** with coordinator tools for sequential project orchestration (auto-archive when complete) and subagent tools for ad-hoc task management across documents.
+- Task-driven context loading that automatically injects linked documentation, workflows, and follow-up tasks based on task type.
 - Unified @reference system that loads only the sections each task needs, with configurable depth, cycle detection, and namespace-aware addressing.
-- Workflow library that surfaces project methodologies (“Main-Workflow”) and task-specific playbooks (“Workflow”) without re-prompting.
+- Workflow library that surfaces project methodologies ("Main-Workflow") and task-specific playbooks ("Workflow") without re-prompting.
 - Progressive tool suite for creating, browsing, editing, and moving documents, sections, and tasks in batches.
 - Persistent audit trail that captures completion notes and next steps across sessions.
 
@@ -66,15 +67,34 @@ Namespaces (for example `/api/`, `/guides/`, `/specs/`) keep large ecosystems or
 
 ### Context Workflow Engine
 
-Tool choice communicates session intent, so the server can deliver the right amount of context every time:
+The server provides **two task management systems** based on workflow needs:
 
-| Tool            | Purpose                                  | Injects                                                               |
-|-----------------|-------------------------------------------|-----------------------------------------------------------------------|
-| `view_task`     | Browse tasks without starting work        | Titles, status, hierarchy (no workflows or references)                |
-| `start_task`    | Begin new work or resume after compression| Task workflow, optional main workflow, hierarchical references        |
-| `complete_task` | Finish current task and get the next one  | Completion receipt, next task + workflow + references (no main workflow) |
+#### Coordinator Tools (Sequential Project Orchestration)
+Used for managing project phases and complex multi-step implementations that follow a sequential workflow. Tasks live in `/coordinator/active.md` and auto-archive when all tasks are complete.
 
-Use `start_task` whenever a session restarts; it re-injects the project’s main methodology. Stick with `complete_task` while working continuously to avoid duplicate main workflow prompts.
+| Tool                        | Purpose                                  | Injects                                                               |
+|-----------------------------|-------------------------------------------|-----------------------------------------------------------------------|
+| `coordinator_task`          | Create/edit/list tasks in coordinator doc | Standard task CRUD operations                                         |
+| `start_coordinator_task`    | Start first pending task                  | Main workflow (project methodology) + task workflow + references      |
+| `complete_coordinator_task` | Complete task, get next or auto-archive   | Completion receipt + next task with workflow (no main workflow)       |
+
+**When to use:** Complex features requiring orchestrated phases, TDD workflows with quality gates, or coordinated multi-agent development where tasks must complete sequentially.
+
+**Key behavior:** Completing all tasks automatically archives `/coordinator/active.md` to `/archived/coordinator/` with timestamp.
+
+#### Subagent Tools (Ad-Hoc Task Management)
+Used for flexible task management across any document in `/docs/` namespace. Tasks persist until manually deleted—no auto-archive.
+
+| Tool                      | Purpose                                  | Injects                                                               |
+|---------------------------|-------------------------------------------|-----------------------------------------------------------------------|
+| `subagent_task`           | Create/edit/list tasks in any `/docs/` doc| Standard task CRUD operations with multi-document support            |
+| `start_subagent_task`     | Start specific task by path               | Task workflow + hierarchical references (no main workflow)            |
+| `complete_subagent_task`  | Complete task and get next pending        | Completion receipt + next task with workflow (no main workflow)       |
+| `view_task`               | Browse task details without starting work | Titles, status, hierarchy (no workflows or references)                |
+
+**When to use:** Ad-hoc feature work, bug fixes, documentation tasks, or any work that doesn't require strict sequential ordering.
+
+**Key behavior:** Tasks persist after completion for reference and audit. No automatic archiving.
 
 ### Workflow Types
 
@@ -101,25 +121,38 @@ Design the REST API architecture.
 
 ## Tool Suite
 
-The server exposes 16 MCP tools grouped by workflow stage. Every tool uses unified addressing (`/doc.md#slug`) and context-aware responses.
+The server exposes 19 MCP tools grouped by workflow stage. Every tool uses unified addressing (`/doc.md#slug`) and context-aware responses.
 
 ### Document Discovery & Navigation
 - `create_document` – Progressive discovery flow that helps you choose a namespace and create a blank document with title and overview.
 - `browse_documents` – Navigate document hierarchy and list folders/documents with basic metadata.
 - `search_documents` – Full-text or regex search across all document content with match highlighting, line numbers, and contextual snippets.
 
-### Content & Task Editing
+### Content Editing
 - `section` – Batch edit, append, insert, or remove sections across one or many documents while preserving structure.
-- `task` – Create, edit, or list tasks with optional cross-document operations, status filtering, and reference extraction.
 
-### Task Execution Helpers
-- `start_task` – Load workflows and referenced docs to kick off (or resume) work with full context.
-- `complete_task` – Mark work finished, capture completion notes, and queue the next actionable task.
+### Coordinator Task Management (Sequential Workflows)
+**Purpose:** Orchestrate sequential project phases with auto-archive when complete.
+
+- `coordinator_task` – Create, edit, or list tasks in `/coordinator/active.md` with batch operations and status filtering.
+- `start_coordinator_task` – Begin first pending task with Main-Workflow + task workflow + hierarchical references.
+- `complete_coordinator_task` – Mark task complete, auto-archive if all done, or queue next task with workflow.
+
+**Location:** All coordinator tasks live in `/coordinator/active.md` and archive to `/archived/coordinator/` with timestamp when project completes.
+
+### Subagent Task Management (Ad-Hoc Workflows)
+**Purpose:** Flexible task management across any `/docs/` document without auto-archive.
+
+- `subagent_task` – Create, edit, or list tasks in any `/docs/` document with cross-document batch operations.
+- `start_subagent_task` – Start specific task by path with task workflow + hierarchical references (no main workflow).
+- `complete_subagent_task` – Mark task complete and queue next pending task with workflow.
+
+**Location:** Tasks can exist in any `/docs/` document and persist after completion for audit trail.
 
 ### View & Inspection
 - `view_document` – Complete document structure showing ALL sections (slug, title, depth) with comprehensive metadata including link statistics, task counts, and word counts.
 - `view_section` – Section-specific content viewer with two modes: overview (titles only) or detailed content retrieval for specific sections.
-- `view_task` – Task-specific viewer with two modes: overview (metadata only) or detailed content with workflows and reference trees.
+- `view_task` – Task-specific viewer (works for both coordinator and subagent tasks) with two modes: overview (metadata only) or detailed content with workflows and reference trees.
 
 ### Document Lifecycle
 - `edit_document` – Update a document's title and overview without touching section structure.
@@ -300,7 +333,7 @@ When working on multiple projects with the Claude Code plugin, create a `.mcp-co
 ```json
 {
   "env": {
-    "DOCS_BASE_PATH": ".ai-prompt-guide/docs",
+    "DOCS_BASE_PATH": ".ai-prompt-guide",
     "WORKFLOWS_BASE_PATH": ".ai-prompt-guide/workflows",
     "GUIDES_BASE_PATH": ".ai-prompt-guide/guides"
   }
@@ -359,7 +392,7 @@ npx -y ai-prompt-guide-mcp
 
 Environment variables (set in MCP client config or via `.mcp-config.json`):
 
-- `DOCS_BASE_PATH` (required): Root directory for managed documents, e.g. `./.ai-prompt-guide/docs`
+- `DOCS_BASE_PATH` (required): Root directory containing `docs/`, `coordinator/`, and `archived/` namespaces, e.g. `./.ai-prompt-guide`
 - `WORKFLOWS_BASE_PATH` (optional): Directory for workflow protocols (defaults to plugin's bundled workflows)
 - `GUIDES_BASE_PATH` (optional): Directory for documentation guides (defaults to plugin's bundled guides)
 - `REFERENCE_EXTRACTION_DEPTH` (optional, default `3`): Recursive @reference depth from `1` (direct only) to `5` (maximum)
@@ -369,11 +402,13 @@ For project-specific overrides when using the Claude Code plugin, see [Project-S
 
 Out-of-range depth values default to `3`. Cycle detection and node limits keep reference loading safe regardless of configuration.
 
+**Important:** `DOCS_BASE_PATH` should point to the parent directory that contains the namespace folders (`docs/`, `coordinator/`, `archived/`), not directly to the `docs/` folder itself.
+
 ### Directory Structure
 
 ```
 .ai-prompt-guide/
-├── docs/                     # Documents managed by the MCP tools (required)
+├── docs/                     # Ad-hoc documents managed by subagent task tools (required)
 │   ├── api/
 │   │   ├── specs/
 │   │   │   └── authentication.md
@@ -384,6 +419,15 @@ Out-of-range depth values default to `3`. Cycle detection and node limits keep r
 │   │       └── button-system.md
 │   └── workflows/
 │       └── development-process.md
+│
+├── coordinator/              # Sequential project orchestration (auto-created)
+│   └── active.md            # Current coordinator tasks (archives when complete)
+│
+├── archived/                 # Auto-archive destination (auto-created)
+│   ├── docs/                # Archived documents from delete_document tool
+│   │   └── old-spec-2024-01-15.md
+│   └── coordinator/         # Archived coordinator projects with timestamps
+│       └── active-2024-01-15T10-30-45.md
 │
 ├── workflows/                # Workflow protocols → accessible via get_workflow tool
 │   ├── code-review-issue-based.md
@@ -400,7 +444,11 @@ Out-of-range depth values default to `3`. Cycle detection and node limits keep r
     └── research-guide.md
 ```
 
-`docs/` feeds the MCP tools, while `workflows/` and `guides/` load at startup and become accessible via the `get_workflow` and `get_guide` tools.
+**Namespace Organization:**
+- `/docs/` – Ad-hoc documents managed by subagent task tools (persistent)
+- `/coordinator/` – Sequential project tasks managed by coordinator tools (auto-archive on completion)
+- `/archived/` – Auto-archive destination for completed coordinator projects and deleted documents
+- `workflows/` and `guides/` – Load at startup and become accessible via `get_workflow` and `get_guide` tools
 
 ## Codex & Other MCP Clients
 
@@ -413,7 +461,7 @@ Any MCP client that accepts a JSON configuration can launch the server. Point th
       "command": "npx",
       "args": ["-y", "ai-prompt-guide-mcp"],
       "env": {
-        "DOCS_BASE_PATH": "./.ai-prompt-guide/docs",
+        "DOCS_BASE_PATH": "./.ai-prompt-guide",
         "WORKFLOWS_BASE_PATH": "./.ai-prompt-guide/workflows",
         "GUIDES_BASE_PATH": "./.ai-prompt-guide/guides",
         "REFERENCE_EXTRACTION_DEPTH": "3",

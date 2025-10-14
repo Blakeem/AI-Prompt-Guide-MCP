@@ -40,12 +40,12 @@ export function getMoveSchema(): MoveInputSchema {
       from: {
         type: 'string',
         description:
-          'Source section/task path including document and section slug (e.g., "/api/auth.md#jwt-tokens"). Must include both document path and section slug separated by #.',
+          'Source section/task path including document and section slug (e.g., "/docs/api/auth.md#jwt-tokens"). Must include both document path and section slug separated by #.',
       },
       to: {
         type: 'string',
         description:
-          'Destination document path where section/task will be moved (e.g., "/api/security.md"). Can be same document as source for within-document moves.',
+          'Destination document path where section/task will be moved (e.g., "/docs/api/security.md"). Can be same document as source for within-document moves.',
       },
       reference: {
         type: 'string',
