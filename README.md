@@ -78,7 +78,9 @@ Use `start_task` whenever a session restarts; it re-injects the project’s main
 
 Two metadata fields control workflow injection:
 
-- **Main-Workflow** – Project-level methodology defined in the first task of a document. Reappears only when work restarts (e.g., after compression or new session). Recommended: `tdd-incremental-orchestration` for production-quality development with test-first discipline.
+- **Main-Workflow** – Project-level methodology defined in the first task of a document. Reappears only when work restarts (e.g., after compression or new session). Options:
+  - `tdd-incremental-orchestration` – For production-quality development with test-first discipline and quality gates
+  - `manual-verification-orchestration` – For zero-shot projects, prototypes, or when test infrastructure isn't available
 - **Workflow** – Task-level guidance. Injected every time the task is addressed. Useful options include `spec-first-integration`, `multi-option-tradeoff`, `failure-triage-repro`, and `code-review-issue-based`.
 
 Example task definition:
@@ -148,9 +150,9 @@ Both tools load content from Markdown files at startup:
 Logs confirm loading:
 
 ```
-[INFO] Loading workflow prompts from directory { directory: '/workflows', fileCount: 5, prefix: 'workflow_' }
+[INFO] Loading workflow prompts from directory { directory: '/workflows', fileCount: 6, prefix: 'workflow_' }
 [INFO] Loading workflow prompts from directory { directory: '/guides', fileCount: 4, prefix: 'guide_' }
-[INFO] Workflow prompts loaded from all directories { loaded: 9, failed: 0, directories: 2 }
+[INFO] Workflow prompts loaded from all directories { loaded: 10, failed: 0, directories: 2 }
 ```
 
 **Discovery**: All available workflows and guides are visible in the tool enum schemas—no separate list command needed.
@@ -222,9 +224,10 @@ You can also access workflows directly using `get_workflow({ workflow: "spec-fir
 
 ### Built-In Workflows & Guides
 
-The repository includes **five workflow protocols** (accessible via `get_workflow`):
+The repository includes **six workflow protocols** (accessible via `get_workflow`):
 - `code-review-issue-based` – Parallel code review with specialized agents
 - `failure-triage-repro` – Bug triage and minimal reproduction
+- `manual-verification-orchestration` – Manual verification for zero-shot/iterative tasks (no test infrastructure required)
 - `multi-option-tradeoff` – Structured decision analysis
 - `spec-first-integration` – API/integration correctness workflow
 - `tdd-incremental-orchestration` – TDD-driven development with quality gates
@@ -255,16 +258,17 @@ Use `/plugin list` to confirm installation or `/plugin update ai-prompt-guide` t
 
 ### Slash Commands
 
-Each command wraps an MCP workflow and expects a follow-up message, for example `/ai-prompt-guide:feature Give the new dashboard requirements`. Available commands:
-- `/guide-feature` – Build or extend a feature with incremental orchestration.
-- `/guide-fix` – Run the failure triage workflow to isolate and resolve a bug.
-- `/guide-refactor` – Plan and execute refactoring with quantitative trade-off analysis.
-- `/guide-review` – Launch a targeted code review using the review subagent.
-- `/guide-audit` – Perform a comprehensive quality audit across the codebase.
-- `/guide-coverage` – Add or improve automated test coverage.
-- `/guide-decide` – Compare multiple approaches with structured decision analysis.
-- `/guide-spec-feature` – Draft internal specifications before implementation.
-- `/guide-spec-external` – Research and document third-party APIs or dependencies.
+Each command wraps an MCP workflow and expects a follow-up message, for example `/ai-prompt-guide:build-tdd Implement the new dashboard with tests`. Available commands:
+- `/ai-prompt-guide:build-tdd` – Build feature/component/app with TDD workflow (test-driven development with quality gates).
+- `/ai-prompt-guide:build-iterate` – Build feature/component/app with manual verification for zero-shot/iterative tasks (no test infrastructure required).
+- `/ai-prompt-guide:fix` – Run the failure triage workflow to isolate and resolve a bug.
+- `/ai-prompt-guide:refactor` – Plan and execute refactoring with quantitative trade-off analysis.
+- `/ai-prompt-guide:review` – Launch a targeted code review using the review subagent.
+- `/ai-prompt-guide:audit` – Perform a comprehensive quality audit across the codebase.
+- `/ai-prompt-guide:coverage` – Add or improve automated test coverage.
+- `/ai-prompt-guide:decide` – Compare multiple approaches with structured decision analysis.
+- `/ai-prompt-guide:spec-feature` – Draft internal specifications before implementation.
+- `/ai-prompt-guide:spec-external` – Research and document third-party APIs or dependencies.
 
 ### Subagents
 
@@ -275,11 +279,17 @@ Slash commands automatically route work to the right subagent and inject the cor
 
 ### Example Usage
 
+**TDD Workflow (with tests):**
 ```
-/ai-prompt-guide:feature Ship an admin dashboard that surfaces active-user trends, includes filtering by region, and exposes download-ready CSV exports. Make sure tests cover the aggregation logic.
+/ai-prompt-guide:build-tdd Ship an admin dashboard that surfaces active-user trends, includes filtering by region, and exposes download-ready CSV exports. Make sure tests cover the aggregation logic.
 ```
 
-The plugin will create a structured plan, spin up the code subagent with incremental orchestration, and load any referenced documents or workflows automatically.
+**Iterative Workflow (manual verification):**
+```
+/ai-prompt-guide:build-iterate Create a landing page for the product with hero section, features list, and contact form. I'll test it manually in the browser.
+```
+
+The plugin will create a structured plan, spin up specialized subagents with appropriate orchestration workflows, and load any referenced documents or workflows automatically.
 
 ### Project-Specific Configuration
 
@@ -376,6 +386,7 @@ Out-of-range depth values default to `3`. Cycle detection and node limits keep r
 ├── workflows/                # Workflow protocols → accessible via get_workflow tool
 │   ├── code-review-issue-based.md
 │   ├── failure-triage-repro.md
+│   ├── manual-verification-orchestration.md
 │   ├── multi-option-tradeoff.md
 │   ├── spec-first-integration.md
 │   └── tdd-incremental-orchestration.md
