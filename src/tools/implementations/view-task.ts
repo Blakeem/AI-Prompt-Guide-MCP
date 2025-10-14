@@ -135,6 +135,7 @@ export async function viewTask(
         const content = await manager.getSectionContent(addresses.document.path, heading.slug) ?? '';
         const metadata = extractTaskMetadata(content);
         const workflowName = extractWorkflowName(content);
+        const mainWorkflowName = extractMainWorkflowName(content);
 
         return {
           slug: heading.slug,
@@ -143,7 +144,8 @@ export async function viewTask(
           depth: heading.depth,
           full_path: `${addresses.document.path}#${heading.slug}`,
           has_workflow: workflowName != null && workflowName !== '',
-          ...(workflowName != null && workflowName !== '' && { workflow_name: workflowName })
+          ...(workflowName != null && workflowName !== '' && { workflow_name: workflowName }),
+          ...(mainWorkflowName != null && mainWorkflowName !== '' && { main_workflow_name: mainWorkflowName })
         };
       })
     );
@@ -151,10 +153,12 @@ export async function viewTask(
     // Calculate summary for overview
     const statusCounts: Record<string, number> = {};
     let tasksWithWorkflows = 0;
+    let tasksWithMainWorkflow = 0;
 
     for (const task of overviewTasks) {
       statusCounts[task.status] = (statusCounts[task.status] ?? 0) + 1;
       if (task.has_workflow) tasksWithWorkflows++;
+      if (task.main_workflow_name != null) tasksWithMainWorkflow++;
     }
 
     return {
@@ -167,7 +171,7 @@ export async function viewTask(
         with_links: 0,
         with_references: 0,
         tasks_with_workflows: tasksWithWorkflows,
-        tasks_with_main_workflow: 0
+        tasks_with_main_workflow: tasksWithMainWorkflow
       }
     };
   }
