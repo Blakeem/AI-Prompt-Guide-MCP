@@ -1,12 +1,14 @@
 # AI Prompt Guide MCP
 
-**Task-driven knowledge graph for agent orchestration and zero-configuration context delivery.**
+**MCP Server & Claude Code Plugin for Multi-Agent Workflows**
 
-A Model Context Protocol server that transforms Markdown documentation into an intelligent orchestration layer for AI agents. Assign tasks by path and the server injects the exact specs, workflows, and linked docs the agent needs—no manual prompt stitching, no repeated context dumps, and a persistent audit of everything completed.
+**Task-driven agent orchestration workflows with structured markdown knowledge graphs and intelligent context injection.**
+
+A Model Context Protocol server that manages structured markdown knowledge graphs for AI agent orchestration. Assign tasks by path and the server injects the exact specs, workflows, and linked documents the agent needs—no manual prompt stitching, no repeated context dumps, and a persistent audit of everything completed.
 
 ## Overview
 
-AI projects stall when agents need to be micromanaged with copy-pasted specs, decision frameworks, and status updates. AI Prompt Guide MCP removes that friction by turning your documentation into a navigable, deterministic knowledge graph that subagents can explore on demand.
+AI projects stall when agents need to be micromanaged with copy-pasted specs, decision frameworks, and status updates. AI Prompt Guide MCP removes that friction with structured markdown knowledge graphs that form a navigable, deterministic system subagents can explore on demand.
 
 ### Key Capabilities
 - Task-driven context loading (`start_task`, `complete_task`) that automatically injects linked documentation, workflows, and follow-up tasks.
@@ -435,12 +437,12 @@ Codex and most other MCP clients watch for the `bin` executable, so once the ser
 
 ## Use Cases
 
-- **Development Teams** – Link ADRs to implementations, spec driven feature delivery with structured workflows, and keep large specs searchable by namespace.
-- **AI Research & Ops** – Experiment with context engineering, compare workflow strategies, and benchmark deterministic reference loading under different depths.
-- **Technical Writers & Knowledge Managers** – Build interconnected documentation ecosystems, validate references automatically, and manage tasks alongside content updates.
+- **Development Teams** – Create structured knowledge graphs linking specs to implementations, orchestrate multi-agent feature delivery with workflow protocols, and organize project documentation by namespace.
+- **AI Research & Ops** – Experiment with context engineering patterns, compare workflow strategies, and benchmark deterministic reference loading with configurable depth limits.
+- **Technical Writers & Knowledge Managers** – Build interconnected markdown knowledge graphs with validated @references and task management integrated directly into content.
 
 ## License
 
 MIT. See `LICENSE` for details.
 
-*Transform documentation into an intelligent, context-aware orchestration layer for AI agents.*
+*Structured markdown knowledge graphs for intelligent agent orchestration and context injection.*
