@@ -10,7 +10,7 @@ import os from 'node:os';
 import { DocumentManager } from '../../../document-manager.js';
 import { DocumentCache } from '../../../document-cache.js';
 import { completeSubagentTask } from '../complete-subagent-task.js';
-import { viewTask } from '../view-task.js';
+import { viewSubagentTask } from '../view-subagent-task.js';
 import type { SessionState } from '../../../session/types.js';
 
 describe('Complete Task - Completion Notes Display', () => {
@@ -79,7 +79,7 @@ This is a test task for completion notes.
     expect(completeResult.completed_task.completed_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
     // View the completed task
-    const viewResult = await viewTask(
+    const viewResult = await viewSubagentTask(
       {
         document: `${testDoc}#test-task`
       },
@@ -130,7 +130,7 @@ Task using asterisk list markers.
     );
 
     // View the completed task
-    const viewResult = await viewTask(
+    const viewResult = await viewSubagentTask(
       {
         document: `${testDoc}#asterisk-task`
       },
@@ -159,7 +159,7 @@ Task using asterisk list markers.
     );
 
     // View the completed task
-    const viewResult = await viewTask(
+    const viewResult = await viewSubagentTask(
       {
         document: `${testDoc}#test-task`
       },
@@ -200,7 +200,7 @@ Task using asterisk list markers.
     expect(completeResult.completed_task.completed_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
     // View the completed task
-    const viewResult = await viewTask(
+    const viewResult = await viewSubagentTask(
       {
         document: `${testDoc}#test-task`
       },

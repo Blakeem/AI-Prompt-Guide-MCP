@@ -1,6 +1,9 @@
 /**
- * Implementation for view_task tool
- * Provides clean task viewing without stats overhead
+ * Implementation for view_coordinator_task tool
+ * Dedicated tool for viewing coordinator tasks from /coordinator/active.md
+ *
+ * This tool provides clean task viewing for coordinator tasks only.
+ * For subagent tasks in /docs/ namespace, use view_subagent_task instead.
  */
 
 import type { SessionState } from '../../session/types.js';
@@ -21,11 +24,12 @@ import {
 } from '../../shared/task-view-utilities.js';
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
 import { extractWorkflowName, extractMainWorkflowName } from '../../shared/workflow-prompt-utilities.js';
+import { VIEW_COORDINATOR_TASK_CONSTANTS } from '../schemas/view-coordinator-task-schemas.js';
 
 /**
- * Clean response format for view_task
+ * Clean response format for view_coordinator_task
  */
-interface ViewTaskResponse {
+interface ViewCoordinatorTaskResponse {
   mode: 'overview' | 'detail';
   document: string;
   tasks: Array<{
@@ -54,37 +58,50 @@ interface ViewTaskResponse {
 }
 
 /**
- * Execute view_task tool
+ * Execute view_coordinator_task tool
+ *
+ * @param args - Tool arguments (slug optional)
+ * @param _state - Session state (unused)
+ * @param manager - Document manager instance
+ * @returns Promise resolving to ViewCoordinatorTaskResponse
+ *
+ * @example
+ * // Overview mode
+ * const overview = await viewCoordinatorTask({}, state, manager);
+ * // Returns all coordinator tasks with minimal data
+ *
+ * @example
+ * // Detail mode
+ * const detail = await viewCoordinatorTask({ slug: "phase-1" }, state, manager);
+ * // Returns full content for phase-1 task
  */
-export async function viewTask(
+export async function viewCoordinatorTask(
   args: Record<string, unknown>,
   _state: SessionState,
   manager: DocumentManager
-): Promise<ViewTaskResponse> {
+): Promise<ViewCoordinatorTaskResponse> {
 
-  // Mode Detection: Parse document parameter to detect mode
-  const documentParam = ToolIntegration.validateStringParameter(args['document'], 'document');
+  // Fixed path for coordinator tasks
+  const docPath = VIEW_COORDINATOR_TASK_CONSTANTS.COORDINATOR_PATH;
 
+  // Mode Detection: Check if slug parameter provided
   let mode: 'overview' | 'detail';
-  let docPath: string;
   let taskSlugs: string[] | undefined;
 
-  if (documentParam.includes('#')) {
-    // Detail mode: Parse document + slug(s)
-    const parts = documentParam.split('#');
-    docPath = parts[0] ?? documentParam;
-    const slugsPart = parts[1];
+  if (args['slug'] != null) {
+    // Detail mode: slug(s) provided
+    const slugParam = ToolIntegration.validateStringParameter(args['slug'], 'slug');
     mode = 'detail';
 
-    if (slugsPart == null || slugsPart === '') {
+    if (slugParam === '') {
       throw new AddressingError(
-        'Task slug(s) cannot be empty after #',
+        'Task slug cannot be empty',
         'EMPTY_TASK_SLUG'
       );
     }
 
-    // Support comma-separated slugs: #task1,task2,task3
-    taskSlugs = slugsPart.split(',').map(s => s.trim()).filter(s => s !== '');
+    // Support comma-separated slugs: phase-1,phase-2,phase-3
+    taskSlugs = slugParam.split(',').map(s => s.trim()).filter(s => s !== '');
 
     if (taskSlugs.length === 0) {
       throw new AddressingError(
@@ -94,10 +111,9 @@ export async function viewTask(
     }
 
     // Validate count using standardized utility
-    ToolIntegration.validateCountLimit(taskSlugs, 10, 'tasks');
+    ToolIntegration.validateCountLimit(taskSlugs, VIEW_COORDINATOR_TASK_CONSTANTS.MAX_TASKS, 'tasks');
   } else {
-    // Overview mode: Document only
-    docPath = documentParam;
+    // Overview mode: No slug provided
     taskSlugs = undefined;
     mode = 'overview';
   }
@@ -302,8 +318,8 @@ export async function viewTask(
     // Workflow field exists and has a non-empty value
     const hasWorkflow = workflowName != null && workflowName !== '';
 
-    // Format for view-task specific response structure
-    const taskData: ViewTaskResponse['tasks'][0] = {
+    // Format for view-coordinator-task specific response structure
+    const taskData: ViewCoordinatorTaskResponse['tasks'][0] = {
       slug: enrichedTask.slug,
       title: enrichedTask.title,
       content: enrichedTask.content,
@@ -341,7 +357,7 @@ export async function viewTask(
   }));
 
   // Separate successful tasks from failures
-  const processedTasks: ViewTaskResponse['tasks'] = [];
+  const processedTasks: ViewCoordinatorTaskResponse['tasks'] = [];
   const processingErrors: { taskSlug: string; error: Error }[] = [];
 
   taskProcessingResults.forEach((result, index) => {
@@ -401,5 +417,3 @@ export async function viewTask(
     }
   };
 }
-
-// Utility functions moved to shared/task-view-utilities.ts to eliminate duplication

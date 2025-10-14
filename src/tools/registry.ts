@@ -9,7 +9,8 @@ import { getBrowseDocumentsSchema } from './schemas/browse-documents-schemas.js'
 import { getSectionSchema } from './schemas/section-schemas.js';
 import { getViewDocumentSchema } from './schemas/view-document-schemas.js';
 import { getViewSectionSchema } from './schemas/view-section-schemas.js';
-import { getViewTaskSchema } from './schemas/view-task-schemas.js';
+import { getViewSubagentTaskSchema } from './schemas/view-subagent-task-schemas.js';
+import { getViewCoordinatorTaskSchema } from './schemas/view-coordinator-task-schemas.js';
 import { getDeleteDocumentSchema } from './schemas/delete-document-schemas.js';
 import { getMoveDocumentSchema } from './schemas/move-document-schemas.js';
 import { getSubagentTaskSchema } from './schemas/subagent-task-schemas.js';
@@ -116,9 +117,14 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
       inputSchema: getViewSectionSchema(),
     },
     {
-      name: 'view_task',
-      description: 'View document tasks. TWO MODES: Overview ("/doc.md") lists ALL tasks with status only. Detail ("/doc.md#task") shows full content for specified task(s). Supports multiple: "/doc.md#task1,task2"',
-      inputSchema: getViewTaskSchema(),
+      name: 'view_subagent_task',
+      description: 'View subagent tasks in /docs/ namespace. TWO MODES: Overview ("/docs/doc.md") lists ALL tasks with status only. Detail ("/docs/doc.md#task") shows full content for specified task(s). Supports multiple: "/docs/doc.md#task1,task2". For coordinator tasks, use view_coordinator_task instead.',
+      inputSchema: getViewSubagentTaskSchema(),
+    },
+    {
+      name: 'view_coordinator_task',
+      description: 'View coordinator tasks from /coordinator/active.md. TWO MODES: Overview (no slug) lists ALL coordinator tasks with status only. Detail (with slug) shows full content for specified task(s). Supports multiple: "phase-1,phase-2". Coordinator tasks only - use view_subagent_task for /docs/ tasks.',
+      inputSchema: getViewCoordinatorTaskSchema(),
     },
   ];
 

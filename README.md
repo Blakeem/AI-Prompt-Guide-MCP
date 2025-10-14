@@ -77,6 +77,7 @@ Used for managing project phases and complex multi-step implementations that fol
 | `coordinator_task`          | Create/edit/list tasks in coordinator doc | Standard task CRUD operations                                         |
 | `start_coordinator_task`    | Start first pending task                  | Main workflow (project methodology) + task workflow + references      |
 | `complete_coordinator_task` | Complete task, get next or auto-archive   | Completion receipt + next task with workflow (no main workflow)       |
+| `view_coordinator_task`     | Browse coordinator task details without starting | Titles, status, hierarchy, workflows, and reference trees      |
 
 **When to use:** Complex features requiring orchestrated phases, TDD workflows with quality gates, or coordinated multi-agent development where tasks must complete sequentially.
 
@@ -90,7 +91,7 @@ Used for flexible task management across any document in `/docs/` namespace. Tas
 | `subagent_task`           | Create/edit/list tasks in any `/docs/` doc| Standard task CRUD operations with multi-document support            |
 | `start_subagent_task`     | Start specific task by path               | Task workflow + hierarchical references (no main workflow)            |
 | `complete_subagent_task`  | Complete task and get next pending        | Completion receipt + next task with workflow (no main workflow)       |
-| `view_task`               | Browse task details without starting work | Titles, status, hierarchy (no workflows or references)                |
+| `view_subagent_task`      | Browse subagent task details without starting | Titles, status, hierarchy, workflows, and reference trees         |
 
 **When to use:** Ad-hoc feature work, bug fixes, documentation tasks, or any work that doesn't require strict sequential ordering.
 
@@ -121,7 +122,7 @@ Design the REST API architecture.
 
 ## Tool Suite
 
-The server exposes 19 MCP tools grouped by workflow stage. Every tool uses unified addressing (`/doc.md#slug`) and context-aware responses.
+The server exposes 20 MCP tools grouped by workflow stage. Every tool uses unified addressing (`/doc.md#slug`) and context-aware responses.
 
 ### Document Discovery & Navigation
 - `create_document` – Progressive discovery flow that helps you choose a namespace and create a blank document with title and overview.
@@ -152,7 +153,8 @@ The server exposes 19 MCP tools grouped by workflow stage. Every tool uses unifi
 ### View & Inspection
 - `view_document` – Complete document structure showing ALL sections (slug, title, depth) with comprehensive metadata including link statistics, task counts, and word counts.
 - `view_section` – Section-specific content viewer with two modes: overview (titles only) or detailed content retrieval for specific sections.
-- `view_task` – Task-specific viewer (works for both coordinator and subagent tasks) with two modes: overview (metadata only) or detailed content with workflows and reference trees.
+- `view_coordinator_task` – Coordinator task viewer for `/coordinator/active.md` with two modes: overview (metadata only) or detailed content with workflows and reference trees.
+- `view_subagent_task` – Subagent task viewer for `/docs/` namespace with two modes: overview (metadata only) or detailed content with workflows and reference trees.
 
 ### Document Lifecycle
 - `edit_document` – Update a document's title and overview without touching section structure.

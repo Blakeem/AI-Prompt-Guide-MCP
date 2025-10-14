@@ -1,7 +1,8 @@
 /**
- * Unit tests for view_subagent_task tool
+ * Unit tests for view_coordinator_task tool
  *
- * Tests the view_subagent_task tool which provides passive task inspection, showing:
+ * Tests the view_coordinator_task tool which provides passive task inspection for
+ * coordinator tasks in /coordinator/active.md, showing:
  * - Task data with metadata (status, links, etc.)
  * - Workflow metadata (names only, NOT full content)
  * - Main workflow metadata (from first task)
@@ -10,14 +11,14 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { viewSubagentTask } from '../view-subagent-task.js';
+import { viewCoordinatorTask } from '../view-coordinator-task.js';
 import { createDocumentManager } from '../../../shared/utilities.js';
 import type { DocumentManager } from '../../../document-manager.js';
 import type { SessionState } from '../../../session/types.js';
 import type { CachedDocument } from '../../../document-cache.js';
 import { DocumentNotFoundError, AddressingError } from '../../../shared/addressing-system.js';
 
-describe('view_subagent_task tool', () => {
+describe('view_coordinator_task tool', () => {
   let manager: DocumentManager;
   let sessionState: SessionState;
 
@@ -30,28 +31,23 @@ describe('view_subagent_task tool', () => {
   });
 
   describe('Parameter Validation', () => {
-    it('should throw error when document parameter missing', async () => {
-      await expect(viewSubagentTask({}, sessionState, manager))
-        .rejects.toThrow('document parameter is required');
-    });
-
-    it('should accept overview mode (document only)', async () => {
+    it('should accept overview mode (no slug parameter)', async () => {
       // Overview mode - should return all tasks with minimal data
       const mockDocument = {
-        content: '# Project\n\n## Tasks\n\n### First Task\n\n- Status: pending',
+        content: '# Active Tasks\n\n## Tasks\n\n### Phase 1\n\n- Status: pending',
         headings: [
-          { slug: 'project', title: 'Project', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'first-task', title: 'First Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 }
         ],
         sections: new Map([
-          ['project', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['first-task', '- Status: pending']
+          ['phase-1', '- Status: pending']
         ]),
         metadata: {
-          path: '/docs/project/tasks.md',
-          title: 'Project',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'mock-hash',
           wordCount: 10
@@ -61,76 +57,148 @@ describe('view_subagent_task tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('- Status: pending');
 
-      const result = await viewSubagentTask({ document: '/docs/project/tasks.md' }, sessionState, manager);
+      const result = await viewCoordinatorTask({}, sessionState, manager);
       expect(result).toHaveProperty('mode', 'overview');
     });
 
-    it('should throw error when document parameter is empty string', async () => {
-      await expect(viewSubagentTask({ document: '' }, sessionState, manager))
-        .rejects.toThrow();
+    it('should accept detail mode with single slug', async () => {
+      const taskContent = `### Phase 1
+
+- Status: pending
+
+Task content.`;
+
+      const mockDocument = {
+        content: `# Active Tasks\n\n## Tasks\n\n${taskContent}`,
+        headings: [
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
+          { slug: 'tasks', title: 'Tasks', depth: 2 },
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 }
+        ],
+        sections: new Map([
+          ['active-tasks', ''],
+          ['tasks', ''],
+          ['phase-1', taskContent]
+        ]),
+        metadata: {
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
+          lastModified: new Date(),
+          contentHash: 'mock-hash',
+          wordCount: 10
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
+      vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
+
+      const result = await viewCoordinatorTask({ slug: 'phase-1' }, sessionState, manager);
+      expect(result).toHaveProperty('mode', 'detail');
     });
 
-    it('should throw error when task slug is empty after #', async () => {
-      await expect(viewSubagentTask({ document: '/docs/project/tasks.md#' }, sessionState, manager))
-        .rejects.toThrow('Task slug(s) cannot be empty after #');
-    });
-
-    it('should throw error when document parameter is null', async () => {
-      await expect(viewSubagentTask({ document: null }, sessionState, manager))
-        .rejects.toThrow();
+    it('should throw error when slug is empty string', async () => {
+      await expect(viewCoordinatorTask({ slug: '' }, sessionState, manager))
+        .rejects.toThrow('slug parameter is required and must be a non-empty string');
     });
 
     it('should throw error when task count exceeds limit', async () => {
-      const tasks = Array.from({ length: 11 }, (_, i) => `task-${i}`).join(',');
+      const tasks = Array.from({ length: 11 }, (_, i) => `phase-${i}`).join(',');
 
-      await expect(viewSubagentTask({
-        document: `/docs/project/tasks.md#${tasks}`
+      await expect(viewCoordinatorTask({
+        slug: tasks
       }, sessionState, manager))
         .rejects.toThrow();
+    });
+
+    it('should support comma-separated slugs', async () => {
+      const task1Content = `### Phase 1
+
+- Status: pending
+
+First phase.`;
+
+      const task2Content = `### Phase 2
+
+- Status: pending
+
+Second phase.`;
+
+      const mockDocument = {
+        content: `# Active Tasks\n\n## Tasks\n\n${task1Content}\n\n${task2Content}`,
+        headings: [
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
+          { slug: 'tasks', title: 'Tasks', depth: 2 },
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 },
+          { slug: 'phase-2', title: 'Phase 2', depth: 3 }
+        ],
+        sections: new Map([
+          ['active-tasks', ''],
+          ['tasks', ''],
+          ['phase-1', task1Content],
+          ['phase-2', task2Content]
+        ]),
+        metadata: {
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
+          lastModified: new Date(),
+          contentHash: 'mock-hash',
+          wordCount: 20
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
+      vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
+        if (slug === 'phase-1') return task1Content;
+        if (slug === 'phase-2') return task2Content;
+        return null;
+      });
+
+      const result = await viewCoordinatorTask({ slug: 'phase-1,phase-2' }, sessionState, manager);
+      expect(result.tasks).toHaveLength(2);
     });
   });
 
   describe('Overview Mode', () => {
-    it('should return overview of all tasks when no task slug provided', async () => {
-      const task1Content = `### First Task
+    it('should return overview of all tasks when no slug provided', async () => {
+      const task1Content = `### Phase 1
 
 - Status: pending
 - Workflow: multi-option-tradeoff
 
-First task content.`;
+First phase content.`;
 
-      const task2Content = `### Second Task
+      const task2Content = `### Phase 2
 
 - Status: in_progress
 
-Second task content.`;
+Second phase content.`;
 
-      const task3Content = `### Third Task
+      const task3Content = `### Phase 3
 
 - Status: completed
 - Workflow: simplicity-gate
 
-Third task content.`;
+Third phase content.`;
 
       const mockDocument = {
-        content: `# Project\n\n## Tasks\n\n${task1Content}\n\n${task2Content}\n\n${task3Content}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${task1Content}\n\n${task2Content}\n\n${task3Content}`,
         headings: [
-          { slug: 'project', title: 'Project', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'first-task', title: 'First Task', depth: 3 },
-          { slug: 'second-task', title: 'Second Task', depth: 3 },
-          { slug: 'third-task', title: 'Third Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 },
+          { slug: 'phase-2', title: 'Phase 2', depth: 3 },
+          { slug: 'phase-3', title: 'Phase 3', depth: 3 }
         ],
         sections: new Map([
-          ['project', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['first-task', task1Content],
-          ['second-task', task2Content],
-          ['third-task', task3Content]
+          ['phase-1', task1Content],
+          ['phase-2', task2Content],
+          ['phase-3', task3Content]
         ]),
         metadata: {
-          path: '/docs/project/tasks.md',
-          title: 'Project',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'mock-hash',
           wordCount: 30
@@ -139,13 +207,13 @@ Third task content.`;
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-        if (slug === 'first-task') return task1Content;
-        if (slug === 'second-task') return task2Content;
-        if (slug === 'third-task') return task3Content;
+        if (slug === 'phase-1') return task1Content;
+        if (slug === 'phase-2') return task2Content;
+        if (slug === 'phase-3') return task3Content;
         return null;
       });
 
-      const result = await viewSubagentTask({ document: '/docs/project/tasks.md' }, sessionState, manager);
+      const result = await viewCoordinatorTask({}, sessionState, manager);
 
       expect(result.mode).toBe('overview');
       expect(result.tasks.length).toBe(3);
@@ -170,19 +238,19 @@ Third task content.`;
       const thirdTask = result.tasks[2];
 
       expect(firstTask).toBeDefined();
-      expect(firstTask?.slug).toBe('first-task');
+      expect(firstTask?.slug).toBe('phase-1');
       expect(firstTask?.status).toBe('pending');
       expect(firstTask?.has_workflow).toBe(true);
       expect(firstTask?.workflow_name).toBe('multi-option-tradeoff');
 
       expect(secondTask).toBeDefined();
-      expect(secondTask?.slug).toBe('second-task');
+      expect(secondTask?.slug).toBe('phase-2');
       expect(secondTask?.status).toBe('in_progress');
       expect(secondTask?.has_workflow).toBe(false);
       expect(secondTask?.workflow_name).toBeUndefined();
 
       expect(thirdTask).toBeDefined();
-      expect(thirdTask?.slug).toBe('third-task');
+      expect(thirdTask?.slug).toBe('phase-3');
       expect(thirdTask?.status).toBe('completed');
       expect(thirdTask?.has_workflow).toBe(true);
       expect(thirdTask?.workflow_name).toBe('simplicity-gate');
@@ -191,14 +259,143 @@ Third task content.`;
       expect(result.summary.total_tasks).toBe(3);
       expect(result.summary.tasks_with_workflows).toBe(2);
     });
+
+    it('should handle empty tasks section', async () => {
+      const mockDocument = {
+        content: '# Active Tasks\n\n## Tasks\n\n<!-- No tasks yet -->',
+        headings: [
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
+          { slug: 'tasks', title: 'Tasks', depth: 2 }
+        ],
+        sections: new Map([
+          ['active-tasks', ''],
+          ['tasks', '<!-- No tasks yet -->']
+        ]),
+        metadata: {
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
+          lastModified: new Date(),
+          contentHash: 'mock-hash',
+          wordCount: 5
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
+
+      const result = await viewCoordinatorTask({}, sessionState, manager);
+
+      expect(result.mode).toBe('overview');
+      expect(result.tasks).toHaveLength(0);
+      expect(result.summary.total_tasks).toBe(0);
+    });
+  });
+
+  describe('Detail Mode', () => {
+    it('should return full task content with single slug', async () => {
+      const taskContent = `### Phase 1
+
+- Status: pending
+- Workflow: multi-option-tradeoff
+
+Implement the first phase of the project.`;
+
+      const mockDocument = {
+        content: `# Active Tasks\n\n## Tasks\n\n${taskContent}`,
+        headings: [
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
+          { slug: 'tasks', title: 'Tasks', depth: 2 },
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 }
+        ],
+        sections: new Map([
+          ['active-tasks', ''],
+          ['tasks', ''],
+          ['phase-1', taskContent]
+        ]),
+        metadata: {
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
+          lastModified: new Date(),
+          contentHash: 'mock-hash',
+          wordCount: 15
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
+      vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
+
+      const result = await viewCoordinatorTask({ slug: 'phase-1' }, sessionState, manager);
+
+      expect(result.mode).toBe('detail');
+      expect(result.tasks).toHaveLength(1);
+
+      const task = result.tasks[0];
+      expect(task).toHaveProperty('slug', 'phase-1');
+      expect(task).toHaveProperty('title', 'Phase 1');
+      expect(task).toHaveProperty('content');
+      expect(task).toHaveProperty('status', 'pending');
+      expect(task).toHaveProperty('workflow_name', 'multi-option-tradeoff');
+      expect(task).toHaveProperty('has_workflow', true);
+      expect(task).toHaveProperty('word_count');
+    });
+
+    it('should support comma-separated slugs for multiple tasks', async () => {
+      const task1Content = `### Phase 1
+
+- Status: pending
+- Workflow: multi-option-tradeoff
+
+First phase.`;
+
+      const task2Content = `### Phase 2
+
+- Status: in_progress
+
+Second phase.`;
+
+      const mockDocument = {
+        content: `# Active Tasks\n\n## Tasks\n\n${task1Content}\n\n${task2Content}`,
+        headings: [
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
+          { slug: 'tasks', title: 'Tasks', depth: 2 },
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 },
+          { slug: 'phase-2', title: 'Phase 2', depth: 3 }
+        ],
+        sections: new Map([
+          ['active-tasks', ''],
+          ['tasks', ''],
+          ['phase-1', task1Content],
+          ['phase-2', task2Content]
+        ]),
+        metadata: {
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
+          lastModified: new Date(),
+          contentHash: 'mock-hash',
+          wordCount: 20
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
+      vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
+        if (slug === 'phase-1') return task1Content;
+        if (slug === 'phase-2') return task2Content;
+        return null;
+      });
+
+      const result = await viewCoordinatorTask({ slug: 'phase-1,phase-2' }, sessionState, manager);
+
+      expect(result.mode).toBe('detail');
+      expect(result.tasks).toHaveLength(2);
+      expect(result.summary.total_tasks).toBe(2);
+    });
   });
 
   describe('Document and Task Resolution', () => {
     it('should throw DocumentNotFoundError when document does not exist', async () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(null);
 
-      await expect(viewSubagentTask({
-        document: '/docs/nonexistent/doc.md#some-task'
+      await expect(viewCoordinatorTask({
+        slug: 'some-task'
       }, sessionState, manager))
         .rejects.toThrow(DocumentNotFoundError);
     });
@@ -213,7 +410,7 @@ Third task content.`;
           ['document', 'No tasks here']
         ]),
         metadata: {
-          path: '/docs/project/doc.md',
+          path: '/coordinator/active.md',
           title: 'Document',
           lastModified: new Date(),
           contentHash: 'mock-hash',
@@ -223,28 +420,28 @@ Third task content.`;
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
 
-      await expect(viewSubagentTask({
-        document: '/docs/project/doc.md#some-task'
+      await expect(viewCoordinatorTask({
+        slug: 'some-task'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
 
     it('should throw error when task not found in document', async () => {
       const mockDocument = {
-        content: '# Document\n\n## Tasks\n\n### Other Task\n\nContent',
+        content: '# Active Tasks\n\n## Tasks\n\n### Other Task\n\nContent',
         headings: [
-          { slug: 'document', title: 'Document', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
           { slug: 'other-task', title: 'Other Task', depth: 3 }
         ],
         sections: new Map([
-          ['document', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
           ['other-task', 'Content']
         ]),
         metadata: {
-          path: '/docs/project/tasks.md',
-          title: 'Document',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'mock-hash',
           wordCount: 5
@@ -254,30 +451,30 @@ Third task content.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(null);
 
-      await expect(viewSubagentTask({
-        document: '/docs/project/tasks.md#missing-task'
+      await expect(viewCoordinatorTask({
+        slug: 'missing-task'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
 
     it('should throw error when section exists but is not a task', async () => {
       const mockDocument = {
-        content: '# Document\n\n## Overview\n\nNot a task\n\n## Tasks\n\n### Real Task',
+        content: '# Active Tasks\n\n## Overview\n\nNot a task\n\n## Tasks\n\n### Real Task',
         headings: [
-          { slug: 'document', title: 'Document', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'overview', title: 'Overview', depth: 2 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
           { slug: 'real-task', title: 'Real Task', depth: 3 }
         ],
         sections: new Map([
-          ['document', ''],
+          ['active-tasks', ''],
           ['overview', 'Not a task'],
           ['tasks', ''],
           ['real-task', 'Task content']
         ]),
         metadata: {
-          path: '/docs/project/tasks.md',
-          title: 'Document',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'mock-hash',
           wordCount: 10
@@ -286,8 +483,8 @@ Third task content.`;
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
 
-      await expect(viewSubagentTask({
-        document: '/docs/project/tasks.md#overview'
+      await expect(viewCoordinatorTask({
+        slug: 'overview'
       }, sessionState, manager))
         .rejects.toThrow(AddressingError);
     });
@@ -295,7 +492,7 @@ Third task content.`;
 
   describe('Workflow Metadata Extraction', () => {
     it('should return workflow_name when task has Workflow field', async () => {
-      const taskContent = `### Test Task
+      const taskContent = `### Phase 1
 
 - Status: pending
 - Workflow: multi-option-tradeoff
@@ -303,20 +500,20 @@ Third task content.`;
 Task content here.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${taskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${taskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'test-task', title: 'Test Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['test-task', taskContent]
+          ['phase-1', taskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 10
@@ -326,8 +523,8 @@ Task content here.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#test-task'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1'
       }, sessionState, manager);
 
       expect(result.tasks).toHaveLength(1);
@@ -346,20 +543,20 @@ Task content here.`;
 No workflow here.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${taskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${taskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
           { slug: 'simple-task', title: 'Simple Task', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
           ['simple-task', taskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 8
@@ -369,8 +566,8 @@ No workflow here.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#simple-task'
+      const result = await viewCoordinatorTask({
+        slug: 'simple-task'
       }, sessionState, manager);
 
       expect(result.tasks[0]).not.toHaveProperty('workflow_name');
@@ -386,20 +583,20 @@ No workflow here.`;
 Empty workflow field.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${taskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${taskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
           { slug: 'task-with-empty-workflow', title: 'Task with Empty Workflow', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
           ['task-with-empty-workflow', taskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 9
@@ -409,8 +606,8 @@ Empty workflow field.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#task-with-empty-workflow'
+      const result = await viewCoordinatorTask({
+        slug: 'task-with-empty-workflow'
       }, sessionState, manager);
 
       expect(result.tasks[0]).not.toHaveProperty('workflow_name');
@@ -418,20 +615,20 @@ Empty workflow field.`;
     });
 
     it('should handle multiple tasks with different workflow states', async () => {
-      const task1Content = `### Task with Workflow
+      const task1Content = `### Phase with Workflow
 
 - Status: pending
 - Workflow: multi-option-tradeoff
 
 Has workflow.`;
 
-      const task2Content = `### Task without Workflow
+      const task2Content = `### Phase without Workflow
 
 - Status: pending
 
 No workflow.`;
 
-      const task3Content = `### Task with Empty Workflow
+      const task3Content = `### Phase with Empty Workflow
 
 - Status: pending
 - Workflow:
@@ -439,24 +636,24 @@ No workflow.`;
 Empty workflow.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${task1Content}\n\n${task2Content}\n\n${task3Content}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${task1Content}\n\n${task2Content}\n\n${task3Content}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'task-with-workflow', title: 'Task with Workflow', depth: 3 },
-          { slug: 'task-without-workflow', title: 'Task without Workflow', depth: 3 },
-          { slug: 'task-with-empty-workflow', title: 'Task with Empty Workflow', depth: 3 }
+          { slug: 'phase-with-workflow', title: 'Phase with Workflow', depth: 3 },
+          { slug: 'phase-without-workflow', title: 'Phase without Workflow', depth: 3 },
+          { slug: 'phase-with-empty-workflow', title: 'Phase with Empty Workflow', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['task-with-workflow', task1Content],
-          ['task-without-workflow', task2Content],
-          ['task-with-empty-workflow', task3Content]
+          ['phase-with-workflow', task1Content],
+          ['phase-without-workflow', task2Content],
+          ['phase-with-empty-workflow', task3Content]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 30
@@ -465,14 +662,14 @@ Empty workflow.`;
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-        if (slug === 'task-with-workflow') return task1Content;
-        if (slug === 'task-without-workflow') return task2Content;
-        if (slug === 'task-with-empty-workflow') return task3Content;
+        if (slug === 'phase-with-workflow') return task1Content;
+        if (slug === 'phase-without-workflow') return task2Content;
+        if (slug === 'phase-with-empty-workflow') return task3Content;
         return null;
       });
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#task-with-workflow,task-without-workflow,task-with-empty-workflow'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-with-workflow,phase-without-workflow,phase-with-empty-workflow'
       }, sessionState, manager);
 
       expect(result.tasks).toHaveLength(3);
@@ -493,37 +690,37 @@ Empty workflow.`;
 
   describe('Main Workflow Metadata', () => {
     it('should return main_workflow_name when first task has Main-Workflow', async () => {
-      const firstTaskContent = `### First Task
+      const firstTaskContent = `### Phase 1
 
 - Status: pending
 - Main-Workflow: spec-first-integration
 - Workflow: multi-option-tradeoff
 
-First task content.`;
+First phase content.`;
 
-      const secondTaskContent = `### Second Task
+      const secondTaskContent = `### Phase 2
 
 - Status: pending
 
-Second task content.`;
+Second phase content.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${firstTaskContent}\n\n${secondTaskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${firstTaskContent}\n\n${secondTaskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'first-task', title: 'First Task', depth: 3 },
-          { slug: 'second-task', title: 'Second Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 },
+          { slug: 'phase-2', title: 'Phase 2', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['first-task', firstTaskContent],
-          ['second-task', secondTaskContent]
+          ['phase-1', firstTaskContent],
+          ['phase-2', secondTaskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 20
@@ -532,13 +729,13 @@ Second task content.`;
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-        if (slug === 'first-task') return firstTaskContent;
-        if (slug === 'second-task') return secondTaskContent;
+        if (slug === 'phase-1') return firstTaskContent;
+        if (slug === 'phase-2') return secondTaskContent;
         return null;
       });
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#first-task,second-task'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1,phase-2'
       }, sessionState, manager);
 
       // Both tasks should have main_workflow_name
@@ -551,36 +748,36 @@ Second task content.`;
     });
 
     it('should not return main_workflow_name when first task has no Main-Workflow', async () => {
-      const firstTaskContent = `### First Task
+      const firstTaskContent = `### Phase 1
 
 - Status: pending
 - Workflow: multi-option-tradeoff
 
-First task without main workflow.`;
+First phase without main workflow.`;
 
-      const secondTaskContent = `### Second Task
+      const secondTaskContent = `### Phase 2
 
 - Status: pending
 
-Second task.`;
+Second phase.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${firstTaskContent}\n\n${secondTaskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${firstTaskContent}\n\n${secondTaskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'first-task', title: 'First Task', depth: 3 },
-          { slug: 'second-task', title: 'Second Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 },
+          { slug: 'phase-2', title: 'Phase 2', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['first-task', firstTaskContent],
-          ['second-task', secondTaskContent]
+          ['phase-1', firstTaskContent],
+          ['phase-2', secondTaskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 18
@@ -589,13 +786,13 @@ Second task.`;
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-        if (slug === 'first-task') return firstTaskContent;
-        if (slug === 'second-task') return secondTaskContent;
+        if (slug === 'phase-1') return firstTaskContent;
+        if (slug === 'phase-2') return secondTaskContent;
         return null;
       });
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#first-task,second-task'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1,phase-2'
       }, sessionState, manager);
 
       // Neither task should have main_workflow_name
@@ -604,7 +801,7 @@ Second task.`;
     });
 
     it('should not return main_workflow_name when Main-Workflow field is empty', async () => {
-      const firstTaskContent = `### First Task
+      const firstTaskContent = `### Phase 1
 
 - Status: pending
 - Main-Workflow:
@@ -612,20 +809,20 @@ Second task.`;
 Empty main workflow field.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${firstTaskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${firstTaskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'first-task', title: 'First Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['first-task', firstTaskContent]
+          ['phase-1', firstTaskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 10
@@ -635,45 +832,45 @@ Empty main workflow field.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(firstTaskContent);
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#first-task'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1'
       }, sessionState, manager);
 
       expect(result.tasks[0]).not.toHaveProperty('main_workflow_name');
     });
 
     it('should handle viewing single task with main workflow context', async () => {
-      const firstTaskContent = `### First Task
+      const firstTaskContent = `### Phase 1
 
 - Status: pending
 - Main-Workflow: spec-first-integration
 
-First task.`;
+First phase.`;
 
-      const secondTaskContent = `### Second Task
+      const secondTaskContent = `### Phase 2
 
 - Status: pending
 - Workflow: simplicity-gate
 
-Second task.`;
+Second phase.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${firstTaskContent}\n\n${secondTaskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${firstTaskContent}\n\n${secondTaskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'first-task', title: 'First Task', depth: 3 },
-          { slug: 'second-task', title: 'Second Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 },
+          { slug: 'phase-2', title: 'Phase 2', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['first-task', firstTaskContent],
-          ['second-task', secondTaskContent]
+          ['phase-1', firstTaskContent],
+          ['phase-2', secondTaskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 16
@@ -682,14 +879,14 @@ Second task.`;
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-        if (slug === 'first-task') return firstTaskContent;
-        if (slug === 'second-task') return secondTaskContent;
+        if (slug === 'phase-1') return firstTaskContent;
+        if (slug === 'phase-2') return secondTaskContent;
         return null;
       });
 
       // View only second task
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#second-task'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-2'
       }, sessionState, manager);
 
       // Second task should still get main_workflow_name from first task
@@ -700,36 +897,36 @@ Second task.`;
 
   describe('Summary Statistics', () => {
     it('should count tasks_with_workflows correctly', async () => {
-      const task1Content = `### Task 1
+      const task1Content = `### Phase 1
 
 - Status: pending
 - Workflow: multi-option-tradeoff
 
 Has workflow.`;
 
-      const task2Content = `### Task 2
+      const task2Content = `### Phase 2
 
 - Status: pending
 
 No workflow.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${task1Content}\n\n${task2Content}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${task1Content}\n\n${task2Content}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'task-1', title: 'Task 1', depth: 3 },
-          { slug: 'task-2', title: 'Task 2', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 },
+          { slug: 'phase-2', title: 'Phase 2', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['task-1', task1Content],
-          ['task-2', task2Content]
+          ['phase-1', task1Content],
+          ['phase-2', task2Content]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 15
@@ -738,49 +935,49 @@ No workflow.`;
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-        if (slug === 'task-1') return task1Content;
-        if (slug === 'task-2') return task2Content;
+        if (slug === 'phase-1') return task1Content;
+        if (slug === 'phase-2') return task2Content;
         return null;
       });
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#task-1,task-2'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1,phase-2'
       }, sessionState, manager);
 
       expect(result.summary).toHaveProperty('tasks_with_workflows', 1);
     });
 
     it('should count tasks_with_main_workflow correctly', async () => {
-      const firstTaskContent = `### First Task
+      const firstTaskContent = `### Phase 1
 
 - Status: pending
 - Main-Workflow: spec-first-integration
 
-First task.`;
+First phase.`;
 
-      const secondTaskContent = `### Second Task
+      const secondTaskContent = `### Phase 2
 
 - Status: pending
 
-Second task.`;
+Second phase.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${firstTaskContent}\n\n${secondTaskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${firstTaskContent}\n\n${secondTaskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'first-task', title: 'First Task', depth: 3 },
-          { slug: 'second-task', title: 'Second Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 },
+          { slug: 'phase-2', title: 'Phase 2', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['first-task', firstTaskContent],
-          ['second-task', secondTaskContent]
+          ['phase-1', firstTaskContent],
+          ['phase-2', secondTaskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 14
@@ -789,13 +986,13 @@ Second task.`;
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-        if (slug === 'first-task') return firstTaskContent;
-        if (slug === 'second-task') return secondTaskContent;
+        if (slug === 'phase-1') return firstTaskContent;
+        if (slug === 'phase-2') return secondTaskContent;
         return null;
       });
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#first-task,second-task'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1,phase-2'
       }, sessionState, manager);
 
       // Both tasks have access to main workflow from first task
@@ -803,35 +1000,35 @@ Second task.`;
     });
 
     it('should show zero workflow counts when no workflows present', async () => {
-      const task1Content = `### Task 1
+      const task1Content = `### Phase 1
 
 - Status: pending
 
 No workflow.`;
 
-      const task2Content = `### Task 2
+      const task2Content = `### Phase 2
 
 - Status: pending
 
 Also no workflow.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${task1Content}\n\n${task2Content}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${task1Content}\n\n${task2Content}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'task-1', title: 'Task 1', depth: 3 },
-          { slug: 'task-2', title: 'Task 2', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 },
+          { slug: 'phase-2', title: 'Phase 2', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['task-1', task1Content],
-          ['task-2', task2Content]
+          ['phase-1', task1Content],
+          ['phase-2', task2Content]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 12
@@ -840,13 +1037,13 @@ Also no workflow.`;
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-        if (slug === 'task-1') return task1Content;
-        if (slug === 'task-2') return task2Content;
+        if (slug === 'phase-1') return task1Content;
+        if (slug === 'phase-2') return task2Content;
         return null;
       });
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#task-1,task-2'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1,phase-2'
       }, sessionState, manager);
 
       expect(result.summary).toHaveProperty('tasks_with_workflows', 0);
@@ -854,28 +1051,28 @@ Also no workflow.`;
     });
 
     it('should include existing summary fields along with workflow counts', async () => {
-      const taskContent = `### Test Task
+      const taskContent = `### Phase 1
 
 - Status: pending
 - Workflow: multi-option-tradeoff
 
-Task content.`;
+Phase content.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${taskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${taskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'test-task', title: 'Test Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['test-task', taskContent]
+          ['phase-1', taskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 10
@@ -885,8 +1082,8 @@ Task content.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#test-task'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1'
       }, sessionState, manager);
 
       // Verify existing summary fields
@@ -903,28 +1100,28 @@ Task content.`;
 
   describe('No Content Injection', () => {
     it('should verify workflow_name is string, not object with content', async () => {
-      const taskContent = `### Test Task
+      const taskContent = `### Phase 1
 
 - Status: pending
 - Workflow: multi-option-tradeoff
 
-Task content.`;
+Phase content.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${taskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${taskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'test-task', title: 'Test Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['test-task', taskContent]
+          ['phase-1', taskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 10
@@ -934,8 +1131,8 @@ Task content.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#test-task'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1'
       }, sessionState, manager);
 
       // Verify workflow_name is a string
@@ -949,28 +1146,28 @@ Task content.`;
     });
 
     it('should verify main_workflow_name is string, not object', async () => {
-      const firstTaskContent = `### First Task
+      const firstTaskContent = `### Phase 1
 
 - Status: pending
 - Main-Workflow: spec-first-integration
 
-First task.`;
+First phase.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${firstTaskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${firstTaskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'first-task', title: 'First Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['first-task', firstTaskContent]
+          ['phase-1', firstTaskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 10
@@ -980,8 +1177,8 @@ First task.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(firstTaskContent);
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#first-task'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1'
       }, sessionState, manager);
 
       // Verify main_workflow_name is a string
@@ -995,29 +1192,29 @@ First task.`;
     });
 
     it('should ensure no workflow or main_workflow objects in response', async () => {
-      const taskContent = `### Test Task
+      const taskContent = `### Phase 1
 
 - Status: pending
 - Main-Workflow: spec-first-integration
 - Workflow: multi-option-tradeoff
 
-Task with both workflow types.`;
+Phase with both workflow types.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${taskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${taskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'test-task', title: 'Test Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['test-task', taskContent]
+          ['phase-1', taskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 12
@@ -1027,8 +1224,8 @@ Task with both workflow types.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#test-task'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1'
       }, sessionState, manager);
 
       // Should have name fields only
@@ -1052,28 +1249,28 @@ Task with both workflow types.`;
 
   describe('Response Structure', () => {
     it('should return properly formatted response structure', async () => {
-      const taskContent = `### Test Task
+      const taskContent = `### Phase 1
 
 - Status: pending
 - Workflow: simplicity-gate
 
-Test task content.`;
+Phase content.`;
 
       const mockDocument = {
-        content: `# Project\n\n## Tasks\n\n${taskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${taskContent}`,
         headings: [
-          { slug: 'project', title: 'Project', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'test-task', title: 'Test Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 }
         ],
         sections: new Map([
-          ['project', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['test-task', taskContent]
+          ['phase-1', taskContent]
         ]),
         metadata: {
-          path: '/docs/project/tasks.md',
-          title: 'Project',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'mock-hash',
           wordCount: 10
@@ -1083,8 +1280,8 @@ Test task content.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await viewSubagentTask({
-        document: '/docs/project/tasks.md#test-task'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1'
       }, sessionState, manager);
 
       // Verify response structure
@@ -1111,36 +1308,36 @@ Test task content.`;
     });
 
     it('should support viewing multiple tasks in single call', async () => {
-      const task1Content = `### Task 1
+      const task1Content = `### Phase 1
 
 - Status: pending
 - Workflow: multi-option-tradeoff
 
-First task.`;
+First phase.`;
 
-      const task2Content = `### Task 2
+      const task2Content = `### Phase 2
 
 - Status: in_progress
 
-Second task.`;
+Second phase.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${task1Content}\n\n${task2Content}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${task1Content}\n\n${task2Content}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'task-1', title: 'Task 1', depth: 3 },
-          { slug: 'task-2', title: 'Task 2', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 },
+          { slug: 'phase-2', title: 'Phase 2', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['task-1', task1Content],
-          ['task-2', task2Content]
+          ['phase-1', task1Content],
+          ['phase-2', task2Content]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 16
@@ -1149,13 +1346,13 @@ Second task.`;
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-        if (slug === 'task-1') return task1Content;
-        if (slug === 'task-2') return task2Content;
+        if (slug === 'phase-1') return task1Content;
+        if (slug === 'phase-2') return task2Content;
         return null;
       });
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#task-1,task-2'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1,phase-2'
       }, sessionState, manager);
 
       expect(result.tasks).toHaveLength(2);
@@ -1165,7 +1362,7 @@ Second task.`;
 
   describe('Integration with Existing Features', () => {
     it('should maintain existing task fields alongside workflow metadata', async () => {
-      const taskContent = `### Complex Task
+      const taskContent = `### Complex Phase
 
 - Status: in_progress
 - Workflow: multi-option-tradeoff
@@ -1174,20 +1371,20 @@ Second task.`;
 Implement feature according to specification.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${taskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${taskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'complex-task', title: 'Complex Task', depth: 3 }
+          { slug: 'complex-phase', title: 'Complex Phase', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['complex-task', taskContent]
+          ['complex-phase', taskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 13
@@ -1197,15 +1394,15 @@ Implement feature according to specification.`;
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#complex-task'
+      const result = await viewCoordinatorTask({
+        slug: 'complex-phase'
       }, sessionState, manager);
 
       const task = result.tasks[0];
 
       // Existing fields
-      expect(task).toHaveProperty('slug', 'complex-task');
-      expect(task).toHaveProperty('title', 'Complex Task');
+      expect(task).toHaveProperty('slug', 'complex-phase');
+      expect(task).toHaveProperty('title', 'Complex Phase');
       expect(task).toHaveProperty('status', 'in_progress');
       expect(task).toHaveProperty('linked_document', '/specs/feature-spec.md');
 
@@ -1215,37 +1412,37 @@ Implement feature according to specification.`;
     });
 
     it('should work with hierarchical task structures', async () => {
-      const firstTaskContent = `### First Task
+      const firstTaskContent = `### Phase 1
 
 - Status: pending
 - Main-Workflow: spec-first-integration
 
-First task with main workflow.`;
+First phase with main workflow.`;
 
-      const secondTaskContent = `### Second Task
+      const secondTaskContent = `### Phase 2
 
 - Status: pending
 - Workflow: simplicity-gate
 
-Second task with its own workflow.`;
+Second phase with its own workflow.`;
 
       const mockDocument = {
-        content: `# Doc\n\n## Tasks\n\n${firstTaskContent}\n\n${secondTaskContent}`,
+        content: `# Active Tasks\n\n## Tasks\n\n${firstTaskContent}\n\n${secondTaskContent}`,
         headings: [
-          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
           { slug: 'tasks', title: 'Tasks', depth: 2 },
-          { slug: 'first-task', title: 'First Task', depth: 3 },
-          { slug: 'second-task', title: 'Second Task', depth: 3 }
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 },
+          { slug: 'phase-2', title: 'Phase 2', depth: 3 }
         ],
         sections: new Map([
-          ['doc', ''],
+          ['active-tasks', ''],
           ['tasks', ''],
-          ['first-task', firstTaskContent],
-          ['second-task', secondTaskContent]
+          ['phase-1', firstTaskContent],
+          ['phase-2', secondTaskContent]
         ]),
         metadata: {
-          path: '/docs/test.md',
-          title: 'Test',
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
           lastModified: new Date(),
           contentHash: 'hash',
           wordCount: 20
@@ -1254,13 +1451,13 @@ Second task with its own workflow.`;
 
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
       vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-        if (slug === 'first-task') return firstTaskContent;
-        if (slug === 'second-task') return secondTaskContent;
+        if (slug === 'phase-1') return firstTaskContent;
+        if (slug === 'phase-2') return secondTaskContent;
         return null;
       });
 
-      const result = await viewSubagentTask({
-        document: '/docs/test.md#first-task,second-task'
+      const result = await viewCoordinatorTask({
+        slug: 'phase-1,phase-2'
       }, sessionState, manager);
 
       // Both should have main_workflow_name from first task
@@ -1274,6 +1471,83 @@ Second task with its own workflow.`;
       // Second task has its own workflow
       expect(result.tasks[1]).toHaveProperty('workflow_name', 'simplicity-gate');
       expect(result.tasks[1]).toHaveProperty('has_workflow', true);
+    });
+  });
+
+  describe('Path Validation', () => {
+    it('should always use /coordinator/active.md path', async () => {
+      const taskContent = `### Phase 1
+
+- Status: pending
+
+Task content.`;
+
+      const mockDocument = {
+        content: `# Active Tasks\n\n## Tasks\n\n${taskContent}`,
+        headings: [
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
+          { slug: 'tasks', title: 'Tasks', depth: 2 },
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 }
+        ],
+        sections: new Map([
+          ['active-tasks', ''],
+          ['tasks', ''],
+          ['phase-1', taskContent]
+        ]),
+        metadata: {
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
+          lastModified: new Date(),
+          contentHash: 'hash',
+          wordCount: 10
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
+      vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
+
+      const result = await viewCoordinatorTask({ slug: 'phase-1' }, sessionState, manager);
+
+      // Verify correct document path
+      expect(result.document).toBe('/coordinator/active.md');
+      expect(result.tasks[0]?.full_path).toContain('/coordinator/active.md#');
+    });
+
+    it('should work in overview mode without any parameters', async () => {
+      const taskContent = `### Phase 1
+
+- Status: pending
+
+Task content.`;
+
+      const mockDocument = {
+        content: `# Active Tasks\n\n## Tasks\n\n${taskContent}`,
+        headings: [
+          { slug: 'active-tasks', title: 'Active Tasks', depth: 1 },
+          { slug: 'tasks', title: 'Tasks', depth: 2 },
+          { slug: 'phase-1', title: 'Phase 1', depth: 3 }
+        ],
+        sections: new Map([
+          ['active-tasks', ''],
+          ['tasks', ''],
+          ['phase-1', taskContent]
+        ]),
+        metadata: {
+          path: '/coordinator/active.md',
+          title: 'Active Tasks',
+          lastModified: new Date(),
+          contentHash: 'hash',
+          wordCount: 10
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
+      vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
+
+      const result = await viewCoordinatorTask({}, sessionState, manager);
+
+      expect(result.mode).toBe('overview');
+      expect(result.document).toBe('/coordinator/active.md');
     });
   });
 });
