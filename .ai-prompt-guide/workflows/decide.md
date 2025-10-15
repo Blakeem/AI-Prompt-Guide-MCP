@@ -1,15 +1,15 @@
 ---
-title: "Multi-Option Trade-off Protocol"
-description: "⚖️ DECISION NEEDED: Choose between multiple approaches with structured trade-off analysis"
+title: "Decide"
+description: "⚖️ DECISION: Choose between multiple approaches with structured trade-off analysis"
 whenToUse:
-  - "Choosing between multiple refactoring approaches (extract function vs Strategy pattern vs module split)"
+  - "Choosing between multiple implementation approaches"
   - "Selecting performance optimizations (caching strategies, algorithm selection, data structures)"
   - "Making architecture decisions (sync vs async, monolith vs service, singleton vs DI)"
   - "Determining test strategies (property-based vs example-based vs snapshot)"
   - "Evaluating implementation patterns when multiple valid approaches exist"
 ---
 
-# Multi-Option Trade-off Protocol
+# Decide
 
 ## Process
 

@@ -2,17 +2,9 @@
 description: Build feature/component/app with TDD workflow
 ---
 
-# Build
+# Build (TDD)
 
-## User Request
-
-$ARGUMENTS
-
-## Workflow
-
-Use **tdd-incremental-orchestration** via get_workflow:
+Use **build-tdd** workflow via get_workflow:
 ```typescript
-get_workflow({ workflow: "tdd-incremental-orchestration" })
+get_workflow({ workflow: "build-tdd" })
 ```
-
-Handles planning, test-driven implementation, quality gates, staged integration, and silent execution.

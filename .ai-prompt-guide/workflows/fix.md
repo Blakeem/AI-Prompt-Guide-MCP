@@ -1,13 +1,13 @@
 ---
-title: "Failure Triage & Minimal Repro Protocol"
-description: "🐛 BUG REPORT: Convert symptoms into minimal reproduction and actionable fix"
+title: "Fix"
+description: "🐛 FIX: Convert bug symptoms into minimal reproduction and actionable fix"
 whenToUse:
   - "Bug reports without clear reproduction steps"
   - "Flaky tests that fail inconsistently"
   - "Production issues that work fine in development"
 ---
 
-# Failure Triage & Minimal Repro Protocol
+# Fix
 
 ## Process
 

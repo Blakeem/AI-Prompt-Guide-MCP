@@ -1,13 +1,13 @@
 ---
-title: "Code Review: Issue-Based Parallel"
-description: "🔍 REVIEW: Parallel code review with multiple agents, each focusing on specific issue types"
+title: "Audit"
+description: "🔍 AUDIT: Comprehensive quality audit with parallel agents, each focusing on specific issue types"
 whenToUse:
   - "Deep analysis of specific quality dimensions across entire codebase"
   - "Comprehensive audit of code health before production"
   - "When you want specialized experts for each concern type"
 ---
 
-# Code Review: Issue-Based Parallel
+# Audit
 
 ## Process
 

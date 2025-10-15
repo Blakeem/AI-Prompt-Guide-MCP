@@ -2,17 +2,9 @@
 description: Refactor code for improved quality
 ---
 
-# Refactor Code
+# Refactor
 
-## User Request
-
-$ARGUMENTS
-
-## Workflow
-
-Use **multi-option-tradeoff** via get_workflow:
+Use **refactor** workflow via get_workflow:
 ```typescript
-get_workflow({ workflow: "multi-option-tradeoff" })
+get_workflow({ workflow: "refactor" })
 ```
-
-Evaluates refactoring approaches quantitatively, ensures test-driven safety, preserves behavior.

@@ -2,27 +2,9 @@
 description: Document internal feature specification
 ---
 
-# Document Internal Feature
+# Spec Feature
 
-## User Request
-
-$ARGUMENTS
-
-## Workflow
-
-Use **spec-first-integration** via get_workflow:
+Use **spec-feature** workflow via get_workflow:
 ```typescript
-get_workflow({ workflow: "spec-first-integration" })
+get_workflow({ workflow: "spec-feature" })
 ```
-
-## Guides
-
-Access documentation best practices via get_guide:
-```typescript
-get_guide({ guide: "specification-writing" })
-get_guide({ guide: "writing-standards" })
-```
-
-Defines complete API contracts, acceptance criteria, and design decisions before implementation.
-
-Use create_document, section, and task tools for specification creation and tracking.

@@ -1,13 +1,13 @@
 ---
-title: "TDD Incremental Orchestration"
-description: "🎯 COORDINATION: Orchestrate multi-agent development with TDD, quality gates, and staged integration"
+title: "Build (TDD)"
+description: "🎯 BUILD: Orchestrate multi-agent development with TDD, quality gates, and staged integration"
 whenToUse:
   - "Managing complex features requiring multiple specialized agents"
   - "When quality gates and testing are critical to success"
   - "Projects requiring test-driven development discipline"
 ---
 
-# TDD Incremental Orchestration
+# Build (TDD)
 
 ## Core Flow
 

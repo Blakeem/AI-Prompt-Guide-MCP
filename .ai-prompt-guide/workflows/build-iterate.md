@@ -1,6 +1,6 @@
 ---
-title: "Manual Verification Orchestration"
-description: "🔄 COORDINATION: Orchestrate multi-agent development with manual verification for zero-shot/iterative tasks"
+title: "Build (Iterate)"
+description: "🔄 BUILD: Orchestrate multi-agent development with manual verification for zero-shot/iterative tasks"
 whenToUse:
   - "Zero-shot greenfield projects without test infrastructure"
   - "Lightweight prototypes, static sites, and landing pages"
@@ -9,7 +9,7 @@ whenToUse:
   - "When test infrastructure overhead isn't justified for task complexity"
 ---
 
-# Manual Verification Orchestration
+# Build (Iterate)
 
 This workflow uses manual verification and iterative development, ideal for:
 - Zero-shot greenfield projects
