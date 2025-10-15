@@ -159,7 +159,6 @@ The server provides 20 MCP tools organized by function:
 
 ### Content Editing
 
-
 | `section` | Edit, append, insert, or remove sections in bulk |
 
 ### Coordinator Task Management
@@ -185,7 +184,7 @@ The server provides 20 MCP tools organized by function:
 
 | `edit_document` | Update document title and overview |
 | `delete_document` | Delete or archive documents |
-| `move` | Move sections or subagent tasks between documents |
+| `move` | Move sections within or across documents (supports both regular sections and subagent tasks) |
 | `move_document` | Move documents to new namespaces |
 
 ### Workflow & Guide Access
