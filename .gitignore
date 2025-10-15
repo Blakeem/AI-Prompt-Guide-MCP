@@ -79,3 +79,6 @@ working/
 .ai-prompt-guide/docs/final-result.md
 .ai-prompt-guide/docs/working-test.md
 .ai-prompt-guide/docs/
+
+# User-specific archived content
+.ai-prompt-guide/archived/
