@@ -153,44 +153,44 @@ The server provides 20 MCP tools organized by function:
 
 ### Document Discovery & Navigation
 
-| `create_document` | Create new documents with namespace selection |
-| `browse_documents` | Navigate document hierarchy and list contents |
-| `search_documents` | Full-text or regex search across all documents |
+- **`create_document`** – Create new documents with namespace selection
+- **`browse_documents`** – Navigate document hierarchy and list contents
+- **`search_documents`** – Full-text or regex search across all documents
 
 ### Content Editing
 
-| `section` | Edit, append, insert, or remove sections in bulk |
+- **`section`** – Edit, append, insert, or remove sections in bulk
 
 ### Coordinator Task Management
 
-| `coordinator_task` | Create, edit, or list coordinator tasks |
-| `start_coordinator_task` | Start the first pending task with full context |
-| `complete_coordinator_task` | Complete task and get next or auto-archive |
-| `view_coordinator_task` | View coordinator task details |
+- **`coordinator_task`** – Create, edit, or list coordinator tasks
+- **`start_coordinator_task`** – Start the first pending task with full context
+- **`complete_coordinator_task`** – Complete task and get next or auto-archive
+- **`view_coordinator_task`** – View coordinator task details
 
 ### Subagent Task Management
 
-| `subagent_task` | Create, edit, or list subagent tasks |
-| `start_subagent_task` | Start specific task with full context |
-| `complete_subagent_task` | Complete task and get next pending |
-| `view_subagent_task` | View subagent task details |
+- **`subagent_task`** – Create, edit, or list subagent tasks
+- **`start_subagent_task`** – Start specific task with full context
+- **`complete_subagent_task`** – Complete task and get next pending
+- **`view_subagent_task`** – View subagent task details
 
 ### View & Inspection
 
-| `view_document` | View complete document structure with metadata |
-| `view_section` | View section content without starting work |
+- **`view_document`** – View complete document structure with metadata
+- **`view_section`** – View section content without starting work
 
 ### Document Lifecycle
 
-| `edit_document` | Update document title and overview |
-| `delete_document` | Delete or archive documents |
-| `move` | Move sections within or across documents (supports both regular sections and subagent tasks) |
-| `move_document` | Move documents to new namespaces |
+- **`edit_document`** – Update document title and overview
+- **`delete_document`** – Delete or archive documents
+- **`move`** – Move sections within or across documents (supports both regular sections and subagent tasks)
+- **`move_document`** – Move documents to new namespaces
 
 ### Workflow & Guide Access
 
-| `get_workflow` | Load workflow protocol content |
-| `get_guide` | Access documentation guides |
+- **`get_workflow`** – Load workflow protocol content
+- **`get_guide`** – Access documentation guides
 
 All tools use consistent addressing (`/doc.md#section`) and work together seamlessly.
 
