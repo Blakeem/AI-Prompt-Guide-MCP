@@ -5,7 +5,8 @@
  * - Sequential only (NO #slug allowed)
  * - Works with /coordinator/ namespace
  * - Completes next pending task automatically
- * - Returns next task with workflow (no main workflow)
+ * - Conditionally returns next task based on return_next_task parameter (default: false)
+ * - When returning next task: includes task workflow only (NO main_workflow - use start_coordinator_task for full context)
  * - Auto-archives when all tasks complete
  */
 
@@ -15,6 +16,10 @@ export interface CompleteCoordinatorTaskInputSchema {
     note: {
       type: 'string';
       description: 'Completion notes or implementation details';
+    };
+    return_next_task: {
+      type: 'boolean';
+      description: 'Return next task with workflow (default: false). Set to true to get next task info across context compression. When true, returns task workflow only (NOT main_workflow - use start_coordinator_task for full context after compression).';
     };
   };
   required: ['note'];
@@ -38,6 +43,10 @@ export function getCompleteCoordinatorTaskSchema(): CompleteCoordinatorTaskInput
       note: {
         type: 'string',
         description: 'Completion notes or implementation details',
+      },
+      return_next_task: {
+        type: 'boolean',
+        description: 'Return next task with workflow (default: false). Set to true to get next task info across context compression. When true, returns task workflow only (NOT main_workflow - use start_coordinator_task for full context after compression).',
       },
     },
     required: ['note'],

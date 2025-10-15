@@ -4,7 +4,8 @@
  * Complete coordinator task and auto-archive if all complete
  *
  * - Completes current task with note and date
- * - Returns next task (workflow only, NO main_workflow)
+ * - Conditionally returns next task based on return_next_task parameter (default: false)
+ * - When returning next task: includes task workflow only (NO main_workflow)
  * - Auto-archives when all tasks complete to /archived/coordinator/
  */
 
@@ -68,6 +69,7 @@ export async function completeCoordinatorTask(
     // COORDINATOR-SPECIFIC: Fixed document path using explicit path prefix
     const documentPath = `${PATH_PREFIXES.COORDINATOR}active.md`;
     const note = ToolIntegration.validateStringParameter(args['note'], 'note');
+    const returnNextTask = args['return_next_task'] === true; // Default: false
 
     // Validate coordinator access
     validateCoordinatorTaskAccess(documentPath, undefined);
@@ -117,27 +119,30 @@ export async function completeCoordinatorTask(
       };
     }
 
-    // Find next task
-    const nextTaskData = await findNextAvailableTask(manager, updatedDocument, currentTask.slug);
-
+    // Conditionally fetch and return next task based on return_next_task parameter
     let nextTask: {
       slug: string;
       title: string;
       workflow?: WorkflowPrompt;
     } | undefined;
 
-    if (nextTaskData != null) {
-      const nextTaskContent = await manager.getSectionContent(documentPath, nextTaskData.slug) ?? '';
-      const enrichedNext = enrichTaskWithWorkflow(
-        { slug: nextTaskData.slug, title: nextTaskData.title, content: nextTaskContent, status: nextTaskData.status },
-        nextTaskContent
-      );
+    if (returnNextTask) {
+      // Find next task
+      const nextTaskData = await findNextAvailableTask(manager, updatedDocument, currentTask.slug);
 
-      nextTask = {
-        slug: enrichedNext.slug,
-        title: enrichedNext.title,
-        ...('workflow' in enrichedNext && enrichedNext.workflow != null && { workflow: enrichedNext.workflow as WorkflowPrompt })
-      };
+      if (nextTaskData != null) {
+        const nextTaskContent = await manager.getSectionContent(documentPath, nextTaskData.slug) ?? '';
+        const enrichedNext = enrichTaskWithWorkflow(
+          { slug: nextTaskData.slug, title: nextTaskData.title, content: nextTaskContent, status: nextTaskData.status },
+          nextTaskContent
+        );
+
+        nextTask = {
+          slug: enrichedNext.slug,
+          title: enrichedNext.title,
+          ...('workflow' in enrichedNext && enrichedNext.workflow != null && { workflow: enrichedNext.workflow as WorkflowPrompt })
+        };
+      }
     }
 
     return {
