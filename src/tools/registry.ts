@@ -63,7 +63,7 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'move',
-      description: 'Move section or task to a new location within same document or to different document',
+      description: 'Move sections within or across documents (supports both regular sections and subagent tasks)',
       inputSchema: getMoveSchema(),
     },
     {
