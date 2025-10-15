@@ -153,7 +153,6 @@ The server provides 20 MCP tools organized by function:
 
 ### Document Discovery & Navigation
 
-| Tool | Description |
 |------|-------------|
 | `create_document` | Create new documents with namespace selection |
 | `browse_documents` | Navigate document hierarchy and list contents |
@@ -161,13 +160,11 @@ The server provides 20 MCP tools organized by function:
 
 ### Content Editing
 
-| Tool | Description |
 |------|-------------|
 | `section` | Edit, append, insert, or remove sections in bulk |
 
 ### Coordinator Task Management
 
-| Tool | Description |
 |------|-------------|
 | `coordinator_task` | Create, edit, or list coordinator tasks |
 | `start_coordinator_task` | Start the first pending task with full context |
@@ -176,7 +173,6 @@ The server provides 20 MCP tools organized by function:
 
 ### Subagent Task Management
 
-| Tool | Description |
 |------|-------------|
 | `subagent_task` | Create, edit, or list subagent tasks |
 | `start_subagent_task` | Start specific task with full context |
@@ -185,14 +181,12 @@ The server provides 20 MCP tools organized by function:
 
 ### View & Inspection
 
-| Tool | Description |
 |------|-------------|
 | `view_document` | View complete document structure with metadata |
 | `view_section` | View section content without starting work |
 
 ### Document Lifecycle
 
-| Tool | Description |
 |------|-------------|
 | `edit_document` | Update document title and overview |
 | `delete_document` | Delete or archive documents |
@@ -201,7 +195,6 @@ The server provides 20 MCP tools organized by function:
 
 ### Workflow & Guide Access
 
-| Tool | Description |
 |------|-------------|
 | `get_workflow` | Load workflow protocol content |
 | `get_guide` | Access documentation guides |
