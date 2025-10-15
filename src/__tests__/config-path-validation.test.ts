@@ -55,39 +55,39 @@ describe('Config Path Validation', () => {
     vi.clearAllMocks();
   });
 
-  describe('Required DOCS_BASE_PATH Validation', () => {
-    it('should throw error when DOCS_BASE_PATH does not exist', () => {
+  describe('Required MCP_WORKSPACE_PATH Validation', () => {
+    it('should throw error when MCP_WORKSPACE_PATH does not exist', () => {
       // Setup: Non-existent docs path
       const nonExistentPath = join(tempDir, 'non-existent-docs');
-      process.env['DOCS_BASE_PATH'] = nonExistentPath;
+      process.env['MCP_WORKSPACE_PATH'] = nonExistentPath;
 
       // Act & Assert: Should throw error for non-existent required path
-      expect(() => loadConfig()).toThrow(/DOCS_BASE_PATH directory does not exist/);
+      expect(() => loadConfig()).toThrow(/MCP_WORKSPACE_PATH directory does not exist/);
     });
 
-    it('should succeed when DOCS_BASE_PATH exists', () => {
+    it('should succeed when MCP_WORKSPACE_PATH exists', () => {
       // Setup: Existing docs path
       const docsPath = join(tempDir, 'docs');
       mkdirSync(docsPath, { recursive: true });
-      process.env['DOCS_BASE_PATH'] = docsPath;
+      process.env['MCP_WORKSPACE_PATH'] = docsPath;
 
       // Act: Should not throw
       expect(() => loadConfig()).not.toThrow();
     });
 
-    it('should throw error when relative DOCS_BASE_PATH resolves to non-existent directory', () => {
+    it('should throw error when relative MCP_WORKSPACE_PATH resolves to non-existent directory', () => {
       // Setup: Relative path that doesn't exist
-      process.env['DOCS_BASE_PATH'] = './non-existent-docs';
+      process.env['MCP_WORKSPACE_PATH'] = './non-existent-docs';
 
       // Act & Assert: Should throw error after resolution
-      expect(() => loadConfig()).toThrow(/DOCS_BASE_PATH directory does not exist/);
+      expect(() => loadConfig()).toThrow(/MCP_WORKSPACE_PATH directory does not exist/);
     });
 
-    it('should succeed when relative DOCS_BASE_PATH resolves to existing directory', () => {
+    it('should succeed when relative MCP_WORKSPACE_PATH resolves to existing directory', () => {
       // Setup: Create directory and use relative path
       const docsPath = join(tempDir, 'docs');
       mkdirSync(docsPath, { recursive: true });
-      process.env['DOCS_BASE_PATH'] = './docs';
+      process.env['MCP_WORKSPACE_PATH'] = './docs';
 
       // Act: Should not throw
       expect(() => loadConfig()).not.toThrow();
@@ -99,7 +99,7 @@ describe('Config Path Validation', () => {
       // Setup: Valid docs path, non-existent workflows path
       const docsPath = join(tempDir, 'docs');
       mkdirSync(docsPath, { recursive: true });
-      process.env['DOCS_BASE_PATH'] = docsPath;
+      process.env['MCP_WORKSPACE_PATH'] = docsPath;
 
       const nonExistentWorkflows = join(tempDir, 'non-existent-workflows');
       process.env['WORKFLOWS_BASE_PATH'] = nonExistentWorkflows;
@@ -123,7 +123,7 @@ describe('Config Path Validation', () => {
       mkdirSync(docsPath, { recursive: true });
       mkdirSync(workflowsPath, { recursive: true });
 
-      process.env['DOCS_BASE_PATH'] = docsPath;
+      process.env['MCP_WORKSPACE_PATH'] = docsPath;
       process.env['WORKFLOWS_BASE_PATH'] = workflowsPath;
 
       // Clear previous calls
@@ -145,7 +145,7 @@ describe('Config Path Validation', () => {
       // Setup: Valid docs path, non-existent guides path
       const docsPath = join(tempDir, 'docs');
       mkdirSync(docsPath, { recursive: true });
-      process.env['DOCS_BASE_PATH'] = docsPath;
+      process.env['MCP_WORKSPACE_PATH'] = docsPath;
 
       const nonExistentGuides = join(tempDir, 'non-existent-guides');
       process.env['GUIDES_BASE_PATH'] = nonExistentGuides;
@@ -169,7 +169,7 @@ describe('Config Path Validation', () => {
       mkdirSync(docsPath, { recursive: true });
       mkdirSync(guidesPath, { recursive: true });
 
-      process.env['DOCS_BASE_PATH'] = docsPath;
+      process.env['MCP_WORKSPACE_PATH'] = docsPath;
       process.env['GUIDES_BASE_PATH'] = guidesPath;
 
       // Clear previous calls
@@ -191,7 +191,7 @@ describe('Config Path Validation', () => {
       // Setup: Valid docs, non-existent workflows and guides
       const docsPath = join(tempDir, 'docs');
       mkdirSync(docsPath, { recursive: true });
-      process.env['DOCS_BASE_PATH'] = docsPath;
+      process.env['MCP_WORKSPACE_PATH'] = docsPath;
 
       process.env['WORKFLOWS_BASE_PATH'] = join(tempDir, 'non-existent-workflows');
       process.env['GUIDES_BASE_PATH'] = join(tempDir, 'non-existent-guides');
@@ -220,7 +220,7 @@ describe('Config Path Validation', () => {
       mkdirSync(workflowsPath, { recursive: true });
       mkdirSync(guidesPath, { recursive: true });
 
-      process.env['DOCS_BASE_PATH'] = docsPath;
+      process.env['MCP_WORKSPACE_PATH'] = docsPath;
       process.env['WORKFLOWS_BASE_PATH'] = workflowsPath;
       process.env['GUIDES_BASE_PATH'] = guidesPath;
 
@@ -244,7 +244,7 @@ describe('Config Path Validation', () => {
       const nonExistentDocs = join(tempDir, 'config-docs');
       const configContent = {
         env: {
-          DOCS_BASE_PATH: nonExistentDocs
+          MCP_WORKSPACE_PATH: nonExistentDocs
         }
       };
 
@@ -254,7 +254,7 @@ describe('Config Path Validation', () => {
       );
 
       // Act & Assert: Should throw error
-      expect(() => loadConfig()).toThrow(/DOCS_BASE_PATH directory does not exist/);
+      expect(() => loadConfig()).toThrow(/MCP_WORKSPACE_PATH directory does not exist/);
     });
 
     it('should validate optional paths from .mcp-config.json', () => {
@@ -264,7 +264,7 @@ describe('Config Path Validation', () => {
 
       const configContent = {
         env: {
-          DOCS_BASE_PATH: docsPath,
+          MCP_WORKSPACE_PATH: docsPath,
           WORKFLOWS_BASE_PATH: join(tempDir, 'config-workflows-missing')
         }
       };

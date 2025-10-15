@@ -11,7 +11,7 @@
  * - Edge cases (no next task, empty workflow fields)
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { completeSubagentTask } from '../complete-subagent-task.js';
 import { createDocumentManager } from '../../../shared/utilities.js';
 import type { DocumentManager } from '../../../document-manager.js';
@@ -19,12 +19,22 @@ import type { SessionState } from '../../../session/types.js';
 import type { CachedDocument } from '../../../document-cache.js';
 import { DocumentNotFoundError, AddressingError } from '../../../shared/addressing-system.js';
 import * as utilities from '../../../shared/utilities.js';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 
 describe('complete_task tool', () => {
   let manager: DocumentManager;
   let sessionState: SessionState;
+  let tempDir: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'complete-subagent-task-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     manager = createDocumentManager();
     sessionState = {
       sessionId: `test-${Date.now()}-${Math.random()}`,
@@ -36,6 +46,15 @@ describe('complete_task tool', () => {
       action: 'edited',
       section: 'test-section'
     });
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('Parameter Validation', () => {

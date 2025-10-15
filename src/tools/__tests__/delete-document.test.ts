@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { deleteDocument } from '../implementations/delete-document.js';
 import { DocumentManager } from '../../document-manager.js';
 import { DocumentCache } from '../../document-cache.js';
@@ -14,10 +15,10 @@ import type { SessionState } from '../../session/types.js';
 import { AddressingError, DocumentNotFoundError } from '../../shared/addressing-system.js';
 
 describe('delete_document', () => {
-  const testDocsRoot = path.resolve(process.cwd(), '.ai-prompt-guide');
-
   let cache: DocumentCache;
   let manager: DocumentManager;
+  let tempDir: string;
+  let testDocsRoot: string;
   let sessionState: SessionState;
   let testCounter = 0;
 
@@ -42,6 +43,13 @@ describe('delete_document', () => {
   }
 
   beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'delete-document-test-'));
+    testDocsRoot = tempDir; // Use tempDir as the docs root
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     await fs.mkdir(path.join(testDocsRoot, 'docs'), { recursive: true });
     cache = new DocumentCache(testDocsRoot);
     manager = new DocumentManager(testDocsRoot, cache);
@@ -49,6 +57,15 @@ describe('delete_document', () => {
       sessionId: 'test-session',
       createDocumentStage: 0,
     };
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   afterEach(async () => {

@@ -15,8 +15,14 @@ describe('create_document self-reference bug', () => {
   let tempDir: string;
 
   beforeEach(async () => {
+    // Set MCP_WORKSPACE_PATH for config loading
+    process.env["MCP_WORKSPACE_PATH"] = process.env["MCP_WORKSPACE_PATH"] ?? "/tmp/test-workspace";
+
     // Create temporary directory for test documents
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'create-doc-self-ref-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for config loading
+    process.env["MCP_WORKSPACE_PATH"] = tempDir;
 
     // Create a unique session for each test
     sessionId = `test-session-${Date.now()}-${Math.random()}`;

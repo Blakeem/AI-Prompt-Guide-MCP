@@ -191,7 +191,7 @@ export async function browseDocuments(
       // Folder browse mode
       const { loadConfig } = await import('../../config.js');
       const config = loadConfig();
-      const { folders, documents } = await getFolderStructure(manager, config.docsBasePath, normalizedPath);
+      const { folders, documents } = await getFolderStructure(manager, config.workspaceBasePath, normalizedPath);
 
       const result: BrowseResponse = {
         path: normalizedPath,

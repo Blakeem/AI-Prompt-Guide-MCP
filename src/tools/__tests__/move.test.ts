@@ -11,6 +11,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { move } from '../implementations/move.js';
 import { createDocumentManager } from '../../shared/utilities.js';
 import type { DocumentManager } from '../../document-manager.js';
@@ -21,11 +24,18 @@ import * as utilities from '../../shared/utilities.js';
 
 describe('move tool', () => {
   let manager: DocumentManager;
+  let tempDir: string;
   let sessionState: SessionState;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let performSectionEditSpy: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'move-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     manager = createDocumentManager();
     sessionState = {
       sessionId: `test-${Date.now()}-${Math.random()}`,
@@ -37,6 +47,15 @@ describe('move tool', () => {
       action: 'edited',
       section: 'test-section'
     });
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   afterEach(() => {

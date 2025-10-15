@@ -39,10 +39,10 @@ describe('config startup logging', () => {
     };
     setGlobalLogger(mockLogger);
 
-    // Set required DOCS_BASE_PATH environment variable and create directory
+    // Set required MCP_WORKSPACE_PATH environment variable and create directory
     const docsPath = join(testDir, 'docs');
     mkdirSync(docsPath, { recursive: true });
-    process.env['DOCS_BASE_PATH'] = docsPath;
+    process.env['MCP_WORKSPACE_PATH'] = docsPath;
   });
 
   afterEach(() => {
@@ -60,7 +60,7 @@ describe('config startup logging', () => {
     setGlobalLogger(originalLogger);
 
     // Clean up environment variables
-    delete process.env['DOCS_BASE_PATH'];
+    delete process.env['MCP_WORKSPACE_PATH'];
     delete process.env['WORKFLOWS_BASE_PATH'];
     delete process.env['GUIDES_BASE_PATH'];
     delete process.env['REFERENCE_EXTRACTION_DEPTH'];
@@ -85,7 +85,7 @@ describe('config startup logging', () => {
 
     // Verify all required fields are present in context
     expect(context).toHaveProperty('projectRoot');
-    expect(context).toHaveProperty('docsPath');
+    expect(context).toHaveProperty('workspacePath');
     expect(context).toHaveProperty('workflowsPath');
     expect(context).toHaveProperty('guidesPath');
     expect(context).toHaveProperty('referenceExtractionDepth');
@@ -99,15 +99,15 @@ describe('config startup logging', () => {
     const [, context] = calls[0] as [string, Record<string, unknown>];
 
     // Verify paths are absolute
-    expect(typeof context['docsPath']).toBe('string');
+    expect(typeof context['workspacePath']).toBe('string');
     expect(typeof context['workflowsPath']).toBe('string');
     expect(typeof context['guidesPath']).toBe('string');
 
-    const docsPath = context['docsPath'] as string;
+    const workspacePath = context['workspacePath'] as string;
     const workflowsPath = context['workflowsPath'] as string;
     const guidesPath = context['guidesPath'] as string;
 
-    expect(docsPath).toMatch(/^[/\\]/); // Absolute path
+    expect(workspacePath).toMatch(/^[/\\]/); // Absolute path
     expect(workflowsPath).toMatch(/^[/\\]/); // Absolute path
     expect(guidesPath).toMatch(/^[/\\]/); // Absolute path
   });
@@ -127,7 +127,7 @@ describe('config startup logging', () => {
 
     const config = {
       env: {
-        DOCS_BASE_PATH: customDocsPath
+        MCP_WORKSPACE_PATH: customDocsPath
       }
     };
 

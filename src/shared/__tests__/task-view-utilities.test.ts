@@ -2,7 +2,10 @@
  * Tests for shared task view utilities
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import {
   extractTaskMetadata,
   extractTaskField,
@@ -19,6 +22,8 @@ import type { DocumentManager } from '../../document-manager.js';
 import type { HeadingInfo } from '../task-utilities.js';
 
 describe('Task View Utilities', () => {
+  let tempDir: string;
+
   describe('extractTaskField', () => {
     it('should extract field with dash format', () => {
       const content = '- Status: completed\n- Dependencies: #other-task';
@@ -47,6 +52,15 @@ describe('Task View Utilities', () => {
       const content = '- Status:   completed   ';
       expect(extractTaskField(content, 'Status')).toBe('completed');
     });
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('extractTaskLink', () => {
@@ -274,7 +288,13 @@ describe('Task View Utilities', () => {
   describe('enrichTaskWithReferences', () => {
     let mockManager: DocumentManager;
 
-    beforeEach(() => {
+    beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'task-view-utilities-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
       mockManager = {
         getSectionContent: vi.fn()
       } as unknown as DocumentManager;

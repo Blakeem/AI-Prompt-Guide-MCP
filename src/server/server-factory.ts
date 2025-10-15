@@ -69,13 +69,13 @@ export async function createMCPServer(
   logger.info('Starting Spec-Docs MCP Server', {
     name: serverConfig.serverName,
     version: serverConfig.serverVersion,
-    docsPath: serverConfig.docsBasePath,
+    docsPath: serverConfig.workspaceBasePath,
     logLevel: serverConfig.logLevel,
   });
 
   // Ensure docs directory exists through dependency
-  await dependencies.fileSystem.ensureDirectoryExists(serverConfig.docsBasePath);
-  logger.debug('Docs directory ready', { path: serverConfig.docsBasePath });
+  await dependencies.fileSystem.ensureDirectoryExists(serverConfig.workspaceBasePath);
+  logger.debug('Docs directory ready', { path: serverConfig.workspaceBasePath });
 
   // Load workflow prompts from filesystem
   const { loadWorkflowPrompts } = await import('../prompts/workflow-prompts.js');

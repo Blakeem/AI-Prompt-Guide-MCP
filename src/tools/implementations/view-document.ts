@@ -204,7 +204,7 @@ async function extractDocumentMetadata(
   const config = loadConfig();
   const { readFile, stat } = await import('node:fs/promises');
   const path_module = await import('node:path');
-  const absolutePath = path_module.join(config.docsBasePath, documentPath);
+  const absolutePath = path_module.join(config.workspaceBasePath, documentPath);
 
   let fullContent = '';
   let lastModified = '';

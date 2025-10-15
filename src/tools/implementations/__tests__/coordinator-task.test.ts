@@ -20,9 +20,15 @@ describe('coordinator_task tool', () => {
   let docsDir: string;
 
   beforeEach(async () => {
+    // Set MCP_WORKSPACE_PATH for config loading
+    process.env["MCP_WORKSPACE_PATH"] = process.env["MCP_WORKSPACE_PATH"] ?? "/tmp/test-workspace";
+
     // Create temporary test directory with unique ID
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
     testDir = await mkdtemp(resolve(tmpdir(), `coordinator-task-test-${uniqueId}-`));
+
+    // Configure MCP_WORKSPACE_PATH for config loading
+    process.env["MCP_WORKSPACE_PATH"] = testDir;
     docsDir = resolve(testDir, 'docs');
     const coordinatorDir = resolve(testDir, 'coordinator');
     await mkdir(docsDir, { recursive: true });

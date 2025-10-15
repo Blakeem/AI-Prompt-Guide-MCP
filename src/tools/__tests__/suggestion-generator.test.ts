@@ -5,7 +5,10 @@
  * broken reference detection, and error handling scenarios.
  */
 
-import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockedFunction } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { processSuggestions, type SuggestionsResult } from '../create/suggestion-generator.js';
 import type { DocumentManager } from '../../document-manager.js';
 // Note: Imports are available but not used in this test file
@@ -89,8 +92,15 @@ const createMockNamespacePatterns = (): { common_sections: string[]; frequent_li
 
 describe('Suggestion Generator (Stage 2.5)', () => {
   let mockManager: DocumentManager;
+  let tempDir: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'suggestion-generator-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     mockManager = createMockDocumentManager();
     vi.clearAllMocks();
 
@@ -98,6 +108,15 @@ describe('Suggestion Generator (Stage 2.5)', () => {
     mockGetDocumentManager.mockResolvedValue(mockManager);
     mockAnalyzeDocumentSuggestions.mockResolvedValue(createMockSmartSuggestions());
     mockAnalyzeNamespacePatterns.mockResolvedValue(createMockNamespacePatterns());
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('processSuggestions', () => {

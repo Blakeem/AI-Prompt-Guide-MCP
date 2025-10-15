@@ -69,10 +69,10 @@ export async function moveDocument(
     // Processing - perform the filesystem move
     const config = loadConfig();
     const sourceAbsPath = path.join(
-      config.docsBasePath,
+      config.workspaceBasePath,
       fromAddresses.document.path
     );
-    const destAbsPath = path.join(config.docsBasePath, toAddresses.document.path);
+    const destAbsPath = path.join(config.workspaceBasePath, toAddresses.document.path);
 
     // Create destination directory if needed
     const destDir = path.dirname(destAbsPath);

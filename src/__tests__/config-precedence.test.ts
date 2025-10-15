@@ -33,7 +33,7 @@ describe('loadConfig - configuration precedence', () => {
 
     // Save original environment variables
     originalEnv = {
-      DOCS_BASE_PATH: process.env['DOCS_BASE_PATH'],
+      MCP_WORKSPACE_PATH: process.env['MCP_WORKSPACE_PATH'],
       WORKFLOWS_BASE_PATH: process.env['WORKFLOWS_BASE_PATH'],
       GUIDES_BASE_PATH: process.env['GUIDES_BASE_PATH']
     };
@@ -48,10 +48,10 @@ describe('loadConfig - configuration precedence', () => {
     process.chdir(originalCwd);
 
     // Restore environment variables
-    if (originalEnv['DOCS_BASE_PATH'] != null) {
-      process.env['DOCS_BASE_PATH'] = originalEnv['DOCS_BASE_PATH'];
+    if (originalEnv['MCP_WORKSPACE_PATH'] != null) {
+      process.env['MCP_WORKSPACE_PATH'] = originalEnv['MCP_WORKSPACE_PATH'];
     } else {
-      delete process.env['DOCS_BASE_PATH'];
+      delete process.env['MCP_WORKSPACE_PATH'];
     }
     if (originalEnv['WORKFLOWS_BASE_PATH'] != null) {
       process.env['WORKFLOWS_BASE_PATH'] = originalEnv['WORKFLOWS_BASE_PATH'];
@@ -76,37 +76,37 @@ describe('loadConfig - configuration precedence', () => {
   });
 
   it('uses default config when no .mcp-config.json exists', () => {
-    // Set DOCS_BASE_PATH as it's required
-    process.env['DOCS_BASE_PATH'] = testDir;
+    // Set MCP_WORKSPACE_PATH as it's required
+    process.env['MCP_WORKSPACE_PATH'] = testDir;
 
     const config = loadConfig();
 
-    expect(config.docsBasePath).toBe(testDir);
+    expect(config.workspaceBasePath).toBe(testDir);
     expect(config.workflowsBasePath).toBe(pluginWorkflowsPath);
     expect(config.guidesBasePath).toBe(pluginGuidesPath);
   });
 
-  it('project config overrides DOCS_BASE_PATH only', () => {
+  it('project config overrides MCP_WORKSPACE_PATH only', () => {
     const customDocsPath = join(testDir, 'custom-docs');
     mkdirSync(customDocsPath, { recursive: true });
 
     // Set process.env with all paths
-    process.env['DOCS_BASE_PATH'] = testDir;
+    process.env['MCP_WORKSPACE_PATH'] = testDir;
     process.env['WORKFLOWS_BASE_PATH'] = '/env/workflows';
     process.env['GUIDES_BASE_PATH'] = '/env/guides';
 
-    // Create .mcp-config.json that overrides only DOCS_BASE_PATH
+    // Create .mcp-config.json that overrides only MCP_WORKSPACE_PATH
     const projectConfig = {
       env: {
-        DOCS_BASE_PATH: customDocsPath
+        MCP_WORKSPACE_PATH: customDocsPath
       }
     };
     writeFileSync(join(testDir, '.mcp-config.json'), JSON.stringify(projectConfig));
 
     const config = loadConfig();
 
-    // Project config should override DOCS_BASE_PATH
-    expect(config.docsBasePath).toBe(customDocsPath);
+    // Project config should override MCP_WORKSPACE_PATH
+    expect(config.workspaceBasePath).toBe(customDocsPath);
     // Other paths should use defaults (not process.env values)
     expect(config.workflowsBasePath).toBe(pluginWorkflowsPath);
     expect(config.guidesBasePath).toBe(pluginGuidesPath);
@@ -116,8 +116,8 @@ describe('loadConfig - configuration precedence', () => {
     const customWorkflowsPath = join(testDir, 'custom-workflows');
     mkdirSync(customWorkflowsPath, { recursive: true });
 
-    // Set required DOCS_BASE_PATH
-    process.env['DOCS_BASE_PATH'] = testDir;
+    // Set required MCP_WORKSPACE_PATH
+    process.env['MCP_WORKSPACE_PATH'] = testDir;
     process.env['WORKFLOWS_BASE_PATH'] = '/env/workflows';
     process.env['GUIDES_BASE_PATH'] = '/env/guides';
 
@@ -131,8 +131,8 @@ describe('loadConfig - configuration precedence', () => {
 
     const config = loadConfig();
 
-    // DOCS_BASE_PATH should use process.env since not overridden
-    expect(config.docsBasePath).toBe(testDir);
+    // MCP_WORKSPACE_PATH should use process.env since not overridden
+    expect(config.workspaceBasePath).toBe(testDir);
     // Project config should override WORKFLOWS_BASE_PATH
     expect(config.workflowsBasePath).toBe(customWorkflowsPath);
     // GUIDES_BASE_PATH should use default
@@ -143,8 +143,8 @@ describe('loadConfig - configuration precedence', () => {
     const customGuidesPath = join(testDir, 'custom-guides');
     mkdirSync(customGuidesPath, { recursive: true });
 
-    // Set required DOCS_BASE_PATH
-    process.env['DOCS_BASE_PATH'] = testDir;
+    // Set required MCP_WORKSPACE_PATH
+    process.env['MCP_WORKSPACE_PATH'] = testDir;
     process.env['WORKFLOWS_BASE_PATH'] = '/env/workflows';
     process.env['GUIDES_BASE_PATH'] = '/env/guides';
 
@@ -158,8 +158,8 @@ describe('loadConfig - configuration precedence', () => {
 
     const config = loadConfig();
 
-    // DOCS_BASE_PATH should use process.env since not overridden
-    expect(config.docsBasePath).toBe(testDir);
+    // MCP_WORKSPACE_PATH should use process.env since not overridden
+    expect(config.workspaceBasePath).toBe(testDir);
     // WORKFLOWS_BASE_PATH should use default
     expect(config.workflowsBasePath).toBe(pluginWorkflowsPath);
     // Project config should override GUIDES_BASE_PATH
@@ -176,14 +176,14 @@ describe('loadConfig - configuration precedence', () => {
     mkdirSync(customGuidesPath, { recursive: true });
 
     // Set process.env values
-    process.env['DOCS_BASE_PATH'] = '/env/docs';
+    process.env['MCP_WORKSPACE_PATH'] = '/env/docs';
     process.env['WORKFLOWS_BASE_PATH'] = '/env/workflows';
     process.env['GUIDES_BASE_PATH'] = '/env/guides';
 
     // Create .mcp-config.json that overrides all paths
     const projectConfig = {
       env: {
-        DOCS_BASE_PATH: customDocsPath,
+        MCP_WORKSPACE_PATH: customDocsPath,
         WORKFLOWS_BASE_PATH: customWorkflowsPath,
         GUIDES_BASE_PATH: customGuidesPath
       }
@@ -193,7 +193,7 @@ describe('loadConfig - configuration precedence', () => {
     const config = loadConfig();
 
     // All paths should use project config values (not process.env)
-    expect(config.docsBasePath).toBe(customDocsPath);
+    expect(config.workspaceBasePath).toBe(customDocsPath);
     expect(config.workflowsBasePath).toBe(customWorkflowsPath);
     expect(config.guidesBasePath).toBe(customGuidesPath);
   });
@@ -208,14 +208,14 @@ describe('loadConfig - configuration precedence', () => {
     mkdirSync(projectGuidesPath, { recursive: true });
 
     // Set process.env with different values
-    process.env['DOCS_BASE_PATH'] = join(testDir, 'env-docs');
+    process.env['MCP_WORKSPACE_PATH'] = join(testDir, 'env-docs');
     process.env['WORKFLOWS_BASE_PATH'] = join(testDir, 'env-workflows');
     process.env['GUIDES_BASE_PATH'] = join(testDir, 'env-guides');
 
     // Create .mcp-config.json with different values
     const projectConfig = {
       env: {
-        DOCS_BASE_PATH: projectDocsPath,
+        MCP_WORKSPACE_PATH: projectDocsPath,
         WORKFLOWS_BASE_PATH: projectWorkflowsPath,
         GUIDES_BASE_PATH: projectGuidesPath
       }
@@ -225,12 +225,12 @@ describe('loadConfig - configuration precedence', () => {
     const config = loadConfig();
 
     // Project config should completely override process.env values
-    expect(config.docsBasePath).toBe(projectDocsPath);
+    expect(config.workspaceBasePath).toBe(projectDocsPath);
     expect(config.workflowsBasePath).toBe(projectWorkflowsPath);
     expect(config.guidesBasePath).toBe(projectGuidesPath);
 
     // Values should NOT be from process.env
-    expect(config.docsBasePath).not.toBe(process.env['DOCS_BASE_PATH']);
+    expect(config.workspaceBasePath).not.toBe(process.env['MCP_WORKSPACE_PATH']);
     expect(config.workflowsBasePath).not.toBe(process.env['WORKFLOWS_BASE_PATH']);
     expect(config.guidesBasePath).not.toBe(process.env['GUIDES_BASE_PATH']);
   });

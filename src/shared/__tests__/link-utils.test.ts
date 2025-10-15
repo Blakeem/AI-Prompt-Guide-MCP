@@ -2,7 +2,10 @@
  * Comprehensive unit tests for link utilities
  */
 
-import { describe, test, expect, beforeEach, vi, type MockedFunction } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, vi, type MockedFunction } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import {
   parseLink,
   resolveLink,
@@ -22,6 +25,9 @@ const createMockDocumentManager = (): MockedDocumentManager => ({
 type MockedDocumentManager = {
   getDocument: MockedFunction<DocumentManager['getDocument']>;
 };
+
+// Temp directory for tests
+let tempDir: string;
 
 // Sample document for testing
 const createSampleDocument = (): CachedDocument => ({
@@ -76,6 +82,15 @@ describe('parseLink Function', () => {
         raw: '   '
       });
     });
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('External Links', () => {
@@ -362,7 +377,13 @@ describe('validateLink Function', () => {
   let mockDocumentManager: MockedDocumentManager;
   let sampleDocument: CachedDocument;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'link-utils-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     vi.clearAllMocks();
     mockDocumentManager = createMockDocumentManager();
     sampleDocument = createSampleDocument();
@@ -530,7 +551,7 @@ describe('validateLink Function', () => {
 describe('linkExists Function', () => {
   let mockDocumentManager: MockedDocumentManager;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mockDocumentManager = createMockDocumentManager();
   });
@@ -566,7 +587,7 @@ describe('resolveLinkWithContext Function', () => {
   let mockDocumentManager: MockedDocumentManager;
   let sampleDocument: CachedDocument;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mockDocumentManager = createMockDocumentManager();
     sampleDocument = createSampleDocument();

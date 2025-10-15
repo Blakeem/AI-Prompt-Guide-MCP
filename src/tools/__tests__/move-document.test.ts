@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import os from "node:os";
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { DocumentManager } from '../../document-manager.js';
@@ -18,19 +19,35 @@ import { moveDocument } from '../implementations/move-document.js';
 import type { SessionState } from '../../session/types.js';
 
 describe('move_document Tool', () => {
-  const testDocsRoot = path.resolve(process.cwd(), '.ai-prompt-guide');
-  const testSourcePath = '/docs/api/test-move-source.md';
-  const testDestPath = '/docs/api/test-move-destination.md';
-  const testNestedDestPath = '/docs/api/nested/deep/test-move-nested.md';
-  const testSourceAbsolutePath = path.join(testDocsRoot, 'docs/api/test-move-source.md');
-  const testDestAbsolutePath = path.join(testDocsRoot, 'docs/api/test-move-destination.md');
-  const testNestedDestAbsolutePath = path.join(testDocsRoot, 'docs/api/nested/deep/test-move-nested.md');
+  let testDocsRoot: string;
+  let testSourcePath: string;
+  let testDestPath: string;
+  let testNestedDestPath: string;
+  let testSourceAbsolutePath: string;
+  let testDestAbsolutePath: string;
+  let testNestedDestAbsolutePath: string;
 
   let cache: DocumentCache;
   let manager: DocumentManager;
+  let tempDir: string;
   let sessionState: SessionState;
 
   beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'move-document-test-'));
+    testDocsRoot = tempDir; // Use tempDir as the docs root
+
+    // Initialize paths after testDocsRoot is set
+    testSourcePath = '/docs/api/test-move-source.md';
+    testDestPath = '/docs/api/test-move-destination.md';
+    testNestedDestPath = '/docs/api/nested/deep/test-move-nested.md';
+    testSourceAbsolutePath = path.join(testDocsRoot, 'docs/api/test-move-source.md');
+    testDestAbsolutePath = path.join(testDocsRoot, 'docs/api/test-move-destination.md');
+    testNestedDestAbsolutePath = path.join(testDocsRoot, 'docs/api/nested/deep/test-move-nested.md');
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     // Initialize cache and manager
     cache = new DocumentCache(testDocsRoot);
     manager = new DocumentManager(testDocsRoot, cache);
@@ -56,6 +73,15 @@ Content for section two.
 `;
 
     await fs.writeFile(testSourceAbsolutePath, testContent, 'utf8');
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   afterEach(async () => {

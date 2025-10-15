@@ -13,7 +13,7 @@ describe('ProjectConfig Types and Schema', () => {
     it('should validate config with all paths', () => {
       const config = {
         env: {
-          DOCS_BASE_PATH: '/path/to/docs',
+          MCP_WORKSPACE_PATH: '/path/to/docs',
           WORKFLOWS_BASE_PATH: '/path/to/workflows',
           GUIDES_BASE_PATH: '/path/to/guides'
         }
@@ -22,23 +22,23 @@ describe('ProjectConfig Types and Schema', () => {
       const result = ProjectConfigSchema.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.env.DOCS_BASE_PATH).toBe('/path/to/docs');
+        expect(result.data.env.MCP_WORKSPACE_PATH).toBe('/path/to/docs');
         expect(result.data.env.WORKFLOWS_BASE_PATH).toBe('/path/to/workflows');
         expect(result.data.env.GUIDES_BASE_PATH).toBe('/path/to/guides');
       }
     });
 
-    it('should validate config with partial paths (only DOCS_BASE_PATH)', () => {
+    it('should validate config with partial paths (only MCP_WORKSPACE_PATH)', () => {
       const config = {
         env: {
-          DOCS_BASE_PATH: '/path/to/docs'
+          MCP_WORKSPACE_PATH: '/path/to/docs'
         }
       };
 
       const result = ProjectConfigSchema.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.env.DOCS_BASE_PATH).toBe('/path/to/docs');
+        expect(result.data.env.MCP_WORKSPACE_PATH).toBe('/path/to/docs');
         expect(result.data.env.WORKFLOWS_BASE_PATH).toBeUndefined();
         expect(result.data.env.GUIDES_BASE_PATH).toBeUndefined();
       }
@@ -55,7 +55,7 @@ describe('ProjectConfig Types and Schema', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.env.WORKFLOWS_BASE_PATH).toBe('/path/to/workflows');
-        expect(result.data.env.DOCS_BASE_PATH).toBeUndefined();
+        expect(result.data.env.MCP_WORKSPACE_PATH).toBeUndefined();
         expect(result.data.env.GUIDES_BASE_PATH).toBeUndefined();
       }
     });
@@ -71,7 +71,7 @@ describe('ProjectConfig Types and Schema', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.env.GUIDES_BASE_PATH).toBe('/path/to/guides');
-        expect(result.data.env.DOCS_BASE_PATH).toBeUndefined();
+        expect(result.data.env.MCP_WORKSPACE_PATH).toBeUndefined();
         expect(result.data.env.WORKFLOWS_BASE_PATH).toBeUndefined();
       }
     });
@@ -110,10 +110,10 @@ describe('ProjectConfig Types and Schema', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should reject config with DOCS_BASE_PATH as non-string (number)', () => {
+    it('should reject config with MCP_WORKSPACE_PATH as non-string (number)', () => {
       const config = {
         env: {
-          DOCS_BASE_PATH: 123
+          MCP_WORKSPACE_PATH: 123
         }
       };
 
@@ -121,7 +121,7 @@ describe('ProjectConfig Types and Schema', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         const docsPathError = result.error.issues.find(
-          issue => issue.path.includes('DOCS_BASE_PATH')
+          issue => issue.path.includes('MCP_WORKSPACE_PATH')
         );
         expect(docsPathError).toBeDefined();
       }
@@ -161,10 +161,10 @@ describe('ProjectConfig Types and Schema', () => {
       }
     });
 
-    it('should reject config with DOCS_BASE_PATH as empty string', () => {
+    it('should reject config with MCP_WORKSPACE_PATH as empty string', () => {
       const config = {
         env: {
-          DOCS_BASE_PATH: ''
+          MCP_WORKSPACE_PATH: ''
         }
       };
 
@@ -172,7 +172,7 @@ describe('ProjectConfig Types and Schema', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         const docsPathError = result.error.issues.find(
-          issue => issue.path.includes('DOCS_BASE_PATH')
+          issue => issue.path.includes('MCP_WORKSPACE_PATH')
         );
         expect(docsPathError).toBeDefined();
       }
@@ -201,23 +201,23 @@ describe('ProjectConfig Types and Schema', () => {
     it('should type-check valid ProjectConfig', () => {
       const config: ProjectConfig = {
         env: {
-          DOCS_BASE_PATH: '/path/to/docs',
+          MCP_WORKSPACE_PATH: '/path/to/docs',
           WORKFLOWS_BASE_PATH: '/path/to/workflows',
           GUIDES_BASE_PATH: '/path/to/guides'
         }
       };
 
-      expect(config.env.DOCS_BASE_PATH).toBe('/path/to/docs');
+      expect(config.env.MCP_WORKSPACE_PATH).toBe('/path/to/docs');
     });
 
     it('should type-check ProjectConfig with optional fields', () => {
       const config: ProjectConfig = {
         env: {
-          DOCS_BASE_PATH: '/path/to/docs'
+          MCP_WORKSPACE_PATH: '/path/to/docs'
         }
       };
 
-      expect(config.env.DOCS_BASE_PATH).toBe('/path/to/docs');
+      expect(config.env.MCP_WORKSPACE_PATH).toBe('/path/to/docs');
       expect(config.env.WORKFLOWS_BASE_PATH).toBeUndefined();
     });
 

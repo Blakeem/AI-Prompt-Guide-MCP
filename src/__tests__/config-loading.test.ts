@@ -51,7 +51,7 @@ describe('loadProjectConfig', () => {
   it('returns parsed config when valid JSON with correct structure', () => {
     const config = {
       env: {
-        DOCS_BASE_PATH: '/custom/docs',
+        MCP_WORKSPACE_PATH: '/custom/docs',
         WORKFLOWS_BASE_PATH: '/custom/workflows',
         GUIDES_BASE_PATH: '/custom/guides'
       }
@@ -92,7 +92,7 @@ describe('loadProjectConfig', () => {
 
     const invalidConfig = {
       notEnv: {
-        DOCS_BASE_PATH: '/custom/docs'
+        MCP_WORKSPACE_PATH: '/custom/docs'
       }
     };
 
@@ -136,7 +136,7 @@ describe('loadProjectConfig', () => {
 
     const config = {
       env: {
-        DOCS_BASE_PATH: '/custom/docs',
+        MCP_WORKSPACE_PATH: '/custom/docs',
         WORKFLOWS_BASE_PATH: 123, // Invalid: should be string
         GUIDES_BASE_PATH: '/custom/guides'
       }

@@ -5,7 +5,10 @@
  * functionality with comprehensive coverage of edge cases and error scenarios.
  */
 
-import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockedFunction } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { analyzeDocumentSuggestions } from '../document-analysis.js';
 import type { DocumentManager } from '../../document-manager.js';
 import type { CachedDocument, DocumentMetadata } from '../../document-cache.js';
@@ -61,12 +64,20 @@ const createMockCachedDocument = (overrides: Partial<CachedDocument> = {}): Cach
 });
 
 describe('Document Analysis', () => {
+  let tempDir: string;
+
   let mockManager: DocumentManager;
   let listDocumentsMock: MockedFunction<DocumentManager['listDocuments']>;
   let getDocumentMock: MockedFunction<DocumentManager['getDocument']>;
   let getDocumentContentMock: MockedFunction<DocumentManager['getDocumentContent']>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'document-analysis-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     mockManager = createMockDocumentManager();
     listDocumentsMock = mockManager.listDocuments as MockedFunction<DocumentManager['listDocuments']>;
     getDocumentMock = mockManager.getDocument as MockedFunction<DocumentManager['getDocument']>;
@@ -74,6 +85,15 @@ describe('Document Analysis', () => {
 
     // Reset all mocks
     vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('analyzeDocumentSuggestions', () => {

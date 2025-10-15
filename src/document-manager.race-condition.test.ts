@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import os from "node:os";
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { DocumentManager } from './document-manager.js';
@@ -18,8 +19,15 @@ describe('Section Batch Operations Race Condition', () => {
 
   let cache: DocumentCache;
   let manager: DocumentManager;
+  let tempDir: string;
 
   beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'document-manager.race-condition-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     // Initialize cache and manager
     cache = new DocumentCache(testDocsRoot);
     manager = new DocumentManager(testDocsRoot, cache);
@@ -38,6 +46,15 @@ Initial content B
 `;
 
     await fs.writeFile(testDocAbsolutePath, testContent, 'utf8');
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   afterEach(async () => {

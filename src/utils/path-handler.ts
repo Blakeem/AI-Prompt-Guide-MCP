@@ -10,10 +10,10 @@ import { FOLDER_NAMES } from '../shared/namespace-constants.js';
  * Path validation and normalization utilities
  */
 export class PathHandler {
-  private readonly docsBasePath: string;
+  private readonly workspaceBasePath: string;
 
-  constructor(docsBasePath: string) {
-    this.docsBasePath = resolve(docsBasePath);
+  constructor(workspaceBasePath: string) {
+    this.workspaceBasePath = resolve(workspaceBasePath);
   }
 
   /**
@@ -56,7 +56,7 @@ export class PathHandler {
     const resolvedPath = resolve(absolutePath);
 
     // Ensure path is within docs directory (prevent directory traversal)
-    if (!resolvedPath.startsWith(this.docsBasePath)) {
+    if (!resolvedPath.startsWith(this.workspaceBasePath)) {
       throw new Error(`Path outside allowed directory: ${normalizedPath}`);
     }
   }
@@ -66,7 +66,7 @@ export class PathHandler {
    */
   getAbsolutePath(normalizedPath: string): string {
     const relativePath = normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath;
-    return join(this.docsBasePath, relativePath);
+    return join(this.workspaceBasePath, relativePath);
   }
 
   /**
@@ -88,7 +88,7 @@ export class PathHandler {
    * Generate unique archive path to handle duplicates
    */
   async generateUniqueArchivePath(normalizedPath: string): Promise<string> {
-    const archiveBase = join(this.docsBasePath, FOLDER_NAMES.ARCHIVED);
+    const archiveBase = join(this.workspaceBasePath, FOLDER_NAMES.ARCHIVED);
     const relativePath = normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath;
 
     let archivePath = join(archiveBase, relativePath);
@@ -117,9 +117,9 @@ export class PathHandler {
   }
 
   /**
-   * Get docs base path
+   * Get workspace base path
    */
-  getDocsBasePath(): string {
-    return this.docsBasePath;
+  getWorkspaceBasePath(): string {
+    return this.workspaceBasePath;
   }
 }

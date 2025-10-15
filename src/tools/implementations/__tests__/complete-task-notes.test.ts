@@ -24,8 +24,14 @@ describe('Complete Task - Completion Notes Display', () => {
   };
 
   beforeEach(async () => {
+    // Set MCP_WORKSPACE_PATH for config loading
+    process.env["MCP_WORKSPACE_PATH"] = process.env["MCP_WORKSPACE_PATH"] ?? "/tmp/test-workspace";
+
     // Create temporary test directory
     testDir = path.join(os.tmpdir(), `mcp-completion-notes-test-${Date.now()}`);
+
+    // Configure MCP_WORKSPACE_PATH for config loading
+    process.env["MCP_WORKSPACE_PATH"] = testDir;
     await fs.mkdir(testDir, { recursive: true });
 
     // Create /docs/ subdirectory (required for subagent tools)

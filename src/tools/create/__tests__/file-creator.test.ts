@@ -4,6 +4,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { DocumentManager } from '../../../document-manager.js';
 import { DocumentCache } from '../../../document-cache.js';
 import { createDocumentFile } from '../file-creator.js';
@@ -14,12 +17,19 @@ import type { SessionState } from '../../../session/types.js';
 
 describe('createDocumentFile', () => {
   let manager: DocumentManager;
+  let tempDir: string;
   let cache: DocumentCache;
   let testDocsPath: string;
 
   beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'file-creator-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     const config = loadConfig();
-    testDocsPath = join(config.docsBasePath, 'test-file-creator');
+    testDocsPath = join(config.workspaceBasePath, 'test-file-creator');
 
     // Create fresh test directory
     try {
@@ -29,8 +39,17 @@ describe('createDocumentFile', () => {
     }
     await mkdir(testDocsPath, { recursive: true });
 
-    cache = new DocumentCache(config.docsBasePath);
-    manager = new DocumentManager(config.docsBasePath, cache);
+    cache = new DocumentCache(config.workspaceBasePath);
+    manager = new DocumentManager(config.workspaceBasePath, cache);
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   afterEach(async () => {

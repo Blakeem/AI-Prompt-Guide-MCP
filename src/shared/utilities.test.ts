@@ -2,7 +2,10 @@
  * Comprehensive unit tests for the performSectionEdit utility function
  */
 
-import { describe, test, expect, beforeEach, vi, type MockedFunction } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, vi, type MockedFunction } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { performSectionEdit } from './utilities.js';
 import type { DocumentManager } from '../document-manager.js';
 import type { CachedDocument } from '../document-cache.js';
@@ -59,13 +62,30 @@ const createSampleDocument = (): CachedDocument => ({
 });
 
 describe('performSectionEdit Utility Function', () => {
+  let tempDir: string;
+
   let mockDocumentManager: MockedDocumentManager;
   let sampleDocument: CachedDocument;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'utilities-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     vi.clearAllMocks();
     mockDocumentManager = createMockDocumentManager();
     sampleDocument = createSampleDocument();
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('Document Validation', () => {
@@ -106,7 +126,7 @@ describe('performSectionEdit Utility Function', () => {
   });
 
   describe('Edit Operations', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       mockDocumentManager.getDocument.mockResolvedValue(sampleDocument);
     });
 
@@ -347,7 +367,7 @@ describe('performSectionEdit Utility Function', () => {
   });
 
   describe('Creation Operations', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       mockDocumentManager.getDocument
         .mockResolvedValueOnce(sampleDocument) // Initial check
         .mockResolvedValueOnce({ // Updated document after insertion
@@ -561,7 +581,7 @@ describe('performSectionEdit Utility Function', () => {
   });
 
   describe('Operation Type Detection', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       mockDocumentManager.getDocument.mockResolvedValue(sampleDocument);
     });
 
@@ -635,7 +655,7 @@ describe('performSectionEdit Utility Function', () => {
   });
 
   describe('Insert Mode Mapping', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       mockDocumentManager.getDocument
         .mockResolvedValueOnce(sampleDocument) // Initial check
         .mockResolvedValueOnce({ // Updated document

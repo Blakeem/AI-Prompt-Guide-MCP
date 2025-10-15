@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { editDocument } from '../implementations/edit-document.js';
 import type { SessionState } from '../../session/types.js';
 import { createDocumentManager } from '../../shared/utilities.js';
@@ -13,6 +16,7 @@ import { join } from 'node:path';
 describe('edit_document Tool', () => {
   let sessionState: SessionState;
   let manager: DocumentManager;
+  let tempDir: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let renameHeadingSpy: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,7 +24,13 @@ describe('edit_document Tool', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let writeFileIfUnchangedSpy: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'edit-document-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     manager = createDocumentManager();
     sessionState = {
       sessionId: `test-${Date.now()}-${Math.random()}`,
@@ -33,6 +43,15 @@ describe('edit_document Tool', () => {
 
     // Mock renameHeading
     renameHeadingSpy = vi.spyOn(sections, 'renameHeading');
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   afterEach(() => {
@@ -442,7 +461,7 @@ describe('edit_document Tool', () => {
   describe('Integration - File I/O with bypassValidation', () => {
     let testDir: string;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       // Create test directory structure
       testDir = join(process.cwd(), `.test-edit-document-${Date.now()}`);
       const apiSpecsDir = join(testDir, 'api', 'specs');

@@ -13,7 +13,10 @@
  * in the complete create-document workflow, providing regression protection.
  */
 
-import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockedFunction } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { processSuggestions } from '../create/suggestion-generator.js';
 import type { DocumentManager } from '../../document-manager.js';
 import type { FingerprintEntry } from '../../document-cache.js';
@@ -65,9 +68,17 @@ const createMockDocumentManager = (): DocumentManager => {
 };
 
 describe('Create Document Workflow Stage 2.5 - Regression Tests', () => {
+  let tempDir: string;
+
   let mockManager: DocumentManager;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'create-document-workflow-regression-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     mockManager = createMockDocumentManager();
     vi.clearAllMocks();
 
@@ -78,6 +89,15 @@ describe('Create Document Workflow Stage 2.5 - Regression Tests', () => {
       frequent_links: ['/api/auth.md'],
       typical_tasks: ['Setup authentication']
     });
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('Enhanced Multi-Factor Relevance Scoring', () => {

@@ -5,7 +5,10 @@
  * cycle detection, and depth management.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { ReferenceLoader, type HierarchicalContent } from '../reference-loader.js';
 import type { NormalizedReference } from '../reference-extractor.js';
 import type { DocumentManager } from '../../document-manager.js';
@@ -180,12 +183,29 @@ const createMockDocumentManager = (): DocumentManager => {
 };
 
 describe('ReferenceLoader', () => {
+  let tempDir: string;
+
   let loader: ReferenceLoader;
   let mockManager: DocumentManager;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'reference-loader-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     loader = new ReferenceLoader();
     mockManager = createMockDocumentManager();
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('loadReferences', () => {

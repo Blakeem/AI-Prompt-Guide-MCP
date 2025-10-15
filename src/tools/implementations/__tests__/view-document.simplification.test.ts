@@ -25,8 +25,14 @@ describe('view_document Simplification', () => {
   let sessionState: SessionState;
 
   beforeEach(async () => {
+    // Set MCP_WORKSPACE_PATH for config loading
+    process.env["MCP_WORKSPACE_PATH"] = process.env["MCP_WORKSPACE_PATH"] ?? "/tmp/test-workspace";
+
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
     testDir = await mkdtemp(path.resolve(tmpdir(), `view-doc-test-${uniqueId}-`));
+
+    // Configure MCP_WORKSPACE_PATH for config loading
+    process.env["MCP_WORKSPACE_PATH"] = testDir;
     docsDir = path.resolve(testDir, 'docs');
 
     // Initialize cache and manager with docsDir root

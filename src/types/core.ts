@@ -44,7 +44,7 @@ export interface ServerConfig {
   readonly serverName: string;
   readonly serverVersion: string;
   readonly logLevel: string;
-  readonly docsBasePath: string;
+  readonly workspaceBasePath: string;
   readonly workflowsBasePath: string;
   readonly guidesBasePath: string;
   readonly maxFileSize: number;
@@ -67,7 +67,7 @@ export interface Logger {
 /** Project configuration from .mcp-config.json */
 export interface ProjectConfig {
   readonly env: {
-    readonly DOCS_BASE_PATH?: string;
+    readonly MCP_WORKSPACE_PATH?: string;
     readonly WORKFLOWS_BASE_PATH?: string;
     readonly GUIDES_BASE_PATH?: string;
   };

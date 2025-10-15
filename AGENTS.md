@@ -275,6 +275,7 @@ import { initializeGlobalCache } from './dist/document-cache.js';
 import { DocumentManager } from './dist/document-manager.js';
 
 // REQUIRED: Initialize cache before creating manager
+// docsRoot is the MCP workspace path (configured via MCP_WORKSPACE_PATH)
 initializeGlobalCache(docsRoot);
 const manager = new DocumentManager(docsRoot);
 ```

@@ -6,6 +6,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import {
   extractWorkflowName,
   extractMainWorkflowName,
@@ -22,6 +25,8 @@ import * as workflowPrompts from '../../prompts/workflow-prompts.js';
 import * as taskUtilities from '../task-utilities.js';
 
 describe('Workflow Prompt Utilities', () => {
+  let tempDir: string;
+
   describe('extractWorkflowName', () => {
     it('should extract workflow from dash format', () => {
       const content = `
@@ -90,6 +95,15 @@ describe('Workflow Prompt Utilities', () => {
 `;
       expect(extractWorkflowName(content)).toBe('first-workflow');
     });
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('extractMainWorkflowName', () => {
@@ -344,7 +358,13 @@ describe('Workflow Prompt Utilities', () => {
     let mockManager: DocumentManager;
     let mockDocument: CachedDocument;
 
-    beforeEach(() => {
+    beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'workflow-prompt-utilities-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
       // Mock manager
       mockManager = {
         getSectionContent: vi.fn()

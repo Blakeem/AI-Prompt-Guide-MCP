@@ -48,7 +48,7 @@ export async function performSectionEdit(
     const { loadConfig } = await import('../config.js');
     const path = await import('node:path');
     const config = loadConfig();
-    const absolutePath = path.join(config.docsBasePath, normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath);
+    const absolutePath = path.join(config.workspaceBasePath, normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath);
     const { readFileSnapshot, writeFileIfUnchanged } = await import('../fsio.js');
 
     const snapshot = await readFileSnapshot(absolutePath, { bypassValidation: true });

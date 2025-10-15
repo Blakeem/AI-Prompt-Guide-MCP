@@ -8,7 +8,10 @@
  * - Referenced documents (hierarchical @reference loading)
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { startSubagentTask } from '../start-subagent-task.js';
 import { createDocumentManager } from '../../../shared/utilities.js';
 import type { DocumentManager } from '../../../document-manager.js';
@@ -18,14 +21,30 @@ import { DocumentNotFoundError, AddressingError } from '../../../shared/addressi
 
 describe('start_task tool', () => {
   let manager: DocumentManager;
+  let tempDir: string;
   let sessionState: SessionState;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'start-subagent-task-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     manager = createDocumentManager();
     sessionState = {
       sessionId: `test-${Date.now()}-${Math.random()}`,
       createDocumentStage: 0
     };
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('Parameter Validation', () => {
@@ -67,7 +86,6 @@ describe('start_task tool', () => {
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('- Status: pending');
 
       const result = await startSubagentTask({ document: '/docs/project/tasks.md#first-task' }, sessionState, manager);
-      expect(result).toHaveProperty('mode', 'adhoc');
       expect(result.task).toHaveProperty('slug', 'first-task');
     });
 

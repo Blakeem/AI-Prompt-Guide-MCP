@@ -19,31 +19,31 @@ describe('Path Resolution Utilities', () => {
     vi.clearAllMocks();
   });
 
-  describe('getDocsPath', async () => {
+  describe('getWorkspacePath', async () => {
     // Dynamic import after mocking
-    const { getDocsPath } = await import('../config.js');
+    const { getWorkspacePath } = await import('../config.js');
 
     it('should return absolute paths as-is', () => {
       const absolutePath = '/absolute/path/to/docs';
-      const result = getDocsPath(absolutePath);
+      const result = getWorkspacePath(absolutePath);
       expect(result).toBe(absolutePath);
     });
 
     it('should resolve relative paths from process.cwd()', () => {
       const relativePath = 'relative/path/to/docs';
-      const result = getDocsPath(relativePath);
+      const result = getWorkspacePath(relativePath);
       expect(result).toBe(join('/mock/project/root', relativePath));
     });
 
     it('should resolve paths with ../ correctly', () => {
       const relativePath = '../parent/docs';
-      const result = getDocsPath(relativePath);
+      const result = getWorkspacePath(relativePath);
       expect(result).toBe(join('/mock/project/root', relativePath));
     });
 
     it('should resolve paths with ./ correctly', () => {
       const relativePath = './current/docs';
-      const result = getDocsPath(relativePath);
+      const result = getWorkspacePath(relativePath);
       expect(result).toBe(join('/mock/project/root', relativePath));
     });
   });

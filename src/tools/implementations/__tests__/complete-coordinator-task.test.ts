@@ -63,8 +63,14 @@ describe('complete_coordinator_task tool', () => {
   });
 
   beforeEach(async () => {
+    // Set MCP_WORKSPACE_PATH for config loading
+    process.env["MCP_WORKSPACE_PATH"] = process.env["MCP_WORKSPACE_PATH"] ?? "/tmp/test-workspace";
+
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
     testDir = await mkdtemp(resolve(tmpdir(), `complete-coordinator-test-${uniqueId}-`));
+
+    // Configure MCP_WORKSPACE_PATH for config loading
+    process.env["MCP_WORKSPACE_PATH"] = testDir;
     docsDir = resolve(testDir, 'docs');
     const coordinatorDir = resolve(testDir, 'coordinator');
     await mkdir(docsDir, { recursive: true });
@@ -96,9 +102,10 @@ describe('complete_coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      // Complete first task
+      // Complete first task with return_next_task flag
       const result = await completeCoordinatorTask({
-        note: 'Finished implementation and testing'
+        note: 'Finished implementation and testing',
+        return_next_task: true
       }, sessionState, manager);
 
       expect(result.completed_task.slug).toBe('task-1');
@@ -123,9 +130,10 @@ describe('complete_coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      // Complete first task
+      // Complete first task with return_next_task flag
       const result = await completeCoordinatorTask({
-        note: 'Done'
+        note: 'Done',
+        return_next_task: true
       }, sessionState, manager);
 
       // Next task should NOT have main_workflow
@@ -187,14 +195,15 @@ describe('complete_coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      // Complete first task only
+      // Complete first task only (without return_next_task, next_task will not be returned)
       const result = await completeCoordinatorTask({
         note: 'Partial completion'
       }, sessionState, manager);
 
-      // Should NOT be archived
+      // Should NOT be archived (tasks remain)
       expect(result.archived).toBeUndefined();
-      expect(result.next_task).toBeDefined();
+      // next_task is only returned when return_next_task: true is passed
+      expect(result.next_task).toBeUndefined();
     });
   });
 

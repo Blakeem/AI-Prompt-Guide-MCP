@@ -65,14 +65,7 @@ async function getPathHandler(): Promise<PathHandler> {
   initializationPromise = (async (): Promise<PathHandler> => {
     try {
       const config = loadConfig();
-      pathHandler = new PathHandler(config.docsBasePath);
-      return pathHandler;
-    } catch {
-      // During tests or when config is not available, use a default base path
-      // This allows tests to run while still providing security in production
-      const envPath = process.env['DOCS_BASE_PATH'];
-      const defaultBasePath = envPath != null && envPath !== '' ? envPath : './.ai-prompt-guide/docs';
-      pathHandler = new PathHandler(defaultBasePath);
+      pathHandler = new PathHandler(config.workspaceBasePath);
       return pathHandler;
     } finally {
       initializationPromise = null;
@@ -164,7 +157,7 @@ async function validateAndSanitizePath(filePath: string, operation: string): Pro
 
     // Additional security check: ensure resolved path is still within bounds
     const resolvedPath = resolve(absolutePath);
-    const docsBasePath = resolve(handler.getDocsBasePath());
+    const docsBasePath = resolve(handler.getWorkspaceBasePath());
 
     if (resolvedPath.startsWith(docsBasePath) === false) {
       // Log security violation for audit trail

@@ -50,7 +50,7 @@ export async function editDocument(
 
     // Processing - prepare file operations
     const config = loadConfig();
-    const absolutePath = path.join(config.docsBasePath, addresses.document.path);
+    const absolutePath = path.join(config.workspaceBasePath, addresses.document.path);
 
     // Read current file content
     const snapshot = await readFileSnapshot(absolutePath, { bypassValidation: true });

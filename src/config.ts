@@ -59,7 +59,7 @@ function getPackageInfo(): { name: string; version: string } {
  */
 export const ProjectConfigSchema = z.object({
   env: z.object({
-    DOCS_BASE_PATH: z.string().min(1).optional(),
+    MCP_WORKSPACE_PATH: z.string().min(1).optional(),
     WORKFLOWS_BASE_PATH: z.string().min(1).optional(),
     GUIDES_BASE_PATH: z.string().min(1).optional(),
   }),
@@ -123,7 +123,7 @@ const ServerConfigSchema = z.object({
   serverName: z.string().min(1),
   serverVersion: z.string().min(1),
   logLevel: z.enum(['error', 'warn', 'info', 'debug']),
-  docsBasePath: z.string().min(1),
+  workspaceBasePath: z.string().min(1),
   workflowsBasePath: z.string().min(1),
   guidesBasePath: z.string().min(1),
   maxFileSize: z.number().int().positive(),
@@ -158,7 +158,7 @@ function loadEnvironmentVariables(): Record<string, string | undefined> {
     REFERENCE_EXTRACTION_DEPTH: process.env['REFERENCE_EXTRACTION_DEPTH'],
 
     // Required: The only setting users must configure
-    DOCS_BASE_PATH: process.env['DOCS_BASE_PATH'],
+    MCP_WORKSPACE_PATH: process.env['MCP_WORKSPACE_PATH'],
 
     // Optional: Allow override of workflows and guides paths
     WORKFLOWS_BASE_PATH: process.env['WORKFLOWS_BASE_PATH'],
@@ -168,7 +168,7 @@ function loadEnvironmentVariables(): Record<string, string | undefined> {
 
 /**
  * Converts environment variables to typed configuration object
- * Uses sensible defaults for most settings, only requires DOCS_BASE_PATH from user
+ * Uses sensible defaults for most settings, only requires MCP_WORKSPACE_PATH from user
  *
  * @param env - Environment variables to parse
  * @param projectConfig - Optional project config from .mcp-config.json (takes precedence)
@@ -218,21 +218,21 @@ function parseEnvironmentVariables(
   // Determine if project config exists (has any keys)
   const hasProjectConfig = Object.keys(projectConfig).length > 0;
 
-  // Required: DOCS_BASE_PATH is the only setting users must provide
+  // Required: MCP_WORKSPACE_PATH is the only setting users must provide
   // Project config takes complete precedence - if project config exists, only use project config values
-  let docsBasePath: string | undefined;
+  let workspaceBasePath: string | undefined;
   if (hasProjectConfig) {
     // Project config exists - only use project config value or process.env if not overridden
-    docsBasePath = (projectConfig['DOCS_BASE_PATH'] as string | undefined) ?? env['DOCS_BASE_PATH'];
+    workspaceBasePath = (projectConfig['MCP_WORKSPACE_PATH'] as string | undefined) ?? env['MCP_WORKSPACE_PATH'];
   } else {
     // No project config - use process.env
-    docsBasePath = env['DOCS_BASE_PATH'];
+    workspaceBasePath = env['MCP_WORKSPACE_PATH'];
   }
 
-  if (docsBasePath == null || docsBasePath.length === 0) {
-    errors.push('DOCS_BASE_PATH is required - specify the path to your documents directory');
+  if (workspaceBasePath == null || workspaceBasePath.length === 0) {
+    errors.push('MCP_WORKSPACE_PATH is required - specify the path to your MCP workspace directory');
   } else {
-    config['docsBasePath'] = docsBasePath;
+    config['workspaceBasePath'] = workspaceBasePath;
   }
 
   // Optional: WORKFLOWS_BASE_PATH with precedence merging
@@ -272,11 +272,11 @@ function parseEnvironmentVariables(
   // Validate path existence after resolution
   const logger = getGlobalLogger();
 
-  // Required: DOCS_BASE_PATH must exist
-  if (docsBasePath != null) {
-    const resolvedDocsPath = resolvePath(docsBasePath);
-    if (!existsSync(resolvedDocsPath)) {
-      errors.push(`DOCS_BASE_PATH directory does not exist: ${resolvedDocsPath}`);
+  // Required: MCP_WORKSPACE_PATH must exist
+  if (workspaceBasePath != null) {
+    const resolvedWorkspacePath = resolvePath(workspaceBasePath);
+    if (!existsSync(resolvedWorkspacePath)) {
+      errors.push(`MCP_WORKSPACE_PATH directory does not exist: ${resolvedWorkspacePath}`);
     }
   }
 
@@ -318,7 +318,7 @@ function logConfigurationStartup(config: ServerConfig, hasProjectConfig: boolean
 
   logger.info('Server configuration loaded', {
     projectRoot: process.cwd(),
-    docsPath: getDocsPath(config.docsBasePath),
+    workspacePath: getWorkspacePath(config.workspaceBasePath),
     workflowsPath: getWorkflowsPath(config.workflowsBasePath),
     guidesPath: getGuidesPath(config.guidesBasePath),
     referenceExtractionDepth: config.referenceExtractionDepth,
@@ -390,13 +390,13 @@ function resolvePath(path: string): string {
 }
 
 /**
- * Resolves the docs base path relative to project root
+ * Resolves the workspace base path relative to project root
  *
- * @param docsPath - Docs path from configuration (absolute or relative)
- * @returns Resolved absolute docs path
+ * @param workspacePath - Workspace path from configuration (absolute or relative)
+ * @returns Resolved absolute workspace path
  */
-export function getDocsPath(docsPath: string): string {
-  return resolvePath(docsPath);
+export function getWorkspacePath(workspacePath: string): string {
+  return resolvePath(workspacePath);
 }
 
 /**

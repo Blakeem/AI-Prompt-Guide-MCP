@@ -2,7 +2,10 @@
  * Comprehensive unit tests for the section tool (bulk operations only)
  */
 
-import { describe, test, expect, beforeEach, vi, type MockedFunction } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, vi, type MockedFunction } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { section } from './section.js';
 import { performSectionEdit } from '../../shared/utilities.js';
 import type { DocumentManager } from '../../document-manager.js';
@@ -64,10 +67,26 @@ const mockSessionState: SessionState = {
 
 describe('Section Tool - Bulk Operations Only', () => {
   let mockDocumentManager: DocumentManager;
+  let tempDir: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'section-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     vi.clearAllMocks();
     mockDocumentManager = createMockDocumentManager() as DocumentManager;
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('Bulk Edit Operations', () => {

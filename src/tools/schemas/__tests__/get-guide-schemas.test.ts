@@ -6,6 +6,9 @@
  */
 
 import { describe, test, expect, beforeAll } from 'vitest';
+import { tmpdir } from 'node:os';
+import { mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadWorkflowPrompts } from '../../../prompts/workflow-prompts.js';
 import type { ToolDefinition } from '../../types.js';
 
@@ -14,6 +17,12 @@ import { generateGetGuideSchema } from '../get-guide-schemas.js';
 
 describe('generateGetGuideSchema', () => {
   beforeAll(async () => {
+    // Set MCP_WORKSPACE_PATH if not already set
+    if (process.env['MCP_WORKSPACE_PATH'] == null) {
+      const tempDir = mkdtempSync(join(tmpdir(), 'get-guide-schema-test-'));
+      process.env['MCP_WORKSPACE_PATH'] = tempDir;
+    }
+
     // Load workflow prompts (includes guide prompts) before running tests
     await loadWorkflowPrompts();
   });

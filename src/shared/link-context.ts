@@ -71,7 +71,7 @@ export async function loadLinkedDocumentContext(
     const { loadConfig } = await import('../config.js');
     const path = await import('node:path');
     const config = loadConfig();
-    const absolutePath = path.join(config.docsBasePath, documentPath);
+    const absolutePath = path.join(config.workspaceBasePath, documentPath);
 
     try {
       contentToScan = await readFile(absolutePath, 'utf-8');
@@ -177,7 +177,7 @@ export async function loadLinkedDocumentContext(
       const { loadConfig } = await import('../config.js');
       const path = await import('node:path');
       const config = loadConfig();
-      const absolutePath = path.join(config.docsBasePath, current.docPath);
+      const absolutePath = path.join(config.workspaceBasePath, current.docPath);
 
       try {
         content = await readFile(absolutePath, 'utf-8');

@@ -2,20 +2,31 @@
  * Error scenario testing for section tool (bulk operations)
  */
 
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { section } from '../implementations/section.js';
 import { createMockDocumentManager } from './mocks/document-manager.mock.js';
 import type { SessionState } from '../../session/types.js';
 import type { DocumentManager } from '../../document-manager.js';
 
 describe('Error Scenario Testing (Bulk Operations)', () => {
+  let tempDir: string;
+
   let mockDocumentManager: ReturnType<typeof createMockDocumentManager>;
   const mockSessionState: SessionState = {
     sessionId: 'error-test-session',
     createDocumentStage: 0
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'error-scenarios-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     mockDocumentManager = createMockDocumentManager({
       initialDocuments: {
         '/docs/test-document.md': `# Test Document
@@ -28,6 +39,15 @@ Configuration section content.
 `
       }
     });
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('Missing Operations Array', () => {

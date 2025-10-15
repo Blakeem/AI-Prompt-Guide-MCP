@@ -2,7 +2,10 @@
  * Comprehensive unit tests for link validation utilities
  */
 
-import { describe, test, expect, beforeEach, vi, type MockedFunction } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, vi, type MockedFunction } from 'vitest';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import {
   validateSingleLink,
   validateDocumentLinks,
@@ -97,14 +100,31 @@ const createDocumentList = (): { documents: Array<{ path: string; title: string;
 });
 
 describe('validateSingleLink Function', () => {
+  let tempDir: string;
+
   let mockDocumentManager: MockedDocumentManager;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Create temporary directory for test files
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'link-validation-test-'));
+
+    // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
+    process.env['MCP_WORKSPACE_PATH'] = tempDir;
+
     vi.clearAllMocks();
     mockDocumentManager = createMockDocumentManager();
     mockPathToNamespace.mockImplementation((path: string) =>
       path.split('/').slice(0, -1).join('.').replace(/^\./, '') || 'root'
     );
+  });
+
+  afterEach(async () => {
+    // Clean up temporary directory and all its contents
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore if directory doesn't exist
+    }
   });
 
   describe('External Links', () => {
@@ -307,7 +327,7 @@ describe('validateDocumentLinks Function', () => {
   let mockDocumentManager: MockedDocumentManager;
   let sampleDocument: CachedDocument;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mockDocumentManager = createMockDocumentManager();
     sampleDocument = createSampleDocument();
@@ -444,7 +464,7 @@ describe('validateDocumentLinks Function', () => {
 describe('validateSystemLinks Function', () => {
   let mockDocumentManager: MockedDocumentManager;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mockDocumentManager = createMockDocumentManager();
     mockPathToNamespace.mockImplementation((path: string) =>
@@ -568,7 +588,7 @@ describe('autoFixLinks Function', () => {
   let mockDocumentManager: MockedDocumentManager;
   let sampleDocument: CachedDocument;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mockDocumentManager = createMockDocumentManager();
     sampleDocument = createSampleDocument();

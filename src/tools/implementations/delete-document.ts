@@ -71,7 +71,7 @@ export async function deleteDocument(
       const path = await import('node:path');
 
       const config = loadConfig();
-      const absolutePath = path.join(config.docsBasePath, addresses.document.path);
+      const absolutePath = path.join(config.workspaceBasePath, addresses.document.path);
 
       await fs.unlink(absolutePath);
 

@@ -6,6 +6,9 @@
  */
 
 import { describe, test, expect, beforeAll } from 'vitest';
+import { tmpdir } from 'node:os';
+import { mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadWorkflowPrompts } from '../../../prompts/workflow-prompts.js';
 import type { ToolDefinition } from '../../types.js';
 
@@ -14,6 +17,12 @@ import { generateGetWorkflowSchema } from '../get-workflow-schemas.js';
 
 describe('generateGetWorkflowSchema', () => {
   beforeAll(async () => {
+    // Set MCP_WORKSPACE_PATH if not already set
+    if (process.env['MCP_WORKSPACE_PATH'] == null) {
+      const tempDir = mkdtempSync(join(tmpdir(), 'get-workflow-schema-test-'));
+      process.env['MCP_WORKSPACE_PATH'] = tempDir;
+    }
+
     // Load workflow prompts before running tests
     await loadWorkflowPrompts();
   });
@@ -113,12 +122,12 @@ describe('generateGetWorkflowSchema', () => {
       const properties = schema.inputSchema.properties as Record<string, unknown>;
       const workflow = properties['workflow'] as { enum: string[] };
 
-      // Check specific known workflows
+      // Check specific known workflows (updated to match current workflow files)
       const expectedWorkflows = [
-        'tdd-incremental-orchestration',
-        'spec-first-integration',
-        'multi-option-tradeoff',
-        'failure-triage-repro'
+        'build-tdd',
+        'spec-external',
+        'decide',
+        'fix'
       ];
 
       expectedWorkflows.forEach(expected => {
@@ -183,9 +192,9 @@ describe('generateGetWorkflowSchema', () => {
       const properties = schema.inputSchema.properties as Record<string, unknown>;
       const workflow = properties['workflow'] as { description: string };
 
-      // Known description fragments from workflow files
-      expect(workflow.description).toContain('COORDINATION');
-      expect(workflow.description).toContain('INTEGRATION');
+      // Known description fragments from current workflow files
+      expect(workflow.description).toContain('BUILD:');
+      expect(workflow.description).toContain('SPEC:');
     });
 
     test('should start with "Available workflows:" prefix', () => {

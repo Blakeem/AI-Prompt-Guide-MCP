@@ -33,7 +33,7 @@ beforeEach(async () => {
   tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-tools-test-'));
 
   // Configure docs base path for fsio PathHandler to use temp directory
-  process.env['DOCS_BASE_PATH'] = tempDir;
+  process.env['MCP_WORKSPACE_PATH'] = tempDir;
 
   // Set up test file paths
   TEST_FILE = path.join(tempDir, 'final-result.md');

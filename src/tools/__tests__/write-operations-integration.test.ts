@@ -22,9 +22,15 @@ describe('Write Operations Integration', () => {
   let manager: DocumentManager;
 
   beforeEach(async () => {
+    // Set MCP_WORKSPACE_PATH for config loading
+    process.env["MCP_WORKSPACE_PATH"] = process.env["MCP_WORKSPACE_PATH"] ?? "/tmp/test-workspace";
+
     // Create unique temporary directory
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
     testDir = await mkdtemp(path.resolve(tmpdir(), `write-ops-test-${uniqueId}-`));
+
+    // Configure MCP_WORKSPACE_PATH for config loading
+    process.env["MCP_WORKSPACE_PATH"] = testDir;
     docsDir = path.resolve(testDir, 'docs');
 
     // Initialize cache and manager with docsDir as the base path

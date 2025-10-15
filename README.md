@@ -88,12 +88,15 @@ Set environment variables in your MCP client config:
       "command": "npx",
       "args": ["-y", "ai-prompt-guide-mcp"],
       "env": {
-        "DOCS_BASE_PATH": "./.ai-prompt-guide"
+        "MCP_WORKSPACE_PATH": "./.ai-prompt-guide"
       }
     }
   }
 }
 ```
+
+**Configuration:**
+- `MCP_WORKSPACE_PATH` - **Required** - Path to your MCP workspace directory (contains docs/, coordinator/, archived/)
 
 **Optional environment variables:**
 - `WORKFLOWS_BASE_PATH` - Custom workflow directory (defaults to bundled workflows)
