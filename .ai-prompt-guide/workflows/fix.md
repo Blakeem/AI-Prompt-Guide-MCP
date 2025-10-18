@@ -1,10 +1,7 @@
 ---
 title: "Fix"
 description: "🐛 FIX: Convert bug symptoms into minimal reproduction and actionable fix"
-whenToUse:
-  - "Bug reports without clear reproduction steps"
-  - "Flaky tests that fail inconsistently"
-  - "Production issues that work fine in development"
+whenToUse: "Bug reports without clear steps, flaky tests, or environment-specific issues"
 ---
 
 # Fix

@@ -1,10 +1,7 @@
 ---
 title: "Coverage"
 description: "🧪 TEST: Add comprehensive test coverage to existing code"
-whenToUse:
-  - "Adding tests to untested legacy code"
-  - "Improving test coverage for critical code paths"
-  - "Hardening existing functionality with comprehensive tests"
+whenToUse: "Adding tests to legacy code or improving coverage for critical code paths"
 ---
 
 # Coverage

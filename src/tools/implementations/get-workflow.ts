@@ -88,7 +88,6 @@ export async function executeGetWorkflow(
   return {
     name: displayName,
     description: prompt.description,
-    content: prompt.content,
-    when_to_use: prompt.whenToUse
+    content: prompt.content
   };
 }

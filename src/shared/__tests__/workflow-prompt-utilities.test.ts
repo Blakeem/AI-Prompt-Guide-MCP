@@ -177,7 +177,7 @@ describe('Workflow Prompt Utilities', () => {
       description: 'Multi-option trade-off analysis',
       content: '# Multi-Option Trade-off Protocol\n\nAnalyze options...',
       tags: ['decision', 'analysis'],
-      whenToUse: ['Multiple solution approaches', 'Trade-off decisions']
+      whenToUse: 'Multiple solution approaches or trade-off decisions'
     };
 
     afterEach(() => {
@@ -225,7 +225,7 @@ describe('Workflow Prompt Utilities', () => {
       description: 'Multi-option trade-off analysis',
       content: '# Multi-Option Trade-off Protocol\n\nAnalyze options...',
       tags: ['decision', 'analysis'],
-      whenToUse: ['Multiple solution approaches', 'Trade-off decisions']
+      whenToUse: 'Multiple solution approaches or trade-off decisions'
     };
 
     const baseTaskData: TaskViewData = {
@@ -345,7 +345,7 @@ describe('Workflow Prompt Utilities', () => {
       description: 'Spec-first integration protocol',
       content: '# Spec-First Integration\n\nAlways start with specs...',
       tags: ['spec', 'integration'],
-      whenToUse: ['API integration', 'New features']
+      whenToUse: 'API integration or new features'
     };
 
     const baseTaskData: TaskViewData = {

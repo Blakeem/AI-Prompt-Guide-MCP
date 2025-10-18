@@ -1,12 +1,7 @@
 ---
 title: "Decide"
 description: "⚖️ DECISION: Choose between multiple approaches with structured trade-off analysis"
-whenToUse:
-  - "Choosing between multiple implementation approaches"
-  - "Selecting performance optimizations (caching strategies, algorithm selection, data structures)"
-  - "Making architecture decisions (sync vs async, monolith vs service, singleton vs DI)"
-  - "Determining test strategies (property-based vs example-based vs snapshot)"
-  - "Evaluating implementation patterns when multiple valid approaches exist"
+whenToUse: "Multiple valid implementation approaches or architecture/optimization decisions with trade-offs to evaluate"
 ---
 
 # Decide

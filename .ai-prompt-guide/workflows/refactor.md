@@ -1,11 +1,7 @@
 ---
 title: "Refactor"
 description: "🔧 REFACTOR: Improve code quality through structured refactoring analysis"
-whenToUse:
-  - "Improving code structure and maintainability"
-  - "Reducing complexity and technical debt"
-  - "Choosing between refactoring approaches"
-  - "Planning safe, incremental refactoring"
+whenToUse: "Improving code structure, reducing complexity, or planning safe incremental refactoring"
 ---
 
 # Refactor

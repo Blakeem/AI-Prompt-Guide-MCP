@@ -1,10 +1,7 @@
 ---
 title: "Spec External"
 description: "📋 SPEC: Document 3rd party APIs/components from official sources"
-whenToUse:
-  - "Integrating new SDKs, webhooks, or authentication flows"
-  - "Building API clients or wrappers for external services"
-  - "Documenting external dependencies and their contracts"
+whenToUse: "Integrating SDKs, webhooks, auth flows, or documenting external service contracts"
 ---
 
 # Spec External

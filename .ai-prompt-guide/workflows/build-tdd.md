@@ -1,10 +1,7 @@
 ---
 title: "Build (TDD)"
 description: "🎯 BUILD: Orchestrate multi-agent development with TDD, quality gates, and staged integration"
-whenToUse:
-  - "Managing complex features requiring multiple specialized agents"
-  - "When quality gates and testing are critical to success"
-  - "Projects requiring test-driven development discipline"
+whenToUse: "Complex features requiring test-driven development, quality gates, or multi-agent orchestration"
 ---
 
 # Build (TDD)

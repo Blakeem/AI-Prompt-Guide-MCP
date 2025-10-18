@@ -23,7 +23,7 @@ export interface WorkflowPrompt {
   /** Keywords for discoverability */
   tags: string[];
   /** When agents should consider using this prompt */
-  whenToUse: string[];
+  whenToUse: string;
 }
 
 /**
@@ -89,7 +89,7 @@ export function findPromptsForSituation(situation: string): WorkflowPrompt[] {
   const searchTerms = situation.toLowerCase();
   const prompts = getWorkflowPrompts();
   return prompts.filter(p =>
-    p.whenToUse.some(use => use.toLowerCase().includes(searchTerms)) ||
+    p.whenToUse.toLowerCase().includes(searchTerms) ||
     p.description.toLowerCase().includes(searchTerms) ||
     p.tags.some(tag => searchTerms.includes(tag))
   );

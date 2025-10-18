@@ -49,7 +49,8 @@ export function generateGetWorkflowSchema(): ToolDefinition {
   workflowPrompts.forEach(prompt => {
     const name = prompt.name.replace(/^workflow_/, '');
     const desc = prompt.description;
-    descriptionLines.push(`• ${name}: ${desc}`);
+    const whenToUse = prompt.whenToUse !== '' ? `\n  Use for: ${prompt.whenToUse}` : '';
+    descriptionLines.push(`• ${name}: ${desc}${whenToUse}`);
   });
   const workflowDescription = descriptionLines.join('\n');
 

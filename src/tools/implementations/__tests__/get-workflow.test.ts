@@ -117,7 +117,6 @@ describe('get_workflow tool', () => {
       expect(result).toHaveProperty('name', 'tdd-incremental-orchestration');
       expect(result).toHaveProperty('description');
       expect(result).toHaveProperty('content');
-      expect(result).toHaveProperty('when_to_use');
     });
 
     it('should handle workflow name with workflow_ prefix gracefully', async () => {
@@ -188,13 +187,11 @@ describe('get_workflow tool', () => {
       expect(result).toHaveProperty('name');
       expect(result).toHaveProperty('description');
       expect(result).toHaveProperty('content');
-      expect(result).toHaveProperty('when_to_use');
 
       // Verify types
       expect(typeof result['name']).toBe('string');
       expect(typeof result['description']).toBe('string');
       expect(typeof result['content']).toBe('string');
-      expect(Array.isArray(result['when_to_use'])).toBe(true);
     });
 
     it('should strip workflow_ prefix from returned name', async () => {
@@ -217,18 +214,16 @@ describe('get_workflow tool', () => {
       expect(result['content']).toContain('This is test content for TDD workflow.');
     });
 
-    it('should return when_to_use as array', async () => {
-      const result = await executeGetWorkflow({ workflow: 'tdd-incremental-orchestration' }) as Record<string, unknown>;
-
-      expect(Array.isArray(result['when_to_use'])).toBe(true);
-      expect((result['when_to_use'] as string[]).length).toBeGreaterThan(0);
-      expect((result['when_to_use'] as string[])[0]).toContain('Managing complex features');
-    });
-
     it('should not include tags field', async () => {
       const result = await executeGetWorkflow({ workflow: 'tdd-incremental-orchestration' }) as Record<string, unknown>;
 
       expect(result).not.toHaveProperty('tags');
+    });
+
+    it('should not include when_to_use field (visible in schema instead)', async () => {
+      const result = await executeGetWorkflow({ workflow: 'tdd-incremental-orchestration' }) as Record<string, unknown>;
+
+      expect(result).not.toHaveProperty('when_to_use');
     });
   });
 

@@ -1,12 +1,7 @@
 ---
 title: "Build (Iterate)"
 description: "🔄 BUILD: Orchestrate multi-agent development with manual verification for zero-shot/iterative tasks"
-whenToUse:
-  - "Zero-shot greenfield projects without test infrastructure"
-  - "Lightweight prototypes, static sites, and landing pages"
-  - "Exploratory development requiring user iteration and feedback"
-  - "Projects where manual verification is more effective than automated tests"
-  - "When test infrastructure overhead isn't justified for task complexity"
+whenToUse: "Greenfield projects, prototypes, or exploratory development where manual verification trumps automated testing"
 ---
 
 # Build (Iterate)

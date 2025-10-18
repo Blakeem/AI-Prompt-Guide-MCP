@@ -1,10 +1,7 @@
 ---
 title: "Review Codebase"
 description: "🔍 REVIEW: Comprehensive codebase review with parallel agents for multiple quality dimensions"
-whenToUse:
-  - "Deep analysis of entire codebase across quality dimensions"
-  - "Comprehensive audit of code health before major releases"
-  - "System-wide quality assessment with specialized experts"
+whenToUse: "System-wide quality assessment before major releases or when needing deep analysis across codebase"
 ---
 
 # Review Codebase

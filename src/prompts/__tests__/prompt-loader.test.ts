@@ -38,7 +38,7 @@ describe('PromptLoader - Dual Directory Loading', () => {
         `---
 description: Test workflow description
 tags: [test, workflow]
-whenToUse: [When testing]
+whenToUse: "When testing workflows"
 ---
 
 # Test Workflow Content
@@ -245,9 +245,7 @@ Documentation standards content`
 title: Complex Workflow Title
 description: Complex workflow description
 tags: [complex, workflow, testing]
-whenToUse:
-  - When you need complex workflows
-  - When testing edge cases
+whenToUse: "When you need complex workflows or testing edge cases"
 ---
 
 # Complex Workflow
@@ -276,10 +274,7 @@ More content.`
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(prompt!.tags).toEqual(['complex', 'workflow', 'testing']);
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      expect(prompt!.whenToUse).toEqual([
-        'When you need complex workflows',
-        'When testing edge cases'
-      ]);
+      expect(prompt!.whenToUse).toBe('When you need complex workflows or testing edge cases');
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(prompt!.content).toContain('# Complex Workflow');
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

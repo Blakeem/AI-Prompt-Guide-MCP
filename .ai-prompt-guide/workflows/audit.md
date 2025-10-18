@@ -1,10 +1,7 @@
 ---
 title: "Audit"
 description: "🔍 AUDIT: Comprehensive quality audit with parallel agents, each focusing on specific issue types"
-whenToUse:
-  - "Deep analysis of specific quality dimensions across entire codebase"
-  - "Comprehensive audit of code health before production"
-  - "When you want specialized experts for each concern type"
+whenToUse: "Deep quality analysis across codebase dimensions before production or when needing specialized expert review"
 ---
 
 # Audit

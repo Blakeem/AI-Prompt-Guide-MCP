@@ -10,8 +10,8 @@ export interface PromptFrontmatter {
   title?: string;
   /** Brief description of what the prompt does (optional) */
   description?: string;
-  /** Array of usage scenarios (optional) */
-  whenToUse?: string[];
+  /** Single-line description of when to use this prompt (optional) */
+  whenToUse?: string;
   /** Tags for categorization (optional) */
   tags?: string[];
 }

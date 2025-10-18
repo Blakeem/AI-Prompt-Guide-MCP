@@ -40,7 +40,7 @@ interface CompleteSubagentTaskResult {
       name: string;
       description: string;
       content: string;
-      whenToUse: string[];
+      whenToUse: string;
     };
 
     referenced_documents?: HierarchicalContent[];
@@ -161,7 +161,7 @@ export async function completeSubagentTask(
         name: string;
         description: string;
         content: string;
-        whenToUse: string[];
+        whenToUse: string;
       };
       referenced_documents?: HierarchicalContent[];
     } | undefined;

@@ -1,10 +1,7 @@
 ---
 title: "Spec Feature"
 description: "📋 SPEC: Document internal feature specification"
-whenToUse:
-  - "Defining requirements for new features before implementation"
-  - "Creating API contracts for internal services"
-  - "Documenting feature behavior and acceptance criteria"
+whenToUse: "Defining requirements, API contracts, or acceptance criteria for new internal features"
 ---
 
 # Spec Feature

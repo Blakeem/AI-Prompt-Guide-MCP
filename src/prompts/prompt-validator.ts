@@ -54,12 +54,8 @@ export function validateFrontmatter(frontmatter: unknown): string[] {
   }
 
   // Validate whenToUse if present
-  if (fm['whenToUse'] != null) {
-    if (!Array.isArray(fm['whenToUse'])) {
-      errors.push('whenToUse must be an array');
-    } else if (!fm['whenToUse'].every((item: unknown) => typeof item === 'string')) {
-      errors.push('whenToUse must be an array of strings');
-    }
+  if (fm['whenToUse'] != null && typeof fm['whenToUse'] !== 'string') {
+    errors.push('whenToUse must be a string');
   }
 
   // Validate tags if present
@@ -89,7 +85,7 @@ export function normalizeFrontmatter(
   return {
     title: typeof fm['title'] === 'string' ? fm['title'] : filename,
     description: typeof fm['description'] === 'string' ? fm['description'] : '',
-    whenToUse: Array.isArray(fm['whenToUse']) ? fm['whenToUse'] : [],
+    whenToUse: typeof fm['whenToUse'] === 'string' ? fm['whenToUse'] : '',
     tags: Array.isArray(fm['tags']) ? fm['tags'] : []
   };
 }

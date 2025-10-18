@@ -1,11 +1,7 @@
 ---
 title: "Review"
 description: "🔍 REVIEW: Targeted review of specific changes, PRs, or components"
-whenToUse:
-  - "Reviewing pull requests before merge"
-  - "Analyzing specific code changes or commits"
-  - "Evaluating individual modules or components"
-  - "Quick quality check of targeted code areas"
+whenToUse: "Reviewing pull requests, specific changes, or individual modules before merge"
 ---
 
 # Review
