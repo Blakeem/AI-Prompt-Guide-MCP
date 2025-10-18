@@ -4,12 +4,25 @@ description: "🔍 AUDIT: Comprehensive quality audit with parallel agents, each
 whenToUse: "Deep quality analysis across codebase dimensions before production or when needing specialized expert review"
 ---
 
-# Audit
+# Workflow: Comprehensive Codebase Audit
 
-## Process
+1. [Coordinator] Select 5-10 issue types from standard categories
+2. [Coordinator] Prioritize essential three: Security Vulnerabilities, Error Handling, Data Validation
 
-### 1. Select Issue Types (5-10)
-Choose from standard types:
+**LOOP: For each selected issue_type**
+├─ 3. [Coordinator] Create review document → review_doc_{issue_type}
+├─ 4. [Coordinator] Launch specialist agent for issue_type
+├─ 5. [Specialist] Analyze entire codebase for issue_type violations
+├─ 6. [Specialist] Create task for each finding (location, severity, impact, recommendation)
+└─ 7. IF remaining_issue_types: Continue to step 3
+
+8. [Coordinator] Collect all review documents
+9. [Coordinator] Identify files flagged by multiple agents → hot_spots
+10. [Coordinator] Identify patterns across dimensions
+11. [Coordinator] Generate prioritized action plan by severity
+12. [Coordinator] Generate executive summary with counts and recommendations
+
+## Issue Type Categories
 
 **Essential:**
 - Security Vulnerabilities
@@ -25,43 +38,9 @@ Choose from standard types:
 - Concurrency & Race Conditions
 - Anti-Patterns
 
-### 2. Launch Parallel Agents
-For each issue type:
-- Create dedicated review document using create_document
-- Launch agent specializing in that issue type
-- Agent reviews entire codebase for their specific concern
-- Agent creates tasks for each issue found using task tool
+## Severity Levels
 
-### 3. Agent Task Creation
-Each agent documents findings as tasks:
-- Use create_document to create review document
-- Use task tool to add each issue as a task
-- Include: file location, severity, description, impact, recommendation
-- Organize tasks by severity
-
-Severity levels:
 - Critical: security vulnerabilities, data loss, crashes
 - High: performance issues, major bugs, missing critical tests
 - Medium: code smells, moderate improvements
 - Low: style issues, minor optimizations
-
-### 4. Synthesis & Prioritization
-After all agents complete:
-- Identify files flagged by multiple agents (hot spots)
-- Look for patterns across dimensions
-- Create prioritized action plan by severity
-- Generate executive summary with counts and recommendations
-
-## Key Practices
-
-**Issue Type Selection:**
-- Avoid overlap between types (clear boundaries)
-- 5-10 agents optimal
-- Always include essential three
-- Customize for project domain
-
-**Task Documentation:**
-- Each issue becomes a task in review document
-- Tasks can be assigned and tracked
-- Clear severity and actionable recommendations
-- File location with line numbers where applicable

@@ -4,58 +4,43 @@ description: "⚖️ DECISION: Choose between multiple approaches with structure
 whenToUse: "Multiple valid implementation approaches or architecture/optimization decisions with trade-offs to evaluate"
 ---
 
-# Decide
+# Workflow: Structured Decision Making
 
-## Process
+1. [Agent] Identify decision point and constraints
+2. [Agent] Generate 2-4 viable options (include simple baseline)
+3. [Agent] Document each option:
+   • Description: 1-2 sentence summary
+   • Assumptions: what must be true for this to work
+   • Pros: benefits, advantages, strengths
+   • Cons: drawbacks, risks, limitations
+   • Evidence: documentation, prior art, examples
+   • Pattern alignment: fits existing codebase patterns
 
-### 1. Generate 2-4 Viable Options
-- Be specific about what each approach entails
-- Include both obvious and creative alternatives
-- Ensure all options could reasonably work
+4. [Agent] Select 4-6 evaluation criteria:
+   • Correctness: solves problem accurately
+   • Risk: failure modes and likelihood
+   • Pattern Consistency: aligns with codebase conventions
+   • Maintainability: long-term code health
+   • Testability: ease of verification
+   • Simplicity: minimal complexity for requirements
+   • Performance: efficiency (if applicable)
 
-### 2. Document Each Option
-For each option:
-- Description: 1-2 sentence summary
-- Assumptions/Preconditions: what must be true
-- Pros: benefits, advantages, strengths
-- Cons: drawbacks, risks, limitations
-- Evidence/References: documentation, prior art, examples
-- Pattern Analysis: alignment with existing codebase patterns
+5. [Agent] Create decision matrix:
+   • Score each option per criterion (0-10 scale)
+   • Apply weights based on project priorities
+   • Calculate: Score = Σ (weight × normalized_criterion)
 
-### 3. Compare Quantitatively
-**Select 4-6 criteria from:**
-- Correctness: solves problem accurately
-- Risk: failure modes and likelihood
-- Pattern Consistency: aligns with codebase (reduces cognitive load)
-- Maintainability: long-term code health
-- Testability: ease of verification
-- Simplicity: minimal complexity for requirements
-- Performance: runtime/memory efficiency (if applicable)
+6. [Agent] Select highest-scoring option
+7. [Agent] Document why NOT the other options (key disqualifiers)
+8. [Agent] Record decision rationale for future reference
 
-**Create decision matrix:**
-- Score each option on each criterion (0-10 scale)
-- Apply weights to criteria based on context
-- Calculate: Score(option) = Σ weight × normalized(criterion)
+## Scoring Guidelines
 
-### 4. Decide and Justify
-- Select highest-scoring option
-- State why NOT the others (key disqualifiers and trade-offs)
-- Document decision rationale
-- Note any options disqualified for non-negotiable requirements
+**Weights:**
+- High weight (3-5): Critical project priorities
+- Medium weight (2): Important but negotiable
+- Low weight (1): Nice-to-have considerations
 
-## Key Considerations
-
-**Option Generation:**
-- Don't prematurely eliminate possibilities
-- Include at least one simple baseline option
-- Consider both incremental and radical approaches
-
-**Scoring:**
-- Use consistent scale (0-10 recommended)
-- Weight criteria based on project priorities
-- Disqualify options that fail non-negotiable requirements regardless of score
-
-**Decision:**
-- Highest score usually wins unless disqualified
-- Document trade-offs clearly
-- Note when simple option loses to complex option and justify why
+**Disqualification:**
+- Options failing non-negotiable requirements score 0 regardless of other merits
+- Simple option losing to complex requires explicit justification

@@ -210,7 +210,6 @@ Second task with workflow.`;
         name: 'simplicity-gate',
         description: 'Simplicity gate protocol',
         content: '# Simplicity Gate\n\nKeep implementation simple...',
-        tags: ['simplicity', 'design'],
         whenToUse: ['Design decisions', 'Implementation choices']
       };
 
@@ -473,7 +472,6 @@ Second task.`;
         name: 'simplicity-gate',
         description: 'Simplicity gate protocol',
         content: '# Simplicity Gate\n\nKeep it simple...',
-        tags: ['simplicity', 'design'],
         whenToUse: ['Design decisions', 'Implementation choices']
       };
 
@@ -595,7 +593,6 @@ Second task.`;
         name: 'multi-option-tradeoff',
         description: 'Multi-option trade-off analysis',
         content: '# Multi-Option Trade-off Protocol\n\nAnalyze multiple options...',
-        tags: ['decision-making', 'analysis'],
         whenToUse: ['Multiple solution approaches', 'Trade-off analysis needed']
       };
 

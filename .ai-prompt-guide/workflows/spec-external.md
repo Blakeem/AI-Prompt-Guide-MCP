@@ -4,70 +4,44 @@ description: "📋 SPEC: Document 3rd party APIs/components from official source
 whenToUse: "Integrating SDKs, webhooks, auth flows, or documenting external service contracts"
 ---
 
-# Spec External
+# Workflow: Document External API Specification
 
-## Process
+1. [Agent] Identify authoritative sources:
+   • Official documentation, API references, RFCs
+   • Versions relevant to runtime/environment
+   • Verify current and accurate (not third-party tutorials)
 
-### 1. Identify Authorities
-- Find official documentation, API references, RFCs
-- Note versions relevant to runtime/environment
-- Verify documentation is current and accurate
-- Identify authoritative sources (not third-party tutorials)
+2. [Agent] Extract complete API contract:
+   • Capabilities: supported features, limitations
+   • Invariants: must-hold conditions
+   • Limits: rate limits, size limits, timeouts
+   • Error semantics: codes, formats, retry policies
+   • Version gates: feature availability per version
+   • Authentication/authorization requirements
 
-### 2. Extract All Constraints
-Document complete API contract:
-- Capabilities: what's supported, what's not
-- Invariants: must-hold conditions
-- Limits: rate limits, size limits, timeout boundaries
-- Error Semantics: status codes, error formats, retry policies
-- Version Gates: feature availability per version
-- Authentication/Authorization requirements
+3. [Agent] Use create_document to create specification document
 
-### 3. Document API Contract
-Create comprehensive specification document:
-- Endpoints/methods with full signatures
-- Request/response formats with examples
-- Error conditions and handling
-- Rate limits and quotas
-- Authentication flows
-- Version compatibility matrix
+4. [Agent] Use section tool to add specification sections:
+   • Endpoints/methods with full signatures
+   • Request/response formats with examples
+   • Error conditions and handling
+   • Rate limits and quotas
+   • Authentication flows
+   • Version compatibility matrix
 
-Use create_document, section, and view_document tools for documentation creation.
+5. [Agent] Document integration acceptance criteria:
+   • Happy path: normal expected behavior
+   • Edge cases: boundaries, limits, unusual inputs
+   • Error handling: all specified error conditions
+   • Performance boundaries: latency/throughput requirements
 
-### 4. Define Integration Acceptance Criteria
-Create verifiable criteria proving conformance:
-- Happy path: normal, expected behavior
-- Edge cases: boundaries, limits, unusual inputs
-- Error handling: all error conditions specified
-- Performance boundaries: meets latency/throughput requirements
-
-### 5. Design Integration Approach
-**Map entry points:**
-- Identify candidate integration surfaces
-- Choose sync vs async based on latency/throughput/ordering needs
-
-**Propose 2-4 compliant designs:**
-- All must meet spec constraints (compliance non-negotiable)
-- Prefer smallest solution satisfying ALL requirements
-- Add complexity only for measurable risk reduction
-- Prefer reversible designs (easy to change later)
-
-## Key Practices
-
-**Research Guidelines:**
-- Access research best practices via get_guide:
-  ```typescript
-  get_guide({ guide: "research-guide" })
-  get_guide({ guide: "specification-writing" })
-  get_guide({ guide: "writing-standards" })
-  ```
+## Specification Principles
 
 **Correctness Priority:**
-- Official documentation is the source of truth
-- Spec compliance always comes first
-- Simplicity comes AFTER correctness and safety
+- Official documentation is source of truth
+- Spec compliance before simplicity
 - Test against specification, not assumptions
-- Verify examples and code samples from official docs
+- Verify examples from official docs
 
 **Documentation Quality:**
 - Complete API surface coverage

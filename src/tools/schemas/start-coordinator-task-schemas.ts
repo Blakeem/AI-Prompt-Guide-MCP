@@ -8,13 +8,19 @@
  * COORDINATOR MODE:
  * - Sequential only (NO #slug allowed)
  * - Works with /coordinator/ namespace
- * - Injects Main-Workflow from first task + task workflow
+ * - Conditionally returns task context based on return_task_context parameter (default: false)
+ * - When returning context: includes Main-Workflow from first task + task workflow + references
  * - Auto-finds next pending task
  */
 
 export interface StartCoordinatorTaskInputSchema {
   type: 'object';
-  properties: Record<string, never>;
+  properties: {
+    return_task_context: {
+      type: 'boolean';
+      description: 'Return task with full context (default: false). Set to true to inject Main-Workflow, task workflow, and references.';
+    };
+  };
   required: never[];
   additionalProperties: false;
 }
@@ -25,7 +31,12 @@ export interface StartCoordinatorTaskInputSchema {
 export function getStartCoordinatorTaskSchema(): StartCoordinatorTaskInputSchema {
   return {
     type: 'object',
-    properties: {},
+    properties: {
+      return_task_context: {
+        type: 'boolean',
+        description: 'Return task with full context (default: false). Set to true to inject Main-Workflow, task workflow, and references.',
+      },
+    },
     required: [],
     additionalProperties: false,
   };

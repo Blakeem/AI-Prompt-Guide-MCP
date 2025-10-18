@@ -12,8 +12,6 @@ export interface PromptFrontmatter {
   description?: string;
   /** Single-line description of when to use this prompt (optional) */
   whenToUse?: string;
-  /** Tags for categorization (optional) */
-  tags?: string[];
 }
 
 /**

@@ -46,14 +46,14 @@ export interface StartCoordinatorTaskResponse {
 }
 
 /**
- * Start work on coordinator task with full context injection
+ * Start work on coordinator task with optional context injection
  *
  * VALIDATION: Sequential only (no #slug allowed), enforces /coordinator/ namespace
  *
- * @param args - Tool arguments (document parameter optional, defaults to /coordinator/active.md)
+ * @param args - Tool arguments (return_task_context optional, defaults to false)
  * @param _state - Session state (unused but required by tool signature)
  * @param manager - Document manager for accessing documents
- * @returns Promise resolving to enriched task data with full workflow context
+ * @returns Promise resolving to task data (minimal or enriched based on return_task_context)
  * @throws {AddressingError} When parameters are invalid or task validation fails
  * @throws {DocumentNotFoundError} When document doesn't exist
  */
@@ -63,6 +63,9 @@ export async function startCoordinatorTask(
   manager: DocumentManager
 ): Promise<StartCoordinatorTaskResponse> {
   try {
+    // Extract return_task_context parameter (default: false)
+    const returnTaskContext = (args['return_task_context'] as boolean | undefined) ?? false;
+
     // COORDINATOR-SPECIFIC: Fixed document path using explicit path prefix
     const documentPath = `${PATH_PREFIXES.COORDINATOR}active.md`;
 
@@ -96,6 +99,23 @@ export async function startCoordinatorTask(
     }
 
     const targetTaskSlug = nextTask.slug;
+    const fullPath = `${PATH_PREFIXES.COORDINATOR}active.md#${targetTaskSlug}`;
+
+    // MINIMAL RESPONSE: Return basic task info without context
+    if (!returnTaskContext) {
+      return {
+        document: documentPath,
+        task: {
+          slug: targetTaskSlug,
+          title: nextTask.title,
+          content: '', // Empty content when not returning context
+          status: nextTask.status,
+          full_path: fullPath
+        }
+      };
+    }
+
+    // FULL CONTEXT: Load and enrich with workflows and references
     const taskContent = await manager.getSectionContent(documentPath, targetTaskSlug);
 
     if (taskContent == null) {
@@ -139,7 +159,7 @@ export async function startCoordinatorTask(
       ? withMainWorkflow.mainWorkflow as WorkflowPrompt | undefined
       : undefined;
 
-    // RESPONSE
+    // ENRICHED RESPONSE
     return {
       document: documentPath,
       task: {
@@ -147,7 +167,7 @@ export async function startCoordinatorTask(
         title: enriched.title,
         content: enriched.content,
         status: enriched.status,
-        full_path: `${PATH_PREFIXES.COORDINATOR}active.md#${enriched.slug}`,
+        full_path: fullPath,
         ...(workflow != null && { workflow }),
         ...(mainWorkflow != null && { main_workflow: mainWorkflow }),
         ...(enriched.referencedDocuments != null &&

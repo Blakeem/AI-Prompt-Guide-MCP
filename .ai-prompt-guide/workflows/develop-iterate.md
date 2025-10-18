@@ -1,0 +1,46 @@
+---
+title: "Develop (Iterate)"
+description: "🔄 DEVELOP: Orchestrate multi-agent development with manual verification"
+whenToUse: "Features, fixes, or prototypes where manual verification is preferred over automated testing"
+---
+
+# Workflow: Multi-Agent Development with Manual Verification
+
+1. [Coordinator] Analyze requirements and break into logical work units
+2. [Coordinator] Use coordinator_task to create sequential task list
+3. [Coordinator] Add Main-Workflow to first coordinator task
+4. [Coordinator] Use subagent_task to create all implementation tasks
+   • Add @references to API specs, component designs, documentation
+   • Add Workflow: metadata for task-specific protocols (if needed)
+   • Define acceptance criteria for each task
+5. [Coordinator] Call start_coordinator_task() → current_task
+
+**LOOP: While tasks remain**
+├─ 6. [Coordinator] Select specialized subagent for task type
+├─ 7. [Coordinator] Assign: "start_subagent_task /docs/path.md#slug, respond Done/Blocked"
+├─ 8. [Subagent] Call start_subagent_task → loads task + @references + workflows
+├─ 9. [Subagent] Execute task → responds "Done" or "Blocked: [reason]"
+├─ 10. [Coordinator] Manually verify work against acceptance criteria
+│  IF issues found: Create fix task, GOTO step 6
+├─ 11. [Coordinator] Execute: git add <modified_files>
+├─ 12. [Coordinator] Call complete_coordinator_task() → next_task
+└─ 13. IF next_task exists: GOTO step 6
+
+14. [Coordinator] Follow project testing procedures
+15. [Coordinator] Verify all acceptance criteria met
+16. [Coordinator] Report to user: "Development complete. Ready for review."
+
+## Task System
+
+**Coordinator Tasks** (your TODO list):
+- Tool: `coordinator_task` for create/edit/list
+- Tool: `start_coordinator_task()` to load first pending task
+- Tool: `complete_coordinator_task()` to mark done and get next
+- Metadata: Main-Workflow on first task, optional Workflow on specific tasks
+
+**Subagent Tasks** (delegated work packages):
+- Tool: `subagent_task` to create/edit tasks in /docs/ namespace
+- Tool: `start_subagent_task("/docs/path.md#slug")` to load task context
+- Tool: `complete_subagent_task()` to mark done
+- Content: @references to specs, docs, components (auto-injected as context)
+- Metadata: Workflow for task-specific protocols (auto-injected)

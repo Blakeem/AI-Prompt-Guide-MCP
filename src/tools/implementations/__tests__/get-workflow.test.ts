@@ -16,7 +16,6 @@ vi.mock('../../../prompts/workflow-prompts.js', () => {
       name: 'workflow_tdd-incremental-orchestration',
       description: '🎯 COORDINATION: Orchestrate multi-agent development with TDD',
       content: '# TDD Incremental Orchestration\n\nThis is test content for TDD workflow.',
-      tags: ['coordination', 'tdd', 'development'],
       whenToUse: [
         'Managing complex features requiring multiple developers',
         'When quality gates must be enforced',
@@ -27,7 +26,6 @@ vi.mock('../../../prompts/workflow-prompts.js', () => {
       name: 'workflow_spec-first-integration',
       description: '📋 INTEGRATION: Ensure correctness before coding',
       content: '# Spec-First Integration\n\nValidate against specifications first.',
-      tags: ['integration', 'specs', 'validation'],
       whenToUse: [
         'Adding new API integrations',
         'When external dependencies are involved',
@@ -38,7 +36,6 @@ vi.mock('../../../prompts/workflow-prompts.js', () => {
       name: 'workflow_multi-option-tradeoff',
       description: '⚖️ DECISION: Multi-criteria analysis for complex choices',
       content: '# Multi-Option Tradeoff Analysis\n\nStructured decision making.',
-      tags: ['decision', 'analysis', 'tradeoff'],
       whenToUse: [
         'Multiple solution approaches available',
         'Need to compare options objectively',
@@ -49,7 +46,6 @@ vi.mock('../../../prompts/workflow-prompts.js', () => {
       name: 'guide_documentation-standards',
       description: 'Documentation writing standards and best practices',
       content: '# Documentation Standards\n\nGuide content here.',
-      tags: ['documentation', 'standards', 'writing'],
       whenToUse: [
         'Writing new documentation',
         'Reviewing documentation quality',

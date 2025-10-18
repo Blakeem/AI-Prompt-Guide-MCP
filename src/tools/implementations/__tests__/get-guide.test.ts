@@ -16,7 +16,6 @@ vi.mock('../../../prompts/workflow-prompts.js', () => {
       name: 'guide_activate-guide-documentation',
       description: 'How to create actionable guides and tutorials',
       content: '# Activate Guide Documentation\n\nThis is test content for guide documentation.',
-      tags: ['documentation', 'guides', 'tutorials'],
       whenToUse: [
         'Creating new guides',
         'Writing tutorial content',
@@ -27,7 +26,6 @@ vi.mock('../../../prompts/workflow-prompts.js', () => {
       name: 'guide_activate-specification-documentation',
       description: 'How to write technical specifications',
       content: '# Activate Specification Documentation\n\nTest content for specifications.',
-      tags: ['documentation', 'specifications', 'technical'],
       whenToUse: [
         'Writing API specifications',
         'Documenting technical requirements',
@@ -38,7 +36,6 @@ vi.mock('../../../prompts/workflow-prompts.js', () => {
       name: 'guide_documentation-standards',
       description: 'Documentation writing standards and best practices',
       content: '# Documentation Standards\n\nBest practices for documentation.',
-      tags: ['documentation', 'standards', 'writing'],
       whenToUse: [
         'Writing new documentation',
         'Reviewing documentation quality',
@@ -49,7 +46,6 @@ vi.mock('../../../prompts/workflow-prompts.js', () => {
       name: 'workflow_tdd-incremental-orchestration',
       description: '🎯 COORDINATION: Orchestrate multi-agent development with TDD',
       content: '# TDD Incremental Orchestration\n\nThis is test content for TDD workflow.',
-      tags: ['coordination', 'tdd', 'development'],
       whenToUse: [
         'Managing complex features requiring multiple developers',
         'When quality gates must be enforced',

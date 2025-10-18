@@ -4,121 +4,48 @@ description: "🔍 REVIEW: Targeted review of specific changes, PRs, or componen
 whenToUse: "Reviewing pull requests, specific changes, or individual modules before merge"
 ---
 
-# Review
+# Workflow: Code Review
 
-## Process
+1. [Reviewer] Define review scope:
+   • Pull request or commit range
+   • Specific files or modules
+   • Focused area or component
 
-### 1. Define Review Scope
-Identify what to review:
-- Specific pull request or commit range
-- Individual files or modules
-- Particular components or features
-- Recent changes in focused area
+2. [Reviewer] Review across quality dimensions:
+   • Correctness: logic accuracy, edge cases, error handling
+   • Code Quality: readability, maintainability, naming
+   • Testing: coverage, assertions, edge cases
+   • Security: validation, auth, sensitive data handling
+   • Performance: efficiency, resource usage
+   • Pattern Consistency: aligns with codebase conventions
 
-Use view_document, view_section, search_documents, and browse_documents for code examination.
+3. [Reviewer] Identify issues by severity:
+   • Critical: security vulnerabilities, data loss risks, breaking changes
+   • High: performance issues, major logic errors, missing critical tests
+   • Medium: code smells, moderate improvements, minor bugs
+   • Low: style inconsistencies, minor optimizations, naming
 
-### 2. Review Across Quality Dimensions
+4. [Reviewer] Provide actionable feedback per finding:
+   • Location (file:line)
+   • Clear description and impact
+   • Concrete recommendation
+   • Code examples (if applicable)
 
-**Correctness:**
-- Logic accuracy and algorithmic correctness
-- Edge case handling
-- Error handling and recovery
-- Input validation and sanitization
+5. [Reviewer] Summarize findings:
+   • Overall assessment (approve/request changes/comment)
+   • Count by severity
+   • Priority recommendations
+   • Blocking vs non-blocking items
 
-**Code Quality:**
-- Readability and clarity
-- Maintainability and structure
-- Naming conventions
-- Documentation and comments (where needed)
+## Review Focus
 
-**Testing:**
-- Test coverage for changes
-- Test quality and assertions
-- Edge cases covered
-- Integration test needs
+**Prioritize:**
+- Correctness and security
+- Maintainability impact
+- Changed code (not unchanged)
 
-**Security:**
-- Authentication and authorization
-- Input validation
-- Sensitive data handling
-- Vulnerability patterns
-
-**Performance:**
-- Algorithm efficiency
-- Resource usage (memory, CPU)
-- Database query optimization
-- Caching opportunities
-
-**Pattern Consistency:**
-- Aligns with codebase conventions
-- Follows established patterns
-- Consistent with project style
-- Appropriate abstraction level
-
-### 3. Identify Issues by Severity
-
-**Critical:**
-- Security vulnerabilities
-- Data loss or corruption risks
-- Breaking changes
-- Production-impacting bugs
-
-**High:**
-- Significant performance issues
-- Major logic errors
-- Missing critical tests
-- Architectural concerns
-
-**Medium:**
-- Code smells and maintainability issues
-- Moderate improvements possible
-- Minor bugs or edge cases
-- Documentation gaps
-
-**Low:**
-- Style inconsistencies
-- Minor optimizations
-- Naming suggestions
-- Refactoring opportunities
-
-### 4. Provide Actionable Feedback
-For each finding:
-- Specific location (file and line numbers)
-- Clear description of the issue
-- Explanation of impact and risk
-- Concrete, actionable recommendation
-- Code examples for suggested fixes (if applicable)
-
-### 5. Summarize Findings
-Create review summary:
-- Overall assessment (approve/request changes/comment)
-- Count of issues by severity
-- Key strengths and positive aspects
-- Priority recommendations
-- Blocking vs non-blocking feedback
-
-## Key Practices
-
-**Focus on What Matters:**
-- Prioritize correctness and security
-- Don't nitpick minor style issues
-- Consider maintainability impact
-- Balance thoroughness with efficiency
-
-**Constructive Feedback:**
-- Be specific and actionable
-- Explain the "why" behind suggestions
-- Offer alternatives when criticizing
+**Provide:**
+- Specific, actionable feedback
+- Explain "why" behind suggestions
 - Acknowledge good practices
-
-**Context Awareness:**
-- Consider project constraints
-- Respect existing patterns
-- Understand feature requirements
-- Account for technical debt decisions
-
-**Efficiency:**
-- Focus on changed code primarily
-- Don't re-review unchanged code
-- Use automated tools where available
-- Timely feedback enables progress
+- Timely feedback

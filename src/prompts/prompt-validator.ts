@@ -58,15 +58,6 @@ export function validateFrontmatter(frontmatter: unknown): string[] {
     errors.push('whenToUse must be a string');
   }
 
-  // Validate tags if present
-  if (fm['tags'] != null) {
-    if (!Array.isArray(fm['tags'])) {
-      errors.push('tags must be an array');
-    } else if (!fm['tags'].every((item: unknown) => typeof item === 'string')) {
-      errors.push('tags must be an array of strings');
-    }
-  }
-
   return errors;
 }
 
@@ -85,7 +76,6 @@ export function normalizeFrontmatter(
   return {
     title: typeof fm['title'] === 'string' ? fm['title'] : filename,
     description: typeof fm['description'] === 'string' ? fm['description'] : '',
-    whenToUse: typeof fm['whenToUse'] === 'string' ? fm['whenToUse'] : '',
-    tags: Array.isArray(fm['tags']) ? fm['tags'] : []
+    whenToUse: typeof fm['whenToUse'] === 'string' ? fm['whenToUse'] : ''
   };
 }

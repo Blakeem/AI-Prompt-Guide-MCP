@@ -4,77 +4,70 @@ description: "📋 SPEC: Document internal feature specification"
 whenToUse: "Defining requirements, API contracts, or acceptance criteria for new internal features"
 ---
 
-# Spec Feature
+# Workflow: Document Internal Feature Specification
 
-## Process
+1. [Agent] Gather initial requirements from user:
+   • Feature purpose and goals
+   • User-facing behavior expectations
+   • Key use cases
+   • Priorities
 
-### 1. Gather Requirements
-- Understand feature purpose and goals
-- Identify stakeholders and use cases
-- Collect functional and non-functional requirements
-- Note constraints and dependencies
+2. [Agent] Analyze requirements for gaps and ambiguities:
+   • Unclear user flows or interactions
+   • Missing UX details (inputs, outputs, feedback)
+   • Undefined edge cases or error scenarios
+   • Ambiguous feature scope or boundaries
 
-### 2. Define Feature Contract
-Document complete specification:
-- User-facing behavior and interactions
-- API contracts (if applicable)
-- Data models and schemas
-- State transitions and workflows
-- Error conditions and handling
-- Performance requirements
-- Security considerations
+**LOOP: While gaps or ambiguities exist**
+├─ 3. [Agent] Ask user clarifying questions:
+│  • UX details: How should users interact with this?
+│  • Requirements: What happens when X occurs?
+│  • Edge cases: How should system handle Y?
+│  • Priorities: Which aspects are most critical?
+├─ 4. [Agent] Use decide workflow for technical decisions:
+│  • Implementation approach
+│  • Data structures and storage
+│  • Integration patterns
+│  • Performance and security requirements
+│  • Technical trade-offs
+├─ 5. [Agent] Update requirements understanding
+└─ 6. IF gaps remain: GOTO step 3
 
-### 3. Create Specification Document
-Build comprehensive spec using documentation tools:
-- Feature overview and rationale
-- Detailed functionality description
-- API endpoints/methods with signatures
-- Request/response formats with examples
-- Error conditions and messages
-- Edge cases and boundary conditions
-- Non-functional requirements
+7. [Agent] Use create_document to create specification document
 
-Use create_document, section, and task tools for specification creation.
+8. [Agent] Use section tool to add complete specification:
+   • Feature overview and rationale
+   • Detailed functionality description
+   • API endpoints/methods with signatures
+   • Request/response formats with examples
+   • Error conditions and messages
+   • Edge cases and boundary conditions
+   • Performance and security requirements
+   • Add @references to external API specs (if integrating third-party services)
 
-### 4. Define Acceptance Criteria
-Create verifiable criteria for implementation:
-- Happy path: normal, expected behavior
-- Edge cases: boundaries, limits, unusual inputs
-- Error handling: all error conditions specified
-- Performance boundaries: latency/throughput requirements
-- Security requirements: authentication, authorization, validation
+9. [Agent] Document acceptance criteria:
+   • Happy path: normal expected behavior
+   • Edge cases: boundaries, limits, unusual inputs
+   • Error handling: all error conditions
+   • Performance boundaries: latency/throughput requirements
+   • Security requirements: authentication, authorization, validation
 
-### 5. Design Implementation Approach
-**Map entry points:**
-- Identify integration surfaces with existing system
-- Consider data flow and state management
-- Choose appropriate patterns and abstractions
+10. [Agent] Document selected implementation approach from decide workflow
 
-**Propose 2-4 compliant designs:**
-- All must satisfy requirements (correctness non-negotiable)
-- Prefer smallest solution satisfying ALL requirements
-- Add complexity only for measurable benefits
-- Prefer reversible designs (easy to change later)
-- Consider testability and maintainability
+## Specification Principles
 
-## Key Practices
+**Gap Analysis:**
+- Identify unclear or missing requirements early
+- Ask questions to avoid assumptions
+- Clarify UX and user expectations with user
+- Make technical decisions independently using decide workflow
 
-**Documentation Guidelines:**
-- Access documentation best practices via get_guide:
-  ```typescript
-  get_guide({ guide: "specification-writing" })
-  get_guide({ guide: "writing-standards" })
-  ```
+**User vs Agent Decisions:**
+- User decides: UX, feature scope, priorities, business rules
+- Agent decides: Implementation, data structures, patterns, performance, security, technical trade-offs
 
-**Specification Quality:**
+**Clarity:**
 - Clear, unambiguous requirements
 - Complete coverage of functionality
 - Specific, measurable acceptance criteria
-- Consider security and error handling upfront
-- Version and maintain specs alongside code
-
-**Design Principles:**
-- Requirements drive design, not assumptions
-- Simplicity preferred after correctness
-- Document design decisions and trade-offs
-- Consider future extensibility without over-engineering
+- No assumptions without validation

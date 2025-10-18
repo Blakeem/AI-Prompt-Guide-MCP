@@ -37,7 +37,6 @@ describe('PromptLoader - Dual Directory Loading', () => {
         join(workflowsDir, 'test-workflow.md'),
         `---
 description: Test workflow description
-tags: [test, workflow]
 whenToUse: "When testing workflows"
 ---
 
@@ -56,8 +55,6 @@ This is test content.`
       expect(firstPrompt!.name).toBe('test-workflow');
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(firstPrompt!.description).toBe('Test workflow description');
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      expect(firstPrompt!.tags).toEqual(['test', 'workflow']);
     });
 
     it('should handle missing directory gracefully', async () => {
@@ -110,7 +107,6 @@ Valid content`
         join(workflowsDir, 'tdd-incremental.md'),
         `---
 description: TDD workflow
-tags: [tdd, testing]
 ---
 
 TDD content here`
@@ -135,7 +131,6 @@ TDD content here`
         join(guidesDir, 'activate-guide-documentation.md'),
         `---
 description: Guide activation documentation
-tags: [guide, documentation]
 ---
 
 Guide content here`
@@ -161,7 +156,6 @@ Guide content here`
         join(workflowsDir, 'spec-first.md'),
         `---
 description: Spec first workflow
-tags: [spec, workflow]
 ---
 
 Spec first content`
@@ -172,7 +166,6 @@ Spec first content`
         join(guidesDir, 'documentation-standards.md'),
         `---
 description: Documentation standards guide
-tags: [guide, standards]
 ---
 
 Documentation standards content`
@@ -244,7 +237,6 @@ Documentation standards content`
         `---
 title: Complex Workflow Title
 description: Complex workflow description
-tags: [complex, workflow, testing]
 whenToUse: "When you need complex workflows or testing edge cases"
 ---
 
@@ -271,8 +263,6 @@ More content.`
       expect(prompt!.name).toBe('workflow_complex-workflow');
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(prompt!.description).toBe('Complex workflow description');
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      expect(prompt!.tags).toEqual(['complex', 'workflow', 'testing']);
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(prompt!.whenToUse).toBe('When you need complex workflows or testing edge cases');
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

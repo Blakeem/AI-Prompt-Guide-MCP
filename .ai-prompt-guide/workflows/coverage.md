@@ -4,80 +4,71 @@ description: "🧪 TEST: Add comprehensive test coverage to existing code"
 whenToUse: "Adding tests to legacy code or improving coverage for critical code paths"
 ---
 
-# Coverage
+# Workflow: Add Test Coverage
 
-## Process
+1. [Coordinator] Analyze code to identify coverage gaps and test targets
+2. [Coordinator] Prioritize targets by regression risk and stability
+3. [Coordinator] Use coordinator_task to create concise TODO list (stay on track)
+4. [Coordinator] Use subagent_task to create test tasks for each target:
+   • Specify what to test (public API, business logic, error handling)
+   • Specify test approach (mocks for external dependencies)
+   • Add @references to code files, existing tests, test patterns
+5. [Coordinator] Call start_coordinator_task() → current_task
 
-### 1. Analyze Existing Code
-- Understand functionality and critical paths
-- Identify complex logic, edge cases, and error conditions
-- Review existing test coverage (if any)
-- Determine high-value areas for testing
+**LOOP: While tasks remain**
+├─ 6. [Coordinator] Select testing specialist subagent
+├─ 7. [Coordinator] Assign: "start_subagent_task /docs/path.md#slug, write passing tests, respond Done/Blocked"
+├─ 8. [Subagent] Call start_subagent_task → loads task + @references
+├─ 9. [Subagent] Write tests following Arrange-Act-Assert:
+│  • Arrange: Set up inputs and mocks
+│  • Act: Execute function under test
+│  • Assert: Verify outputs and side effects
+│  • Run tests → verify all pass
+│  • Respond "Done" or "Blocked: [reason]"
+├─ 10. [Coordinator] Review test quality:
+│  • Tests stable contracts, not implementation
+│  • Proper use of mocks for external dependencies
+│  • Clear assertions on behavior
+│  IF issues found: Create fix task, GOTO step 6
+├─ 11. [Coordinator] Execute: git add <test_files>
+├─ 12. [Coordinator] Call complete_coordinator_task() → next_task
+└─ 13. IF next_task exists: GOTO step 6
 
-### 2. Prioritize Test Cases
-Focus on highest-value tests first:
-- **Critical paths**: Core functionality users depend on
-- **Complex logic**: Algorithms, business rules, calculations
-- **Error handling**: Validation, exceptions, edge cases
-- **Edge cases**: Boundary conditions, unusual inputs
-- **Integration points**: External dependencies, APIs, data stores
+14. [Coordinator] Run full test suite → verify no regressions
+15. [Coordinator] Verify coverage improvement
+16. [Coordinator] Report to user: "Test coverage improved. Ready for review."
 
-### 3. Follow Project Test Patterns
-- Review existing test structure and conventions
-- Use same test framework and utilities
-- Follow established naming conventions
-- Match existing test organization (unit/integration/e2e)
-- Maintain consistent assertion style
+## What to Test (Regression Prevention)
 
-### 4. Write Clear, Maintainable Tests
-Use Arrange-Act-Assert pattern:
-- **Arrange**: Set up test data and preconditions
-- **Act**: Execute the code under test
-- **Assert**: Verify expected outcomes
+**Test Stable Contracts:**
+- Public APIs and exported functions
+- Input/output transformations
+- Business rules and calculations
+- Critical user workflows
 
-Test characteristics:
-- Focused: One concept per test
-- Independent: Tests don't depend on each other
-- Repeatable: Same results every run
-- Fast: Quick feedback loop
-- Self-documenting: Clear test names and structure
+**Avoid Testing:**
+- Private implementation details
+- Third-party library internals
+- Trivial getters/setters
+- Code that will change frequently
 
-### 5. Cover All Scenarios
-Ensure comprehensive coverage:
-- **Happy paths**: Normal, expected behavior
-- **Edge cases**: Boundaries, limits, unusual inputs
-- **Error conditions**: Invalid input, failures, exceptions
-- **State transitions**: Different system states
-- **Integration**: Interaction with dependencies
+**Use Mocks For:**
+- External APIs and services
+- Database connections
+- File system operations
+- Time-dependent behavior
+- Random number generation
 
-### 6. Verify and Validate
-- Run tests to ensure they pass
-- Verify coverage metrics improved
-- Check for test quality (not just quantity)
-- Ensure tests are maintainable and readable
+## Test Quality Criteria
 
-## Key Practices
-
-**Test Quality Over Quantity:**
-- Focus on meaningful assertions
-- Avoid brittle tests tied to implementation details
+**Stable Tests:**
+- Assert on outputs, not internal state
 - Test behavior, not implementation
-- Keep tests simple and readable
+- Independent of execution order
+- Deterministic results
 
-**Coverage Gaps:**
-- Use coverage tools to identify untested code
-- Prioritize gaps in critical paths
-- Don't chase 100% coverage blindly
-- Focus on valuable tests
-
-**Maintainability:**
-- Clear test names describe what's being tested
-- Minimal setup and teardown
-- Avoid test interdependencies
-- Use test helpers for common patterns
-
-**Common Test Types:**
-- Unit tests: Isolated component testing
-- Integration tests: Component interaction testing
-- Property-based tests: Generate test cases automatically
-- Snapshot tests: UI/output verification
+**Maintainable Tests:**
+- One concept per test
+- Clear descriptive names
+- Minimal setup complexity
+- Self-documenting structure

@@ -45,7 +45,7 @@ The system preserves context across sessions while keeping your main agent focus
 - Works on any project—no configuration needed
 
 **Workflow Library**
-- 11 pre-built workflows for common development scenarios
+- 9 pre-built workflows for common development scenarios
 - Access via `get_workflow` tool or Claude Code plugin commands
 - Reference workflows in task metadata for automatic injection
 - Create your own custom workflows easily
@@ -130,32 +130,30 @@ Only `docs/` is required—everything else is created automatically.
 
 ### Workflows & Commands
 
-The plugin provides **11 workflows** accessible both as slash commands and via the `get_workflow` MCP tool:
+The plugin provides **9 workflows** accessible both as slash commands and via the `get_workflow` MCP tool:
 
-- `/ai-prompt-guide:build-tdd` – Build with test-driven development
-- `/ai-prompt-guide:build-iterate` – Build with manual verification
-- `/ai-prompt-guide:fix` – Debug and fix issues systematically
-- `/ai-prompt-guide:refactor` – Improve code quality with structured analysis
+- `/ai-prompt-guide:develop-tdd` – Orchestrate multi-agent development with TDD
+- `/ai-prompt-guide:develop-iterate` – Orchestrate multi-agent development with manual verification
 - `/ai-prompt-guide:review` – Targeted review of PRs or components
-- `/ai-prompt-guide:review-codebase` – Comprehensive parallel agent review
 - `/ai-prompt-guide:audit` – Quality audit with specialized agents
 - `/ai-prompt-guide:coverage` – Add comprehensive test coverage
-- `/ai-prompt-guide:decide` – Multi-option decision analysis
-- `/ai-prompt-guide:spec-feature` – Write internal feature specs
-- `/ai-prompt-guide:spec-external` – Document external APIs
+- `/ai-prompt-guide:decide` – Structured decision making with trade-off analysis
+- `/ai-prompt-guide:decide-iterate` – Multi-perspective decision analysis with parallel agents
+- `/ai-prompt-guide:spec-feature` – Document internal feature specifications
+- `/ai-prompt-guide:spec-external` – Document external API specifications
 
 **Commands are shortcuts to workflows.** When using Claude Code, the plugin commands provide a convenient way to invoke workflows. When using the MCP server directly, access the same workflows via:
 
 ```typescript
-get_workflow({ workflow: "build-tdd" })
-get_workflow({ workflow: "review-codebase" })
+get_workflow({ workflow: "develop-tdd" })
+get_workflow({ workflow: "audit" })
 // ... etc
 ```
 
 ### Example
 
 ```
-/ai-prompt-guide:build-tdd Build an admin dashboard with user activity charts, region filtering, and CSV export. Include tests for the aggregation logic.
+/ai-prompt-guide:develop-tdd Build an admin dashboard with user activity charts, region filtering, and CSV export. Include tests for the aggregation logic.
 ```
 
 The plugin loads the workflow, creates a plan, assigns work to specialized agents, and orchestrates implementation automatically.

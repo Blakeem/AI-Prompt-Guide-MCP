@@ -176,7 +176,6 @@ describe('Workflow Prompt Utilities', () => {
       name: 'multi-option-tradeoff',
       description: 'Multi-option trade-off analysis',
       content: '# Multi-Option Trade-off Protocol\n\nAnalyze options...',
-      tags: ['decision', 'analysis'],
       whenToUse: 'Multiple solution approaches or trade-off decisions'
     };
 
@@ -224,7 +223,6 @@ describe('Workflow Prompt Utilities', () => {
       name: 'multi-option-tradeoff',
       description: 'Multi-option trade-off analysis',
       content: '# Multi-Option Trade-off Protocol\n\nAnalyze options...',
-      tags: ['decision', 'analysis'],
       whenToUse: 'Multiple solution approaches or trade-off decisions'
     };
 
@@ -344,7 +342,6 @@ describe('Workflow Prompt Utilities', () => {
       name: 'spec-first-integration',
       description: 'Spec-first integration protocol',
       content: '# Spec-First Integration\n\nAlways start with specs...',
-      tags: ['spec', 'integration'],
       whenToUse: 'API integration or new features'
     };
 

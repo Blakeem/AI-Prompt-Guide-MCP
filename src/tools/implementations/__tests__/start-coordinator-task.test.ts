@@ -22,7 +22,6 @@ vi.mock('../../../prompts/workflow-prompts.js', () => {
       name: 'workflow_tdd-incremental-orchestration',
       description: '🎯 COORDINATION: Orchestrate multi-agent development with TDD',
       content: '# TDD Incremental Orchestration\n\nThis is test content for TDD workflow.',
-      tags: ['coordination', 'tdd', 'development'],
       whenToUse: [
         'Managing complex features requiring multiple developers',
         'When quality gates must be enforced',
@@ -33,7 +32,6 @@ vi.mock('../../../prompts/workflow-prompts.js', () => {
       name: 'workflow_spec-first-integration',
       description: '📋 INTEGRATION: Ensure correctness before coding',
       content: '# Spec-First Integration\n\nValidate against specifications first.',
-      tags: ['integration', 'specs', 'validation'],
       whenToUse: [
         'Adding new API integrations',
         'When external dependencies are involved',
@@ -120,7 +118,7 @@ describe('start_coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      const result = await startCoordinatorTask({}, sessionState, manager);
+      const result = await startCoordinatorTask({ return_task_context: true }, sessionState, manager);
 
       expect(result.task.main_workflow).toBeDefined();
       if (result.task.main_workflow != null) {
@@ -136,7 +134,7 @@ describe('start_coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      const result = await startCoordinatorTask({}, sessionState, manager);
+      const result = await startCoordinatorTask({ return_task_context: true }, sessionState, manager);
 
       expect(result.task.workflow).toBeDefined();
       if (result.task.workflow != null) {

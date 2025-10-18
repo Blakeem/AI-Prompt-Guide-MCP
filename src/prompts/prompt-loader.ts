@@ -247,7 +247,6 @@ export class PromptLoader {
       name,
       description: parsed.frontmatter.description ?? '',
       content: parsed.content,
-      tags: parsed.frontmatter.tags ?? [],
       whenToUse: parsed.frontmatter.whenToUse ?? ''
     };
   }

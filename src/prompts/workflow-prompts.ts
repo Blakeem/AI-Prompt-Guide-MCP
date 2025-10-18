@@ -20,8 +20,6 @@ export interface WorkflowPrompt {
   description: string;
   /** Full prompt content with instructions */
   content: string;
-  /** Keywords for discoverability */
-  tags: string[];
   /** When agents should consider using this prompt */
   whenToUse: string;
 }
@@ -75,14 +73,6 @@ export function getWorkflowPrompt(name: string): WorkflowPrompt | undefined {
 }
 
 /**
- * Find prompts by tag
- */
-export function findPromptsByTag(tag: string): WorkflowPrompt[] {
-  const prompts = getWorkflowPrompts();
-  return prompts.filter(p => p.tags.includes(tag.toLowerCase()));
-}
-
-/**
  * Search prompts by situation/context
  */
 export function findPromptsForSituation(situation: string): WorkflowPrompt[] {
@@ -90,7 +80,6 @@ export function findPromptsForSituation(situation: string): WorkflowPrompt[] {
   const prompts = getWorkflowPrompts();
   return prompts.filter(p =>
     p.whenToUse.toLowerCase().includes(searchTerms) ||
-    p.description.toLowerCase().includes(searchTerms) ||
-    p.tags.some(tag => searchTerms.includes(tag))
+    p.description.toLowerCase().includes(searchTerms)
   );
 }

@@ -247,7 +247,6 @@ Set up the project structure following best practices.`;
         name: 'multi-option-tradeoff',
         description: 'Multi-option trade-off analysis',
         content: '# Multi-Option Trade-off Protocol\n\nAnalyze options...',
-        tags: ['decision-making', 'analysis'],
         whenToUse: ['Multiple solution approaches', 'Trade-off analysis needed']
       };
 
@@ -401,7 +400,6 @@ Implement the feature.`;
         name: 'spec-first-integration',
         description: 'Spec-first integration protocol',
         content: '# Spec-First Integration\n\nFollow specs...',
-        tags: ['integration', 'specs'],
         whenToUse: ['New integrations', 'API work']
       };
 
@@ -409,7 +407,6 @@ Implement the feature.`;
         name: 'simplicity-gate',
         description: 'Simplicity gate protocol',
         content: '# Simplicity Gate\n\nKeep it simple...',
-        tags: ['simplicity', 'design'],
         whenToUse: ['Design decisions', 'Implementation choices']
       };
 
