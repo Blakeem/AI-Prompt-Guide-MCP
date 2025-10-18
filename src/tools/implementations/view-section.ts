@@ -5,7 +5,6 @@
 
 import type { SessionState } from '../../session/types.js';
 import type { DocumentManager } from '../../document-manager.js';
-import type { HierarchicalContext } from '../../shared/addressing-system.js';
 import {
   ToolIntegration,
   DocumentNotFoundError,
@@ -28,23 +27,10 @@ interface ViewSectionResponse {
     title: string;
     content?: string;  // Only in detail mode
     depth: number;
-    full_path: string;
     parent?: string;
     word_count?: number;  // Only in detail mode
     links?: string[];  // Only in detail mode
-    hierarchical_context?: HierarchicalContext | null;  // Only in detail mode
   }>;
-  summary: {
-    total_sections: number;
-    total_words: number;
-    has_content: boolean;
-    hierarchical_stats?: {
-      max_depth: number;
-      namespaces: string[];
-      flat_sections: number;
-      hierarchical_sections: number;
-    };
-  };
 }
 
 /**
@@ -113,29 +99,13 @@ export async function viewSection(
     const overviewSections = document.headings.map(heading => ({
       slug: heading.slug,
       title: heading.title,
-      depth: heading.depth,
-      full_path: `${addresses.document.path}#${heading.slug}`
+      depth: heading.depth
     }));
-
-    // Calculate summary statistics
-    const maxDepth = Math.max(...document.headings.map(h => h.depth), 0);
-    const namespaces: string[] = []; // Overview mode doesn't load hierarchical context
 
     return {
       mode: 'overview',
       document: addresses.document.path,
-      sections: overviewSections,
-      summary: {
-        total_sections: overviewSections.length,
-        total_words: 0,  // Not calculated in overview mode
-        has_content: true,
-        hierarchical_stats: {
-          max_depth: maxDepth,
-          namespaces,
-          flat_sections: overviewSections.length,
-          hierarchical_sections: 0
-        }
-      }
+      sections: overviewSections
     };
   }
 
@@ -215,18 +185,13 @@ export async function viewSection(
     // Build hierarchical information using standardized ToolIntegration methods
     const parent = getParentSlug(heading.slug);
 
-    // Get hierarchical context using standardized ToolIntegration method
-    const hierarchicalContext = ToolIntegration.formatHierarchicalContext(sectionAddr);
-
     const sectionData: ViewSectionResponse['sections'][0] = {
       slug: heading.slug,
       title: heading.title,
       content,
       depth: heading.depth,
-      full_path: ToolIntegration.formatSectionPath(sectionAddr),
       word_count: wordCount,
-      links,
-      hierarchical_context: hierarchicalContext
+      links
     };
 
     if (parent != null && parent !== '') {
@@ -259,39 +224,9 @@ export async function viewSection(
     }
   }
 
-  // Calculate summary statistics with hierarchical stats
-  const hierarchicalSections = processedSections.filter(s => s.hierarchical_context != null);
-  const flatSections = processedSections.filter(s => s.hierarchical_context == null);
-
-  // Get unique namespaces from hierarchical sections
-  const namespaces = [...new Set(
-    hierarchicalSections
-      .map(s => s.hierarchical_context?.parent_path)
-      .filter((path): path is string => path != null && path !== '')
-  )];
-
-  // Calculate max depth
-  const maxDepth = Math.max(
-    ...hierarchicalSections.map(s => s.hierarchical_context?.depth ?? 0),
-    0
-  );
-
-  const summary = {
-    total_sections: processedSections.length,
-    total_words: processedSections.reduce((sum, section) => sum + (section.word_count ?? 0), 0),
-    has_content: processedSections.some(section => (section.content ?? '').trim() !== ''),
-    hierarchical_stats: {
-      max_depth: maxDepth,
-      namespaces,
-      flat_sections: flatSections.length,
-      hierarchical_sections: hierarchicalSections.length
-    }
-  };
-
   return {
     mode: 'detail',
     document: addresses.document.path,
-    sections: processedSections,
-    summary
+    sections: processedSections
   };
 }

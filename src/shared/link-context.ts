@@ -66,18 +66,12 @@ export async function loadLinkedDocumentContext(
     const sectionContent = await manager.getSectionContent(documentPath, sectionSlug);
     contentToScan = sectionContent ?? '';
   } else {
-    // Scan entire document
-    const { readFile } = await import('node:fs/promises');
-    const { loadConfig } = await import('../config.js');
-    const path = await import('node:path');
-    const config = loadConfig();
-    const absolutePath = path.join(config.workspaceBasePath, documentPath);
-
-    try {
-      contentToScan = await readFile(absolutePath, 'utf-8');
-    } catch {
+    // Scan entire document using DocumentManager's cache which knows the correct root path
+    const fullContent = await manager.cache.readDocumentContent(documentPath);
+    if (fullContent == null) {
       return linkedContext;
     }
+    contentToScan = fullContent;
   }
 
   // Extract all @ links from content using unified ReferenceExtractor
@@ -97,19 +91,10 @@ export async function loadLinkedDocumentContext(
       continue;
     }
 
-    // Create a unique identifier for this link
-    const linkId = parsedLink.type === 'within-doc'
-      ? `${documentPath}#${parsedLink.section ?? ''}`
-      : `${parsedLink.document ?? ''}#${parsedLink.section ?? ''}`;
-
-    if (visited.has(linkId)) {
-      continue;
-    }
-    visited.add(linkId);
-
     // Resolve the link
     const { resolveLinkWithContext } = await import('./link-utils.js');
     const resolved = await resolveLinkWithContext(linkText, documentPath, manager);
+
     if (resolved.validation.valid !== true || resolved.resolvedPath == null) {
       continue;
     }
@@ -119,7 +104,7 @@ export async function loadLinkedDocumentContext(
     const docPath = hashIndex === -1 ? resolved.resolvedPath : resolved.resolvedPath.slice(0, hashIndex);
     const sectionSlug = hashIndex === -1 ? undefined : resolved.resolvedPath.slice(hashIndex + 1);
 
-    // Add to processing queue
+    // Add to processing queue (will check visited set during queue processing)
     const queueItem: {
       docPath: string;
       sectionSlug?: string;
@@ -172,18 +157,12 @@ export async function loadLinkedDocumentContext(
         title = section.title;
       }
     } else {
-      // Load entire document
-      const { readFile } = await import('node:fs/promises');
-      const { loadConfig } = await import('../config.js');
-      const path = await import('node:path');
-      const config = loadConfig();
-      const absolutePath = path.join(config.workspaceBasePath, current.docPath);
-
-      try {
-        content = await readFile(absolutePath, 'utf-8');
-      } catch {
+      // Load entire document using DocumentManager's cache which knows the correct root path
+      const fullContent = await manager.cache.readDocumentContent(current.docPath);
+      if (fullContent == null) {
         continue;
       }
+      content = fullContent;
     }
 
     // Extract namespace using central addressing system

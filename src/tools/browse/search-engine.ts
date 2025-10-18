@@ -22,7 +22,6 @@ export interface DocumentInfo {
     slug: string;
     title: string;
     depth: number;
-    full_path: string;
     parent?: string;
     hasContent: boolean;
   }>;
@@ -39,7 +38,6 @@ export interface SectionInfo {
   slug: string;
   title: string;
   depth: number;
-  full_path: string; // Full path like "/api/specs/search-api.md#api/endpoints"
   parent?: string; // Parent slug path for hierarchical slugs
   content_preview?: string; // First few lines of content
   subsection_count: number;
@@ -94,7 +92,6 @@ export async function performSearch(
               slug: hierarchicalSlug,
               title: heading.title,
               depth: heading.depth,
-              full_path: `${result.documentPath}#${hierarchicalSlug}`,
               ...(parent != null && { parent }),
               hasContent: true
             };
@@ -199,7 +196,6 @@ export async function getSectionStructure(
           slug: hierarchicalSlug,
           title: heading.title,
           depth: heading.depth,
-          full_path: `${documentPath}#${hierarchicalSlug}`,
           ...(parent != null && { parent }),
           subsection_count,
           ...analysis
@@ -252,7 +248,6 @@ export async function getSectionStructure(
                 slug: hierarchicalSlug,
                 title: heading.title,
                 depth: heading.depth,
-                full_path: `${documentPath}#${hierarchicalSlug}`,
                 ...(parent != null && { parent }),
                 subsection_count,
                 ...analysis

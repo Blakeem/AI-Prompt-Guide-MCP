@@ -44,11 +44,6 @@ export async function deleteDocument(
       throw new DocumentNotFoundError(addresses.document.path);
     }
 
-    // Format document info for response
-    const documentInfo = ToolIntegration.formatDocumentInfo(addresses.document, {
-      title: document.metadata.title
-    });
-
     // Execute appropriate deletion strategy
     if (shouldArchive) {
       // Archive with audit trail
@@ -56,13 +51,10 @@ export async function deleteDocument(
       const auditPath = `${archiveResult.archivePath}.audit`;
 
       return {
-        action: 'archived',
-        document: addresses.document.path,
-        from: archiveResult.originalPath,
-        to: archiveResult.archivePath,
-        audit_file: auditPath,
-        document_info: documentInfo,
-        timestamp: new Date().toISOString()
+        success: true,
+        operation: 'archived' as const,
+        archived_to: archiveResult.archivePath,
+        audit_file: auditPath
       };
     } else {
       // Permanent deletion
@@ -79,10 +71,8 @@ export async function deleteDocument(
       manager.cache.invalidateDocument(addresses.document.path);
 
       return {
-        action: 'deleted',
-        document: addresses.document.path,
-        document_info: documentInfo,
-        timestamp: new Date().toISOString()
+        success: true,
+        operation: 'deleted' as const
       };
     }
 

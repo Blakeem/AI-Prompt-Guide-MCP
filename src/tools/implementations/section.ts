@@ -355,20 +355,19 @@ async function formatBatchResponse(
   documentsModified: Set<string>,
   sectionsModified: number
 ): Promise<unknown> {
-  // Convert batch results to new format with status field
+  // Convert batch results to new format with status field only
   const results = batchResults.map(result => {
     if (result.success) {
       return {
         section: result.section,
-        operation: result.action,
-        status: result.action === 'created' ? 'created' : result.action === 'removed' ? 'removed' : 'updated',
+        status: result.action === 'created' ? 'created' as const : result.action === 'removed' ? 'removed' as const : 'updated' as const,
         ...(result.depth != null && { depth: result.depth }),
         ...(result.removed_content != null && { removed_content: result.removed_content })
       };
     } else {
       return {
         section: result.section,
-        status: 'error',
+        status: 'error' as const,
         error: result.error
       };
     }

@@ -13,7 +13,6 @@ import {
   AddressingError,
   DocumentNotFoundError,
   SectionNotFoundError,
-  isTaskSection,
 } from '../../shared/addressing-system.js';
 import { isValidMovePosition, type MovePosition } from '../schemas/move-schemas.js';
 import { titleToSlug } from '../../slug.js';
@@ -119,12 +118,6 @@ export async function move(
 
   const sourceTitle = sourceHeading.title;
 
-  // Detect if source is a task
-  // Create compatible document structure for isTaskSection
-  const isTask = await isTaskSection(sourceSectionAddress.slug, {
-    headings: sourceDoc.headings.map(h => ({ slug: h.slug, title: h.title, depth: h.depth }))
-  });
-
   // Parse and validate destination document
   const { addresses: destAddresses } = ToolIntegration.validateAndParse({
     document: toPath,
@@ -156,51 +149,99 @@ export async function move(
         ? 'insert_after'
         : 'append_child';
 
+  // Detect same-document move
+  const isSameDocument = sourceAddresses.document.path === destAddresses.document.path;
+
   try {
-    // STEP 1: Create section/task in new location FIRST (data safety)
-    await performSectionEdit(
-      manager,
-      destAddresses.document.path,
-      normalizedReference,
-      sourceContent,
-      insertMode,
-      sourceTitle
-    );
+    if (isSameDocument) {
+      // SAME-DOCUMENT MOVE: Remove first to avoid duplicate heading error
+      // Store content for rollback in case create fails
+      const contentBackup = sourceContent;
+      const titleBackup = sourceTitle;
 
-    // STEP 2: Delete from old location ONLY after successful creation
-    await performSectionEdit(
-      manager,
-      sourceAddresses.document.path,
-      sourceSectionAddress.slug,
-      '', // Content doesn't matter for remove operation
-      'remove'
-    );
+      // STEP 1: Delete from old location
+      await performSectionEdit(
+        manager,
+        sourceAddresses.document.path,
+        sourceSectionAddress.slug,
+        '', // Content doesn't matter for remove operation
+        'remove'
+      );
 
-    // Get updated destination document to retrieve new slug
-    const updatedDestDoc = await manager.getDocument(destAddresses.document.path);
-    const newSlug = titleToSlug(sourceTitle);
+      try {
+        // STEP 2: Create in new location
+        await performSectionEdit(
+          manager,
+          destAddresses.document.path,
+          normalizedReference,
+          contentBackup,
+          insertMode,
+          titleBackup
+        );
+      } catch (createError) {
+        // Rollback: Restore section at original location
+        // This is best-effort - if restore fails, content may be lost
+        try {
+          await performSectionEdit(
+            manager,
+            sourceAddresses.document.path,
+            normalizedReference, // Use reference as anchor for restoration
+            contentBackup,
+            'insert_before', // Use insert_before as safe default
+            titleBackup
+          );
+        } catch (rollbackError) {
+          // Rollback failed - content is lost
+          const errorMsg = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+          throw new AddressingError(
+            `Same-document move failed and rollback failed. Content may be lost. Original error: ${createError instanceof Error ? createError.message : String(createError)}. Rollback error: ${errorMsg}`,
+            'MOVE_ROLLBACK_FAILED',
+            {
+              from: fromPath,
+              to: toPath,
+              reference: normalizedReference,
+              position,
+              originalError: createError instanceof Error ? createError.message : String(createError),
+              rollbackError: errorMsg,
+            }
+          );
+        }
+        // Rollback succeeded - re-throw original error
+        throw createError;
+      }
+    } else {
+      // CROSS-DOCUMENT MOVE: Create first for data safety
+      // STEP 1: Create section/task in new location FIRST (data safety)
+      await performSectionEdit(
+        manager,
+        destAddresses.document.path,
+        normalizedReference,
+        sourceContent,
+        insertMode,
+        sourceTitle
+      );
 
-    // Format comprehensive response
+      // STEP 2: Delete from old location ONLY after successful creation
+      await performSectionEdit(
+        manager,
+        sourceAddresses.document.path,
+        sourceSectionAddress.slug,
+        '', // Content doesn't matter for remove operation
+        'remove'
+      );
+    }
+
+    // Determine the position description based on the operation
+    const positionDescription =
+      position === 'before' ? `before ${normalizedReference}` :
+      position === 'after' ? `after ${normalizedReference}` :
+      `child of ${normalizedReference}`;
+
+    // Format minimal response
     return {
-      action: 'moved',
-      type: isTask ? 'task' : 'section',
-      from: {
-        document: sourceAddresses.document.path,
-        section: sourceSectionAddress.slug,
-      },
-      to: {
-        document: destAddresses.document.path,
-        section: newSlug,
-        reference: normalizedReference,
-        position,
-      },
-      source_document_info: ToolIntegration.formatDocumentInfo(sourceAddresses.document, {
-        title: sourceDoc.metadata.title,
-      }),
-      destination_document_info: ToolIntegration.formatDocumentInfo(destAddresses.document, {
-        title: updatedDestDoc?.metadata.title ?? 'Untitled',
-      }),
-      timestamp: new Date().toISOString(),
+      success: true,
+      moved_to: `${destAddresses.document.path}#${titleToSlug(sourceTitle)}`,
+      position: positionDescription,
     };
   } catch (error) {
     // If creation succeeded but deletion failed, we have duplicate content

@@ -122,7 +122,6 @@ describe('Section Tool - Bulk Operations Only', () => {
         operations_completed: 1,
         results: [{
           section: 'overview',
-          operation: 'edited',
           status: 'updated'
         }],
         timestamp: expect.any(String)
@@ -165,9 +164,9 @@ describe('Section Tool - Bulk Operations Only', () => {
         document: '/test-doc.md',
         operations_completed: 3,
         results: [
-          { section: 'overview', operation: 'edited', status: 'updated' },
-          { section: 'new-feature', operation: 'created', status: 'created', depth: 2 },
-          { section: 'api-reference', operation: 'edited', status: 'updated' }
+          { section: 'overview', status: 'updated' },
+          { section: 'new-feature', status: 'created', depth: 2 },
+          { section: 'api-reference', status: 'updated' }
         ],
         timestamp: expect.any(String)
       });
@@ -198,7 +197,6 @@ describe('Section Tool - Bulk Operations Only', () => {
         operations_completed: 1,
         results: [{
           section: 'new-section',
-          operation: 'created',
           status: 'created',
           depth: 2
         }],
@@ -230,7 +228,6 @@ describe('Section Tool - Bulk Operations Only', () => {
         operations_completed: 1,
         results: [{
           section: 'deprecated',
-          operation: 'removed',
           status: 'removed',
           removed_content: 'Old content'
         }],
@@ -307,9 +304,9 @@ describe('Section Tool - Bulk Operations Only', () => {
         document: '/test-doc.md',
         operations_completed: 2, // Only successful operations count
         results: [
-          { section: 'overview', operation: 'edited', status: 'updated' },
+          { section: 'overview', status: 'updated' },
           { section: 'invalid-section', status: 'error', error: 'Section not found: invalid-section' },
-          { section: 'features', operation: 'edited', status: 'updated' }
+          { section: 'features', status: 'updated' }
         ],
         timestamp: expect.any(String)
       });
@@ -426,7 +423,7 @@ describe('Section Tool - Bulk Operations Only', () => {
         document: '/doc1.md',
         operations_completed: 1,
         results: [
-          { section: 'section1', operation: 'edited', status: 'updated' }
+          { section: 'section1', status: 'updated' }
         ],
         timestamp: expect.any(String)
       });

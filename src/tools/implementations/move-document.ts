@@ -85,18 +85,10 @@ export async function moveDocument(
     manager.cache.invalidateDocument(fromAddresses.document.path);
     manager.cache.invalidateDocument(toAddresses.document.path);
 
-    // Get the moved document from new location
-    const movedDoc = await manager.getDocument(toAddresses.document.path);
-
     // Output construction
     return {
-      action: 'moved',
-      from: fromAddresses.document.path,
-      to: toAddresses.document.path,
-      document_info: ToolIntegration.formatDocumentInfo(toAddresses.document, {
-        title: movedDoc?.metadata.title ?? 'Untitled',
-      }),
-      timestamp: new Date().toISOString(),
+      success: true,
+      moved_to: toAddresses.document.path,
     };
   } catch (error) {
     if (error instanceof AddressingError) {

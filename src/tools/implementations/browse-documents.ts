@@ -13,7 +13,6 @@ import {
 } from '../../shared/addressing-system.js';
 import {
   analyzeDocumentLinks,
-  assessImplementationReadiness,
   analyzeSectionContent,
   getSectionStructure,
   parseSectionPath,
@@ -25,8 +24,7 @@ import {
   type FolderInfo,
   type DocumentInfo,
   type SectionInfo,
-  type RelatedDocuments,
-  type ImplementationReadiness
+  type RelatedDocuments
 } from '../browse/index.js';
 
 interface BrowseResponse {
@@ -49,7 +47,6 @@ interface BrowseResponse {
     status: string;
   }>;
   related_documents?: RelatedDocuments;
-  implementation_readiness?: ImplementationReadiness;
   breadcrumb?: string[];
   parentPath?: string;
   totalItems: number;
@@ -157,14 +154,6 @@ export async function browseDocuments(
           );
           if (relatedDocuments != null) {
             result.related_documents = relatedDocuments;
-
-            // Generate implementation readiness assessment
-            const allRelated = [
-              ...relatedDocuments.forward_links,
-              ...relatedDocuments.backward_links,
-              ...relatedDocuments.related_by_content
-            ];
-            result.implementation_readiness = assessImplementationReadiness(allRelated);
           }
         }
 

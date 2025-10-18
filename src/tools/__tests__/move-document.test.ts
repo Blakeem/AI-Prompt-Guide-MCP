@@ -123,15 +123,8 @@ Content for section two.
     ) as Record<string, unknown>;
 
     // Verify result structure
-    expect(result['action']).toBe('moved');
-    expect(result['from']).toBe(testSourcePath);
-    expect(result['to']).toBe(testDestPath);
-    expect(result['timestamp']).toBeDefined();
-
-    // Verify document_info structure
-    const documentInfo = result['document_info'] as Record<string, unknown>;
-    expect(documentInfo['slug']).toBe('test-move-destination');
-    expect(documentInfo['namespace']).toBe('docs/api');
+    expect(result['success']).toBe(true);
+    expect(result['moved_to']).toBe(testDestPath);
 
     // Verify source file no longer exists
     await expect(fs.access(testSourceAbsolutePath)).rejects.toThrow();
@@ -157,8 +150,8 @@ Content for section two.
     ) as Record<string, unknown>;
 
     // Verify result
-    expect(result['action']).toBe('moved');
-    expect(result['to']).toBe(testNestedDestPath);
+    expect(result['success']).toBe(true);
+    expect(result['moved_to']).toBe(testNestedDestPath);
 
     // Verify nested directory was created
     const nestedDir = path.dirname(testNestedDestAbsolutePath);
@@ -214,7 +207,7 @@ Content for section two.
     ) as Record<string, unknown>;
 
     // Verify path was normalized
-    expect(result['to']).toBe('/docs/api/test-move-destination.md');
+    expect(result['moved_to']).toBe('/docs/api/test-move-destination.md');
 
     // Verify file exists at correct location
     await expect(fs.access(testDestAbsolutePath)).resolves.toBeUndefined();
@@ -256,7 +249,7 @@ Content for section two.
       manager
     ) as Record<string, unknown>;
 
-    expect(result1['to']).toBe(testDestPath);
+    expect(result1['moved_to']).toBe(testDestPath);
     await expect(fs.access(testDestAbsolutePath)).resolves.toBeUndefined();
 
     // Cleanup and recreate source
@@ -274,7 +267,7 @@ Content for section two.
       manager
     ) as Record<string, unknown>;
 
-    expect(result2['to']).toBe('/docs/api/test-move-destination.md');
+    expect(result2['moved_to']).toBe('/docs/api/test-move-destination.md');
     await expect(fs.access(testDestAbsolutePath)).resolves.toBeUndefined();
   });
 

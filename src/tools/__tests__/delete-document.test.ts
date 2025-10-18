@@ -82,9 +82,7 @@ describe('delete_document', () => {
         manager
       );
 
-      expect(result).toMatchObject({ action: 'deleted', document: docPath });
-      expect(result).toHaveProperty('document_info');
-      expect(result).toHaveProperty('timestamp');
+      expect(result).toMatchObject({ success: true, operation: 'deleted' });
       await expect(fs.access(absPath)).rejects.toThrow();
     });
 
@@ -97,22 +95,23 @@ describe('delete_document', () => {
         manager
       );
 
-      expect(result).toMatchObject({ action: 'deleted', document: docPath });
+      expect(result).toMatchObject({ success: true, operation: 'deleted' });
       await expect(fs.access(absPath)).rejects.toThrow();
     });
 
-    it('should include document info in result', async () => {
-      const { docPath, slug } = await createTestDoc();
+    it('should not include optional fields in permanent delete result', async () => {
+      const { docPath } = await createTestDoc();
 
       const result = await deleteDocument(
         { document: docPath, archive: false },
         sessionState,
         manager
-      ) as { document_info: { slug: string; title: string; namespace: string } };
+      ) as Record<string, unknown>;
 
-      expect(result.document_info).toBeDefined();
-      expect(result.document_info.slug).toBe(slug);
-      expect(result.document_info.namespace).toBe('docs');
+      expect(result['success']).toBe(true);
+      expect(result['operation']).toBe('deleted');
+      expect(result['archived_to']).toBeUndefined();
+      expect(result['audit_file']).toBeUndefined();
     });
   });
 
@@ -126,12 +125,9 @@ describe('delete_document', () => {
         manager
       );
 
-      expect(result).toMatchObject({ action: 'archived', document: docPath });
-      expect(result).toHaveProperty('from');
-      expect(result).toHaveProperty('to');
+      expect(result).toMatchObject({ success: true, operation: 'archived' });
+      expect(result).toHaveProperty('archived_to');
       expect(result).toHaveProperty('audit_file');
-      expect(result).toHaveProperty('document_info');
-      expect(result).toHaveProperty('timestamp');
 
       await expect(fs.access(absPath)).rejects.toThrow();
 
@@ -153,10 +149,9 @@ describe('delete_document', () => {
         { document: docPath, archive: true },
         sessionState,
         manager
-      ) as { from: string; to: string; audit_file: string };
+      ) as { archived_to: string; audit_file: string };
 
-      expect(result.from).toBe(docPath);
-      expect(result.to).toContain('archived');
+      expect(result.archived_to).toContain('archived');
       expect(result.audit_file).toContain('.audit');
 
       // Cleanup
@@ -166,18 +161,19 @@ describe('delete_document', () => {
       await fs.unlink(auditPath);
     });
 
-    it('should include document info in archive result', async () => {
+    it('should include all required fields for archive operation', async () => {
       const { docPath, slug } = await createTestDoc();
 
       const result = await deleteDocument(
         { document: docPath, archive: true },
         sessionState,
         manager
-      ) as { document_info: { slug: string; title: string; namespace: string } };
+      ) as Record<string, unknown>;
 
-      expect(result.document_info).toBeDefined();
-      expect(result.document_info.slug).toBe(slug);
-      expect(result.document_info.namespace).toBe('docs');
+      expect(result['success']).toBe(true);
+      expect(result['operation']).toBe('archived');
+      expect(result['archived_to']).toBeDefined();
+      expect(result['audit_file']).toBeDefined();
 
       // Cleanup
       const archivedPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md`);
@@ -257,18 +253,4 @@ describe('delete_document', () => {
     });
   });
 
-  describe('timestamp', () => {
-    it('should include valid ISO timestamp', async () => {
-      const { docPath } = await createTestDoc();
-
-      const result = await deleteDocument(
-        { document: docPath, archive: false },
-        sessionState,
-        manager
-      ) as { timestamp: string };
-
-      expect(result.timestamp).toBeDefined();
-      expect(new Date(result.timestamp).toISOString()).toBe(result.timestamp);
-    });
-  });
 });

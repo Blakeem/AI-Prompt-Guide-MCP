@@ -135,11 +135,9 @@ describe('edit_document Tool', () => {
       );
 
       expect(result).toMatchObject({
-        action: 'edited',
-        document: '/test.md',
-        changes_made: ['title'],
-        previous_title: 'Original Title',
-        new_title: 'Updated Title',
+        success: true,
+        updated: ['title'],
+        title: 'Updated Title',
       });
 
       // Verify renameHeading was called
@@ -188,11 +186,8 @@ describe('edit_document Tool', () => {
       );
 
       expect(result).toMatchObject({
-        action: 'edited',
-        document: '/test.md',
-        changes_made: ['overview'],
-        previous_overview: 'Original overview',
-        new_overview: 'Updated overview content',
+        success: true,
+        updated: ['overview'],
       });
 
       // Verify file was written with new overview
@@ -234,10 +229,8 @@ describe('edit_document Tool', () => {
       );
 
       expect(result).toMatchObject({
-        action: 'edited',
-        changes_made: ['overview'],
-        previous_overview: 'Original overview content',
-        new_overview: 'New overview for document without sections',
+        success: true,
+        updated: ['overview'],
       });
     });
   });
@@ -285,13 +278,9 @@ describe('edit_document Tool', () => {
       );
 
       expect(result).toMatchObject({
-        action: 'edited',
-        document: '/both.md',
-        changes_made: ['title', 'overview'],
-        previous_title: 'Original Title',
-        previous_overview: 'Original overview',
-        new_title: 'Updated Title',
-        new_overview: 'Updated overview',
+        success: true,
+        updated: ['title', 'overview'],
+        title: 'Updated Title',
       });
     });
   });
@@ -328,9 +317,9 @@ describe('edit_document Tool', () => {
         manager
       );
 
-      // Empty title should not be in changes_made
+      // Empty title should not be in updated
       expect(result).toMatchObject({
-        changes_made: ['overview'],
+        updated: ['overview'],
       });
 
       // Verify renameHeading was NOT called
@@ -372,9 +361,9 @@ describe('edit_document Tool', () => {
         manager
       );
 
-      // Empty overview should not be in changes_made
+      // Empty overview should not be in updated
       expect(result).toMatchObject({
-        changes_made: ['title'],
+        updated: ['title'],
       });
     });
   });
@@ -446,15 +435,12 @@ describe('edit_document Tool', () => {
         manager
       );
 
-      expect(result).toHaveProperty('action', 'edited');
-      expect(result).toHaveProperty('document', '/response.md');
-      expect(result).toHaveProperty('changes_made');
-      expect(result).toHaveProperty('document_info');
-      expect(result).toHaveProperty('timestamp');
+      expect(result).toHaveProperty('success', true);
+      expect(result).toHaveProperty('updated');
+      expect(result).toHaveProperty('title', 'New Title');
 
       const resultObj = result as Record<string, unknown>;
-      expect(Array.isArray(resultObj['changes_made'])).toBe(true);
-      expect(typeof resultObj['timestamp']).toBe('string');
+      expect(Array.isArray(resultObj['updated'])).toBe(true);
     });
   });
 

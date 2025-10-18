@@ -55,7 +55,7 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
         success: true,
         document: '/docs/test-document.md',
         operations_completed: 1,
-        results: [{ section: 'overview', operation: 'edited', status: 'updated' }],
+        results: [{ section: 'overview', status: 'updated' }],
         timestamp: expect.any(String)
       });
     });

@@ -6,16 +6,8 @@ import type { DocumentManager } from '../../document-manager.js';
 import type { CachedDocument } from '../../document-cache.js';
 import { pathToNamespace } from '../../shared/utilities.js';
 import type { RelatedDocument, CycleDetectionContext } from './dependency-analyzer.js';
-import { detectCycles, determineCompletionStatus } from './dependency-analyzer.js';
+import { detectCycles } from './dependency-analyzer.js';
 import { classifyRelationship } from './relationship-classifier.js';
-
-export interface ImplementationReadiness {
-  specs_ready: boolean;
-  guides_available: boolean;
-  components_needed: number;
-  services_needed: number;
-  estimated_completion: string;
-}
 
 /**
  * Find related documents by content similarity
@@ -187,36 +179,3 @@ export function analyzeSectionContent(content: string): { has_code_blocks: boole
   return { has_code_blocks, has_links, content_preview };
 }
 
-/**
- * Assess implementation readiness based on related documents
- */
-export function assessImplementationReadiness(relatedDocs: RelatedDocument[]): ImplementationReadiness {
-  const specs = relatedDocs.filter(doc => doc.relationship === 'implements_spec' || doc.namespace.includes('spec'));
-  const guides = relatedDocs.filter(doc => doc.relationship === 'implementation_guide' || doc.namespace.includes('guide'));
-  const components = relatedDocs.filter(doc => doc.namespace.includes('frontend') || doc.namespace.includes('component'));
-  const services = relatedDocs.filter(doc => doc.namespace.includes('backend') || doc.namespace.includes('service'));
-
-
-  const specs_ready = specs.length > 0 && specs.every(spec => determineCompletionStatus(spec) === 'completed');
-  const guides_available = guides.length > 0;
-  const components_needed = components.length;
-  const services_needed = services.length;
-
-  // Calculate overall completion percentage
-  const allDocs = [...specs, ...guides, ...components, ...services];
-  const completedDocs = allDocs.filter(doc => determineCompletionStatus(doc) === 'completed').length;
-  const inProgressDocs = allDocs.filter(doc => determineCompletionStatus(doc) === 'in_progress').length;
-
-  let estimatedCompletion = 0;
-  if (allDocs.length > 0) {
-    estimatedCompletion = Math.round(((completedDocs + (inProgressDocs * 0.5)) / allDocs.length) * 100);
-  }
-
-  return {
-    specs_ready,
-    guides_available,
-    components_needed,
-    services_needed,
-    estimated_completion: `${estimatedCompletion}%`
-  };
-}

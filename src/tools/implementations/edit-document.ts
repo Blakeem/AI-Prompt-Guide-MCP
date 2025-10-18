@@ -136,21 +136,13 @@ export async function editDocument(
     // Invalidate cache
     manager.cache.invalidateDocument(addresses.document.path);
 
-    // Output - get updated document info
+    // Output - get updated document title
     const updatedDocument = await manager.getDocument(addresses.document.path);
 
     return {
-      action: 'edited',
-      document: addresses.document.path,
-      changes_made: changes,
-      ...(oldValues.title != null && { previous_title: oldValues.title }),
-      ...(oldValues.overview != null && { previous_overview: oldValues.overview }),
-      ...(newTitle != null && { new_title: newTitle }),
-      ...(newOverview != null && { new_overview: newOverview }),
-      document_info: ToolIntegration.formatDocumentInfo(addresses.document, {
-        title: updatedDocument?.metadata.title ?? 'Untitled',
-      }),
-      timestamp: new Date().toISOString(),
+      success: true,
+      updated: changes,
+      title: updatedDocument?.metadata.title ?? 'Untitled',
     };
   } catch (error) {
     if (error instanceof AddressingError) {

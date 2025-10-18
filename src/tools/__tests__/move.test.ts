@@ -329,12 +329,22 @@ describe('move tool', () => {
         position: 'before'
       }, sessionState, manager) as Record<string, unknown>;
 
-      // Verify performSectionEdit was called twice (create then delete)
+      // Verify performSectionEdit was called twice (remove then create for same-document)
       expect(performSectionEditSpy).toHaveBeenCalledTimes(2);
 
-      // First call: create in new location
+      // First call: delete from old location (same-document strategy)
       expect(performSectionEditSpy).toHaveBeenNthCalledWith(
         1,
+        manager,
+        '/docs/api/doc.md',
+        'section-two',
+        '',
+        'remove'
+      );
+
+      // Second call: create in new location
+      expect(performSectionEditSpy).toHaveBeenNthCalledWith(
+        2,
         manager,
         '/docs/api/doc.md',
         'section-one',
@@ -343,29 +353,10 @@ describe('move tool', () => {
         'Section Two'
       );
 
-      // Second call: delete from old location
-      expect(performSectionEditSpy).toHaveBeenNthCalledWith(
-        2,
-        manager,
-        '/docs/api/doc.md',
-        'section-two',
-        '',
-        'remove'
-      );
-
       // Verify result structure
-      expect(result['action']).toBe('moved');
-      expect(result['type']).toBe('section');
-      expect(result['from']).toEqual({
-        document: '/docs/api/doc.md',
-        section: 'section-two'
-      });
-      expect(result['to']).toEqual({
-        document: '/docs/api/doc.md',
-        section: 'section-two',
-        reference: 'section-one',
-        position: 'before'
-      });
+      expect(result['success']).toBe(true);
+      expect(result['moved_to']).toBe('/docs/api/doc.md#section-two');
+      expect(result['position']).toBe('before section-one');
     });
 
     it('should move section within same document with position "after"', async () => {
@@ -400,9 +391,22 @@ describe('move tool', () => {
         position: 'after'
       }, sessionState, manager) as Record<string, unknown>;
 
-      // Verify insert_after mode used
+      // Verify call order for same-document move (remove then create)
+      expect(performSectionEditSpy).toHaveBeenCalledTimes(2);
+
+      // First call: remove from old location
       expect(performSectionEditSpy).toHaveBeenNthCalledWith(
         1,
+        manager,
+        '/docs/api/doc.md',
+        'section-one',
+        '',
+        'remove'
+      );
+
+      // Second call: create at new location with insert_after mode
+      expect(performSectionEditSpy).toHaveBeenNthCalledWith(
+        2,
         manager,
         '/docs/api/doc.md',
         'section-two',
@@ -411,7 +415,7 @@ describe('move tool', () => {
         'Section One'
       );
 
-      expect(result['to']).toHaveProperty('position', 'after');
+      expect(result['position']).toBe('after section-two');
     });
 
     it('should move section within same document with position "child"', async () => {
@@ -446,9 +450,22 @@ describe('move tool', () => {
         position: 'child'
       }, sessionState, manager) as Record<string, unknown>;
 
-      // Verify append_child mode used
+      // Verify call order for same-document move (remove then create)
+      expect(performSectionEditSpy).toHaveBeenCalledTimes(2);
+
+      // First call: remove from old location
       expect(performSectionEditSpy).toHaveBeenNthCalledWith(
         1,
+        manager,
+        '/docs/api/doc.md',
+        'section',
+        '',
+        'remove'
+      );
+
+      // Second call: create at new location with append_child mode
+      expect(performSectionEditSpy).toHaveBeenNthCalledWith(
+        2,
         manager,
         '/docs/api/doc.md',
         'parent',
@@ -457,7 +474,7 @@ describe('move tool', () => {
         'Section'
       );
 
-      expect(result['to']).toHaveProperty('position', 'child');
+      expect(result['position']).toBe('child of parent');
     });
   });
 
@@ -540,31 +557,14 @@ describe('move tool', () => {
       );
 
       // Verify result
-      expect(result['action']).toBe('moved');
-      expect(result['from']).toEqual({
-        document: '/docs/api/source.md',
-        section: 'section'
-      });
-      expect(result['to']).toEqual({
-        document: '/docs/api/dest.md',
-        section: 'section',
-        reference: 'overview',
-        position: 'after'
-      });
-
-      // Verify document info for both source and destination
-      const sourceInfo = result['source_document_info'] as Record<string, unknown>;
-      expect(sourceInfo['slug']).toBe('source');
-      expect(sourceInfo['namespace']).toBe('docs/api');
-
-      const destInfo = result['destination_document_info'] as Record<string, unknown>;
-      expect(destInfo['slug']).toBe('dest');
-      expect(destInfo['namespace']).toBe('docs/api');
+      expect(result['success']).toBe(true);
+      expect(result['moved_to']).toBe('/docs/api/dest.md#section');
+      expect(result['position']).toBe('after overview');
     });
   });
 
   describe('Task Move Operations', () => {
-    it('should detect and move task (type=task in result)', async () => {
+    it('should move task same as sections (no type field in response)', async () => {
       const mockSourceDoc = {
         content: '# Source\n\n## Tasks\n\n### Task One\n\n- Status: pending\n\nTask content',
         headings: [
@@ -613,9 +613,6 @@ describe('move tool', () => {
         .mockResolvedValueOnce(mockDestDoc);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('- Status: pending\n\nTask content');
 
-      // Mock isTaskSection to return true
-      vi.spyOn(await import('../../shared/addressing-system.js'), 'isTaskSection').mockResolvedValue(true);
-
       const result = await move({
         from: '/docs/project/source.md#task-one',
         to: '/docs/project/dest.md',
@@ -623,9 +620,10 @@ describe('move tool', () => {
         position: 'after'
       }, sessionState, manager) as Record<string, unknown>;
 
-      // Verify type is 'task'
-      expect(result['type']).toBe('task');
-      expect(result['action']).toBe('moved');
+      // Verify response uses standard minimal format (no type field)
+      expect(result['success']).toBe(true);
+      expect(result['moved_to']).toBe('/docs/project/dest.md#task-one');
+      expect(result['position']).toBe('after task-two');
     });
   });
 
@@ -759,8 +757,8 @@ describe('move tool', () => {
     });
   });
 
-  describe('Data Safety - Create Before Delete', () => {
-    it('should create in new location BEFORE deleting from old location', async () => {
+  describe('Data Safety - Different Strategies for Same vs Cross-Document', () => {
+    it('should use remove-then-create for same-document moves to avoid duplicates', async () => {
       const mockDoc = {
         content: '# Doc\n\n## Section One\n\nContent one\n\n## Section Two\n\nContent two',
         headings: [
@@ -792,18 +790,132 @@ describe('move tool', () => {
         position: 'before'
       }, sessionState, manager);
 
-      // Verify call order
+      // Verify call order for same-document move
       const calls = performSectionEditSpy.mock.calls;
       expect(calls.length).toBe(2);
 
-      // First call should be create (insert_before)
-      expect(calls[0]?.[4]).toBe('insert_before');
+      // First call should be REMOVE (delete from old location)
+      expect(calls[0]?.[4]).toBe('remove');
+      expect(calls[0]?.[2]).toBe('section-two');
 
-      // Second call should be delete (remove)
-      expect(calls[1]?.[4]).toBe('remove');
+      // Second call should be CREATE (insert at new location)
+      expect(calls[1]?.[4]).toBe('insert_before');
+      expect(calls[1]?.[2]).toBe('section-one');
     });
 
-    it('should throw error if creation fails but not leave partial state', async () => {
+    it('should use create-then-remove for cross-document moves for data safety', async () => {
+      const mockSourceDoc = {
+        content: '# Source\n\n## Section\n\nSource content',
+        headings: [
+          { slug: 'source', title: 'Source', depth: 1 },
+          { slug: 'section', title: 'Section', depth: 2 }
+        ],
+        sections: new Map([
+          ['source', ''],
+          ['section', 'Source content']
+        ]),
+        metadata: {
+          path: '/docs/api/source.md',
+          title: 'Source',
+          lastModified: new Date(),
+          contentHash: 'hash1',
+          wordCount: 5
+        }
+      } as unknown as CachedDocument;
+
+      const mockDestDoc = {
+        content: '# Destination\n\n## Overview\n\nDest content',
+        headings: [
+          { slug: 'destination', title: 'Destination', depth: 1 },
+          { slug: 'overview', title: 'Overview', depth: 2 }
+        ],
+        sections: new Map([
+          ['destination', ''],
+          ['overview', 'Dest content']
+        ]),
+        metadata: {
+          path: '/docs/api/dest.md',
+          title: 'Destination',
+          lastModified: new Date(),
+          contentHash: 'hash2',
+          wordCount: 5
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument')
+        .mockResolvedValueOnce(mockSourceDoc)
+        .mockResolvedValueOnce(mockDestDoc)
+        .mockResolvedValueOnce(mockDestDoc);
+      vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Source content');
+
+      await move({
+        from: '/docs/api/source.md#section',
+        to: '/docs/api/dest.md',
+        reference: 'overview',
+        position: 'after'
+      }, sessionState, manager);
+
+      // Verify call order for cross-document move
+      const calls = performSectionEditSpy.mock.calls;
+      expect(calls.length).toBe(2);
+
+      // First call should be CREATE (insert at new location)
+      expect(calls[0]?.[4]).toBe('insert_after');
+      expect(calls[0]?.[1]).toBe('/docs/api/dest.md');
+
+      // Second call should be REMOVE (delete from old location)
+      expect(calls[1]?.[4]).toBe('remove');
+      expect(calls[1]?.[1]).toBe('/docs/api/source.md');
+    });
+
+    it('should rollback same-document move if create fails after remove', async () => {
+      const mockDoc = {
+        content: '# Doc\n\n## Section One\n\nContent one\n\n## Section Two\n\nContent two',
+        headings: [
+          { slug: 'doc', title: 'Doc', depth: 1 },
+          { slug: 'section-one', title: 'Section One', depth: 2 },
+          { slug: 'section-two', title: 'Section Two', depth: 2 }
+        ],
+        sections: new Map([
+          ['doc', ''],
+          ['section-one', 'Content one'],
+          ['section-two', 'Content two']
+        ]),
+        metadata: {
+          path: '/docs/api/doc.md',
+          title: 'Doc',
+          lastModified: new Date(),
+          contentHash: 'hash',
+          wordCount: 10
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDoc);
+      vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Content two');
+
+      // Mock performSectionEdit to succeed on remove, fail on create, succeed on rollback
+      performSectionEditSpy
+        .mockResolvedValueOnce({ action: 'edited' }) // Remove succeeds
+        .mockRejectedValueOnce(new Error('Create failed')) // Create fails
+        .mockResolvedValueOnce({ action: 'edited' }); // Rollback succeeds
+
+      await expect(move({
+        from: '/docs/api/doc.md#section-two',
+        to: '/docs/api/doc.md',
+        reference: 'section-one',
+        position: 'before'
+      }, sessionState, manager))
+        .rejects.toThrow('Create failed');
+
+      // Verify rollback was attempted (3 calls: remove, create fail, rollback)
+      expect(performSectionEditSpy).toHaveBeenCalledTimes(3);
+
+      // Last call should be rollback (insert_before)
+      const calls = performSectionEditSpy.mock.calls;
+      expect(calls[2]?.[4]).toBe('insert_before');
+    });
+
+    it('should throw detailed error if both create and rollback fail', async () => {
       const mockDoc = {
         content: '# Doc\n\n## Section\n\nContent',
         headings: [
@@ -826,14 +938,89 @@ describe('move tool', () => {
       vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDoc);
       vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Content');
 
-      // Mock performSectionEdit to fail on first call (creation)
-      performSectionEditSpy.mockRejectedValueOnce(new Error('Creation failed'));
+      // Mock performSectionEdit to succeed on remove, fail on both create and rollback
+      performSectionEditSpy
+        .mockResolvedValueOnce({ action: 'edited' }) // Remove succeeds
+        .mockRejectedValueOnce(new Error('Create failed')) // Create fails
+        .mockRejectedValueOnce(new Error('Rollback failed')); // Rollback fails
 
       await expect(move({
         from: '/docs/api/doc.md#section',
         to: '/docs/api/doc.md',
         reference: 'doc',
         position: 'child'
+      }, sessionState, manager))
+        .rejects.toThrow(AddressingError);
+
+      // Verify error message includes both errors
+      try {
+        await move({
+          from: '/docs/api/doc.md#section',
+          to: '/docs/api/doc.md',
+          reference: 'doc',
+          position: 'child'
+        }, sessionState, manager);
+      } catch (error) {
+        if (error instanceof AddressingError) {
+          expect(error.message).toContain('rollback failed');
+          expect(error.message).toContain('Content may be lost');
+          expect(error.code).toBe('MOVE_ROLLBACK_FAILED');
+        }
+      }
+    });
+
+    it('should throw error if cross-document creation fails but not leave partial state', async () => {
+      const mockSourceDoc = {
+        content: '# Source\n\n## Section\n\nContent',
+        headings: [
+          { slug: 'source', title: 'Source', depth: 1 },
+          { slug: 'section', title: 'Section', depth: 2 }
+        ],
+        sections: new Map([
+          ['source', ''],
+          ['section', 'Content']
+        ]),
+        metadata: {
+          path: '/docs/api/source.md',
+          title: 'Source',
+          lastModified: new Date(),
+          contentHash: 'hash1',
+          wordCount: 5
+        }
+      } as unknown as CachedDocument;
+
+      const mockDestDoc = {
+        content: '# Dest\n\n## Overview\n\nContent',
+        headings: [
+          { slug: 'dest', title: 'Dest', depth: 1 },
+          { slug: 'overview', title: 'Overview', depth: 2 }
+        ],
+        sections: new Map([
+          ['dest', ''],
+          ['overview', 'Content']
+        ]),
+        metadata: {
+          path: '/docs/api/dest.md',
+          title: 'Dest',
+          lastModified: new Date(),
+          contentHash: 'hash2',
+          wordCount: 5
+        }
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument')
+        .mockResolvedValueOnce(mockSourceDoc)
+        .mockResolvedValueOnce(mockDestDoc);
+      vi.spyOn(manager, 'getSectionContent').mockResolvedValue('Content');
+
+      // Mock performSectionEdit to fail on first call (creation)
+      performSectionEditSpy.mockRejectedValueOnce(new Error('Creation failed'));
+
+      await expect(move({
+        from: '/docs/api/source.md#section',
+        to: '/docs/api/dest.md',
+        reference: 'overview',
+        position: 'after'
       }, sessionState, manager))
         .rejects.toThrow();
 
@@ -843,7 +1030,7 @@ describe('move tool', () => {
   });
 
   describe('Response Structure', () => {
-    it('should return comprehensive result with all required fields', async () => {
+    it('should return minimal result with all required fields', async () => {
       const mockSourceDoc = {
         content: '# Source\n\n## Section\n\nContent',
         headings: [
@@ -896,39 +1083,12 @@ describe('move tool', () => {
       }, sessionState, manager) as Record<string, unknown>;
 
       // Verify all required fields
-      expect(result).toHaveProperty('action');
-      expect(result).toHaveProperty('type');
-      expect(result).toHaveProperty('from');
-      expect(result).toHaveProperty('to');
-      expect(result).toHaveProperty('source_document_info');
-      expect(result).toHaveProperty('destination_document_info');
-      expect(result).toHaveProperty('timestamp');
-
-      // Verify from structure
-      const from = result['from'] as Record<string, unknown>;
-      expect(from).toHaveProperty('document');
-      expect(from).toHaveProperty('section');
-
-      // Verify to structure
-      const to = result['to'] as Record<string, unknown>;
-      expect(to).toHaveProperty('document');
-      expect(to).toHaveProperty('section');
-      expect(to).toHaveProperty('reference');
-      expect(to).toHaveProperty('position');
-
-      // Verify document info structures
-      const sourceInfo = result['source_document_info'] as Record<string, unknown>;
-      expect(sourceInfo).toHaveProperty('slug');
-      expect(sourceInfo).toHaveProperty('title');
-      expect(sourceInfo).toHaveProperty('namespace');
-
-      const destInfo = result['destination_document_info'] as Record<string, unknown>;
-      expect(destInfo).toHaveProperty('slug');
-      expect(destInfo).toHaveProperty('title');
-      expect(destInfo).toHaveProperty('namespace');
+      expect(result['success']).toBe(true);
+      expect(result['moved_to']).toBe('/docs/api/dest.md#section');
+      expect(result['position']).toBe('after overview');
     });
 
-    it('should include timestamp in ISO format', async () => {
+    it('should return position description in readable format', async () => {
       const mockDoc = {
         content: '# Doc\n\n## Section One\n\nOne\n\n## Section Two\n\nTwo',
         headings: [
@@ -960,10 +1120,8 @@ describe('move tool', () => {
         position: 'before'
       }, sessionState, manager) as Record<string, unknown>;
 
-      expect(result['timestamp']).toBeDefined();
-      expect(typeof result['timestamp']).toBe('string');
-      // Verify ISO format (basic check)
-      expect(result['timestamp']).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(result['position']).toBe('before section-one');
+      expect(typeof result['position']).toBe('string');
     });
   });
 });

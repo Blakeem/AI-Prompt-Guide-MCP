@@ -1077,7 +1077,30 @@ export class ToolIntegration {
         'INVALID_PARAMETER'
       );
     }
-    return Array.isArray(param) ? param as string[] : [param as string];
+
+    // Handle array parameter
+    if (Array.isArray(param)) {
+      return param as string[];
+    }
+
+    // Handle string parameter - could be single value or JSON array string
+    const stringParam = param as string;
+
+    // Try to parse as JSON array if it looks like a JSON array
+    if (stringParam.trim().startsWith('[') && stringParam.trim().endsWith(']')) {
+      try {
+        const parsed = JSON.parse(stringParam);
+        if (Array.isArray(parsed)) {
+          return parsed as string[];
+        }
+      } catch {
+        // If JSON parsing fails, treat as single string value
+        // This handles malformed JSON gracefully
+      }
+    }
+
+    // Single string value
+    return [stringParam];
   }
 
   /**

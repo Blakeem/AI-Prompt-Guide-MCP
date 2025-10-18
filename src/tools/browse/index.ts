@@ -14,9 +14,7 @@ export type { RelatedDocument, RelationshipType } from './dependency-analyzer.js
 // Content analyzer exports - only export what browse-documents.ts actually uses
 export {
   findRelatedByContent,
-  analyzeSectionContent,
-  assessImplementationReadiness,
-  type ImplementationReadiness
+  analyzeSectionContent
 } from './content-analyzer.js';
 
 // Search engine exports
