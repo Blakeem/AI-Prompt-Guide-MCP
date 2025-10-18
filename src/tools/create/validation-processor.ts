@@ -47,7 +47,7 @@ export function processDiscovery(): DiscoveryResult {
     stage: 'discovery',
     namespaces: getDocumentNamespaces(),
     next_step: "Call again with 'namespace', 'title', and 'overview' to create a blank document",
-    example: { namespace: "api/specs" }
+    example: { namespace: "specs" }
   };
 }
 

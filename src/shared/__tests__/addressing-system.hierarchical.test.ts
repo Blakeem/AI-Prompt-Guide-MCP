@@ -99,11 +99,11 @@ describe('Addressing System - Hierarchical Support', () => {
 
     test('should handle deeply nested hierarchical paths', async () => {
       // Test deep hierarchical nesting
-      const deepPath = 'frontend/components/forms/authentication/login/validation';
-      const result = parseSectionAddress(deepPath, '/docs/frontend.md');
+      const deepPath = 'specs/api/forms/authentication/login/validation';
+      const result = parseSectionAddress(deepPath, '/docs/specs.md');
 
       expect(result.slug).toBe(deepPath);
-      expect(result.fullPath).toBe(`/docs/frontend.md#${deepPath}`);
+      expect(result.fullPath).toBe(`/docs/specs.md#${deepPath}`);
     });
 
     test('should maintain backward compatibility with flat slugs', async () => {
@@ -190,9 +190,9 @@ describe('Addressing System - Hierarchical Support', () => {
           expected: '/docs/api.md#api/authentication'
         },
         {
-          input: '#frontend/components/forms',
-          context: '/docs/frontend.md',
-          expected: '/docs/frontend.md#frontend/components/forms'
+          input: '#specs/api/forms',
+          context: '/docs/specs.md',
+          expected: '/docs/specs.md#specs/api/forms'
         },
         {
           input: '/docs/backend.md#database/migrations/setup',

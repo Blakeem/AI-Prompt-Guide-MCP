@@ -121,8 +121,8 @@ describe('AddressCache LRU Implementation', () => {
       'api/authentication',
       'api/authentication/jwt',
       'api/endpoints/users',
-      'frontend/components',
-      'frontend/components/forms'
+      'specs/components',
+      'specs/components/forms'
     ];
 
     // Parse all hierarchical sections

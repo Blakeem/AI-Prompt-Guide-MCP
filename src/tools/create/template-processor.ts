@@ -25,18 +25,15 @@ export interface TemplateProcessingError {
 }
 
 /**
- * Blank document template with title, overview, and TOC placeholder
+ * Blank document template with title and overview only
  */
 const BLANK_TEMPLATE = `# {{title}}
 
-{{overview}}
-
-## Table of Contents
-[TOC will be auto-generated]`;
+{{overview}}`;
 
 /**
  * Process template content with variable substitution
- * Generates a blank document with title, overview, and TOC placeholder
+ * Generates a blank document with title and overview
  */
 export async function processTemplate(
   namespace: string,

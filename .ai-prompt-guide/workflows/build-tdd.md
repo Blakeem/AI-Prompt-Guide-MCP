@@ -9,6 +9,36 @@ whenToUse:
 
 # Build (TDD)
 
+## Task Management Tools
+
+**CRITICAL - Two Distinct Task Systems:**
+
+### coordinator_task (Coordinator's TODO List)
+- **Purpose**: Sequential TODO list for the COORDINATOR ONLY
+- **Storage**: `/coordinator/active.md` (auto-created, auto-archived)
+- **Usage Pattern**:
+  - Coordinator creates tasks for managing the overall project workflow
+  - Completed ONE AFTER ANOTHER by the coordinator
+  - Coordinator uses `start_coordinator_task()` to get next task
+  - Coordinator uses `complete_coordinator_task()` to mark done and get next
+- **Auto-Archive**: When all tasks complete, archives to `/archived/coordinator/` with timestamp
+- **Context**: Tasks contain full implementation details, acceptance criteria, workflow references
+
+### subagent_task (Ad-Hoc Subagent Work)
+- **Purpose**: Detailed subtasks for SUBAGENTS to complete independently
+- **Storage**: `/docs/` namespace (e.g., `/docs/specs/feature.md`, `/docs/tasks/implementation.md`)
+- **Usage Pattern**:
+  - Coordinator creates task in a document using `subagent_task` tool
+  - Coordinator provides DOCUMENT + SLUG to subagent (e.g., "/docs/tasks/auth-implementation.md#implement-jwt")
+  - Subagent uses `start_subagent_task()` with that document+slug to load task context
+  - Subagent uses `complete_subagent_task()` with same document+slug when done
+- **When to Use**: Optional - for breaking down complex coordinator tasks into detailed implementation steps
+- **Context**: Tasks can include @references to load additional context hierarchically
+
+**Key Distinction:**
+- **coordinator_task** = Your TODO list (what YOU need to orchestrate)
+- **subagent_task** = Work packages you delegate (what THEY need to implement)
+
 ## Core Flow
 
 ### 1. Plan & Decompose (Coordinator)

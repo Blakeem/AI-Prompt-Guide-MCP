@@ -57,14 +57,14 @@ describe('create_document Progressive Discovery Stages', () => {
     });
 
     it('should determine stage 0 when only namespace provided', () => {
-      const args = { namespace: 'api/guides' };
+      const args = { namespace: 'specs' };
       const stage = determineCreateDocumentStage(args);
       expect(stage).toBe(0);
     });
 
     it('should determine stage 0 when namespace and title provided but missing overview', () => {
       const args = {
-        namespace: 'api/guides',
+        namespace: 'specs',
         title: 'Test Document'
       };
       const stage = determineCreateDocumentStage(args);
@@ -73,7 +73,7 @@ describe('create_document Progressive Discovery Stages', () => {
 
     it('should determine stage 1 when namespace, title, and overview provided', () => {
       const args = {
-        namespace: 'api/guides',
+        namespace: 'specs',
         title: 'Test Document',
         overview: 'Test overview content'
       };
@@ -83,7 +83,7 @@ describe('create_document Progressive Discovery Stages', () => {
 
     it('should determine stage 1 when all parameters provided (create parameter ignored)', () => {
       const args = {
-        namespace: 'api/guides',
+        namespace: 'specs',
         title: 'Test Document',
         overview: 'Test overview content',
         create: true
@@ -94,7 +94,7 @@ describe('create_document Progressive Discovery Stages', () => {
 
     it('should determine stage 1 regardless of create parameter value (string)', () => {
       const args = {
-        namespace: 'api/guides',
+        namespace: 'specs',
         title: 'Test Document',
         overview: 'Test overview content',
         create: 'true'
@@ -105,7 +105,7 @@ describe('create_document Progressive Discovery Stages', () => {
 
     it('should determine stage 1 even when create is false (parameter no longer used)', () => {
       const args = {
-        namespace: 'api/guides',
+        namespace: 'specs',
         title: 'Test Document',
         overview: 'Test overview content',
         create: false
@@ -116,7 +116,7 @@ describe('create_document Progressive Discovery Stages', () => {
 
     it('should determine stage 1 regardless of create parameter (string false)', () => {
       const args = {
-        namespace: 'api/guides',
+        namespace: 'specs',
         title: 'Test Document',
         overview: 'Test overview content',
         create: 'false'
@@ -127,7 +127,7 @@ describe('create_document Progressive Discovery Stages', () => {
 
     it('should determine stage 1 with any create parameter value', () => {
       const args = {
-        namespace: 'api/guides',
+        namespace: 'specs',
         title: 'Test Document',
         overview: 'Test overview content',
         create: 'yes'
@@ -150,7 +150,7 @@ describe('create_document Progressive Discovery Stages', () => {
     });
 
     it('should return discovery stage (0) response when only namespace provided', async () => {
-      const args = { namespace: 'api/guides' };
+      const args = { namespace: 'specs' };
       const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
       expect(result).toHaveProperty('stage', 'discovery');
@@ -162,15 +162,18 @@ describe('create_document Progressive Discovery Stages', () => {
 
     it('should proceed to creation stage (1) when namespace, title, and overview provided', async () => {
       const args = {
-        namespace: 'api/guides',
+        namespace: 'specs',
         title: 'Test Document',
         overview: 'Test overview content'
       };
       const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
-      // Stage 1 now creates immediately - should return either 'creation' or 'error_fallback'
-      expect(result).toHaveProperty('stage');
-      expect(['creation', 'error_fallback']).toContain((result as { stage: string }).stage);
+      // Stage 1 now creates immediately - should return success or error
+      expect(result).toHaveProperty('success');
+      if ('success' in result && (result as { success: boolean }).success === true) {
+        expect(result).toHaveProperty('document');
+        expect(result).toHaveProperty('slug');
+      }
     });
 
     it('should proceed to creation stage (1) regardless of create parameter (boolean)', async () => {
@@ -184,8 +187,11 @@ describe('create_document Progressive Discovery Stages', () => {
       const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
       // Stage 1 creates immediately - create parameter is ignored
-      expect(result).toHaveProperty('stage');
-      expect(['creation', 'error_fallback']).toContain((result as { stage: string }).stage);
+      expect(result).toHaveProperty('success');
+      if ('success' in result && (result as { success: boolean }).success === true) {
+        expect(result).toHaveProperty('document');
+        expect(result).toHaveProperty('slug');
+      }
     });
 
     it('should proceed to creation stage (1) regardless of create parameter (string)', async () => {
@@ -199,13 +205,16 @@ describe('create_document Progressive Discovery Stages', () => {
       const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
       // Stage 1 creates immediately - create parameter is ignored
-      expect(result).toHaveProperty('stage');
-      expect(['creation', 'error_fallback']).toContain((result as { stage: string }).stage);
+      expect(result).toHaveProperty('success');
+      if ('success' in result && (result as { success: boolean }).success === true) {
+        expect(result).toHaveProperty('document');
+        expect(result).toHaveProperty('slug');
+      }
     });
 
     it('should proceed to creation stage (1) even with create: false (parameter ignored)', async () => {
       const args = {
-        namespace: 'api/guides',
+        namespace: 'specs',
         title: 'Test Document',
         overview: 'Test overview content',
         create: false
@@ -213,24 +222,34 @@ describe('create_document Progressive Discovery Stages', () => {
       const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
       // Stage 1 creates immediately - create:false is ignored
-      expect(result).toHaveProperty('stage');
-      expect(['creation', 'error_fallback']).toContain((result as { stage: string }).stage);
+      expect(result).toHaveProperty('success');
+      if ('success' in result && (result as { success: boolean }).success === true) {
+        expect(result).toHaveProperty('document');
+        expect(result).toHaveProperty('slug');
+      }
     });
   });
 
-  describe('Context Optimization', () => {
-    it('should NOT include next_actions field in creation stage response', async () => {
+  describe('Simplified Response Format', () => {
+    it('should return only success, document, and slug fields', async () => {
       const args = {
         namespace: 'test',
         title: 'Context Test Document',
-        overview: 'Testing context optimization'
+        overview: 'Testing simplified response'
       };
 
       const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
-      // Verify context optimization: next_actions should NOT be present
-      if ('stage' in result && (result as { stage: string }).stage === 'creation') {
-        expect(result).not.toHaveProperty('next_actions');
+      // Verify simplified response format
+      if ('success' in result && (result as { success: boolean }).success === true) {
+        expect(result).toHaveProperty('success');
+        expect(result).toHaveProperty('document');
+        expect(result).toHaveProperty('slug');
+        // Should NOT have other fields
+        expect(result).not.toHaveProperty('stage');
+        expect(result).not.toHaveProperty('created');
+        expect(result).not.toHaveProperty('suggestions');
+        expect(result).not.toHaveProperty('namespace_patterns');
       }
     });
   });
@@ -248,7 +267,7 @@ describe('create_document Progressive Discovery Stages', () => {
       const result = await executeCreateDocumentPipeline(args, sessionState, manager);
 
       // Should successfully create without global cache initialization errors
-      expect(result).toHaveProperty('stage');
+      expect(result).toHaveProperty('success');
 
       // If there's an error, it should not be about cache initialization
       if ('error' in result) {
@@ -270,10 +289,10 @@ describe('create_document Progressive Discovery Stages', () => {
 
       // If document was created successfully
       if ('success' in result && (result as { success: boolean }).success === true) {
-        const creationResult = result as { created: string; success: boolean };
+        const creationResult = result as { document: string; success: boolean };
 
         // Verify the document can be retrieved from the cache
-        const document = await manager.getDocument(creationResult.created);
+        const document = await manager.getDocument(creationResult.document);
 
         // Document should be accessible through the manager's cache
         expect(document).not.toBeNull();

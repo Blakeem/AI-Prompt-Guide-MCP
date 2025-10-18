@@ -4,28 +4,15 @@
  */
 
 import type { DocumentManager } from '../../document-manager.js';
-import { analyzeDocumentSuggestions, analyzeNamespacePatterns } from '../../shared/utilities.js';
 import { parseDocumentAddress, AddressingError } from '../../shared/addressing-system.js';
-import type { SmartSuggestions, NamespacePatterns } from '../schemas/create-document-schemas.js';
-import { getGlobalLogger } from '../../utils/logger.js';
 
 /**
- * Document creation result
+ * Document creation result - simplified response
  */
 export interface DocumentCreationResult {
-  stage: 'creation';
   success: boolean;
-  created: string;
-  document: {
-    path: string;
-    slug: string;
-    title: string;
-    namespace: string;
-    created: string;
-  };
-  sections: string[];
-  suggestions?: SmartSuggestions;
-  namespace_patterns?: NamespacePatterns;
+  document: string;  // Full path to created document
+  slug: string;      // Document slug (from title)
 }
 
 /**
@@ -77,7 +64,7 @@ export async function createDocumentFile(
       title,
       template: 'blank', // We're providing our own structure
       features: {
-        toc: true,
+        toc: false,  // No TOC - user can add manually if needed
         anchors: true,
         codeHighlight: true,
         mermaid: true,
@@ -91,54 +78,12 @@ export async function createDocumentFile(
     // Refresh the cache to get the updated document
     await refreshDocumentCache(manager, docPath);
 
-    // Get created document info
-    const document = await manager.getDocument(docPath);
-    const headings = document?.headings ?? [];
-
-    // Generate suggestions and namespace patterns for context
-    let suggestions: SmartSuggestions | undefined;
-    let namespacePatterns: NamespacePatterns | undefined;
-
-    try {
-      [suggestions, namespacePatterns] = await Promise.all([
-        analyzeDocumentSuggestions(manager, namespace, title, overview, docPath),
-        analyzeNamespacePatterns(manager, namespace)
-      ]);
-    } catch (error) {
-      // If suggestions fail, just continue without them - not critical
-      const logger = getGlobalLogger();
-      logger.warn('Failed to generate suggestions', {
-        docPath,
-        namespace,
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-
-    // Build result with proper optional property handling
-    const result: DocumentCreationResult = {
-      stage: 'creation',
+    // Return simplified response
+    return {
       success: true,
-      created: docPath,
-      document: {
-        path: docPath,
-        slug,
-        title,
-        namespace,
-        created: new Date().toISOString()
-      },
-      sections: headings.map(h => `#${h.slug}`)
+      document: docPath,
+      slug
     };
-
-    // Only add suggestions if they exist (exactOptionalPropertyTypes compliance)
-    if (suggestions != null) {
-      result.suggestions = suggestions;
-    }
-
-    if (namespacePatterns != null) {
-      result.namespace_patterns = namespacePatterns;
-    }
-
-    return result;
 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

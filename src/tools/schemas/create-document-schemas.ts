@@ -4,7 +4,6 @@
 
 // Import BrokenReference from document-analysis
 import type { BrokenReference } from '../../shared/document-analysis.js';
-import { PATH_PREFIXES } from '../../shared/namespace-constants.js';
 
 // Suggestion interface definitions for Stage 2.5
 export interface RelatedDocumentSuggestion {
@@ -59,15 +58,13 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
       stage: 'discovery',
       namespaces: [
         {
-          id: 'api/specs',
-          name: 'API Specifications',
-          description: 'Document REST APIs with endpoints, schemas, and examples',
-          folder: '/docs/api/specs'
+          name: 'Specifications',
+          description: 'Feature specifications and API documentation'
         }
         // ... other namespaces
       ],
       next_step: 'Call again with \'namespace\', \'title\', and \'overview\' to create a blank document',
-      example: { namespace: 'api/specs' }
+      example: { namespace: 'specs' }
     }
   },
 
@@ -94,34 +91,9 @@ const CREATE_DOCUMENT_SCHEMAS: Record<number, CreateDocumentSchemaStage> = {
       additionalProperties: true
     },
     responseExample: {
-      stage: 'creation',
       success: true,
-      created: '/docs/api/specs/search-api.md',
-      document: {
-        path: '/docs/api/specs/search-api.md',
-        slug: 'search-api',
-        title: 'Search API',
-        namespace: 'api/specs',
-        created: '2025-01-20T12:00:00Z'
-      },
-      sections: ['#search-api', '#table-of-contents'],
-      suggestions: {
-        related_documents: [
-          {
-            path: '/docs/api/specs/user-api.md',
-            title: 'User API',
-            namespace: 'api/specs',
-            reason: 'Related documentation in api/specs',
-            relevance: 0.85
-          }
-        ],
-        broken_references: []
-      },
-      namespace_patterns: {
-        common_sections: ['#overview', '#authentication', '#endpoints'],
-        frequent_links: ['/docs/api/guides/auth-implementation'],
-        typical_tasks: ['Implement endpoint validation']
-      }
+      document: '/docs/specs/search-api.md',
+      slug: 'search-api'
     }
   }
 };
@@ -170,64 +142,48 @@ export function getNextCreateDocumentStage(currentStage: number): number {
 
 /**
  * Available document namespaces for create_document tool
- * All paths use explicit /docs/ or /coordinator/ prefixes for deterministic resolution
+ *
+ * Workflow-Driven Namespaces:
+ * - specs: spec-feature, spec-external, build-iterate, build-tdd
+ * - reviews: review, review-codebase, audit, coverage, refactor
+ * - decisions: decide
+ * - fixes: fix
+ * - tasks: Ad-hoc subagent task assignments (build-iterate, build-tdd)
  */
 const DOCUMENT_NAMESPACES = {
-  'api/specs': {
-    id: 'api/specs',
-    name: 'API Specifications',
-    description: 'Document REST APIs with endpoints, schemas, and examples',
-    folder: `${PATH_PREFIXES.DOCS}api/specs`,
-    template: 'api_spec'
+  'specs': {
+    name: 'Specifications',
+    description: 'Feature specifications and API documentation'
   },
-  'api/guides': {
-    id: 'api/guides',
-    name: 'API Implementation Guides',
-    description: 'Step-by-step API implementation instructions with code examples',
-    folder: `${PATH_PREFIXES.DOCS}api/guides`,
-    template: 'implementation_guide'
+  'reviews': {
+    name: 'Code Reviews & Audits',
+    description: 'Code reviews, quality audits, and refactoring plans'
   },
-  'frontend/components': {
-    id: 'frontend/components',
-    name: 'Frontend Component Documentation',
-    description: 'UI component specifications, usage guides, and design patterns',
-    folder: `${PATH_PREFIXES.DOCS}frontend/components`,
-    template: 'component_doc'
+  'decisions': {
+    name: 'Technical Decisions',
+    description: 'Architecture and implementation decisions with trade-off analysis'
   },
-  'backend/services': {
-    id: 'backend/services',
-    name: 'Backend Service Documentation',
-    description: 'Service architecture, APIs, and implementation details',
-    folder: `${PATH_PREFIXES.DOCS}backend/services`,
-    template: 'architecture_doc'
+  'fixes': {
+    name: 'Bug Fixes',
+    description: 'Bug reproduction, diagnosis, and resolution tracking'
   },
-  'docs/troubleshooting': {
-    id: 'docs/troubleshooting',
-    name: 'Troubleshooting Guides',
-    description: 'Problem diagnosis, solutions, and debugging workflows',
-    folder: `${PATH_PREFIXES.DOCS}docs/troubleshooting`,
-    template: 'troubleshooting'
-  },
-  'coordinator': {
-    id: 'coordinator',
-    name: 'Coordinator Tasks',
-    description: 'Task coordination and management documents',
-    folder: `${PATH_PREFIXES.COORDINATOR}`,
-    template: 'coordinator'
+  'tasks': {
+    name: 'Subagent Tasks',
+    description: 'Ad-hoc task assignments for subagent execution'
   }
 };
 
 /**
  * Get all document namespaces as array
  */
-export function getDocumentNamespaces(): Array<{ id: string; name: string; description: string; folder: string; template: string }> {
+export function getDocumentNamespaces(): Array<{ name: string; description: string }> {
   return Object.values(DOCUMENT_NAMESPACES);
 }
 
 /**
  * Get namespace configuration by ID
  */
-export function getNamespaceConfig(namespaceId: string): { id: string; name: string; description: string; folder: string; template: string } | null {
+export function getNamespaceConfig(namespaceId: string): { name: string; description: string } | null {
   const namespace = DOCUMENT_NAMESPACES[namespaceId as keyof typeof DOCUMENT_NAMESPACES];
   return namespace ?? null;
 }

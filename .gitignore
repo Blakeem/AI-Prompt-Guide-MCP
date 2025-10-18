@@ -82,3 +82,4 @@ working/
 
 # Runtime generated content
 .ai-prompt-guide/archived/
+.ai-prompt-guide/coordinator/
