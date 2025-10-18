@@ -17,7 +17,6 @@ import {
   getSectionStructure,
   parseSectionPath,
   generateBreadcrumb,
-  getParentPath,
   getFolderStructure,
   classifyRelationship,
   findRelatedByContent,
@@ -48,7 +47,6 @@ interface BrowseResponse {
   }>;
   related_documents?: RelatedDocuments;
   breadcrumb?: string[];
-  parentPath?: string;
   totalItems: number;
 }
 
@@ -104,6 +102,7 @@ export async function browseDocuments(
     const requestedPath = (args['path'] as string) ?? '/';
     const includeRelated = (args['include_related'] as boolean) ?? false;
     const linkDepth = validateNumericParameter(args['link_depth'], 'link_depth', 1, 6, 2);
+    const verbose = (args['verbose'] as boolean | undefined) ?? false;
 
     // Normalize path
     const normalizedPath = requestedPath.startsWith('/') ? requestedPath : `/${requestedPath}`;
@@ -161,11 +160,6 @@ export async function browseDocuments(
           result.breadcrumb = generateBreadcrumb(normalizedPath);
         }
 
-        const parent = getParentPath(normalizedPath);
-        if (parent != null) {
-          result.parentPath = parent;
-        }
-
         return result;
 
       } catch (error) {
@@ -180,7 +174,7 @@ export async function browseDocuments(
       // Folder browse mode
       const { loadConfig } = await import('../../config.js');
       const config = loadConfig();
-      const { folders, documents } = await getFolderStructure(manager, config.workspaceBasePath, normalizedPath);
+      const { folders, documents } = await getFolderStructure(manager, config.workspaceBasePath, normalizedPath, verbose);
 
       const result: BrowseResponse = {
         path: normalizedPath,
@@ -193,11 +187,6 @@ export async function browseDocuments(
 
       if (normalizedPath !== '/') {
         result.breadcrumb = generateBreadcrumb(normalizedPath);
-      }
-
-      const parent = getParentPath(normalizedPath);
-      if (parent != null) {
-        result.parentPath = parent;
       }
 
       return result;

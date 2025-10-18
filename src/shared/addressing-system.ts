@@ -591,7 +591,7 @@ export function parseTaskAddress(taskRef: string, contextDoc?: string): TaskAddr
  */
 export async function isTaskSection(
   sectionSlug: string,
-  document: { headings: Array<{ slug: string; title: string; depth: number }> }
+  document: { headings: ReadonlyArray<{ slug: string; title: string; depth: number }> }
 ): Promise<boolean> {
   // Find Tasks section
   const tasksSection = document.headings.find(h =>
@@ -728,32 +728,30 @@ export class ToolIntegration {
    * Standard document info response format
    *
    * Provides consistent document information structure across all tools.
+   * Returns only the human-readable title, as slug and namespace can be
+   * derived from the document path in the response.
    *
    * @param document - Document address object
    * @param metadata - Optional metadata containing document title
-   * @returns Standardized document info object
+   * @returns Standardized document info object with title only
    *
    * @example Basic document info
    * ```typescript
    * const docInfo = ToolIntegration.formatDocumentInfo(document);
-   * // Returns: { slug: 'auth', title: 'auth', namespace: 'api' }
+   * // Returns: { title: 'auth' }
    * ```
    *
    * @example With metadata title
    * ```typescript
    * const docInfo = ToolIntegration.formatDocumentInfo(document, { title: 'Authentication Guide' });
-   * // Returns: { slug: 'auth', title: 'Authentication Guide', namespace: 'api' }
+   * // Returns: { title: 'Authentication Guide' }
    * ```
    */
   static formatDocumentInfo(document: DocumentAddress, metadata?: { title: string }): {
-    slug: string;
     title: string;
-    namespace: string;
   } {
     return {
-      slug: document.slug,
-      title: metadata?.title ?? document.slug,
-      namespace: document.namespace
+      title: metadata?.title ?? document.slug
     };
   }
 

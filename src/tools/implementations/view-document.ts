@@ -188,7 +188,7 @@ async function extractDocumentMetadata(
   documentPath: string,
   document: CachedDocument
 ): Promise<{
-  documentInfo: { slug: string; title: string; namespace: string };
+  documentInfo: { title: string };
   lastModified: string;
   wordCount: number;
   headingCount: number;
@@ -389,7 +389,7 @@ async function analyzeDocumentTasks(
 interface FormatDocumentResponseParams {
   documentPath: string;
   metadata: {
-    documentInfo: { slug: string; title: string; namespace: string };
+    documentInfo: { title: string };
     lastModified: string;
     wordCount: number;
     headingCount: number;
@@ -421,11 +421,16 @@ async function formatDocumentResponse(
   params: FormatDocumentResponseParams
 ): Promise<ViewDocumentResponse['documents'][0]> {
   const { documentPath, metadata, sections, documentLinks, tasks } = params;
+
+  // Parse document address to derive slug and namespace from path
+  const { parseDocumentAddress } = await import('../../shared/addressing-system.js');
+  const documentAddress = parseDocumentAddress(documentPath);
+
   const documentData: ViewDocumentResponse['documents'][0] = {
     path: documentPath,
-    slug: metadata.documentInfo.slug,
+    slug: documentAddress.slug,
     title: metadata.documentInfo.title,
-    namespace: metadata.documentInfo.namespace,
+    namespace: documentAddress.namespace,
     sections,
     documentLinks,
     lastModified: metadata.lastModified,

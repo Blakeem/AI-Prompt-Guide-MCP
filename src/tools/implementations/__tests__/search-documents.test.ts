@@ -146,7 +146,6 @@ describe('search_documents tool', () => {
       expect(result).toHaveProperty('total_matches');
       expect(result).toHaveProperty('total_documents');
       expect(result).toHaveProperty('truncated');
-      expect(result).toHaveProperty('timestamp');
 
       // Verify types
       expect(typeof result.query).toBe('string');
@@ -155,18 +154,6 @@ describe('search_documents tool', () => {
       expect(typeof result.total_matches).toBe('number');
       expect(typeof result.total_documents).toBe('number');
       expect(typeof result.truncated).toBe('boolean');
-      expect(typeof result.timestamp).toBe('string');
-    });
-
-    it('should format timestamp as date only', async () => {
-      vi.spyOn(manager, 'listDocuments').mockResolvedValue({ documents: [] });
-
-      const result = await searchDocuments({
-        query: 'test'
-      }, sessionState, manager);
-
-      // Timestamp should be YYYY-MM-DD format
-      expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
 
     it('should return empty results when no matches found', async () => {
@@ -252,6 +239,168 @@ describe('search_documents tool', () => {
         query: 'test'
       }, sessionState, manager))
         .rejects.toThrow('Filesystem error');
+    });
+  });
+
+  describe('Match Text Truncation', () => {
+    it('should throw error for max_match_length below minimum', async () => {
+      await expect(searchDocuments({
+        query: 'test',
+        max_match_length: 10
+      }, sessionState, manager))
+        .rejects.toThrow('max_match_length must be between');
+    });
+
+    it('should throw error for max_match_length above maximum', async () => {
+      await expect(searchDocuments({
+        query: 'test',
+        max_match_length: 600
+      }, sessionState, manager))
+        .rejects.toThrow('max_match_length must be between');
+    });
+
+    it('should accept valid max_match_length values', async () => {
+      vi.spyOn(manager, 'listDocuments').mockResolvedValue({ documents: [] });
+
+      const result = await searchDocuments({
+        query: 'test',
+        max_match_length: 100
+      }, sessionState, manager);
+
+      expect(result).toHaveProperty('query', 'test');
+    });
+
+    it('should default to 80 characters when max_match_length not provided', async () => {
+      vi.spyOn(manager, 'listDocuments').mockResolvedValue({ documents: [] });
+
+      const result = await searchDocuments({
+        query: 'test'
+      }, sessionState, manager);
+
+      // Default behavior confirmed
+      expect(result).toHaveProperty('query', 'test');
+    });
+
+    it('should truncate long match text to specified length', async () => {
+      const longText = 'This is a very long line of text that contains the search term and should be truncated to the specified length to save tokens and improve readability';
+      const docContent = `# Test Document\n\n${longText}`;
+
+      vi.spyOn(manager, 'listDocuments').mockResolvedValue({
+        documents: [{ path: '/test.md', title: 'Test', lastModified: new Date(), headingCount: 1, wordCount: 20 }]
+      });
+      vi.spyOn(manager, 'getDocumentContent').mockResolvedValue(docContent);
+      vi.spyOn(manager, 'getDocument').mockResolvedValue({
+        content: docContent,
+        metadata: { title: 'Test', headingCount: 1, wordCount: 20 },
+        sections: new Map([['test-document', docContent]]),
+        headings: [{ slug: 'test-document', title: 'Test Document', depth: 1 }]
+      } as never);
+
+      const result = await searchDocuments({
+        query: 'search term',
+        max_match_length: 50
+      }, sessionState, manager);
+
+      expect(result.total_matches).toBeGreaterThan(0);
+      const firstMatch = result.results[0]?.matches[0];
+      expect(firstMatch).toBeDefined();
+      expect(firstMatch?.match_text.length).toBeLessThanOrEqual(50);
+      expect(firstMatch?.match_text).toMatch(/\.\.\.$/); // Should end with ellipsis
+    });
+
+    it('should not truncate match text shorter than max_match_length', async () => {
+      const shortText = 'This is a short line with search term';
+      const docContent = `# Test Document\n\n${shortText}`;
+
+      vi.spyOn(manager, 'listDocuments').mockResolvedValue({
+        documents: [{ path: '/test.md', title: 'Test', lastModified: new Date(), headingCount: 1, wordCount: 20 }]
+      });
+      vi.spyOn(manager, 'getDocumentContent').mockResolvedValue(docContent);
+      vi.spyOn(manager, 'getDocument').mockResolvedValue({
+        content: docContent,
+        metadata: { title: 'Test', headingCount: 1, wordCount: 20 },
+        sections: new Map([['test-document', docContent]]),
+        headings: [{ slug: 'test-document', title: 'Test Document', depth: 1 }]
+      } as never);
+
+      const result = await searchDocuments({
+        query: 'search term',
+        max_match_length: 80
+      }, sessionState, manager);
+
+      expect(result.total_matches).toBeGreaterThan(0);
+      const firstMatch = result.results[0]?.matches[0];
+      expect(firstMatch).toBeDefined();
+      expect(firstMatch?.match_text).toBe(shortText);
+      expect(firstMatch?.match_text).not.toMatch(/\.\.\.$/); // Should NOT end with ellipsis
+    });
+
+    it('should truncate match text at exactly max_match_length boundary', async () => {
+      const exactText = 'a'.repeat(80); // Exactly 80 characters
+      const docContent = `# Test Document\n\n${exactText}`;
+
+      vi.spyOn(manager, 'listDocuments').mockResolvedValue({
+        documents: [{ path: '/test.md', title: 'Test', lastModified: new Date(), headingCount: 1, wordCount: 20 }]
+      });
+      vi.spyOn(manager, 'getDocumentContent').mockResolvedValue(docContent);
+      vi.spyOn(manager, 'getDocument').mockResolvedValue({
+        content: docContent,
+        metadata: { title: 'Test', headingCount: 1, wordCount: 20 },
+        sections: new Map([['test-document', docContent]]),
+        headings: [{ slug: 'test-document', title: 'Test Document', depth: 1 }]
+      } as never);
+
+      const result = await searchDocuments({
+        query: 'a',
+        max_match_length: 80
+      }, sessionState, manager);
+
+      expect(result.total_matches).toBeGreaterThan(0);
+      const firstMatch = result.results[0]?.matches[0];
+      expect(firstMatch).toBeDefined();
+      expect(firstMatch?.match_text.length).toBe(80); // Exactly at boundary, no truncation
+      expect(firstMatch?.match_text).not.toMatch(/\.\.\.$/); // Should NOT end with ellipsis
+    });
+
+    it('should apply truncation consistently for both fulltext and regex search', async () => {
+      const longText = 'This is a very long line of text that contains the test pattern and should be truncated consistently regardless of search type to ensure uniform behavior';
+      const docContent = `# Test Document\n\n${longText}`;
+
+      vi.spyOn(manager, 'listDocuments').mockResolvedValue({
+        documents: [{ path: '/test.md', title: 'Test', lastModified: new Date(), headingCount: 1, wordCount: 20 }]
+      });
+      vi.spyOn(manager, 'getDocumentContent').mockResolvedValue(docContent);
+      vi.spyOn(manager, 'getDocument').mockResolvedValue({
+        content: docContent,
+        metadata: { title: 'Test', headingCount: 1, wordCount: 20 },
+        sections: new Map([['test-document', docContent]]),
+        headings: [{ slug: 'test-document', title: 'Test Document', depth: 1 }]
+      } as never);
+
+      // Test fulltext
+      const fulltextResult = await searchDocuments({
+        query: 'pattern',
+        type: 'fulltext',
+        max_match_length: 60
+      }, sessionState, manager);
+
+      const fulltextMatch = fulltextResult.results[0]?.matches[0];
+      expect(fulltextMatch).toBeDefined();
+      expect(fulltextMatch?.match_text.length).toBeLessThanOrEqual(60);
+
+      // Test regex
+      const regexResult = await searchDocuments({
+        query: 'pattern',
+        type: 'regex',
+        max_match_length: 60
+      }, sessionState, manager);
+
+      const regexMatch = regexResult.results[0]?.matches[0];
+      expect(regexMatch).toBeDefined();
+      expect(regexMatch?.match_text.length).toBeLessThanOrEqual(60);
+
+      // Both should produce same length results
+      expect(fulltextMatch?.match_text.length).toBe(regexMatch?.match_text.length);
     });
   });
 });

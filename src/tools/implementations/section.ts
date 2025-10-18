@@ -89,7 +89,6 @@ interface SectionOperationResult {
   action?: 'edited' | 'created' | 'removed';
   depth?: number;
   error?: string;
-  removed_content?: string;
 }
 
 
@@ -158,8 +157,7 @@ async function processSectionOperation(
       success: true,
       section: result.section,
       action: result.action,
-      ...(result.depth != null && { depth: result.depth }),
-      ...(result.removedContent !== undefined && { removed_content: result.removedContent })
+      ...(result.depth != null && { depth: result.depth })
     };
 
   } catch (error) {
@@ -361,8 +359,7 @@ async function formatBatchResponse(
       return {
         section: result.section,
         status: result.action === 'created' ? 'created' as const : result.action === 'removed' ? 'removed' as const : 'updated' as const,
-        ...(result.depth != null && { depth: result.depth }),
-        ...(result.removed_content != null && { removed_content: result.removed_content })
+        ...(result.depth != null && { depth: result.depth })
       };
     } else {
       return {
@@ -381,8 +378,7 @@ async function formatBatchResponse(
     success: true,
     document: singleDocPath,
     operations_completed: sectionsModified,
-    results,
-    timestamp: new Date().toISOString()
+    results
   };
 }
 

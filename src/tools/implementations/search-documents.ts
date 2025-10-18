@@ -5,7 +5,7 @@
 
 import type { SessionState } from '../../session/types.js';
 import type { DocumentManager } from '../../document-manager.js';
-import { AddressingError, ToolIntegration } from '../../shared/addressing-system.js';
+import { AddressingError, ToolIntegration, isTaskSection } from '../../shared/addressing-system.js';
 import { pathToNamespace } from '../../shared/utilities.js';
 import { SEARCH_DOCUMENTS_CONSTANTS } from '../schemas/search-documents-schemas.js';
 
@@ -15,7 +15,7 @@ interface SearchMatch {
   match_text: string;
   context_before?: string;
   context_after?: string;
-  type: 'heading' | 'content' | 'task';
+  type: 'task' | 'section';
 }
 
 interface DocumentResult {
@@ -37,7 +37,6 @@ interface SearchResponse {
   total_matches: number;
   total_documents: number;
   truncated: boolean;
-  timestamp: string;
 }
 
 /**
@@ -74,14 +73,15 @@ function validateNumericParameter(
 }
 
 /**
- * Detect match type based on line content
+ * Truncate match text to specified length with ellipsis
  */
-function detectMatchType(line: string): 'heading' | 'content' | 'task' {
-  const trimmed = line.trim();
-  if (trimmed.startsWith('#')) return 'heading';
-  if (/^-\s*\[[ x]\]/.test(trimmed)) return 'task';
-  return 'content';
+function truncateMatch(text: string, maxLength: number): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.substring(0, maxLength - 3)}...`;
 }
+
 
 /**
  * Extract context lines around a match
@@ -164,7 +164,7 @@ export async function searchDocuments(
 
   const scope = (args['scope'] as string | undefined) ?? null;
   const searchType = (args['type'] as 'fulltext' | 'regex' | undefined) ?? 'fulltext';
-  const includeContext = (args['include_context'] as boolean | undefined) ?? true;
+  const verbose = (args['verbose'] as boolean | undefined) ?? false;
   const contextLines = validateNumericParameter(
     args['context_lines'],
     'context_lines',
@@ -178,6 +178,13 @@ export async function searchDocuments(
     SEARCH_DOCUMENTS_CONSTANTS.MAX_RESULTS.MIN,
     SEARCH_DOCUMENTS_CONSTANTS.MAX_RESULTS.MAX,
     SEARCH_DOCUMENTS_CONSTANTS.MAX_RESULTS.DEFAULT
+  );
+  const maxMatchLength = validateNumericParameter(
+    args['max_match_length'],
+    'max_match_length',
+    SEARCH_DOCUMENTS_CONSTANTS.MAX_MATCH_LENGTH.MIN,
+    SEARCH_DOCUMENTS_CONSTANTS.MAX_MATCH_LENGTH.MAX,
+    SEARCH_DOCUMENTS_CONSTANTS.MAX_MATCH_LENGTH.DEFAULT
   );
 
   // Validate search type
@@ -264,13 +271,8 @@ export async function searchDocuments(
         if (searchType === 'fulltext') {
           lineMatches = line.toLowerCase().includes(query.toLowerCase());
           if (lineMatches) {
-            // Extract the matching portion with some context
-            const lowerLine = line.toLowerCase();
-            const lowerQuery = query.toLowerCase();
-            const matchIndex = lowerLine.indexOf(lowerQuery);
-            const start = Math.max(0, matchIndex - 20);
-            const end = Math.min(line.length, matchIndex + query.length + 20);
-            matchText = (start > 0 ? '...' : '') + line.substring(start, end) + (end < line.length ? '...' : '');
+            // Use full line, will be truncated later
+            matchText = line.trim();
           }
         } else {
           try {
@@ -286,17 +288,16 @@ export async function searchDocuments(
         }
 
         if (lineMatches) {
-          const matchType = detectMatchType(line);
           const currentSection = getCurrentSection(lines, i);
 
           const matchData: SearchMatch = {
             section: `#${currentSection}`,
             line_number: i + 1,
-            match_text: matchText,
-            type: matchType
+            match_text: truncateMatch(matchText, maxMatchLength),
+            type: 'section' // Will be updated after checking task status
           };
 
-          if (includeContext && contextLines > 0) {
+          if (verbose && contextLines > 0) {
             const context = extractContext(lines, i, contextLines);
             if (context.before !== '') {
               matchData.context_before = context.before;
@@ -318,6 +319,13 @@ export async function searchDocuments(
       }
 
       if (matches.length > 0) {
+        // Update match types by checking each section with structural analysis
+        for (const match of matches) {
+          const sectionSlug = match.section.replace(/^#/, '');
+          const isTask = await isTaskSection(sectionSlug, document);
+          match.type = isTask ? 'task' : 'section';
+        }
+
         // Get document address for consistent formatting
         const { addresses } = ToolIntegration.validateAndParse({
           document: docInfo.path
@@ -330,6 +338,8 @@ export async function searchDocuments(
         results.push({
           document: {
             path: addresses.document.path,
+            slug: addresses.document.slug,
+            namespace: addresses.document.namespace,
             ...docInfo_formatted
           },
           matches,
@@ -345,9 +355,6 @@ export async function searchDocuments(
     }
   }
 
-  // Get current date in ISO format (date only)
-  const timestamp = new Date().toISOString().split('T')[0] ?? new Date().toISOString();
-
   return {
     query,
     search_type: searchType,
@@ -355,7 +362,6 @@ export async function searchDocuments(
     results,
     total_matches: totalMatches,
     total_documents: results.length,
-    truncated,
-    timestamp
+    truncated
   };
 }

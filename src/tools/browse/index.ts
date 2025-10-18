@@ -28,7 +28,6 @@ export {
 export {
   parseSectionPath,
   generateBreadcrumb,
-  getParentPath,
   getFolderStructure,
   type FolderInfo
 } from './folder-navigator.js';

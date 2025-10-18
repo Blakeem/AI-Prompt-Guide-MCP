@@ -132,13 +132,17 @@ describe('edit_document Tool', () => {
         { document: '/test.md', title: 'Updated Title' },
         sessionState,
         manager
-      );
+      ) as Record<string, unknown>;
 
       expect(result).toMatchObject({
         success: true,
         updated: ['title'],
         title: 'Updated Title',
+        previous_title: 'Original Title',
       });
+
+      // Should NOT include previous_overview since overview wasn't changed
+      expect(result).not.toHaveProperty('previous_overview');
 
       // Verify renameHeading was called
       expect(renameHeadingSpy).toHaveBeenCalledWith(originalContent, 'original-title', 'Updated Title');
@@ -183,12 +187,16 @@ describe('edit_document Tool', () => {
         { document: '/test.md', overview: 'Updated overview content' },
         sessionState,
         manager
-      );
+      ) as Record<string, unknown>;
 
       expect(result).toMatchObject({
         success: true,
         updated: ['overview'],
+        previous_overview: 'Original overview',
       });
+
+      // Should NOT include previous_title since title wasn't changed
+      expect(result).not.toHaveProperty('previous_title');
 
       // Verify file was written with new overview
       expect(writeFileIfUnchangedSpy).toHaveBeenCalled();
@@ -275,13 +283,19 @@ describe('edit_document Tool', () => {
         },
         sessionState,
         manager
-      );
+      ) as Record<string, unknown>;
 
       expect(result).toMatchObject({
         success: true,
         updated: ['title', 'overview'],
         title: 'Updated Title',
+        previous_title: 'Original Title',
+        previous_overview: 'Original overview',
       });
+
+      // Both previous values should be included since both fields changed
+      expect(result).toHaveProperty('previous_title');
+      expect(result).toHaveProperty('previous_overview');
     });
   });
 
@@ -441,6 +455,144 @@ describe('edit_document Tool', () => {
 
       const resultObj = result as Record<string, unknown>;
       expect(Array.isArray(resultObj['updated'])).toBe(true);
+    });
+  });
+
+  describe('Conditional Previous Values (Token Optimization)', () => {
+    it('should only include previous_title when title changed', async () => {
+      const originalContent = '# Original Title\n\nOverview content\n\n## Section\n\nContent';
+      const mockDoc = {
+        headings: [
+          { slug: 'original-title', title: 'Original Title', depth: 1 },
+          { slug: 'section', title: 'Section', depth: 2 },
+        ],
+        sections: new Map([
+          ['original-title', ''],
+          ['section', 'Content'],
+        ]),
+        metadata: {
+          path: '/title-only.md',
+          title: 'Original Title',
+          lastModified: new Date(),
+          contentHash: 'hash1',
+          wordCount: 5,
+        },
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument')
+        .mockResolvedValueOnce(mockDoc)
+        .mockResolvedValueOnce({
+          ...mockDoc,
+          metadata: { ...mockDoc.metadata, title: 'New Title' },
+        } as CachedDocument);
+
+      readFileSnapshotSpy.mockResolvedValue({ content: originalContent, mtimeMs: 1000 });
+      renameHeadingSpy.mockReturnValue('# New Title\n\nOverview content\n\n## Section\n\nContent');
+      vi.spyOn(manager.cache, 'invalidateDocument');
+
+      const result = await editDocument(
+        { document: '/title-only.md', title: 'New Title' },
+        sessionState,
+        manager
+      ) as Record<string, unknown>;
+
+      // Should include previous_title
+      expect(result).toHaveProperty('previous_title', 'Original Title');
+      // Should NOT include previous_overview
+      expect(result).not.toHaveProperty('previous_overview');
+      // Should always include current title
+      expect(result).toHaveProperty('title', 'New Title');
+      expect(result).toHaveProperty('updated', ['title']);
+    });
+
+    it('should only include previous_overview when overview changed', async () => {
+      const originalContent = '# Test Title\n\nOriginal overview\n\n## Section\n\nContent';
+      const mockDoc = {
+        headings: [
+          { slug: 'test-title', title: 'Test Title', depth: 1 },
+          { slug: 'section', title: 'Section', depth: 2 },
+        ],
+        sections: new Map([
+          ['test-title', ''],
+          ['section', 'Content'],
+        ]),
+        metadata: {
+          path: '/overview-only.md',
+          title: 'Test Title',
+          lastModified: new Date(),
+          contentHash: 'hash1',
+          wordCount: 5,
+        },
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument')
+        .mockResolvedValueOnce(mockDoc)
+        .mockResolvedValueOnce(mockDoc);
+
+      readFileSnapshotSpy.mockResolvedValue({ content: originalContent, mtimeMs: 1000 });
+      vi.spyOn(manager.cache, 'invalidateDocument');
+
+      const result = await editDocument(
+        { document: '/overview-only.md', overview: 'New overview content' },
+        sessionState,
+        manager
+      ) as Record<string, unknown>;
+
+      // Should include previous_overview
+      expect(result).toHaveProperty('previous_overview', 'Original overview');
+      // Should NOT include previous_title
+      expect(result).not.toHaveProperty('previous_title');
+      // Should always include current title
+      expect(result).toHaveProperty('title', 'Test Title');
+      expect(result).toHaveProperty('updated', ['overview']);
+    });
+
+    it('should include both previous values when both fields changed', async () => {
+      const originalContent = '# Old Title\n\nOld overview\n\n## Section\n\nContent';
+      const mockDoc = {
+        headings: [
+          { slug: 'old-title', title: 'Old Title', depth: 1 },
+          { slug: 'section', title: 'Section', depth: 2 },
+        ],
+        sections: new Map([
+          ['old-title', ''],
+          ['section', 'Content'],
+        ]),
+        metadata: {
+          path: '/both-changed.md',
+          title: 'Old Title',
+          lastModified: new Date(),
+          contentHash: 'hash1',
+          wordCount: 5,
+        },
+      } as unknown as CachedDocument;
+
+      vi.spyOn(manager, 'getDocument')
+        .mockResolvedValueOnce(mockDoc)
+        .mockResolvedValueOnce({
+          ...mockDoc,
+          metadata: { ...mockDoc.metadata, title: 'New Title' },
+        } as CachedDocument);
+
+      readFileSnapshotSpy.mockResolvedValue({ content: originalContent, mtimeMs: 1000 });
+      renameHeadingSpy.mockReturnValue('# New Title\n\nOld overview\n\n## Section\n\nContent');
+      vi.spyOn(manager.cache, 'invalidateDocument');
+
+      const result = await editDocument(
+        {
+          document: '/both-changed.md',
+          title: 'New Title',
+          overview: 'New overview',
+        },
+        sessionState,
+        manager
+      ) as Record<string, unknown>;
+
+      // Should include BOTH previous values
+      expect(result).toHaveProperty('previous_title', 'Old Title');
+      expect(result).toHaveProperty('previous_overview', 'Old overview');
+      expect(result).toHaveProperty('title', 'New Title');
+      expect(result).toHaveProperty('updated', ['title', 'overview']);
     });
   });
 

@@ -139,11 +139,22 @@ export async function editDocument(
     // Output - get updated document title
     const updatedDocument = await manager.getDocument(addresses.document.path);
 
-    return {
+    // Build response with conditional previous values (token optimization)
+    const response: Record<string, unknown> = {
       success: true,
       updated: changes,
       title: updatedDocument?.metadata.title ?? 'Untitled',
     };
+
+    // Only include previous values for fields that were actually changed
+    if (changes.includes('title') && oldValues.title != null) {
+      response['previous_title'] = oldValues.title;
+    }
+    if (changes.includes('overview') && oldValues.overview != null) {
+      response['previous_overview'] = oldValues.overview;
+    }
+
+    return response;
   } catch (error) {
     if (error instanceof AddressingError) {
       throw error;

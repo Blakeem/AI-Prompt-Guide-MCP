@@ -118,7 +118,6 @@ describe('get_guide tool', () => {
       expect(result).toHaveProperty('description');
       expect(result).toHaveProperty('content');
       expect(result).toHaveProperty('when_to_use');
-      expect(result).toHaveProperty('tags');
     });
 
     it('should handle guide name with guide_ prefix gracefully', async () => {
@@ -188,14 +187,12 @@ describe('get_guide tool', () => {
       expect(result).toHaveProperty('description');
       expect(result).toHaveProperty('content');
       expect(result).toHaveProperty('when_to_use');
-      expect(result).toHaveProperty('tags');
 
       // Verify types
       expect(typeof result['name']).toBe('string');
       expect(typeof result['description']).toBe('string');
       expect(typeof result['content']).toBe('string');
       expect(Array.isArray(result['when_to_use'])).toBe(true);
-      expect(Array.isArray(result['tags'])).toBe(true);
     });
 
     it('should strip guide_ prefix from returned name', async () => {
@@ -226,13 +223,10 @@ describe('get_guide tool', () => {
       expect((result['when_to_use'] as string[])[0]).toContain('Creating new guides');
     });
 
-    it('should return tags as array', async () => {
+    it('should not include tags field', async () => {
       const result = await executeGetGuide({ guide: 'activate-guide-documentation' }) as Record<string, unknown>;
 
-      expect(Array.isArray(result['tags'])).toBe(true);
-      expect((result['tags'] as string[]).length).toBeGreaterThan(0);
-      expect(result['tags']).toContain('documentation');
-      expect(result['tags']).toContain('guides');
+      expect(result).not.toHaveProperty('tags');
     });
   });
 

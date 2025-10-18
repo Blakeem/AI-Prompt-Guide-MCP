@@ -228,11 +228,14 @@ describe('ToolIntegration - Hierarchical Response Formatting', () => {
         title: 'Authentication Guide'
       });
 
+      // formatDocumentInfo now returns only title (slug and namespace derivable from path)
       expect(documentInfo).toEqual({
-        slug: 'authentication',
-        title: 'Authentication Guide',
-        namespace: 'api'
+        title: 'Authentication Guide'
       });
+
+      // Verify slug and namespace still accessible from DocumentAddress
+      expect(addresses.document.slug).toBe('authentication');
+      expect(addresses.document.namespace).toBe('api');
     });
 
     it('should maintain existing formatTaskPath functionality', async () => {

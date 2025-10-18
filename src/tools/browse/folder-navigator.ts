@@ -63,30 +63,6 @@ export function generateBreadcrumb(docPath: string): string[] {
 }
 
 /**
- * Get parent path for navigation (including section context)
- */
-export function getParentPath(docPath: string): string | undefined {
-  if (docPath === '/' || docPath === '') {
-    return undefined;
-  }
-
-  const { documentPath, sectionSlug } = parseSectionPath(docPath);
-
-  // If we're in a section, parent is the document
-  if (sectionSlug != null && sectionSlug !== '') {
-    return documentPath;
-  }
-
-  // Otherwise, parent is the folder above
-  const parts = documentPath.split('/').filter(part => part !== '' && part !== '.');
-  if (parts.length <= 1) {
-    return '/'; // Return root path for root-level documents' parent
-  }
-
-  return `/${parts.slice(0, -1).join('/')}`;
-}
-
-/**
  * Check if a directory exists
  */
 // ts-unused-exports:disable-next-line
@@ -105,7 +81,8 @@ export async function directoryExists(dirPath: string): Promise<boolean> {
 export async function getFolderStructure(
   manager: DocumentManager,
   basePath: string,
-  targetPath: string
+  targetPath: string,
+  verbose = false
 ): Promise<{folders: FolderInfo[], documents: DocumentInfo[]}> {
   const folders: FolderInfo[] = [];
   const documents: DocumentInfo[] = [];
@@ -180,14 +157,22 @@ export async function getFolderStructure(
             // TODO: Extract task information if available
             // For now, we'll leave tasks undefined
 
-            documents.push({
+            const docInfo: DocumentInfo = {
               path: docPath,
               slug: pathToSlug(docPath),
               title: document.metadata.title,
               namespace: pathToNamespace(docPath),
-              sections,
+              section_count: sections.length,
+              word_count: document.metadata.wordCount,
               lastModified: document.metadata.lastModified.toISOString()
-            });
+            };
+
+            // Only include full sections array if verbose mode
+            if (verbose) {
+              docInfo.sections = sections;
+            }
+
+            documents.push(docInfo);
           }
         } catch {
           // Skip documents that can't be loaded

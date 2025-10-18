@@ -118,7 +118,6 @@ describe('get_workflow tool', () => {
       expect(result).toHaveProperty('description');
       expect(result).toHaveProperty('content');
       expect(result).toHaveProperty('when_to_use');
-      expect(result).toHaveProperty('tags');
     });
 
     it('should handle workflow name with workflow_ prefix gracefully', async () => {
@@ -190,14 +189,12 @@ describe('get_workflow tool', () => {
       expect(result).toHaveProperty('description');
       expect(result).toHaveProperty('content');
       expect(result).toHaveProperty('when_to_use');
-      expect(result).toHaveProperty('tags');
 
       // Verify types
       expect(typeof result['name']).toBe('string');
       expect(typeof result['description']).toBe('string');
       expect(typeof result['content']).toBe('string');
       expect(Array.isArray(result['when_to_use'])).toBe(true);
-      expect(Array.isArray(result['tags'])).toBe(true);
     });
 
     it('should strip workflow_ prefix from returned name', async () => {
@@ -228,13 +225,10 @@ describe('get_workflow tool', () => {
       expect((result['when_to_use'] as string[])[0]).toContain('Managing complex features');
     });
 
-    it('should return tags as array', async () => {
+    it('should not include tags field', async () => {
       const result = await executeGetWorkflow({ workflow: 'tdd-incremental-orchestration' }) as Record<string, unknown>;
 
-      expect(Array.isArray(result['tags'])).toBe(true);
-      expect((result['tags'] as string[]).length).toBeGreaterThan(0);
-      expect(result['tags']).toContain('coordination');
-      expect(result['tags']).toContain('tdd');
+      expect(result).not.toHaveProperty('tags');
     });
   });
 

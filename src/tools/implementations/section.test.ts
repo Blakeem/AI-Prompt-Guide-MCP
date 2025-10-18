@@ -123,8 +123,7 @@ describe('Section Tool - Bulk Operations Only', () => {
         results: [{
           section: 'overview',
           status: 'updated'
-        }],
-        timestamp: expect.any(String)
+        }]
       });
     });
 
@@ -167,8 +166,7 @@ describe('Section Tool - Bulk Operations Only', () => {
           { section: 'overview', status: 'updated' },
           { section: 'new-feature', status: 'created', depth: 2 },
           { section: 'api-reference', status: 'updated' }
-        ],
-        timestamp: expect.any(String)
+        ]
       });
     });
 
@@ -199,8 +197,7 @@ describe('Section Tool - Bulk Operations Only', () => {
           section: 'new-section',
           status: 'created',
           depth: 2
-        }],
-        timestamp: expect.any(String)
+        }]
       });
     });
 
@@ -228,10 +225,8 @@ describe('Section Tool - Bulk Operations Only', () => {
         operations_completed: 1,
         results: [{
           section: 'deprecated',
-          status: 'removed',
-          removed_content: 'Old content'
-        }],
-        timestamp: expect.any(String)
+          status: 'removed'
+        }]
       });
     });
   });
@@ -307,8 +302,7 @@ describe('Section Tool - Bulk Operations Only', () => {
           { section: 'overview', status: 'updated' },
           { section: 'invalid-section', status: 'error', error: 'Section not found: invalid-section' },
           { section: 'features', status: 'updated' }
-        ],
-        timestamp: expect.any(String)
+        ]
       });
     });
 
@@ -357,28 +351,6 @@ describe('Section Tool - Bulk Operations Only', () => {
   });
 
   describe('Response Format Validation', () => {
-    test('should include timestamp in ISO format', async () => {
-      const args = {
-        document: '/test-doc.md',
-        operations: [{
-          section: 'overview',
-          content: 'Content.',
-          operation: 'replace'
-        }]
-      };
-
-      mockPerformSectionEdit.mockResolvedValue({
-        action: 'edited',
-        section: 'overview'
-      });
-
-      const result = await section(args, mockSessionState, mockDocumentManager);
-
-      const timestamp = (result as { timestamp: string }).timestamp;
-      expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
-      expect(() => new Date(timestamp)).not.toThrow();
-    });
-
     test('should include document path when all operations on same document', async () => {
       const args = {
         document: '/test-doc.md',
@@ -424,8 +396,7 @@ describe('Section Tool - Bulk Operations Only', () => {
         operations_completed: 1,
         results: [
           { section: 'section1', status: 'updated' }
-        ],
-        timestamp: expect.any(String)
+        ]
       });
     });
   });

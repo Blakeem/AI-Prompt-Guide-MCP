@@ -19,14 +19,14 @@ export interface SearchDocumentsInputSchema {
       description: 'Search mode (default: "fulltext")';
       default: 'fulltext';
     };
-    include_context: {
+    verbose: {
       type: 'boolean';
-      description: 'Show surrounding lines (default: true)';
-      default: true;
+      description: 'Show context lines around matches (default: false). When false, only match_text is included. When true, context_before and context_after are included.';
+      default: false;
     };
     context_lines: {
       type: 'number';
-      description: 'Context line count (default: 2)';
+      description: 'Context line count when verbose=true (default: 2)';
       minimum: 0;
       maximum: 10;
       default: 2;
@@ -37,6 +37,13 @@ export interface SearchDocumentsInputSchema {
       minimum: 1;
       maximum: 500;
       default: 50;
+    };
+    max_match_length: {
+      type: 'number';
+      description: 'Maximum length for match_text field (default: 80). Longer matches will be truncated with "..."';
+      minimum: 20;
+      maximum: 500;
+      default: 80;
     };
   };
   required: ['query'];
@@ -56,6 +63,11 @@ export const SEARCH_DOCUMENTS_CONSTANTS = {
     MIN: 1,
     MAX: 500,
     DEFAULT: 50,
+  },
+  MAX_MATCH_LENGTH: {
+    MIN: 20,
+    MAX: 500,
+    DEFAULT: 80,
   },
   SEARCH_TYPES: ['fulltext', 'regex'] as const,
   DEFAULT_SEARCH_TYPE: 'fulltext' as const,
@@ -82,14 +94,14 @@ export function getSearchDocumentsSchema(): SearchDocumentsInputSchema {
         description: 'Search mode (default: "fulltext")',
         default: SEARCH_DOCUMENTS_CONSTANTS.DEFAULT_SEARCH_TYPE,
       },
-      include_context: {
+      verbose: {
         type: 'boolean',
-        description: 'Show surrounding lines (default: true)',
-        default: true,
+        description: 'Show context lines around matches (default: false). When false, only match_text is included. When true, context_before and context_after are included.',
+        default: false,
       },
       context_lines: {
         type: 'number',
-        description: 'Context line count (default: 2)',
+        description: 'Context line count when verbose=true (default: 2)',
         minimum: SEARCH_DOCUMENTS_CONSTANTS.CONTEXT_LINES.MIN,
         maximum: SEARCH_DOCUMENTS_CONSTANTS.CONTEXT_LINES.MAX,
         default: SEARCH_DOCUMENTS_CONSTANTS.CONTEXT_LINES.DEFAULT,
@@ -100,6 +112,13 @@ export function getSearchDocumentsSchema(): SearchDocumentsInputSchema {
         minimum: SEARCH_DOCUMENTS_CONSTANTS.MAX_RESULTS.MIN,
         maximum: SEARCH_DOCUMENTS_CONSTANTS.MAX_RESULTS.MAX,
         default: SEARCH_DOCUMENTS_CONSTANTS.MAX_RESULTS.DEFAULT,
+      },
+      max_match_length: {
+        type: 'number',
+        description: 'Maximum length for match_text field (default: 80). Longer matches will be truncated with "..."',
+        minimum: SEARCH_DOCUMENTS_CONSTANTS.MAX_MATCH_LENGTH.MIN,
+        maximum: SEARCH_DOCUMENTS_CONSTANTS.MAX_MATCH_LENGTH.MAX,
+        default: SEARCH_DOCUMENTS_CONSTANTS.MAX_MATCH_LENGTH.DEFAULT,
       },
     },
     required: ['query'],

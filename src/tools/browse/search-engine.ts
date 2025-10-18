@@ -18,13 +18,15 @@ export interface DocumentInfo {
   slug: string;
   title: string;
   namespace: string;
-  sections: Array<{
+  sections?: Array<{
     slug: string;
     title: string;
     depth: number;
     parent?: string;
     hasContent: boolean;
   }>;
+  section_count?: number;
+  word_count?: number;
   tasks?: {
     total: number;
     completed: number;
@@ -108,6 +110,8 @@ export async function performSearch(
             title: result.documentTitle,
             namespace: pathToNamespace(result.documentPath),
             sections,
+            section_count: sections.length,
+            word_count: document.metadata.wordCount,
             lastModified: document.metadata.lastModified.toISOString(),
             relevance: Math.round(avgRelevance * 10) / 10
           });
