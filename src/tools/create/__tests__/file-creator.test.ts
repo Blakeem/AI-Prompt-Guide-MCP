@@ -136,7 +136,8 @@ describe('createDocumentFile', () => {
           manager
         );
 
-        expect(taskResult).toHaveProperty('success', true);
+        // Verify task creation succeeded by checking operations_completed
+        expect(taskResult.operations_completed).toBe(1);
 
         // Verify Tasks section was auto-created
         const document = await manager.getDocument(docPath);
