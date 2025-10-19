@@ -49,6 +49,7 @@ export interface TaskData {
   dependencies?: string[];
   hierarchical_context?: TaskHierarchicalContext;
   referenced_documents?: HierarchicalContent[];
+  has_references?: boolean;
 }
 
 /**
@@ -177,6 +178,7 @@ export async function editTaskOperation(
  * @param manager - Document manager instance
  * @param documentPath - Path to the document
  * @param statusFilter - Optional status filter (pending, in_progress, completed, blocked)
+ * @param loadReferences - Whether to load referenced documents (default: false for list operations)
  * @returns List of tasks with metadata and optional hierarchical summary
  * @throws {AddressingError} When task listing fails
  * @throws {DocumentNotFoundError} When document doesn't exist
@@ -184,7 +186,8 @@ export async function editTaskOperation(
 export async function listTasksOperation(
   manager: DocumentManager,
   documentPath: string,
-  statusFilter?: string
+  statusFilter?: string,
+  loadReferences: boolean = false
 ): Promise<ListTasksResult> {
   try {
     // Get the document
@@ -219,13 +222,19 @@ export async function listTasksOperation(
         const status = extractTaskField(taskContent, 'Status') ?? 'pending';
         const link = extractTaskLink(taskContent);
 
-        // Extract and load references using reference system
-        const config = loadConfig();
-        const extractor = new ReferenceExtractor();
-        const loader = new ReferenceLoader();
-        const refs = extractor.extractReferences(taskContent);
-        const normalizedRefs = extractor.normalizeReferences(refs, documentPath);
-        const referencedDocuments = await loader.loadReferences(normalizedRefs, manager, config.referenceExtractionDepth);
+        // Check if task has references (always calculate this)
+        const hasReferences = taskContent.includes('@/');
+
+        // Conditionally load references based on loadReferences parameter
+        let referencedDocuments: HierarchicalContent[] = [];
+        if (loadReferences && hasReferences) {
+          const config = loadConfig();
+          const extractor = new ReferenceExtractor();
+          const loader = new ReferenceLoader();
+          const refs = extractor.extractReferences(taskContent);
+          const normalizedRefs = extractor.normalizeReferences(refs, documentPath);
+          referencedDocuments = await loader.loadReferences(normalizedRefs, manager, config.referenceExtractionDepth);
+        }
 
         // Get hierarchical context for the task
         const hierarchicalContext = getTaskHierarchicalContext(heading.slug);
@@ -235,6 +244,7 @@ export async function listTasksOperation(
           title: heading.title,
           status,
           ...(link != null && link !== '' && { link }),
+          ...(hasReferences && { has_references: true }),
           ...(referencedDocuments.length > 0 && { referenced_documents: referencedDocuments }),
           ...(hierarchicalContext != null && { hierarchical_context: hierarchicalContext })
         };
@@ -534,26 +544,61 @@ function generateHierarchicalSummary(
 }
 
 /**
- * Helper: Update task status with completion metadata
+ * Update task status with completion metadata
+ *
+ * Supports multiple status field formats:
+ * - Bold format: `**Status:** pending`
+ * - List format: `- Status: pending` or `* Status: pending`
+ * - Plain format: `Status: pending`
+ *
+ * Preserves the original format style when updating.
+ *
+ * @param content - Task content containing status field
+ * @param newStatus - New status value (e.g., 'completed', 'in_progress')
+ * @param note - Completion note to append
+ * @param completedDate - Completion date in YYYY-MM-DD format
+ * @returns Updated content with new status and completion metadata
  */
-function updateTaskStatus(content: string, newStatus: string, note: string, completedDate: string): string {
-  // Detect and preserve the list marker used in the status line (- or *)
-  const listMarkerMatch = content.match(/^([*-]) Status:\s*.+$/m);
-  const listMarker = listMarkerMatch?.[1] ?? '-';
+export function updateTaskStatus(content: string, newStatus: string, note: string, completedDate: string): string {
+  // Regex to match all supported status field formats:
+  // - Bold format: **Status:** pending
+  // - List format: - Status: pending or * Status: pending
+  // - Plain format: Status: pending
+  const statusLineRegex = /^(\*\*)?([*-])?\s*Status:(\*\*)?\s*.+$/m;
+  const statusMatch = content.match(statusLineRegex);
 
-  // Update status line (support list markers or plain format)
-  let updated: string;
-  if (listMarkerMatch != null) {
-    // Has list marker - replace with same marker
-    updated = content.replace(/^[*-] Status:\s*.+$/m, `${listMarker} Status: ${newStatus}`);
-  } else {
-    // Plain format - replace and add list marker
-    updated = content.replace(/^Status:\s*.+$/m, `${listMarker} Status: ${newStatus}`);
+  if (statusMatch == null) {
+    // No status field found - this shouldn't happen in well-formed tasks
+    // Add status field at the beginning of content
+    const statusLine = `**Status:** ${newStatus}`;
+    const completionInfo = `\n- Completed: ${completedDate}\n- Note: ${note}`;
+    return `${statusLine}\n${content}${completionInfo}`;
   }
 
-  // Add completion info using the list marker
-  updated += `\n${listMarker} Completed: ${completedDate}`;
-  updated += `\n${listMarker} Note: ${note}`;
+  // Extract format markers from matched line
+  const hasBoldMarker = statusMatch[1] != null; // Leading **
+  const listMarker = statusMatch[2]; // - or * or undefined
+  const hasTrailingBold = statusMatch[3] != null; // Trailing **
+
+  // Construct replacement line preserving original format
+  let replacementLine: string;
+  if (hasBoldMarker && hasTrailingBold) {
+    // Bold format: **Status:** value
+    replacementLine = `**Status:** ${newStatus}`;
+  } else if (listMarker != null) {
+    // List format: - Status: value or * Status: value
+    replacementLine = `${listMarker} Status: ${newStatus}`;
+  } else {
+    // Plain format: Status: value
+    replacementLine = `Status: ${newStatus}`;
+  }
+
+  // Replace the status line
+  let updated = content.replace(statusLineRegex, replacementLine);
+
+  // Add completion metadata using list format (standard for completion notes)
+  updated += `\n- Completed: ${completedDate}`;
+  updated += `\n- Note: ${note}`;
 
   return updated;
 }

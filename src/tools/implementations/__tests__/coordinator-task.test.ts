@@ -87,9 +87,8 @@ describe('coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
-      expect(result.document).toBe('/coordinator/active.md');
       expect(result.operations_completed).toBe(1);
+      expect(result.results).toHaveLength(1);
 
       // Verify document exists
       const document = await manager.getDocument('/coordinator/active.md');
@@ -114,8 +113,8 @@ describe('coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
       expect(result.operations_completed).toBe(1);
+      expect(result.results).toHaveLength(1);
 
       // Verify only ONE document exists with TWO tasks
       const document = await manager.getDocument('/coordinator/active.md');
@@ -139,12 +138,12 @@ describe('coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
       expect(result.operations_completed).toBe(3);
       expect(result.results).toHaveLength(3);
-      expect(result.results[0]?.status).toBe('created');
-      expect(result.results[1]?.status).toBe('created');
-      expect(result.results[2]?.status).toBe('created');
+      // Each result should have task data (no status/operation fields)
+      expect(result.results[0]?.task).toBeDefined();
+      expect(result.results[1]?.task).toBeDefined();
+      expect(result.results[2]?.task).toBeDefined();
     });
   });
 
@@ -166,9 +165,7 @@ describe('coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
-      expect(result.results[0]?.operation).toBe('list');
-      expect(result.results[0]?.status).toBe('listed');
+      expect(result.operations_completed).toBe(1);
       expect(result.results[0]?.tasks).toBeDefined();
       expect(result.results[0]?.count).toBe(3);
     });
@@ -218,10 +215,9 @@ describe('coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
       expect(result.operations_completed).toBe(1);
-      expect(result.results[0]?.operation).toBe('edit');
-      expect(result.results[0]?.status).toBe('updated');
+      // Edit operation returns empty result object on success
+      expect(result.results[0]).toBeDefined();
     });
   });
 
@@ -238,7 +234,7 @@ describe('coordinator_task tool', () => {
         operations
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
+      expect(result.operations_completed).toBe(100);
       expect(result.results).toHaveLength(100);
     });
 
@@ -265,29 +261,13 @@ describe('coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      // Verify response structure
-      expect(result).toHaveProperty('success');
-      expect(result).toHaveProperty('document');
+      // Verify optimized response structure (no success, document, or timestamp fields)
       expect(result).toHaveProperty('operations_completed');
       expect(result).toHaveProperty('results');
-      expect(result).toHaveProperty('timestamp');
 
-      expect(result.success).toBe(true);
-      expect(result.document).toBe('/coordinator/active.md');
       expect(typeof result.operations_completed).toBe('number');
       expect(Array.isArray(result.results)).toBe(true);
-      expect(typeof result.timestamp).toBe('string');
-    });
-
-    it('should use date-only timestamp format', async () => {
-      const result = await coordinatorTask({
-        operations: [
-          { operation: 'create', title: 'Test Task', content: 'Status: pending\n\nContent' }
-        ]
-      }, sessionState, manager);
-
-      // Timestamp should be date-only (YYYY-MM-DD)
-      expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(result.operations_completed).toBe(1);
     });
   });
 });

@@ -78,7 +78,7 @@ export function getVisibleTools(state: SessionState): ToolDefinition[] {
     },
     {
       name: 'subagent_task',
-      description: 'Bulk task operations for subagent tasks (ad-hoc mode). Document parameter ALWAYS required (default context). Task field supports: 1) "slug" (uses document), 2) "#slug" (uses document), 3) "/docs/doc.md#slug" (overrides document). Works with /docs/ namespace for assigned subagent tasks.',
+      description: 'Bulk task operations for subagent tasks (ad-hoc mode). Document parameter ALWAYS required (provides context). Task field supports: 1) "slug" (uses document), 2) "#slug" (uses document). Works with /docs/ namespace for assigned subagent tasks.',
       inputSchema: getSubagentTaskSchema(),
     },
     {

@@ -27,11 +27,10 @@ import { PATH_PREFIXES } from '../../shared/namespace-constants.js';
 const MAX_BATCH_SIZE = 100;
 
 /**
- * Parse operation target with document override support
- * Supports three formats:
- * 1. Slug only: "task-slug" (uses default document)
- * 2. Full path: "/doc.md#task-slug" (overrides document)
- * 3. Null/undefined (for create operations without specific task reference)
+ * Parse operation target
+ * Supports two formats:
+ * 1. Slug only: "task-slug" or "#task-slug" (uses default document)
+ * 2. Null/undefined (for create operations without specific task reference)
  */
 function parseOperationTarget(
   operation: { task?: string },
@@ -85,8 +84,6 @@ function parseOperationTarget(
  * Individual task operation result
  */
 interface TaskOperationResult {
-  operation: 'create' | 'edit' | 'list';
-  status: 'created' | 'updated' | 'listed' | 'error';
   task?: {
     slug: string;
     title: string;
@@ -97,6 +94,7 @@ interface TaskOperationResult {
     title: string;
     status: string;
     link?: string;
+    has_references?: boolean;
     referenced_documents?: HierarchicalContent[];
     hierarchical_context?: TaskHierarchicalContext;
   }>;
@@ -118,11 +116,8 @@ interface TaskOperationResult {
  * Bulk task operations response
  */
 interface TaskBulkResponse {
-  success: boolean;
-  document: string;
   operations_completed: number;
   results: TaskOperationResult[];
-  timestamp: string;
 }
 
 /**
@@ -288,8 +283,6 @@ async function processTaskOperations(
         );
 
         results.push({
-          operation: 'create',
-          status: 'created',
           task: {
             slug: createResult.slug,
             title: createResult.title,
@@ -336,10 +329,7 @@ async function processTaskOperations(
           content
         );
 
-        results.push({
-          operation: 'edit',
-          status: 'updated'
-        });
+        results.push({});
 
       } else if (operation === 'list') {
         const statusFilter = ToolIntegration.validateOptionalStringParameter(op['status'], 'status');
@@ -365,8 +355,6 @@ async function processTaskOperations(
         );
 
         const result: TaskOperationResult = {
-          operation: 'list',
-          status: 'listed',
           count: listResult.tasks.length
         };
 
@@ -386,19 +374,14 @@ async function processTaskOperations(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       results.push({
-        operation: (op['operation'] as 'create' | 'edit' | 'list') ?? 'create',
-        status: 'error',
         error: message
       });
     }
   }
 
   return {
-    success: true,
-    document: documentPath,
-    operations_completed: results.filter(r => r.status !== 'error').length,
-    results,
-    timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
+    operations_completed: results.filter(r => r.error == null).length,
+    results
   };
 }
 

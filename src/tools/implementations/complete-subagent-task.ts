@@ -45,7 +45,6 @@ interface CompleteSubagentTaskResult {
 
     referenced_documents?: HierarchicalContent[];
   };
-  timestamp: string;
 }
 
 /**
@@ -213,8 +212,7 @@ export async function completeSubagentTask(
         note: completedTaskData.note,
         completed_date: completedTaskData.completed_date
       },
-      ...(nextTask != null && { next_task: nextTask }),
-      timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
+      ...(nextTask != null && { next_task: nextTask })
     };
 
   } catch (error) {

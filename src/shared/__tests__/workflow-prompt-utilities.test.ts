@@ -46,6 +46,49 @@ describe('Workflow Prompt Utilities', () => {
       expect(extractWorkflowName(content)).toBe('simplicity-gate');
     });
 
+    it('should extract workflow from bold format', () => {
+      const content = `
+### Task Title
+**Workflow:** develop-tdd
+`;
+      expect(extractWorkflowName(content)).toBe('develop-tdd');
+    });
+
+    it('should extract workflow from bold format with surrounding text', () => {
+      const content = `
+### Task Title
+
+**Workflow:** develop-iterate
+
+This is the task description.
+`;
+      expect(extractWorkflowName(content)).toBe('develop-iterate');
+    });
+
+    it('should extract workflow from plain format (no list marker)', () => {
+      const content = `
+### Task Title
+Workflow: audit
+`;
+      expect(extractWorkflowName(content)).toBe('audit');
+    });
+
+    it('should extract workflow from bold list format (dash)', () => {
+      const content = `
+### Task Title
+- **Workflow:** review
+`;
+      expect(extractWorkflowName(content)).toBe('review');
+    });
+
+    it('should extract workflow from bold list format (asterisk)', () => {
+      const content = `
+### Task Title
+* **Workflow:** spec-external
+`;
+      expect(extractWorkflowName(content)).toBe('spec-external');
+    });
+
     it('should return null when workflow field is missing', () => {
       const content = `
 ### Task Title
@@ -54,10 +97,18 @@ describe('Workflow Prompt Utilities', () => {
       expect(extractWorkflowName(content)).toBeNull();
     });
 
-    it('should return null for empty workflow value', () => {
+    it('should return empty string for empty workflow value', () => {
       const content = `
 ### Task Title
 - Workflow:
+`;
+      expect(extractWorkflowName(content)).toBe('');
+    });
+
+    it('should return empty string for empty workflow value in bold format', () => {
+      const content = `
+### Task Title
+**Workflow:**
 `;
       expect(extractWorkflowName(content)).toBe('');
     });
@@ -79,6 +130,14 @@ describe('Workflow Prompt Utilities', () => {
       expect(extractWorkflowName(content)).toBe('multi-option-tradeoff');
     });
 
+    it('should trim whitespace from workflow name in bold format', () => {
+      const content = `
+### Task Title
+**Workflow:**   develop-tdd
+`;
+      expect(extractWorkflowName(content)).toBe('develop-tdd');
+    });
+
     it('should handle workflow with hyphens and underscores', () => {
       const content = `
 ### Task Title
@@ -94,6 +153,47 @@ describe('Workflow Prompt Utilities', () => {
 - Workflow: second-workflow
 `;
       expect(extractWorkflowName(content)).toBe('first-workflow');
+    });
+
+    it('should NOT match malformed partial bold format (only opening)', () => {
+      const content = `
+### Task Title
+**Workflow: develop-tdd
+`;
+      // Malformed markdown - missing closing **, should not match
+      expect(extractWorkflowName(content)).toBeNull();
+    });
+
+    it('should match plain format with spurious asterisks in value', () => {
+      const content = `
+### Task Title
+Workflow:** develop-tdd
+`;
+      // Plain format matches Workflow: and captures everything after (including spurious **)
+      expect(extractWorkflowName(content)).toBe('** develop-tdd');
+    });
+
+    it('should handle workflow at start of content', () => {
+      const content = `**Workflow:** develop-tdd
+Some task content here.
+`;
+      expect(extractWorkflowName(content)).toBe('develop-tdd');
+    });
+
+    it('should handle workflow with extra spaces after colon', () => {
+      const content = `
+### Task Title
+**Workflow:**    develop-tdd
+`;
+      expect(extractWorkflowName(content)).toBe('develop-tdd');
+    });
+
+    it('should handle workflow with tabs after colon', () => {
+      const content = `
+### Task Title
+**Workflow:**\t\tdevelop-tdd
+`;
+      expect(extractWorkflowName(content)).toBe('develop-tdd');
     });
   });
 
@@ -126,6 +226,49 @@ describe('Workflow Prompt Utilities', () => {
       expect(extractMainWorkflowName(content)).toBe('spec-first-integration');
     });
 
+    it('should extract main workflow from bold format', () => {
+      const content = `
+### Task Title
+**Main-Workflow:** spec-first-integration
+`;
+      expect(extractMainWorkflowName(content)).toBe('spec-first-integration');
+    });
+
+    it('should extract main workflow from bold format with surrounding text', () => {
+      const content = `
+### Task Title
+
+**Main-Workflow:** develop-tdd
+
+This is the task description.
+`;
+      expect(extractMainWorkflowName(content)).toBe('develop-tdd');
+    });
+
+    it('should extract main workflow from plain format (no list marker)', () => {
+      const content = `
+### Task Title
+Main-Workflow: audit
+`;
+      expect(extractMainWorkflowName(content)).toBe('audit');
+    });
+
+    it('should extract main workflow from bold list format (dash)', () => {
+      const content = `
+### Task Title
+- **Main-Workflow:** review
+`;
+      expect(extractMainWorkflowName(content)).toBe('review');
+    });
+
+    it('should extract main workflow from bold list format (asterisk)', () => {
+      const content = `
+### Task Title
+* **Main-Workflow:** spec-external
+`;
+      expect(extractMainWorkflowName(content)).toBe('spec-external');
+    });
+
     it('should return null when main workflow field is missing', () => {
       const content = `
 ### Task Title
@@ -135,10 +278,18 @@ describe('Workflow Prompt Utilities', () => {
       expect(extractMainWorkflowName(content)).toBeNull();
     });
 
-    it('should return null for empty main workflow value', () => {
+    it('should return empty string for empty main workflow value', () => {
       const content = `
 ### Task Title
 - Main-Workflow:
+`;
+      expect(extractMainWorkflowName(content)).toBe('');
+    });
+
+    it('should return empty string for empty main workflow value in bold format', () => {
+      const content = `
+### Task Title
+**Main-Workflow:**
 `;
       expect(extractMainWorkflowName(content)).toBe('');
     });
@@ -160,6 +311,14 @@ describe('Workflow Prompt Utilities', () => {
       expect(extractMainWorkflowName(content)).toBe('spec-first-integration');
     });
 
+    it('should trim whitespace from main workflow name in bold format', () => {
+      const content = `
+### Task Title
+**Main-Workflow:**   spec-first-integration
+`;
+      expect(extractMainWorkflowName(content)).toBe('spec-first-integration');
+    });
+
     it('should distinguish main workflow from regular workflow', () => {
       const content = `
 ### Task Title
@@ -168,6 +327,29 @@ describe('Workflow Prompt Utilities', () => {
 `;
       expect(extractMainWorkflowName(content)).toBe('spec-first-integration');
       expect(extractWorkflowName(content)).toBe('multi-option-tradeoff');
+    });
+
+    it('should handle main workflow at start of content', () => {
+      const content = `**Main-Workflow:** develop-tdd
+Some task content here.
+`;
+      expect(extractMainWorkflowName(content)).toBe('develop-tdd');
+    });
+
+    it('should handle main workflow with extra spaces after colon', () => {
+      const content = `
+### Task Title
+**Main-Workflow:**    develop-tdd
+`;
+      expect(extractMainWorkflowName(content)).toBe('develop-tdd');
+    });
+
+    it('should handle main workflow with tabs after colon', () => {
+      const content = `
+### Task Title
+**Main-Workflow:**\t\tdevelop-tdd
+`;
+      expect(extractMainWorkflowName(content)).toBe('develop-tdd');
     });
   });
 

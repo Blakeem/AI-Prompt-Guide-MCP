@@ -29,6 +29,15 @@ import {
 } from '../../shared/namespace-constants.js';
 
 /**
+ * Compact workflow metadata (without full content)
+ */
+export interface CompactWorkflowMetadata {
+  name: string;
+  description: string;
+  whenToUse: string;
+}
+
+/**
  * Response interface for complete_coordinator_task tool
  */
 export interface CompleteCoordinatorTaskResponse {
@@ -41,11 +50,10 @@ export interface CompleteCoordinatorTaskResponse {
   next_task?: {
     slug: string;
     title: string;
-    workflow?: WorkflowPrompt;
+    workflow?: WorkflowPrompt | CompactWorkflowMetadata;
   };
   archived?: boolean;
   archived_to?: string;
-  timestamp: string;
 }
 
 /**
@@ -70,6 +78,7 @@ export async function completeCoordinatorTask(
     const documentPath = `${PATH_PREFIXES.COORDINATOR}active.md`;
     const note = ToolIntegration.validateStringParameter(args['note'], 'note');
     const returnNextTask = args['return_next_task'] === true; // Default: false
+    const includeFullWorkflow = args['include_full_workflow'] === true; // Default: false
 
     // Validate coordinator access
     validateCoordinatorTaskAccess(documentPath, undefined);
@@ -114,8 +123,7 @@ export async function completeCoordinatorTask(
       return {
         completed_task: completedTaskData,
         archived: true,
-        archived_to: archiveResult.archived_to,
-        timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
+        archived_to: archiveResult.archived_to
       };
     }
 
@@ -123,7 +131,7 @@ export async function completeCoordinatorTask(
     let nextTask: {
       slug: string;
       title: string;
-      workflow?: WorkflowPrompt;
+      workflow?: WorkflowPrompt | CompactWorkflowMetadata;
     } | undefined;
 
     if (returnNextTask) {
@@ -137,18 +145,34 @@ export async function completeCoordinatorTask(
           nextTaskContent
         );
 
+        // Build next task response with conditional workflow content
         nextTask = {
           slug: enrichedNext.slug,
-          title: enrichedNext.title,
-          ...('workflow' in enrichedNext && enrichedNext.workflow != null && { workflow: enrichedNext.workflow as WorkflowPrompt })
+          title: enrichedNext.title
         };
+
+        // Add workflow if present
+        if ('workflow' in enrichedNext && enrichedNext.workflow != null) {
+          const fullWorkflow = enrichedNext.workflow as WorkflowPrompt;
+
+          if (includeFullWorkflow) {
+            // Full workflow with content (3,000+ chars)
+            nextTask.workflow = fullWorkflow;
+          } else {
+            // Compact workflow - only name, description, and whenToUse (saves 3,000+ chars)
+            nextTask.workflow = {
+              name: fullWorkflow.name,
+              description: fullWorkflow.description,
+              whenToUse: fullWorkflow.whenToUse
+            };
+          }
+        }
       }
     }
 
     return {
       completed_task: completedTaskData,
-      ...(nextTask != null && { next_task: nextTask }),
-      timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
+      ...(nextTask != null && { next_task: nextTask })
     };
 
   } catch (error) {

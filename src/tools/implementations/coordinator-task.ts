@@ -35,8 +35,6 @@ const MAX_BATCH_SIZE = 100;
  * Individual task operation result
  */
 interface TaskOperationResult {
-  operation: 'create' | 'edit' | 'list';
-  status: 'created' | 'updated' | 'listed' | 'error';
   task?: {
     slug: string;
     title: string;
@@ -68,11 +66,8 @@ interface TaskOperationResult {
  * Bulk task operations response
  */
 interface TaskBulkResponse {
-  success: boolean;
-  document: string;
   operations_completed: number;
   results: TaskOperationResult[];
-  timestamp: string;
 }
 
 /**
@@ -144,8 +139,6 @@ export async function coordinatorTask(
 
           const createResult = await createTaskOperation(manager, documentPath, title, content, undefined);
           results.push({
-            operation: 'create',
-            status: 'created',
             task: { slug: createResult.slug, title: createResult.title }
           });
 
@@ -158,18 +151,13 @@ export async function coordinatorTask(
           }
 
           await editTaskOperation(manager, documentPath, taskSlug, content);
-          results.push({
-            operation: 'edit',
-            status: 'updated'
-          });
+          results.push({});
 
         } else if (operation === 'list') {
           const statusFilter = ToolIntegration.validateOptionalStringParameter(op['status'], 'status');
           const listResult = await listTasksOperation(manager, documentPath, statusFilter);
 
           const result: TaskOperationResult = {
-            operation: 'list',
-            status: 'listed',
             count: listResult.tasks.length
           };
 
@@ -196,19 +184,14 @@ export async function coordinatorTask(
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         results.push({
-          operation: (op['operation'] as 'create' | 'edit' | 'list') ?? 'create',
-          status: 'error',
           error: message
         });
       }
     }
 
     return {
-      success: true,
-      document: documentPath,
-      operations_completed: results.filter(r => r.status !== 'error').length,
-      results,
-      timestamp: new Date().toISOString().split('T')[0] ?? new Date().toISOString()
+      operations_completed: results.filter(r => r.error == null).length,
+      results
     };
 
   } catch (error) {

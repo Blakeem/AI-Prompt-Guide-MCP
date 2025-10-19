@@ -5,6 +5,10 @@
 
 /**
  * Individual task operation within the operations array
+ *
+ * NOTE: List operations return tasks with has_references flag (boolean)
+ * but do NOT load full referenced_documents to prevent context bloat.
+ * Use view_subagent_task or start_subagent_task to load full references.
  */
 export interface SubagentTaskOperationSchema {
   operation: 'create' | 'edit' | 'list';
@@ -22,7 +26,7 @@ export interface SubagentTaskInputSchema {
   properties: {
     document: {
       type: 'string';
-      description: 'Document path (e.g., "/docs/project/tasks.md"). ALWAYS required - provides default context for all operations. Individual task fields can override with full path "/docs/other.md#slug" for multi-document operations. NOTE: Subagent tasks should use /docs/ namespace.';
+      description: 'Document path (e.g., "/docs/project/tasks.md"). ALWAYS required - provides context for all operations. NOTE: Subagent tasks should use /docs/ namespace.';
     };
     operations: {
       type: 'array';
@@ -45,7 +49,7 @@ export interface SubagentTaskInputSchema {
           };
           task: {
             type: 'string';
-            description: 'Task slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/docs/project/main.md" with task="/docs/project/sub.md#task-1" creates task in sub.md instead. Required for edit operation.';
+            description: 'Task slug. TWO FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix). Required for edit operation.';
           };
           status: {
             type: 'string';
@@ -101,7 +105,7 @@ export function getSubagentTaskSchema(): SubagentTaskInputSchema {
     properties: {
       document: {
         type: 'string',
-        description: 'Document path (e.g., "/docs/project/tasks.md"). ALWAYS required - provides default context for all operations. Individual task fields can override with full path "/docs/other.md#slug" for multi-document operations. NOTE: Subagent tasks should use /docs/ namespace.',
+        description: 'Document path (e.g., "/docs/project/tasks.md"). ALWAYS required - provides context for all operations. NOTE: Subagent tasks should use /docs/ namespace.',
       },
       operations: {
         type: 'array',
@@ -124,7 +128,7 @@ export function getSubagentTaskSchema(): SubagentTaskInputSchema {
             },
             task: {
               type: 'string',
-              description: 'Task slug or full path with override support. THREE FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix), 3) "/other.md#slug" - overrides document parameter for this operation. Example multi-document: document="/docs/project/main.md" with task="/docs/project/sub.md#task-1" creates task in sub.md instead. Required for edit operation.'
+              description: 'Task slug. TWO FORMATS: 1) "slug" - uses document parameter as context, 2) "#slug" - uses document parameter as context (with # prefix). Required for edit operation.'
             },
             status: {
               type: 'string',

@@ -102,12 +102,12 @@ describe('task tool - Bulk Operations', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
-      expect(result.document).toBe('/docs/test.md');
+      // Optimized response - success field removed
+      // Optimized response - document field removed
       expect(result.operations_completed).toBe(1);
       expect(result.results).toHaveLength(1);
-      expect(result.results[0]?.operation).toBe('create');
-      expect(result.results[0]?.status).toBe('created');
+      // Optimized response - operation field removed
+      // Optimized response - status field removed
       expect(result.results[0]?.task?.slug).toBe('implement-feature');
       expect(result.results[0]?.task?.title).toBe('Implement Feature');
     });
@@ -128,7 +128,6 @@ describe('task tool - Bulk Operations', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.results[0]?.status).toBe('error');
       expect(result.results[0]?.error).toContain('title and content');
     });
   });
@@ -149,12 +148,8 @@ describe('task tool - Bulk Operations', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
       expect(result.operations_completed).toBe(3);
       expect(result.results).toHaveLength(3);
-      expect(result.results[0]?.status).toBe('created');
-      expect(result.results[1]?.status).toBe('created');
-      expect(result.results[2]?.status).toBe('created');
     });
   });
 
@@ -172,10 +167,7 @@ describe('task tool - Bulk Operations', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
       expect(result.operations_completed).toBe(1);
-      expect(result.results[0]?.operation).toBe('list');
-      expect(result.results[0]?.status).toBe('listed');
       expect(result.results[0]?.tasks).toBeDefined();
       expect(result.results[0]?.count).toBeGreaterThan(0);
     });
@@ -201,6 +193,73 @@ describe('task tool - Bulk Operations', () => {
         expect(tasks.every(t => t.status === 'pending')).toBe(true);
       }
     });
+
+    it('should list tasks with has_references flag and NO referenced_documents content', async () => {
+      // Create a test document with tasks, one with references
+      const docPath = resolve(docsDir, 'test.md');
+      const docContent = `# Test
+
+## Tasks
+
+### Task 1 Without References
+
+Status: pending
+
+Just normal content.
+
+### Task 2 With References
+
+Status: pending
+
+This task references @/docs/other.md for context.
+
+### Task 3 Also Without References
+
+Status: completed
+
+Normal content here too.`;
+      await writeFile(docPath, docContent);
+
+      // Create referenced document to avoid errors
+      const otherDocPath = resolve(docsDir, 'other.md');
+      const otherDocContent = '# Other Doc\n\nSome reference content.';
+      await writeFile(otherDocPath, otherDocContent);
+
+      const result = await subagentTask({
+        document: '/docs/test.md',
+        operations: [
+          { operation: 'list' }
+        ]
+      }, sessionState, manager);
+
+      const tasks = result.results[0]?.tasks;
+      expect(tasks).toBeDefined();
+      expect(tasks?.length).toBe(3);
+
+      if (tasks != null) {
+        // Find tasks by title
+        const task1 = tasks.find(t => t.title === 'Task 1 Without References');
+        const task2 = tasks.find(t => t.title === 'Task 2 With References');
+        const task3 = tasks.find(t => t.title === 'Task 3 Also Without References');
+
+        // Task without references should NOT have has_references flag
+        expect(task1?.has_references).toBeUndefined();
+
+        // Task with references should have has_references: true
+        expect(task2?.has_references).toBe(true);
+
+        // CRITICAL: Task with references should NOT have referenced_documents in list operation
+        expect(task2?.referenced_documents).toBeUndefined();
+
+        // Task 3 also without references
+        expect(task3?.has_references).toBeUndefined();
+
+        // Verify response is compact (no massive referenced_documents content)
+        const responseSize = JSON.stringify(result).length;
+        // With 3 tasks and no referenced_documents content, should be < 5000 chars
+        expect(responseSize).toBeLessThan(5000);
+      }
+    });
   });
 
   describe('Single Edit Operation', () => {
@@ -221,10 +280,7 @@ describe('task tool - Bulk Operations', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
       expect(result.operations_completed).toBe(1);
-      expect(result.results[0]?.operation).toBe('edit');
-      expect(result.results[0]?.status).toBe('updated');
     });
 
     it('should return error when edit operation missing required fields', async () => {
@@ -243,7 +299,6 @@ describe('task tool - Bulk Operations', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.results[0]?.status).toBe('error');
       expect(result.results[0]?.error).toContain('task slug');
     });
   });
@@ -263,11 +318,8 @@ describe('task tool - Bulk Operations', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
       expect(result.operations_completed).toBe(2);
       expect(result.results).toHaveLength(2);
-      expect(result.results[0]?.operation).toBe('create');
-      expect(result.results[1]?.operation).toBe('list');
     });
 
     it('should handle multiple operation types in sequence', async () => {
@@ -286,7 +338,6 @@ describe('task tool - Bulk Operations', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
       expect(result.operations_completed).toBe(4);
       expect(result.results).toHaveLength(4);
     });
@@ -307,8 +358,7 @@ describe('task tool - Bulk Operations', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.results[0]?.status).toBe('created');
-      expect(result.results[1]?.status).toBe('error');
+      expect(result.results[1]?.error).toBeDefined();
       expect(result.operations_completed).toBe(1);
     });
 
@@ -327,9 +377,8 @@ describe('task tool - Bulk Operations', () => {
         ]
       }, sessionState, manager);
 
-      expect(result.results[0]?.status).toBe('created');
-      expect(result.results[1]?.status).toBe('error');
-      expect(result.results[2]?.status).toBe('created');
+      expect(result.results[1]?.error).toBeDefined();
+      expect(result.results[2]?.task).toBeDefined();
       expect(result.operations_completed).toBe(2);
     });
   });
@@ -349,35 +398,14 @@ describe('task tool - Bulk Operations', () => {
       }, sessionState, manager);
 
       // Verify response structure
-      expect(result).toHaveProperty('success');
-      expect(result).toHaveProperty('document');
       expect(result).toHaveProperty('operations_completed');
       expect(result).toHaveProperty('results');
-      expect(result).toHaveProperty('timestamp');
 
-      expect(result.success).toBe(true);
-      expect(result.document).toBe('/docs/test.md');
       expect(typeof result.operations_completed).toBe('number');
       expect(Array.isArray(result.results)).toBe(true);
-      expect(typeof result.timestamp).toBe('string');
     });
 
-    it('should use date-only timestamp format', async () => {
-      // Create a test document
-      const docPath = resolve(docsDir, 'test.md');
-      const docContent = '# Test\n\n## Tasks\n\n';
-      await writeFile(docPath, docContent);
-
-      const result = await subagentTask({
-        document: '/docs/test.md',
-        operations: [
-          { operation: 'create', title: 'Test Task', content: 'Status: pending\n\nContent' }
-        ]
-      }, sessionState, manager);
-
-      // Timestamp should be date-only (YYYY-MM-DD)
-      expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    });
+    // Removed test: 'should use date-only timestamp format' - timestamp field no longer in response
   });
 
   describe('Batch Size Limits', () => {
@@ -399,7 +427,6 @@ describe('task tool - Bulk Operations', () => {
         operations
       }, sessionState, manager);
 
-      expect(result.success).toBe(true);
       expect(result.results).toHaveLength(100);
     });
 
@@ -474,9 +501,7 @@ describe('task tool - Bulk Operations', () => {
       }, sessionState, manager);
 
       // Verify task was created successfully
-      expect(result.success).toBe(true);
       expect(result.operations_completed).toBe(1);
-      expect(result.results[0]?.status).toBe('created');
       expect(result.results[0]?.task?.slug).toBe('first-task');
 
       // Verify Tasks section was created
@@ -515,7 +540,6 @@ describe('task tool - Bulk Operations', () => {
       }, sessionState, manager);
 
       // Verify task was created successfully
-      expect(result.success).toBe(true);
       expect(result.operations_completed).toBe(1);
 
       // Verify only ONE Tasks section exists
@@ -536,7 +560,7 @@ describe('task tool - Bulk Operations', () => {
       await writeFile(docPath, docContent);
 
       // Create a task (auto-creates Tasks)
-      const result = await subagentTask({
+      await subagentTask({
         document: '/docs/test-depth.md',
         operations: [
           {
@@ -546,9 +570,6 @@ describe('task tool - Bulk Operations', () => {
           }
         ]
       }, sessionState, manager);
-
-      // Verify success
-      expect(result.success).toBe(true);
 
       // Verify Tasks section is H2 (depth 2)
       const document = await manager.getDocument('/docs/test-depth.md');
@@ -581,7 +602,6 @@ describe('task tool - Bulk Operations', () => {
       }, sessionState, manager);
 
       // Should not create duplicate, should use existing
-      expect(result.success).toBe(true);
       expect(result.operations_completed).toBe(1);
 
       // Verify only ONE tasks section exists
@@ -614,7 +634,6 @@ describe('task tool - Bulk Operations', () => {
       }, sessionState, manager);
 
       // Should have error result
-      expect(result.results[0]?.status).toBe('error');
       expect(result.results[0]?.error).toContain('title heading');
     });
 
@@ -659,9 +678,8 @@ describe('task tool - Bulk Operations', () => {
       }, sessionState, manager);
 
       // All should succeed
-      expect(result.success).toBe(true);
       expect(result.operations_completed).toBe(3);
-      expect(result.results.every(r => r.status === 'created')).toBe(true);
+      expect(result.results.every(r => r.task != null)).toBe(true);
 
       // Verify Tasks section exists and contains all tasks
       const document = await manager.getDocument('/docs/test-multiple.md');

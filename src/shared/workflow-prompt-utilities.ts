@@ -26,9 +26,10 @@ const logger = getGlobalLogger();
  */
 export function extractWorkflowName(content: string): string | null {
   // Check if field exists with or without value using flexible regex
-  // Matches both **Workflow**: (bold) and Workflow: (plain) formats
+  // Matches formats: **Workflow:**, Workflow:, - Workflow:, * Workflow:, - **Workflow:**, * **Workflow:**
+  // Note: In markdown, **Workflow:** means bold "Workflow:" (** before and after)
   // Use [ \t]* instead of \s* to avoid matching newlines
-  const fieldRegex = /^(?:[\s*-]+Workflow|\*\*Workflow\*\*):[ \t]*(.*)$/m;
+  const fieldRegex = /^(?:-\s+|\*\s+)?(?:\*\*Workflow:\*\*|Workflow:)[ \t]*(.*)$/m;
   const match = content.match(fieldRegex);
 
   if (match != null) {
@@ -51,9 +52,10 @@ export function extractWorkflowName(content: string): string | null {
  */
 export function extractMainWorkflowName(content: string): string | null {
   // Check if field exists with or without value using flexible regex
-  // Matches both **Main-Workflow**: (bold) and Main-Workflow: (plain) formats
+  // Matches formats: **Main-Workflow:**, Main-Workflow:, - Main-Workflow:, * Main-Workflow:, - **Main-Workflow:**, * **Main-Workflow:**
+  // Note: In markdown, **Main-Workflow:** means bold "Main-Workflow:" (** before and after)
   // Use [ \t]* instead of \s* to avoid matching newlines
-  const fieldRegex = /^(?:[\s*-]+Main-Workflow|\*\*Main-Workflow\*\*):[ \t]*(.*)$/m;
+  const fieldRegex = /^(?:-\s+|\*\s+)?(?:\*\*Main-Workflow:\*\*|Main-Workflow:)[ \t]*(.*)$/m;
   const match = content.match(fieldRegex);
 
   if (match != null) {

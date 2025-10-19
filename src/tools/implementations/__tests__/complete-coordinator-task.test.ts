@@ -244,9 +244,123 @@ describe('complete_coordinator_task tool', () => {
         note: 'Completed successfully'
       }, sessionState, manager);
 
+      // Optimized response structure - only essential fields
       expect(result).toHaveProperty('completed_task');
-      expect(result).toHaveProperty('timestamp');
-      expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(result.completed_task).toHaveProperty('completed_date');
+      // completed_date should be in YYYY-MM-DD format
+      expect(result.completed_task.completed_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+  });
+
+  describe('Compact Workflow Mode (Context Optimization)', () => {
+    it('should return compact workflow by default (no content field)', async () => {
+      // Create tasks with workflows
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nContent 1' },
+          { operation: 'create', title: 'Task 2', content: 'Status: pending\n\nWorkflow: spec-first-integration\n\nContent 2' }
+        ]
+      }, sessionState, manager);
+
+      // Complete first task with return_next_task=true, include_full_workflow=false (default)
+      const result = await completeCoordinatorTask({
+        note: 'Done',
+        return_next_task: true
+        // include_full_workflow defaults to false
+      }, sessionState, manager);
+
+      expect(result.next_task).toBeDefined();
+      if (result.next_task?.workflow != null) {
+        const workflow = result.next_task.workflow;
+
+        // Should have compact fields
+        expect(workflow).toHaveProperty('name');
+        expect(workflow).toHaveProperty('description');
+        expect(workflow).toHaveProperty('whenToUse');
+
+        // Should NOT have content field (saves 3,000+ chars)
+        expect(workflow).not.toHaveProperty('content');
+
+        // Verify structure
+        expect(workflow.name).toBe('workflow_spec-first-integration');
+        expect(workflow.description).toContain('INTEGRATION');
+      }
+    });
+
+    it('should return full workflow when include_full_workflow=true', async () => {
+      // Create tasks with workflows
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nContent 1' },
+          { operation: 'create', title: 'Task 2', content: 'Status: pending\n\nWorkflow: spec-first-integration\n\nContent 2' }
+        ]
+      }, sessionState, manager);
+
+      // Complete first task with return_next_task=true, include_full_workflow=true
+      const result = await completeCoordinatorTask({
+        note: 'Done',
+        return_next_task: true,
+        include_full_workflow: true
+      }, sessionState, manager);
+
+      expect(result.next_task).toBeDefined();
+      if (result.next_task?.workflow != null) {
+        const workflow = result.next_task.workflow;
+
+        // Should have all fields including content
+        expect(workflow).toHaveProperty('name');
+        expect(workflow).toHaveProperty('description');
+        expect(workflow).toHaveProperty('whenToUse');
+        expect(workflow).toHaveProperty('content');
+
+        // Verify content exists and is substantial
+        expect('content' in workflow).toBe(true);
+        if ('content' in workflow) {
+          expect(workflow.content).toContain('Spec-First Integration');
+        }
+      }
+    });
+
+    it('should ignore include_full_workflow when return_next_task=false', async () => {
+      // Create tasks
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nContent 1' },
+          { operation: 'create', title: 'Task 2', content: 'Status: pending\n\nWorkflow: spec-first-integration\n\nContent 2' }
+        ]
+      }, sessionState, manager);
+
+      // Complete with return_next_task=false (default), include_full_workflow=true
+      const result = await completeCoordinatorTask({
+        note: 'Done',
+        // return_next_task defaults to false
+        include_full_workflow: true
+      }, sessionState, manager);
+
+      // Should not return next_task at all
+      expect(result.next_task).toBeUndefined();
+    });
+
+    it('should handle tasks without workflows in compact mode', async () => {
+      // Create tasks without workflows
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nContent 1' },
+          { operation: 'create', title: 'Task 2', content: 'Status: pending\n\nContent 2 (no workflow)' }
+        ]
+      }, sessionState, manager);
+
+      // Complete with return_next_task=true (compact mode by default)
+      const result = await completeCoordinatorTask({
+        note: 'Done',
+        return_next_task: true
+      }, sessionState, manager);
+
+      expect(result.next_task).toBeDefined();
+      if (result.next_task != null) {
+        // Should not have workflow field at all
+        expect(result.next_task.workflow).toBeUndefined();
+      }
     });
   });
 });

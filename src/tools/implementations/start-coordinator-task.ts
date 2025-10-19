@@ -130,49 +130,42 @@ export async function startCoordinatorTask(
     }
 
     // WORKFLOW ENRICHMENT (shared utilities)
-    const baseTaskData = {
-      slug: targetTaskSlug,
-      title: nextTask.title,
-      content: taskContent,
-      status: nextTask.status
-    };
-
-    // Task-specific workflow (SHARED)
-    const withWorkflow = enrichTaskWithWorkflow(baseTaskData, taskContent);
-
-    // Main workflow (COORDINATOR ONLY - injects from first task)
-    const withMainWorkflow = await enrichTaskWithMainWorkflow(manager, document, withWorkflow);
-
-    // Reference loading (SHARED)
-    const enriched = await enrichTaskWithReferences(
+    // Step 1: Start with reference enrichment (returns full TaskViewData)
+    const withReferences = await enrichTaskWithReferences(
       manager,
       documentPath,
       targetTaskSlug,
       taskContent
     );
 
-    // Extract workflow data with explicit typing
-    const workflow: WorkflowPrompt | undefined = 'workflow' in withMainWorkflow
-      ? withMainWorkflow.workflow as WorkflowPrompt | undefined
+    // Step 2: Add task-specific workflow (preserves all existing fields)
+    const withWorkflow = enrichTaskWithWorkflow(withReferences, taskContent);
+
+    // Step 3: Add main workflow (preserves all existing fields including workflow and references)
+    const fullyEnriched = await enrichTaskWithMainWorkflow(manager, document, withWorkflow);
+
+    // Extract workflow data with explicit typing for response
+    const workflow: WorkflowPrompt | undefined = 'workflow' in fullyEnriched
+      ? fullyEnriched.workflow as WorkflowPrompt | undefined
       : undefined;
-    const mainWorkflow: WorkflowPrompt | undefined = 'mainWorkflow' in withMainWorkflow
-      ? withMainWorkflow.mainWorkflow as WorkflowPrompt | undefined
+    const mainWorkflow: WorkflowPrompt | undefined = 'mainWorkflow' in fullyEnriched
+      ? fullyEnriched.mainWorkflow as WorkflowPrompt | undefined
       : undefined;
 
-    // ENRICHED RESPONSE
+    // ENRICHED RESPONSE - spread all enriched data
     return {
       document: documentPath,
       task: {
-        slug: enriched.slug,
-        title: enriched.title,
-        content: enriched.content,
-        status: enriched.status,
+        slug: fullyEnriched.slug,
+        title: fullyEnriched.title,
+        content: fullyEnriched.content,
+        status: fullyEnriched.status,
         full_path: fullPath,
         ...(workflow != null && { workflow }),
         ...(mainWorkflow != null && { main_workflow: mainWorkflow }),
-        ...(enriched.referencedDocuments != null &&
-          enriched.referencedDocuments.length > 0 && {
-            referenced_documents: enriched.referencedDocuments
+        ...(fullyEnriched.referencedDocuments != null &&
+          fullyEnriched.referencedDocuments.length > 0 && {
+            referenced_documents: fullyEnriched.referencedDocuments
           })
       }
     };

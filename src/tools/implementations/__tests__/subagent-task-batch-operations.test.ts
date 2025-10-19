@@ -93,15 +93,14 @@ describe('Task Batch Operations - Cache Consistency', () => {
     );
 
     // All operations should succeed
-    expect(result.success).toBe(true);
     expect(result.operations_completed).toBe(3);
 
     // Verify no errors in results
-    const errors = result.results.filter(r => r.status === 'error');
+    const errors = result.results.filter(r => r.error != null);
     expect(errors).toHaveLength(0);
 
     // Verify all tasks were created
-    const created = result.results.filter(r => r.status === 'created');
+    const created = result.results.filter(r => r.task != null);
     expect(created).toHaveLength(3);
 
     // Verify document has all tasks
@@ -138,11 +137,10 @@ describe('Task Batch Operations - Cache Consistency', () => {
     );
 
     // Both operations should succeed
-    expect(result.success).toBe(true);
     expect(result.operations_completed).toBe(2);
 
     // Verify no errors
-    const errors = result.results.filter(r => r.status === 'error');
+    const errors = result.results.filter(r => r.error != null);
     expect(errors).toHaveLength(0);
 
     // Verify task was created and edited
@@ -178,13 +176,11 @@ describe('Task Batch Operations - Cache Consistency', () => {
     );
 
     // All operations should succeed
-    expect(result.success).toBe(true);
     expect(result.operations_completed).toBe(3);
 
-    // Find the list result
-    const listResult = result.results.find(r => r.operation === 'list');
+    // Find the list result (last operation)
+    const listResult = result.results[2];
     expect(listResult).toBeDefined();
-    expect(listResult?.status).toBe('listed');
 
     // List should include the newly created tasks
     expect(listResult?.count).toBeGreaterThanOrEqual(2);
@@ -230,22 +226,19 @@ describe('Task Batch Operations - Cache Consistency', () => {
     );
 
     // All operations should succeed
-    expect(result.success).toBe(true);
     expect(result.operations_completed).toBe(5);
 
     // Verify no errors
-    const errors = result.results.filter(r => r.status === 'error');
+    const errors = result.results.filter(r => r.error != null);
     expect(errors).toHaveLength(0);
 
     // First list should show only in_progress task
     const firstList = result.results[2];
-    expect(firstList?.operation).toBe('list');
     expect(firstList?.tasks?.length).toBe(1);
     expect(firstList?.tasks?.[0]?.slug).toBe('mixed-task-1');
 
     // Second list should show both tasks
     const secondList = result.results[4];
-    expect(secondList?.operation).toBe('list');
     expect(secondList?.count).toBe(2);
   });
 });
