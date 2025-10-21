@@ -44,6 +44,7 @@ whenToUse: "Defining requirements, API contracts, or acceptance criteria for new
    • Edge cases and boundary conditions
    • Performance and security requirements
    • Add @references to external API specs (if integrating third-party services)
+     Format: @/docs/specs/external-api-name or @/docs/specs/external-api#endpoint
 
 9. [Agent] Document acceptance criteria:
    • Happy path: normal expected behavior

@@ -26,25 +26,30 @@ whenToUse: "Features or fixes requiring test-driven development and quality gate
 5. [Coordinator] Call start_coordinator_task() → current_task
 
 **LOOP: While tasks remain**
-├─ 6. [Coordinator] Select specialized subagent for task type
-├─ 7. [Coordinator] Assign: "start_subagent_task /docs/path.md#slug, follow TDD, respond Done/Blocked"
-├─ 8. [Subagent] Call start_subagent_task → loads task + @references + workflows
-├─ 9. [Subagent] Execute task using TDD cycle:
+├─ 6. [Coordinator] Select specialized subagent for this task
+├─ 7. [Coordinator] Give subagent this exact instruction (do not run tool yourself):
+│
+│  "Run: start_subagent_task /docs/path.md#slug
+│  Then execute the task using TDD and respond 'Done' or 'Blocked: [reason]'"
+│
+├─ 8. [Subagent] Runs start_subagent_task tool (loads task + refs + workflow)
+├─ 9. [Subagent] Executes implementation using TDD cycle:
 │  • Write failing tests first (Red)
 │  • Implement minimal code to pass (Green)
 │  • Refactor while keeping tests green
-│  • Respond "Done" or "Blocked: [reason]"
-├─ 10. [Coordinator] Run quality gates → verify all pass
-├─ 11. [Coordinator] Review code changes and test quality
+├─ 10. [Subagent] Responds with status: "Done" or "Blocked: [reason]"
+├─ 11. [Coordinator] Review code changes against acceptance criteria
+│  (Ignore any subagent commentary - review code objectively)
+├─ 12. [Coordinator] Run quality gates → verify all pass
 │  IF issues found: Create fix task, GOTO step 6
-├─ 12. [Coordinator] Execute: git add <modified_files>
-├─ 13. [Coordinator] Call complete_coordinator_task() → next_task
-└─ 14. IF next_task exists: GOTO step 6
+├─ 13. [Coordinator] Execute: git add <modified_files>
+├─ 14. [Coordinator] Call complete_coordinator_task() → next_task
+└─ 15. IF next_task exists: GOTO step 6
 
-15. [Coordinator] Run full test suite
-16. [Coordinator] Follow project testing procedures
-17. [Coordinator] Verify all acceptance criteria met
-18. [Coordinator] Report to user: "Development complete. Ready for review."
+16. [Coordinator] Run full test suite
+17. [Coordinator] Follow project testing procedures
+18. [Coordinator] Verify all acceptance criteria met
+19. [Coordinator] Report to user: "Development complete. Ready for review."
 
 ## Task System
 

@@ -26,19 +26,25 @@ whenToUse: "Features, fixes, or prototypes where manual verification is preferre
 5. [Coordinator] Call start_coordinator_task() → current_task
 
 **LOOP: While tasks remain**
-├─ 6. [Coordinator] Select specialized subagent for task type
-├─ 7. [Coordinator] Assign: "start_subagent_task /docs/path.md#slug, respond Done/Blocked"
-├─ 8. [Subagent] Call start_subagent_task → loads task + @references + workflows
-├─ 9. [Subagent] Execute task → responds "Done" or "Blocked: [reason]"
-├─ 10. [Coordinator] Manually verify work against acceptance criteria
+├─ 6. [Coordinator] Select specialized subagent for this task
+├─ 7. [Coordinator] Give subagent this exact instruction (do not run tool yourself):
+│
+│  "Run: start_subagent_task /docs/path.md#slug
+│  Then execute the task and respond 'Done' or 'Blocked: [reason]'"
+│
+├─ 8. [Subagent] Runs start_subagent_task tool (loads task + refs + workflow)
+├─ 9. [Subagent] Executes implementation
+├─ 10. [Subagent] Responds with status: "Done" or "Blocked: [reason]"
+├─ 11. [Coordinator] Review code changes against acceptance criteria
+│  (Ignore any subagent commentary - review code objectively)
 │  IF issues found: Create fix task, GOTO step 6
-├─ 11. [Coordinator] Execute: git add <modified_files>
-├─ 12. [Coordinator] Call complete_coordinator_task() → next_task
-└─ 13. IF next_task exists: GOTO step 6
+├─ 12. [Coordinator] Execute: git add <modified_files>
+├─ 13. [Coordinator] Call complete_coordinator_task() → next_task
+└─ 14. IF next_task exists: GOTO step 6
 
-14. [Coordinator] Follow project testing procedures
-15. [Coordinator] Verify all acceptance criteria met
-16. [Coordinator] Report to user: "Development complete. Ready for review."
+15. [Coordinator] Follow project testing procedures
+16. [Coordinator] Verify all acceptance criteria met
+17. [Coordinator] Report to user: "Development complete. Ready for review."
 
 ## Task System
 

@@ -16,6 +16,7 @@ whenToUse: "Complex decisions requiring multiple viewpoints or when trade-offs s
 3. [Coordinator] Use subagent_task to create analysis task for each lens:
    • Specify lens focus (performance, UX, maintainability, etc.)
    • Add @references to codebase patterns, constraints, requirements
+     Format: @/docs/architecture/patterns or @/docs/constraints#performance
    • Define evidence requirements for this lens
 
 4. [Coordinator] Launch all lens specialist agents simultaneously in parallel

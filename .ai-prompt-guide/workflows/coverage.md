@@ -13,30 +13,36 @@ whenToUse: "Adding tests to legacy code or improving coverage for critical code 
    • Specify what to test (public API, business logic, error handling)
    • Specify test approach (mocks for external dependencies)
    • Add @references to code files, existing tests, test patterns
+     Format: @/docs/codebase/module-name or @/docs/test-patterns#unit-tests
 5. [Coordinator] Call start_coordinator_task() → current_task
 
 **LOOP: While tasks remain**
 ├─ 6. [Coordinator] Select testing specialist subagent
-├─ 7. [Coordinator] Assign: "start_subagent_task /docs/path.md#slug, write passing tests, respond Done/Blocked"
-├─ 8. [Subagent] Call start_subagent_task → loads task + @references
-├─ 9. [Subagent] Write tests following Arrange-Act-Assert:
+├─ 7. [Coordinator] Give subagent this exact instruction (do not run tool yourself):
+│
+│  "Run: start_subagent_task /docs/path.md#slug
+│  Then write passing tests and respond 'Done' or 'Blocked: [reason]'"
+│
+├─ 8. [Subagent] Runs start_subagent_task tool (loads task + refs)
+├─ 9. [Subagent] Writes tests following Arrange-Act-Assert:
 │  • Arrange: Set up inputs and mocks
 │  • Act: Execute function under test
 │  • Assert: Verify outputs and side effects
 │  • Run tests → verify all pass
-│  • Respond "Done" or "Blocked: [reason]"
-├─ 10. [Coordinator] Review test quality:
+├─ 10. [Subagent] Responds with status: "Done" or "Blocked: [reason]"
+├─ 11. [Coordinator] Review test quality against standards:
+│  (Ignore any subagent commentary - review code objectively)
 │  • Tests stable contracts, not implementation
 │  • Proper use of mocks for external dependencies
 │  • Clear assertions on behavior
 │  IF issues found: Create fix task, GOTO step 6
-├─ 11. [Coordinator] Execute: git add <test_files>
-├─ 12. [Coordinator] Call complete_coordinator_task() → next_task
-└─ 13. IF next_task exists: GOTO step 6
+├─ 12. [Coordinator] Execute: git add <test_files>
+├─ 13. [Coordinator] Call complete_coordinator_task() → next_task
+└─ 14. IF next_task exists: GOTO step 6
 
-14. [Coordinator] Run full test suite → verify no regressions
-15. [Coordinator] Verify coverage improvement
-16. [Coordinator] Report to user: "Test coverage improved. Ready for review."
+15. [Coordinator] Run full test suite → verify no regressions
+16. [Coordinator] Verify coverage improvement
+17. [Coordinator] Report to user: "Test coverage improved. Ready for review."
 
 ## What to Test (Regression Prevention)
 
