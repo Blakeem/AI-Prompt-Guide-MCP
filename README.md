@@ -95,29 +95,73 @@ Set environment variables in your MCP client config:
 }
 ```
 
-**Configuration:**
-- `MCP_WORKSPACE_PATH` - **Required** - Path to your MCP workspace directory (contains docs/, coordinator/, archived/)
+**Required:**
+- `MCP_WORKSPACE_PATH` - Path to your project workspace (absolute or relative to project root)
 
-**Optional environment variables:**
-- `WORKFLOWS_BASE_PATH` - Custom workflow directory (defaults to bundled workflows)
-- `GUIDES_BASE_PATH` - Custom guides directory (defaults to bundled guides)
+**Optional - Project-Specific Folders:**
+
+These folders store your project data and default to subdirectories within `MCP_WORKSPACE_PATH`:
+
+- `DOCS_BASE_PATH` - Documents and subagent tasks (default: `{workspace}/docs`)
+- `ARCHIVED_BASE_PATH` - Completed work (default: `{workspace}/archived`)
+- `COORDINATOR_BASE_PATH` - Sequential tasks (default: `{workspace}/coordinator`)
+
+**Optional - Plugin-Global Resources:**
+
+These folders contain reusable workflows and guides, independent of `MCP_WORKSPACE_PATH`:
+
+- `WORKFLOWS_BASE_PATH` - Workflow protocols (default: bundled with plugin)
+- `GUIDES_BASE_PATH` - Documentation guides (default: bundled with plugin)
+
+**Optional - Other Settings:**
+
 - `REFERENCE_EXTRACTION_DEPTH` - How deep to follow @references (1-5, default 3)
 - `LOG_LEVEL` - Logging verbosity (debug, info, warn, error)
 
+**Path Resolution:**
+- Relative paths are resolved from `MCP_WORKSPACE_PATH` (for project folders) or plugin directory (for workflows/guides)
+- Absolute paths are used as-is
+- Example: `DOCS_BASE_PATH: "custom-docs"` → `{workspace}/custom-docs`
+- Example: `DOCS_BASE_PATH: "/abs/path/docs"` → `/abs/path/docs`
+
+**Per-Project Configuration:**
+
+Use `.mcp-config.json` in your project root to override paths without modifying MCP client settings:
+
+```json
+{
+  "env": {
+    "MCP_WORKSPACE_PATH": "./.ai-prompt-guide",
+    "DOCS_BASE_PATH": "documentation",
+    "ARCHIVED_BASE_PATH": "archive"
+  }
+}
+```
+
+This is useful when different projects need different folder structures.
+
 ### Directory Structure
 
-The server creates and manages this structure:
+**Default structure** (created automatically):
 
 ```
 .ai-prompt-guide/
 ├── docs/               # Your documents and subagent tasks
-├── coordinator/        # Sequential project tasks (auto-archives when done)
-├── archived/          # Completed work
-├── workflows/         # Workflow protocols (optional - uses bundled if not present)
-└── guides/           # Documentation guides (optional - uses bundled if not present)
+├── coordinator/        # Sequential project tasks
+├── archived/          # Completed work (auto-populated)
+│   ├── docs/          # Archived documents
+│   └── coordinator/   # Archived task lists
 ```
 
-Only `docs/` is required—everything else is created automatically.
+**Plugin-global resources** (bundled, rarely customized):
+
+```
+{plugin-dir}/.ai-prompt-guide/
+├── workflows/         # Reusable workflow protocols
+└── guides/           # Documentation best practices
+```
+
+Only `docs/` is required in your project—everything else is created automatically. Workflows and guides are provided by the plugin unless you override them.
 
 ## Claude Code Plugin
 
