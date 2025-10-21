@@ -13,6 +13,7 @@ export interface DocumentCreationResult {
   success: boolean;
   document: string;  // Full path to created document
   slug: string;      // Document slug (from title)
+  next_step: string; // Guidance for adding first section
 }
 
 /**
@@ -78,11 +79,12 @@ export async function createDocumentFile(
     // Refresh the cache to get the updated document
     await refreshDocumentCache(manager, docPath);
 
-    // Return simplified response
+    // Return simplified response with minimal next-step guidance
     return {
       success: true,
       document: docPath,
-      slug
+      slug,
+      next_step: 'Use section tool with append_child on the slug to add first section'
     };
 
   } catch (error) {

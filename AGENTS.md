@@ -24,6 +24,84 @@ This is a comprehensive MCP server for intelligent AI prompt and guide document 
 **Language**: TypeScript with strict mode enabled
 **Runtime**: Node.js with ES modules
 
+## CONTEXT ENGINEERING & RESPONSE EFFICIENCY
+
+**Critical Principle: Respect Context as a Precious Resource**
+
+This project serves as MCP tooling for AI agents - every response consumes limited context. Practice excellent context engineering:
+
+### Response Guidelines
+
+**DO:**
+- ✅ Provide minimal, actionable hints (e.g., "Use section tool with append_child on the slug")
+- ✅ Return only required information in tool responses
+- ✅ Use concise field names and values
+- ✅ Reference information already present instead of duplicating it
+- ✅ Provide exactly what's needed for the next step, nothing more
+
+**DON'T:**
+- ❌ Repeat information already in the response (e.g., don't echo back the slug value in instructions)
+- ❌ Include verbose examples unless absolutely necessary
+- ❌ Add explanatory text that could be inferred from field names
+- ❌ Return large objects when a simple string suffices
+- ❌ Duplicate data across multiple response fields
+
+### Examples
+
+**Good - Concise & Efficient:**
+```json
+{
+  "success": true,
+  "document": "/docs/api/auth.md",
+  "slug": "auth",
+  "next_step": "Use section tool with append_child on the slug"
+}
+```
+
+**Bad - Wasteful & Redundant:**
+```json
+{
+  "success": true,
+  "document": "/docs/api/auth.md",
+  "slug": "auth",
+  "next_steps": {
+    "description": "To add your first section to this newly created document",
+    "action": "Use the section tool",
+    "operation": "append_child",
+    "target": "auth",
+    "example": {
+      "document": "/docs/api/auth.md",
+      "operations": [{
+        "section": "auth",
+        "operation": "append_child",
+        "title": "Your Section Title",
+        "content": "Your content here"
+      }]
+    }
+  }
+}
+```
+
+**Context Savings:** The good example uses ~100 characters vs ~400+ in the bad example - a 75% reduction while providing the same actionable information.
+
+### Implementation Pattern
+
+When designing tool responses:
+1. **Identify essential information** - What must the user know?
+2. **Remove redundancy** - Is this already available elsewhere in the response?
+3. **Use references** - Point to data instead of duplicating it
+4. **Prefer hints over examples** - A brief hint is often sufficient
+5. **Validate necessity** - Could this field be removed without losing functionality?
+
+This principle applies to:
+- Tool response objects
+- Error messages
+- Logging output
+- Schema descriptions
+- Documentation examples
+
+**Remember:** Context efficiency isn't about being terse - it's about being precise and respectful of limited resources.
+
 ## CONFIGURATION
 
 ### Reference Extraction Depth
