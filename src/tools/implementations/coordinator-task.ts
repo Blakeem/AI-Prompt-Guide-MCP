@@ -59,6 +59,7 @@ interface TaskOperationResult {
     title: string;
     link?: string;
   };
+  next_step?: string;
   error?: string;
 }
 
@@ -139,7 +140,11 @@ export async function coordinatorTask(
 
           const createResult = await createTaskOperation(manager, documentPath, title, content, undefined);
           results.push({
-            task: { slug: createResult.slug, title: createResult.title }
+            task: {
+              slug: createResult.slug,
+              title: createResult.title
+            },
+            next_step: 'Call start_coordinator_task() to begin (omit return_task_context on first start)'
           });
 
         } else if (operation === 'edit') {

@@ -24,6 +24,7 @@ whenToUse: "Features or fixes requiring test-driven development and quality gate
    • Add Workflow: metadata for task-specific protocols (if needed)
    • Define testable acceptance criteria for each task
 5. [Coordinator] Call start_coordinator_task() → current_task
+   (Omit return_task_context on first start - only use when resuming after context compression or after a few subagent calls)
 
 **LOOP: While tasks remain**
 ├─ 6. [Coordinator] Select specialized subagent for this task

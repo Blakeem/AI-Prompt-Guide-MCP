@@ -18,7 +18,7 @@ export interface StartCoordinatorTaskInputSchema {
   properties: {
     return_task_context: {
       type: 'boolean';
-      description: 'Return task with full context (default: false). Set to true to inject Main-Workflow, task workflow, and references.';
+      description: 'Return task with full context (default: false). ⚠️ ONLY use when: resuming after context compression OR after a few subagent calls when context feels stale. DO NOT use on first task start (wastes ~1000 tokens). When true: injects Main-Workflow, task workflow, and @references.';
     };
   };
   required: never[];
@@ -34,7 +34,7 @@ export function getStartCoordinatorTaskSchema(): StartCoordinatorTaskInputSchema
     properties: {
       return_task_context: {
         type: 'boolean',
-        description: 'Return task with full context (default: false). Set to true to inject Main-Workflow, task workflow, and references.',
+        description: 'Return task with full context (default: false). ⚠️ ONLY use when: resuming after context compression OR after a few subagent calls when context feels stale. DO NOT use on first task start (wastes ~1000 tokens). When true: injects Main-Workflow, task workflow, and @references.',
       },
     },
     required: [],
