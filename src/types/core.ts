@@ -47,6 +47,9 @@ export interface ServerConfig {
   readonly workspaceBasePath: string;
   readonly workflowsBasePath: string;
   readonly guidesBasePath: string;
+  readonly docsBasePath: string;
+  readonly archivedBasePath: string;
+  readonly coordinatorBasePath: string;
   readonly maxFileSize: number;
   readonly maxFilesPerOperation: number;
   readonly rateLimitRequestsPerMinute: number;
@@ -70,6 +73,9 @@ export interface ProjectConfig {
     readonly MCP_WORKSPACE_PATH?: string;
     readonly WORKFLOWS_BASE_PATH?: string;
     readonly GUIDES_BASE_PATH?: string;
+    readonly DOCS_BASE_PATH?: string;
+    readonly ARCHIVED_BASE_PATH?: string;
+    readonly COORDINATOR_BASE_PATH?: string;
   };
 }
 

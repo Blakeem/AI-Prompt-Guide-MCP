@@ -171,10 +171,11 @@ export async function browseDocuments(
       }
 
     } else {
-      // Folder browse mode
+      // Folder browse mode - browse from docsBasePath (not workspaceBasePath)
+      // This ensures browse_documents only shows the /docs namespace
       const { loadConfig } = await import('../../config.js');
       const config = loadConfig();
-      const { folders, documents } = await getFolderStructure(manager, config.workspaceBasePath, normalizedPath, verbose);
+      const { folders, documents } = await getFolderStructure(manager, config.docsBasePath, normalizedPath, verbose);
 
       const result: BrowseResponse = {
         path: normalizedPath,

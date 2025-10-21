@@ -11,9 +11,11 @@ import { FOLDER_NAMES } from '../shared/namespace-constants.js';
  */
 export class PathHandler {
   private readonly workspaceBasePath: string;
+  private readonly archivedBasePath: string | undefined;
 
-  constructor(workspaceBasePath: string) {
+  constructor(workspaceBasePath: string, archivedBasePath?: string) {
     this.workspaceBasePath = resolve(workspaceBasePath);
+    this.archivedBasePath = archivedBasePath != null ? resolve(archivedBasePath) : undefined;
   }
 
   /**
@@ -88,7 +90,8 @@ export class PathHandler {
    * Generate unique archive path to handle duplicates
    */
   async generateUniqueArchivePath(normalizedPath: string): Promise<string> {
-    const archiveBase = join(this.workspaceBasePath, FOLDER_NAMES.ARCHIVED);
+    // Use archivedBasePath if provided, otherwise fall back to workspace/archived
+    const archiveBase = this.archivedBasePath ?? join(this.workspaceBasePath, FOLDER_NAMES.ARCHIVED);
     const relativePath = normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath;
 
     let archivePath = join(archiveBase, relativePath);

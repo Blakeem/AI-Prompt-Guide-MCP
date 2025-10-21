@@ -91,4 +91,13 @@ export const DEFAULT_CONFIG = {
 
   /** Default guides directory - relative to plugin root */
   GUIDES_BASE_PATH: '.ai-prompt-guide/guides',
+
+  /** Default docs directory - relative to workspace */
+  DOCS_BASE_PATH: 'docs',
+
+  /** Default archived directory - relative to workspace */
+  ARCHIVED_BASE_PATH: 'archived',
+
+  /** Default coordinator directory - relative to workspace */
+  COORDINATOR_BASE_PATH: 'coordinator',
 } as const;

@@ -75,10 +75,10 @@ export class DocumentManager {
   private readonly fingerprintIndex: FingerprintIndex | undefined;
   private readonly pendingTocUpdates = new Map<string, NodeJS.Timeout>();
 
-  constructor(docsRoot: string, cache: DocumentCache, fingerprintIndex?: FingerprintIndex) {
+  constructor(docsRoot: string, cache: DocumentCache, fingerprintIndex?: FingerprintIndex, archivedBasePath?: string) {
     this.docsRoot = path.resolve(docsRoot);
     this.cache = cache;
-    this.pathHandler = new PathHandler(this.docsRoot);
+    this.pathHandler = new PathHandler(this.docsRoot, archivedBasePath);
     this.fingerprintIndex = fingerprintIndex;
   }
 

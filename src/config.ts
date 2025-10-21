@@ -62,6 +62,9 @@ export const ProjectConfigSchema = z.object({
     MCP_WORKSPACE_PATH: z.string().min(1).optional(),
     WORKFLOWS_BASE_PATH: z.string().min(1).optional(),
     GUIDES_BASE_PATH: z.string().min(1).optional(),
+    DOCS_BASE_PATH: z.string().min(1).optional(),
+    ARCHIVED_BASE_PATH: z.string().min(1).optional(),
+    COORDINATOR_BASE_PATH: z.string().min(1).optional(),
   }),
 });
 
@@ -126,6 +129,9 @@ const ServerConfigSchema = z.object({
   workspaceBasePath: z.string().min(1),
   workflowsBasePath: z.string().min(1),
   guidesBasePath: z.string().min(1),
+  docsBasePath: z.string().min(1),
+  archivedBasePath: z.string().min(1),
+  coordinatorBasePath: z.string().min(1),
   maxFileSize: z.number().int().positive(),
   maxFilesPerOperation: z.number().int().positive(),
   rateLimitRequestsPerMinute: z.number().int().positive(),
@@ -163,6 +169,11 @@ function loadEnvironmentVariables(): Record<string, string | undefined> {
     // Optional: Allow override of workflows and guides paths
     WORKFLOWS_BASE_PATH: process.env['WORKFLOWS_BASE_PATH'],
     GUIDES_BASE_PATH: process.env['GUIDES_BASE_PATH'],
+
+    // Optional: Allow override of docs, archived, and coordinator paths
+    DOCS_BASE_PATH: process.env['DOCS_BASE_PATH'],
+    ARCHIVED_BASE_PATH: process.env['ARCHIVED_BASE_PATH'],
+    COORDINATOR_BASE_PATH: process.env['COORDINATOR_BASE_PATH'],
   };
 }
 
@@ -261,6 +272,60 @@ function parseEnvironmentVariables(
   }
   config['guidesBasePath'] = guidesBasePath;
 
+  // Optional: DOCS_BASE_PATH (relative to workspace)
+  // Defaults to {workspaceBasePath}/docs
+  let docsBasePath: string;
+  if (workspaceBasePath != null) {
+    if (hasProjectConfig) {
+      const projectDocsPath = projectConfig['DOCS_BASE_PATH'] as string | undefined;
+      docsBasePath = projectDocsPath != null
+        ? (isAbsolute(projectDocsPath) ? projectDocsPath : join(workspaceBasePath, projectDocsPath))
+        : join(workspaceBasePath, DEFAULT_CONFIG.DOCS_BASE_PATH);
+    } else {
+      const envDocsPath = env['DOCS_BASE_PATH'];
+      docsBasePath = envDocsPath != null
+        ? (isAbsolute(envDocsPath) ? envDocsPath : join(workspaceBasePath, envDocsPath))
+        : join(workspaceBasePath, DEFAULT_CONFIG.DOCS_BASE_PATH);
+    }
+    config['docsBasePath'] = docsBasePath;
+  }
+
+  // Optional: ARCHIVED_BASE_PATH (relative to workspace)
+  // Defaults to {workspaceBasePath}/archived
+  let archivedBasePath: string;
+  if (workspaceBasePath != null) {
+    if (hasProjectConfig) {
+      const projectArchivedPath = projectConfig['ARCHIVED_BASE_PATH'] as string | undefined;
+      archivedBasePath = projectArchivedPath != null
+        ? (isAbsolute(projectArchivedPath) ? projectArchivedPath : join(workspaceBasePath, projectArchivedPath))
+        : join(workspaceBasePath, DEFAULT_CONFIG.ARCHIVED_BASE_PATH);
+    } else {
+      const envArchivedPath = env['ARCHIVED_BASE_PATH'];
+      archivedBasePath = envArchivedPath != null
+        ? (isAbsolute(envArchivedPath) ? envArchivedPath : join(workspaceBasePath, envArchivedPath))
+        : join(workspaceBasePath, DEFAULT_CONFIG.ARCHIVED_BASE_PATH);
+    }
+    config['archivedBasePath'] = archivedBasePath;
+  }
+
+  // Optional: COORDINATOR_BASE_PATH (relative to workspace)
+  // Defaults to {workspaceBasePath}/coordinator
+  let coordinatorBasePath: string;
+  if (workspaceBasePath != null) {
+    if (hasProjectConfig) {
+      const projectCoordinatorPath = projectConfig['COORDINATOR_BASE_PATH'] as string | undefined;
+      coordinatorBasePath = projectCoordinatorPath != null
+        ? (isAbsolute(projectCoordinatorPath) ? projectCoordinatorPath : join(workspaceBasePath, projectCoordinatorPath))
+        : join(workspaceBasePath, DEFAULT_CONFIG.COORDINATOR_BASE_PATH);
+    } else {
+      const envCoordinatorPath = env['COORDINATOR_BASE_PATH'];
+      coordinatorBasePath = envCoordinatorPath != null
+        ? (isAbsolute(envCoordinatorPath) ? envCoordinatorPath : join(workspaceBasePath, envCoordinatorPath))
+        : join(workspaceBasePath, DEFAULT_CONFIG.COORDINATOR_BASE_PATH);
+    }
+    config['coordinatorBasePath'] = coordinatorBasePath;
+  }
+
   // All other settings use sensible defaults (these are not currently enforced anyway)
   config['maxFileSize'] = DEFAULT_CONFIG.MAX_FILE_SIZE;
   config['maxFilesPerOperation'] = DEFAULT_CONFIG.MAX_FILES_PER_OPERATION;
@@ -321,6 +386,9 @@ function logConfigurationStartup(config: ServerConfig, hasProjectConfig: boolean
     workspacePath: getWorkspacePath(config.workspaceBasePath),
     workflowsPath: getWorkflowsPath(config.workflowsBasePath),
     guidesPath: getGuidesPath(config.guidesBasePath),
+    docsPath: getDocsPath(config.docsBasePath),
+    archivedPath: getArchivedPath(config.archivedBasePath),
+    coordinatorPath: getCoordinatorPath(config.coordinatorBasePath),
     referenceExtractionDepth: config.referenceExtractionDepth,
     hasProjectConfig
   });
@@ -394,7 +462,11 @@ function resolvePath(path: string): string {
  *
  * @param workspacePath - Workspace path from configuration (absolute or relative)
  * @returns Resolved absolute workspace path
+ *
+ * Note: This function is tested in __tests__/config-path-resolution.test.ts
+ * which is excluded from dead-code checking (see package.json ignoreFiles pattern).
  */
+// ts-unused-exports:disable-next-line
 export function getWorkspacePath(workspacePath: string): string {
   return resolvePath(workspacePath);
 }
@@ -427,6 +499,40 @@ export function getWorkflowsPath(workflowsPath: string): string {
 // ts-unused-exports:disable-next-line
 export function getGuidesPath(guidesPath: string): string {
   return resolvePath(guidesPath);
+}
+
+/**
+ * Resolves the docs base path relative to project root
+ *
+ * @param docsPath - Docs path from configuration (absolute or relative)
+ * @returns Resolved absolute docs path
+ */
+export function getDocsPath(docsPath: string): string {
+  return resolvePath(docsPath);
+}
+
+/**
+ * Resolves the archived base path relative to project root
+ *
+ * @param archivedPath - Archived path from configuration (absolute or relative)
+ * @returns Resolved absolute archived path
+ */
+export function getArchivedPath(archivedPath: string): string {
+  return resolvePath(archivedPath);
+}
+
+/**
+ * Resolves the coordinator base path relative to project root
+ *
+ * @param coordinatorPath - Coordinator path from configuration (absolute or relative)
+ * @returns Resolved absolute coordinator path
+ *
+ * Note: This function is used in logConfigurationStartup for logging configuration.
+ * It's exported for consistency with other path resolution functions.
+ */
+// ts-unused-exports:disable-next-line
+export function getCoordinatorPath(coordinatorPath: string): string {
+  return resolvePath(coordinatorPath);
 }
 
 
