@@ -32,6 +32,15 @@ import {
 const MAX_BATCH_SIZE = 100;
 
 /**
+ * Check if this is the first task in the document
+ * A document has its first task if it has no H2+ sections yet
+ */
+function isFirstTaskInDocument(document: Awaited<ReturnType<DocumentManager['getDocument']>>): boolean {
+  if (document == null) return true;
+  return !document.headings.some(h => h.depth >= 2);
+}
+
+/**
  * Individual task operation result
  */
 interface TaskOperationResult {
@@ -138,14 +147,25 @@ export async function coordinatorTask(
             throw new AddressingError('Missing required parameters for create: title and content', 'MISSING_PARAMETER');
           }
 
+          // Check if this is the first task in the document (before creating)
+          const currentDocument = await manager.getDocument(documentPath);
+          const isFirstTask = isFirstTaskInDocument(currentDocument);
+
           const createResult = await createTaskOperation(manager, documentPath, title, content, undefined);
-          results.push({
+
+          const result: TaskOperationResult = {
             task: {
               slug: createResult.slug,
               title: createResult.title
-            },
-            next_step: 'Call start_coordinator_task() to begin (omit return_task_context on first start)'
-          });
+            }
+          };
+
+          // Only show next_step on first task in document
+          if (isFirstTask) {
+            result.next_step = 'Call start_coordinator_task() to begin (omit return_task_context on first start)';
+          }
+
+          results.push(result);
 
         } else if (operation === 'edit') {
           const taskSlug = ToolIntegration.validateOptionalStringParameter(op['task'], 'task');

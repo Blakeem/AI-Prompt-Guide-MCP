@@ -698,4 +698,145 @@ Normal content here too.`;
       }
     });
   });
+
+  describe('next_step conditional display', () => {
+    it('should show next_step guidance on first task creation', async () => {
+      // Arrange - prepare new document without Tasks section
+      const docPath = resolve(docsDir, 'new-project.md');
+      const docContent = '# New Project\n\nProject overview content.\n\n';
+      await writeFile(docPath, docContent);
+
+      // Act - create first task in new document
+      const result = await subagentTask({
+        document: '/docs/new-project.md',
+        operations: [
+          {
+            operation: 'create',
+            title: 'Initialize Repository',
+            content: 'Status: pending\n\nWorkflow: develop-tdd\n\nSet up initial repository structure'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify next_step is present and contains expected guidance
+      expect(result.operations_completed).toBe(1);
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0]?.next_step).toBeDefined();
+      expect(result.results[0]?.next_step).toContain('Give subagent this exact instruction');
+      expect(result.results[0]?.next_step).toContain('do not run start_subagent_task yourself');
+      expect(result.results[0]?.next_step).toContain('start_subagent_task');
+      expect(result.results[0]?.next_step).toContain('/docs/new-project.md#initialize-repository');
+    });
+
+    it('should NOT show next_step on second task creation', async () => {
+      // Arrange - create document with first task (setup)
+      const docPath = resolve(docsDir, 'existing-project.md');
+      const docContent = '# Existing Project\n\n## Tasks\n\n### First Task\n\nStatus: pending\n\nExisting task content';
+      await writeFile(docPath, docContent);
+
+      // Act - create second task
+      const result = await subagentTask({
+        document: '/docs/existing-project.md',
+        operations: [
+          {
+            operation: 'create',
+            title: 'Second Task',
+            content: 'Status: pending\n\nImplement second feature'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify next_step field is absent
+      expect(result.operations_completed).toBe(1);
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0]?.next_step).toBeUndefined();
+    });
+
+    it('should NOT show next_step on third or subsequent task creation', async () => {
+      // Arrange - create document with multiple existing tasks
+      const docPath = resolve(docsDir, 'multi-task-project.md');
+      const docContent = `# Multi Task Project
+
+## Tasks
+
+### Task One
+
+Status: pending
+
+First task content
+
+### Task Two
+
+Status: in_progress
+
+Second task content`;
+      await writeFile(docPath, docContent);
+
+      // Act - create third task
+      const result = await subagentTask({
+        document: '/docs/multi-task-project.md',
+        operations: [
+          {
+            operation: 'create',
+            title: 'Task Three',
+            content: 'Status: pending\n\nThird task content'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify next_step is still absent
+      expect(result.operations_completed).toBe(1);
+      expect(result.results[0]?.next_step).toBeUndefined();
+    });
+
+    it('should only show next_step on first task in multi-task creation', async () => {
+      // Arrange - prepare document without Tasks section
+      const docPath = resolve(docsDir, 'batch-project.md');
+      const docContent = '# Batch Project\n\nOverview content.\n\n';
+      await writeFile(docPath, docContent);
+
+      // Act - create multiple tasks at once in new document
+      const result = await subagentTask({
+        document: '/docs/batch-project.md',
+        operations: [
+          { operation: 'create', title: 'Setup Environment', content: 'Status: pending\n\nWorkflow: develop-tdd\n\nSetup dev environment' },
+          { operation: 'create', title: 'Write Tests', content: 'Status: pending\n\nWrite initial test suite' },
+          { operation: 'create', title: 'Implement Features', content: 'Status: pending\n\nImplement core features' }
+        ]
+      }, sessionState, manager);
+
+      // Assert - only first result should have next_step
+      expect(result.operations_completed).toBe(3);
+      expect(result.results).toHaveLength(3);
+      expect(result.results[0]?.next_step).toBeDefined();
+      expect(result.results[0]?.next_step).toContain('Give subagent this exact instruction');
+      expect(result.results[0]?.next_step).toContain('/docs/batch-project.md#setup-environment');
+      expect(result.results[1]?.next_step).toBeUndefined();
+      expect(result.results[2]?.next_step).toBeUndefined();
+    });
+
+    it('should show correct full path with slug in next_step', async () => {
+      // Arrange - create new document
+      const docPath = resolve(docsDir, 'path-test.md');
+      const docContent = '# Path Test\n\nOverview.\n\n';
+      await writeFile(docPath, docContent);
+
+      // Act - create task with specific title that creates predictable slug
+      const result = await subagentTask({
+        document: '/docs/path-test.md',
+        operations: [
+          {
+            operation: 'create',
+            title: 'Test Task Name',
+            content: 'Status: pending\n\nTask content'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify the full path in next_step includes correct document and slug
+      expect(result.results[0]?.next_step).toBeDefined();
+      expect(result.results[0]?.next_step).toContain('/docs/path-test.md#test-task-name');
+      expect(result.results[0]?.task?.slug).toBe('test-task-name');
+    });
+  });
 });

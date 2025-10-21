@@ -143,6 +143,15 @@ async function getOrCreateDocument(
 
 
 /**
+ * Check if this is the first task in the document
+ * A document has its first task if it has no H2+ sections yet
+ */
+function isFirstTaskInDocument(document: Awaited<ReturnType<DocumentManager['getDocument']>>): boolean {
+  if (document == null) return true;
+  return !document.headings.some(h => h.depth >= 2);
+}
+
+/**
  * Individual task operation result
  */
 interface TaskOperationResult {
@@ -171,6 +180,7 @@ interface TaskOperationResult {
     title: string;
     link?: string;
   };
+  next_step?: string;
   error?: string;
 }
 
@@ -334,7 +344,10 @@ async function processTaskOperations(
         });
 
         // Get or auto-create target document
-        await getOrCreateDocument(targetAddresses.addresses.document.path, manager);
+        const { document: targetDocument } = await getOrCreateDocument(targetAddresses.addresses.document.path, manager);
+
+        // Check if this is the first task in the document (before creating)
+        const isFirstTask = isFirstTaskInDocument(targetDocument);
 
         // Convert empty string to undefined for createTaskOperation parameter
         const referenceSlug = taskSlug === '' ? undefined : taskSlug;
@@ -346,7 +359,7 @@ async function processTaskOperations(
           referenceSlug
         );
 
-        results.push({
+        const result: TaskOperationResult = {
           task: {
             slug: createResult.slug,
             title: createResult.title,
@@ -354,7 +367,15 @@ async function processTaskOperations(
               hierarchical_context: createResult.hierarchical_context
             })
           }
-        });
+        };
+
+        // Only show next_step on first task in document
+        if (isFirstTask) {
+          const fullPath = `${targetAddresses.addresses.document.path}#${createResult.slug}`;
+          result.next_step = `Give subagent this exact instruction (do not run start_subagent_task yourself): "Run: start_subagent_task ${fullPath}. Then execute the task and respond 'Done' or 'Blocked: [reason]'"`;
+        }
+
+        results.push(result);
 
       } else if (operation === 'edit') {
         const content = ToolIntegration.validateOptionalStringParameter(op['content'], 'content');

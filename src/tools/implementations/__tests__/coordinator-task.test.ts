@@ -270,4 +270,95 @@ describe('coordinator_task tool', () => {
       expect(result.operations_completed).toBe(1);
     });
   });
+
+  describe('next_step conditional display', () => {
+    it('should show next_step guidance on first task creation', async () => {
+      // Arrange - create first task in new document
+      const result = await coordinatorTask({
+        operations: [
+          {
+            operation: 'create',
+            title: 'Phase 1: Initialize',
+            content: 'Status: pending\n\nMain-Workflow: develop-tdd\n\nInitialize the project'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify next_step is present and contains expected guidance
+      expect(result.operations_completed).toBe(1);
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0]?.next_step).toBeDefined();
+      expect(result.results[0]?.next_step).toContain('Call start_coordinator_task()');
+      expect(result.results[0]?.next_step).toContain('omit return_task_context on first start');
+    });
+
+    it('should NOT show next_step on second task creation', async () => {
+      // Arrange - create first task (setup)
+      await coordinatorTask({
+        operations: [
+          {
+            operation: 'create',
+            title: 'Phase 1: Setup',
+            content: 'Status: pending\n\nMain-Workflow: develop-tdd\n\nSetup environment'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Act - create second task
+      const result = await coordinatorTask({
+        operations: [
+          {
+            operation: 'create',
+            title: 'Phase 2: Implementation',
+            content: 'Status: pending\n\nImplement core features'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify next_step field is absent
+      expect(result.operations_completed).toBe(1);
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0]?.next_step).toBeUndefined();
+    });
+
+    it('should NOT show next_step on third or subsequent task creation', async () => {
+      // Arrange - create first and second tasks
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nMain-Workflow: develop-tdd\n\nFirst task' },
+          { operation: 'create', title: 'Task 2', content: 'Status: pending\n\nSecond task' }
+        ]
+      }, sessionState, manager);
+
+      // Act - create third task
+      const result = await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Task 3', content: 'Status: pending\n\nThird task' }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify next_step is still absent
+      expect(result.operations_completed).toBe(1);
+      expect(result.results[0]?.next_step).toBeUndefined();
+    });
+
+    it('should only show next_step on first task in multi-task creation', async () => {
+      // Act - create multiple tasks at once in new document
+      const result = await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'First Task', content: 'Status: pending\n\nMain-Workflow: develop-tdd\n\nContent 1' },
+          { operation: 'create', title: 'Second Task', content: 'Status: pending\n\nContent 2' },
+          { operation: 'create', title: 'Third Task', content: 'Status: pending\n\nContent 3' }
+        ]
+      }, sessionState, manager);
+
+      // Assert - only first result should have next_step
+      expect(result.operations_completed).toBe(3);
+      expect(result.results).toHaveLength(3);
+      expect(result.results[0]?.next_step).toBeDefined();
+      expect(result.results[0]?.next_step).toContain('Call start_coordinator_task()');
+      expect(result.results[1]?.next_step).toBeUndefined();
+      expect(result.results[2]?.next_step).toBeUndefined();
+    });
+  });
 });
