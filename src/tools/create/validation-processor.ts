@@ -54,11 +54,24 @@ export function processDiscovery(): DiscoveryResult {
 // processInstructions removed - Stage 1 no longer exists (direct creation)
 
 /**
- * Validate namespace for creation stage
+ * Validate and normalize namespace for creation stage
+ * Strips leading slashes to ensure relative paths
  */
 export function validateNamespaceForCreation(namespace: string): ValidationErrorResult | null {
-  // Use the same path validation as stage 1
-  return validateCustomNamespacePath(namespace);
+  // Normalize: remove leading slashes (namespace should be relative)
+  const normalized = namespace.replace(/^\/+/, '');
+
+  // Use the normalized namespace for validation
+  return validateCustomNamespacePath(normalized);
+}
+
+/**
+ * Normalize namespace by removing leading slashes
+ * Used by template-processor.ts for path construction
+ */
+// ts-unused-exports:disable-next-line
+export function normalizeNamespace(namespace: string): string {
+  return namespace.replace(/^\/+/, '');
 }
 
 
@@ -93,11 +106,12 @@ function validateCustomNamespacePath(namespace: string): ValidationErrorResult |
     };
   }
 
-  // Check for absolute paths
-  if (namespace.startsWith('/') || namespace.includes(':')) {
+  // Check for Windows drive letters (colons in paths)
+  // Note: Leading / is allowed - addressing system normalizes paths
+  if (namespace.includes(':')) {
     return {
       stage: 'error_fallback',
-      error: 'Absolute paths not allowed in namespace',
+      error: 'Windows drive letters not allowed in namespace',
       provided_namespace: namespace,
       help: 'Use relative namespace paths only, such as "custom/my-namespace"',
       namespaces: getDocumentNamespaces(),

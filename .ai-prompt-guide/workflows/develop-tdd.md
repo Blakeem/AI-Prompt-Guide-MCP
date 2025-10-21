@@ -11,6 +11,16 @@ whenToUse: "Features or fixes requiring test-driven development and quality gate
 3. [Coordinator] Add Main-Workflow to first coordinator task
 4. [Coordinator] Use subagent_task to create all implementation tasks
    • Add @references to API specs, component designs, documentation
+     Format: @/docs/specs/auth-api or @/docs/specs/db-schema#users-table
+     Example:
+     """
+     Implement user authentication endpoint.
+
+     @/docs/specs/auth-api-specification
+     @/docs/specs/security-requirements#password-hashing
+
+     Create POST /auth/login endpoint with email/password validation.
+     """
    • Add Workflow: metadata for task-specific protocols (if needed)
    • Define testable acceptance criteria for each task
 5. [Coordinator] Call start_coordinator_task() → current_task

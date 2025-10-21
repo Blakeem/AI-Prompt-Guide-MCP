@@ -45,14 +45,18 @@ export async function processTemplate(
     // Import slug utilities
     const { titleToSlug } = await import('../../slug.js');
     const { PATH_PREFIXES } = await import('../../shared/namespace-constants.js');
+    const { normalizeNamespace } = await import('./validation-processor.js');
 
     // Generate path from title and namespace
     const slug = titleToSlug(title);
 
+    // Normalize namespace (strip leading slashes)
+    const cleanNamespace = normalizeNamespace(namespace);
+
     // Prepend /docs/ prefix if not already present (coordinator namespace is explicit)
-    const normalizedNamespace = namespace.startsWith('coordinator')
+    const normalizedNamespace = cleanNamespace.startsWith('coordinator')
       ? PATH_PREFIXES.COORDINATOR.slice(1, -1) // Remove leading and trailing slashes
-      : `${PATH_PREFIXES.DOCS.slice(1)}${namespace}`; // /docs/ + namespace
+      : `${PATH_PREFIXES.DOCS.slice(1)}${cleanNamespace}`; // /docs/ + namespace
 
     const docPath = `/${normalizedNamespace}/${slug}.md`;
 
