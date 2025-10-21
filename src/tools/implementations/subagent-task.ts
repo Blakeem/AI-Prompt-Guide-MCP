@@ -8,8 +8,7 @@ import type { SessionState } from '../../session/types.js';
 import type { DocumentManager } from '../../document-manager.js';
 import {
   ToolIntegration,
-  AddressingError,
-  DocumentNotFoundError
+  AddressingError
 } from '../../shared/addressing-system.js';
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
 import {
@@ -79,6 +78,69 @@ function parseOperationTarget(
   return { document: defaultDocument, slug: fieldValue };
 }
 
+/**
+ * Get document or auto-create if it doesn't exist
+ * Returns both the document and a flag indicating if it was created
+ */
+async function getOrCreateDocument(
+  documentPath: string,
+  manager: DocumentManager
+): Promise<{ document: Awaited<ReturnType<DocumentManager['getDocument']>>; created: boolean }> {
+  // Try to get existing document
+  let document = await manager.getDocument(documentPath);
+
+  if (document != null) {
+    return { document, created: false };
+  }
+
+  // Document doesn't exist - auto-create it
+  const { parseDocumentAddress } = await import('../../shared/addressing-system.js');
+  const { createDocumentFile } = await import('../create/file-creator.js');
+
+  // Parse document address to extract namespace and slug
+  const address = parseDocumentAddress(documentPath);
+  const namespace = address.namespace;
+  const slug = address.slug;
+
+  // Generate title from slug (convert hyphens to spaces, capitalize words)
+  const title = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+  // Create minimal blank document with just H1 header
+  const content = `# ${title}\n\n`;
+
+  const result = await createDocumentFile(
+    namespace,
+    title,
+    '', // No overview for task documents
+    manager,
+    content,
+    documentPath,
+    slug
+  );
+
+  // Check if creation was successful
+  if ('error' in result) {
+    throw new AddressingError(
+      `Failed to auto-create document: ${result.error}`,
+      'DOCUMENT_CREATION_FAILED',
+      { path: documentPath, details: result.details }
+    );
+  }
+
+  // Reload the document from cache
+  document = await manager.getDocument(documentPath);
+
+  if (document == null) {
+    throw new AddressingError(
+      `Document creation succeeded but document could not be loaded`,
+      'DOCUMENT_LOAD_FAILED',
+      { path: documentPath }
+    );
+  }
+
+  return { document, created: true };
+}
+
 
 /**
  * Individual task operation result
@@ -118,6 +180,7 @@ interface TaskOperationResult {
 interface TaskBulkResponse {
   operations_completed: number;
   results: TaskOperationResult[];
+  document_created?: boolean;
 }
 
 /**
@@ -200,14 +263,18 @@ export async function subagentTask(
       );
     }
 
-    // Get document and validate existence
-    const document = await manager.getDocument(addresses.document.path);
-    if (document == null) {
-      throw new DocumentNotFoundError(addresses.document.path);
-    }
+    // Get document or auto-create if it doesn't exist
+    const { created: documentCreated } = await getOrCreateDocument(addresses.document.path, manager);
 
     // Process all operations
-    return await processTaskOperations(addresses.document.path, operations, manager);
+    const response = await processTaskOperations(addresses.document.path, operations, manager);
+
+    // Add document_created flag if we auto-created the document
+    if (documentCreated) {
+      response.document_created = true;
+    }
+
+    return response;
 
   } catch (error) {
     if (error instanceof AddressingError) {
@@ -266,11 +333,8 @@ async function processTaskOperations(
           document: targetDoc
         });
 
-        // Verify document exists
-        const targetDocument = await manager.getDocument(targetAddresses.addresses.document.path);
-        if (targetDocument == null) {
-          throw new DocumentNotFoundError(targetAddresses.addresses.document.path);
-        }
+        // Get or auto-create target document
+        await getOrCreateDocument(targetAddresses.addresses.document.path, manager);
 
         // Convert empty string to undefined for createTaskOperation parameter
         const referenceSlug = taskSlug === '' ? undefined : taskSlug;
@@ -316,11 +380,8 @@ async function processTaskOperations(
           throw new AddressingError('Task address validation failed', 'INVALID_TASK');
         }
 
-        // Verify document exists
-        const targetDocument = await manager.getDocument(taskAddresses.addresses.document.path);
-        if (targetDocument == null) {
-          throw new DocumentNotFoundError(taskAddresses.addresses.document.path);
-        }
+        // Get or auto-create target document
+        await getOrCreateDocument(taskAddresses.addresses.document.path, manager);
 
         await editTaskOperation(
           manager,
@@ -342,11 +403,8 @@ async function processTaskOperations(
           document: targetDoc
         });
 
-        // Verify document exists
-        const targetDocument = await manager.getDocument(targetAddresses.addresses.document.path);
-        if (targetDocument == null) {
-          throw new DocumentNotFoundError(targetAddresses.addresses.document.path);
-        }
+        // Get or auto-create target document
+        await getOrCreateDocument(targetAddresses.addresses.document.path, manager);
 
         const listResult = await listTasksOperation(
           manager,
