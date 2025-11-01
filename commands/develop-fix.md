@@ -1,12 +1,12 @@
 ---
-description: Comprehensive quality audit with parallel agents
+description: Systematic bug fixing with root cause analysis and regression prevention
 ---
 
-# Audit
+# Develop (Fix)
 
 ⚠️ **REQUIRED WORKFLOW - You MUST follow these instructions:**
 
 **Load workflow via get_workflow (once per conversation):**
 ```typescript
-get_workflow({ workflow: "audit" })
+get_workflow({ workflow: "develop-fix" })
 ```

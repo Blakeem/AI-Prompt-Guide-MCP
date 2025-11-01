@@ -6,6 +6,16 @@ whenToUse: "Features or fixes requiring test-driven development and quality gate
 
 # Workflow: Multi-Agent Development with TDD
 
+⚠️ **CRITICAL REQUIREMENTS - You MUST follow these instructions:**
+
+**Task Management:**
+- ✅ **REQUIRED:** Use `coordinator_task` tool for your TODO list
+- 🚫 **FORBIDDEN:** DO NOT use TodoWrite tool (this workflow replaces it)
+
+**Delegation:**
+- ✅ **REQUIRED:** Give subagents literal instructions to run start_subagent_task
+- 🚫 **FORBIDDEN:** DO NOT run start_subagent_task yourself (coordinator only delegates)
+
 1. [Coordinator] Analyze requirements and break into logical work units
 2. [Coordinator] Use coordinator_task to create sequential task list
 3. [Coordinator] Add Main-Workflow to first coordinator task

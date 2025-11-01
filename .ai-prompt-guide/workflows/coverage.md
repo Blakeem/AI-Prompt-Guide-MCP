@@ -6,6 +6,16 @@ whenToUse: "Adding tests to legacy code or improving coverage for critical code 
 
 # Workflow: Add Test Coverage
 
+⚠️ **CRITICAL REQUIREMENTS - You MUST follow these instructions:**
+
+**Task Management:**
+- ✅ **REQUIRED:** Use `coordinator_task` tool for your TODO list
+- 🚫 **FORBIDDEN:** DO NOT use TodoWrite tool (this workflow replaces it)
+
+**Delegation:**
+- ✅ **REQUIRED:** Give subagents literal instructions to run start_subagent_task
+- 🚫 **FORBIDDEN:** DO NOT run start_subagent_task yourself (coordinator only delegates)
+
 1. [Coordinator] Analyze code to identify coverage gaps and test targets
 2. [Coordinator] Prioritize targets by regression risk and stability
 3. [Coordinator] Use coordinator_task to create concise TODO list (stay on track)

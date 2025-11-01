@@ -6,6 +6,16 @@ whenToUse: "Complex decisions requiring multiple viewpoints or when trade-offs s
 
 # Workflow: Multi-Perspective Decision Making
 
+⚠️ **CRITICAL REQUIREMENTS - You MUST follow these instructions:**
+
+**Task Management:**
+- ✅ **REQUIRED:** Use `subagent_task` tool to create analysis tasks for each lens
+- 🚫 **FORBIDDEN:** DO NOT use TodoWrite tool (use subagent_task instead)
+
+**Delegation:**
+- ✅ **REQUIRED:** Give subagents literal instructions to run start_subagent_task
+- 🚫 **FORBIDDEN:** DO NOT run start_subagent_task yourself (coordinator only delegates)
+
 1. [Coordinator] Define decision specification:
    • Problem statement and context
    • Non-negotiable constraints
