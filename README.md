@@ -45,7 +45,7 @@ The system preserves context across sessions while keeping your main agent focus
 - Works on any project—no configuration needed
 
 **Workflow Library**
-- 9 pre-built workflows for common development scenarios
+- 11 pre-built workflows for common development scenarios
 - Access via `get_workflow` tool or Claude Code plugin commands
 - Reference workflows in task metadata for automatic injection
 - Create your own custom workflows easily
@@ -174,33 +174,55 @@ Only `docs/` is required in your project—everything else is created automatica
 
 ### Workflows & Commands
 
-The plugin provides **9 workflows** accessible both as slash commands and via the `get_workflow` MCP tool:
+The plugin provides **11 workflows** accessible both as slash commands and via the `get_workflow` MCP tool:
 
+**Development Workflows:**
+- `/ai-prompt-guide:develop` – Simple development with anti-pattern detection and regression prevention
+- `/ai-prompt-guide:develop-fix` – Bug fixing with root cause analysis and regression prevention
 - `/ai-prompt-guide:develop-tdd` – Orchestrate multi-agent development with TDD
 - `/ai-prompt-guide:develop-iterate` – Orchestrate multi-agent development with manual verification
+
+**Quality & Review Workflows:**
 - `/ai-prompt-guide:review` – Targeted review of PRs or components
 - `/ai-prompt-guide:audit` – Quality audit with specialized agents
 - `/ai-prompt-guide:coverage` – Add comprehensive test coverage
+
+**Decision Workflows:**
 - `/ai-prompt-guide:decide` – Structured decision making with trade-off analysis
 - `/ai-prompt-guide:decide-iterate` – Multi-perspective decision analysis with parallel agents
+
+**Specification Workflows:**
 - `/ai-prompt-guide:spec-feature` – Document internal feature specifications
 - `/ai-prompt-guide:spec-external` – Document external API specifications
 
 **Commands are shortcuts to workflows.** When using Claude Code, the plugin commands provide a convenient way to invoke workflows. When using the MCP server directly, access the same workflows via:
 
 ```typescript
+get_workflow({ workflow: "develop" })
+get_workflow({ workflow: "develop-fix" })
 get_workflow({ workflow: "develop-tdd" })
 get_workflow({ workflow: "audit" })
 // ... etc
 ```
 
-### Example
+### Examples
 
+**Simple development (no multi-agent orchestration):**
+```
+/ai-prompt-guide:develop Add a dark mode toggle to the settings page with persistence to localStorage
+```
+
+**Bug fixing:**
+```
+/ai-prompt-guide:develop-fix The form submission fails when the email field is empty - returns undefined instead of validation error
+```
+
+**Multi-agent development with TDD:**
 ```
 /ai-prompt-guide:develop-tdd Build an admin dashboard with user activity charts, region filtering, and CSV export. Include tests for the aggregation logic.
 ```
 
-The plugin loads the workflow, creates a plan, assigns work to specialized agents, and orchestrates implementation automatically.
+The plugin loads the appropriate workflow and guides you through the implementation process.
 
 ## Tools Overview
 
