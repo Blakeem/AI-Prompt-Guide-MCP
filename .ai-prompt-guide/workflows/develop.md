@@ -104,32 +104,6 @@ whenToUse: "Single-file or small scope features without needing multi-agent coor
 3. **Tertiary:** Adjacent features unaffected
 4. **Boundary:** Edge cases and error conditions handled
 
-**Verification Checklist:**
-- [ ] New/changed functionality works correctly
-- [ ] Related features still work (no regression)
-- [ ] Error cases handled properly
-- [ ] Edge cases considered
-- [ ] No console errors or warnings
-- [ ] Unchanged files remain unchanged
-- [ ] No new anti-patterns introduced
-
-## Decision Points
-
-**When to Use Decide Workflow:**
-- Multiple valid implementation approaches exist
-- Trade-offs between different patterns
-- Architectural decisions (state management, component structure)
-- Performance vs. readability choices
-- Uncertainty about best practice for this context
-
-**Decision Criteria (prioritized):**
-1. **Correctness:** Does it solve the problem accurately?
-2. **Best Practices:** Does it follow established patterns?
-3. **Maintainability:** Is it easy to understand and modify?
-4. **Consistency:** Does it match existing code patterns?
-5. **Simplicity:** Is it the simplest solution that works?
-6. **Performance:** Is it efficient enough? (usually last priority)
-
 ## Scope Management
 
 **Minimal Change Principle:**
@@ -148,23 +122,3 @@ whenToUse: "Single-file or small scope features without needing multi-agent coor
 - What uses the modified functionality?
 - What side effects might occur?
 - What tests/validations are needed?
-
-## Code Comments for Regression Prevention
-
-**Document Non-Obvious Patterns:**
-- Explain WHY a particular approach was chosen
-- Note constraints or requirements that led to the design
-- Flag edge cases that must be preserved
-- Highlight patterns that should be maintained
-
-**Example Comment Patterns:**
-- "Uses X pattern to prevent Y issue - do not change to Z"
-- "Edge case: handles null/empty/zero values due to [reason]"
-- "Must process in this order because [dependency/timing reason]"
-- "Optimization: intentionally trades [X] for [Y] performance"
-
-**Purpose:**
-- Prevents future developers from "fixing" intentional patterns
-- Documents lessons learned from past bugs
-- Reduces regression when code is modified
-- Preserves important context over time
