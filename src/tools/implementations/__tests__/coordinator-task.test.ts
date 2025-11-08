@@ -9,8 +9,8 @@ import { coordinatorTask } from '../coordinator-task.js';
 import type { DocumentManager } from '../../../document-manager.js';
 import type { SessionState } from '../../../session/types.js';
 import { createDocumentManager } from '../../../shared/utilities.js';
-import { resolve } from 'node:path';
-import { mkdtemp, rm, mkdir } from 'node:fs/promises';
+import { resolve, join } from 'node:path';
+import { mkdtemp, rm, mkdir, access, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 
 describe('coordinator_task tool', () => {
@@ -410,6 +410,167 @@ describe('coordinator_task tool', () => {
       expect(result.results[0]?.next_step).toContain('Call start_coordinator_task()');
       expect(result.results[1]?.next_step).toBeUndefined();
       expect(result.results[2]?.next_step).toBeUndefined();
+    });
+  });
+
+  describe('Filesystem Path Verification', () => {
+    it('should create coordinator tasks at correct physical location', async () => {
+      // Act - create a coordinator task
+      await coordinatorTask({
+        operations: [
+          {
+            operation: 'create',
+            title: 'Test Task',
+            content: 'Status: pending\n\nTest content'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify physical file exists at correct location
+      const coordinatorDir = resolve(testDir, 'coordinator');
+      const activePath = join(coordinatorDir, 'active.md');
+
+      // Verify coordinator directory exists
+      await expect(access(coordinatorDir)).resolves.toBeUndefined();
+
+      // Verify active.md file exists
+      await expect(access(activePath)).resolves.toBeUndefined();
+
+      // Verify file content
+      const content = await readFile(activePath, 'utf8');
+      expect(content).toContain('# Coordinator Tasks');
+      expect(content).toContain('## Test Task');
+      expect(content).toContain('Test content');
+    });
+
+    it('should verify virtual path /coordinator/active.md maps to physical coordinator directory', async () => {
+      // Act - create task using virtual path
+      await coordinatorTask({
+        operations: [
+          {
+            operation: 'create',
+            title: 'Verify Path Mapping',
+            content: 'Status: pending\n\nVerify virtual path mapping'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify virtual path resolves to correct physical location
+      const virtualPath = '/coordinator/active.md';
+      const resolvedPath = manager.pathResolver.resolve(virtualPath);
+      const expectedPath = join(testDir, 'coordinator', 'active.md');
+
+      expect(resolvedPath).toBe(expectedPath);
+
+      // Verify file exists at resolved path
+      await expect(access(resolvedPath)).resolves.toBeUndefined();
+
+      // Verify content through DocumentManager
+      const document = await manager.getDocument(virtualPath);
+      expect(document).not.toBeNull();
+      if (document != null) {
+        expect(document.metadata.title).toBe('Coordinator Tasks');
+        const verifyPathTask = document.headings.find(h => h.slug === 'verify-path-mapping');
+        expect(verifyPathTask).toBeDefined();
+      }
+    });
+
+    it('should create coordinator directory if it does not exist', async () => {
+      // Arrange - ensure coordinator directory does not exist (fresh test)
+      const coordinatorDir = resolve(testDir, 'coordinator');
+
+      // Act - create first coordinator task (should auto-create directory)
+      await coordinatorTask({
+        operations: [
+          {
+            operation: 'create',
+            title: 'Auto Create Dir',
+            content: 'Status: pending\n\nAuto-create coordinator directory'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify coordinator directory was created
+      await expect(access(coordinatorDir)).resolves.toBeUndefined();
+
+      // Verify active.md file was created inside
+      const activePath = join(coordinatorDir, 'active.md');
+      await expect(access(activePath)).resolves.toBeUndefined();
+    });
+
+    it('should use VirtualPathResolver for coordinator namespace routing', async () => {
+      // Act - create coordinator task
+      await coordinatorTask({
+        operations: [
+          {
+            operation: 'create',
+            title: 'Test Resolver',
+            content: 'Status: pending\n\nTest VirtualPathResolver'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify VirtualPathResolver correctly identifies coordinator path
+      const virtualPath = '/coordinator/active.md';
+      expect(manager.pathResolver.isCoordinatorPath(virtualPath)).toBe(true);
+
+      // Verify base root is coordinator root (not docs root)
+      const baseRoot = manager.pathResolver.getBaseRoot(virtualPath);
+      const expectedRoot = manager.pathResolver.getCoordinatorRoot();
+      expect(baseRoot).toBe(expectedRoot);
+
+      // Verify docs paths are NOT coordinator paths
+      expect(manager.pathResolver.isCoordinatorPath('/api/auth.md')).toBe(false);
+    });
+
+    it('should verify pathResolver.getCoordinatorRoot() returns correct directory', async () => {
+      // Act - get coordinator root from resolver
+      const coordinatorRoot = manager.pathResolver.getCoordinatorRoot();
+      const expectedRoot = resolve(testDir, 'coordinator');
+
+      // Assert - verify coordinator root matches expected location
+      expect(coordinatorRoot).toBe(expectedRoot);
+
+      // Create a task to ensure directory is created
+      await coordinatorTask({
+        operations: [
+          {
+            operation: 'create',
+            title: 'Root Verification',
+            content: 'Status: pending\n\nVerify coordinator root'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Verify physical directory exists at the root location
+      await expect(access(coordinatorRoot)).resolves.toBeUndefined();
+    });
+
+    it('should create multiple tasks in same physical file', async () => {
+      // Act - create multiple tasks
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Task One', content: 'Status: pending\n\nFirst task' },
+          { operation: 'create', title: 'Task Two', content: 'Status: pending\n\nSecond task' },
+          { operation: 'create', title: 'Task Three', content: 'Status: pending\n\nThird task' }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify all tasks are in single physical file
+      const activePath = join(testDir, 'coordinator', 'active.md');
+      const content = await readFile(activePath, 'utf8');
+
+      expect(content).toContain('## Task One');
+      expect(content).toContain('## Task Two');
+      expect(content).toContain('## Task Three');
+
+      // Verify only ONE file exists (not multiple files)
+      const coordinatorDir = resolve(testDir, 'coordinator');
+      const fs = await import('node:fs/promises');
+      const files = await fs.readdir(coordinatorDir);
+      const mdFiles = files.filter(f => f.endsWith('.md'));
+      expect(mdFiles).toHaveLength(1);
+      expect(mdFiles[0]).toBe('active.md');
     });
   });
 });

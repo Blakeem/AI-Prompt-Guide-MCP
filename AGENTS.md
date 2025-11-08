@@ -276,6 +276,41 @@ async getDocument(docPath: string): Promise<CachedDocument | null> {
 
 ### **Key Design Principles**
 
+#### **Centralized Path Resolution with VirtualPathResolver**
+**ALWAYS use VirtualPathResolver** for converting virtual document paths to absolute filesystem paths. This is the single source of truth for path resolution.
+
+**Core Pattern:**
+```typescript
+// ✅ Correct - use VirtualPathResolver via DocumentManager
+const absolutePath = manager.pathResolver.resolve(addresses.document.path);
+
+// ❌ Wrong - manual path construction
+const absolutePath = path.join(config.workspaceBasePath, addresses.document.path);
+
+// ❌ Wrong - accessing private fields
+const baseRoot = manager['docsRoot'];  // NEVER do this
+```
+
+**VirtualPathResolver Methods:**
+- `resolve(virtualPath)` - Convert virtual path to absolute filesystem path
+- `isCoordinatorPath(virtualPath)` - Check if path is in coordinator namespace
+- `getArchivePath(virtualPath)` - Generate archive path with namespace preservation
+- `getBaseRoot(virtualPath)` - Get base root directory for path
+
+**Path Structure:**
+- **Virtual paths**: `/api/auth.md`, `/coordinator/active.md` (NO /docs/ prefix)
+- **Physical docs**: `.ai-prompt-guide/docs/api/auth.md`
+- **Physical coordinator**: `.ai-prompt-guide/coordinator/active.md`
+- **Archive docs**: `.ai-prompt-guide/archived/docs/api/auth.md`
+- **Archive coordinator**: `.ai-prompt-guide/archived/coordinator/active.md`
+
+**Why VirtualPathResolver:**
+- Automatic routing to docs vs coordinator directories
+- Namespace-aware archive path generation
+- Centralized logic (no duplication)
+- No private field access needed
+- Easy to test and maintain
+
 #### **Markdown Parsing**
 **ALWAYS use the existing markdown parsing tools** (`listHeadings()`, `buildToc()`, `insertRelative()`, `readSection()`) instead of manual string manipulation. The toolkit provides these tools specifically to avoid brittle string parsing that breaks on edge cases.
 
