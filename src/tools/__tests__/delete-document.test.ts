@@ -27,8 +27,10 @@ describe('delete_document', () => {
     testCounter++;
     const timestamp = Date.now();
     const slug = `test-del-doc-${timestamp}-${testCounter}`;
-    const docPath = `/docs/${slug}.md`;
-    const absPath = path.join(testDocsRoot, `docs/${slug}.md`);
+    // Virtual path should NOT include 'docs' prefix - that's part of physical structure
+    const docPath = `/${slug}.md`;
+    // testDocsRoot now points to the docs directory itself
+    const absPath = path.join(testDocsRoot, `${slug}.md`);
     const content = `# Test Document ${testCounter}\n\n## Overview\nTest content.\n`;
 
     // Ensure file is written and synced
@@ -45,14 +47,17 @@ describe('delete_document', () => {
   beforeEach(async () => {
     // Create temporary directory for test files
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'delete-document-test-'));
-    testDocsRoot = tempDir; // Use tempDir as the docs root
+    // CRITICAL: docsRoot should be the actual docs directory, not the parent
+    testDocsRoot = path.join(tempDir, 'docs');
 
     // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
     process.env['MCP_WORKSPACE_PATH'] = tempDir;
 
-    await fs.mkdir(path.join(testDocsRoot, 'docs'), { recursive: true });
+    await fs.mkdir(testDocsRoot, { recursive: true });
     cache = new DocumentCache(testDocsRoot);
-    manager = new DocumentManager(testDocsRoot, cache);
+    // Pass explicit archived path to match test expectations
+    const archivedPath = path.join(tempDir, 'archived');
+    manager = new DocumentManager(testDocsRoot, cache, undefined, archivedPath);
     sessionState = {
       sessionId: 'test-session',
       createDocumentStage: 0,
@@ -131,10 +136,11 @@ describe('delete_document', () => {
 
       await expect(fs.access(absPath)).rejects.toThrow();
 
-      const archivedPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md`);
+      // Archive is at tempDir/archived/docs/ (not testDocsRoot/archived/docs/)
+      const archivedPath = path.join(tempDir, 'archived/docs', `${slug}.md`);
       await expect(fs.access(archivedPath)).resolves.not.toThrow();
 
-      const auditPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md.audit`);
+      const auditPath = path.join(tempDir, 'archived/docs', `${slug}.md.audit`);
       await expect(fs.access(auditPath)).resolves.not.toThrow();
 
       // Cleanup archived files
@@ -155,8 +161,8 @@ describe('delete_document', () => {
       expect(result.audit_file).toContain('.audit');
 
       // Cleanup
-      const archivedPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md`);
-      const auditPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md.audit`);
+      const archivedPath = path.join(tempDir, 'archived/docs', `${slug}.md`);
+      const auditPath = path.join(tempDir, 'archived/docs', `${slug}.md.audit`);
       await fs.unlink(archivedPath);
       await fs.unlink(auditPath);
     });
@@ -176,8 +182,8 @@ describe('delete_document', () => {
       expect(result['audit_file']).toBeDefined();
 
       // Cleanup
-      const archivedPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md`);
-      const auditPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md.audit`);
+      const archivedPath = path.join(tempDir, 'archived/docs', `${slug}.md`);
+      const auditPath = path.join(tempDir, 'archived/docs', `${slug}.md.audit`);
       await fs.unlink(archivedPath);
       await fs.unlink(auditPath);
     });
@@ -246,10 +252,184 @@ describe('delete_document', () => {
       expect(cachedAfter).toBeNull();
 
       // Cleanup
-      const archivedPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md`);
-      const auditPath = path.join(testDocsRoot, 'archived/docs', `${slug}.md.audit`);
+      const archivedPath = path.join(tempDir, 'archived/docs', `${slug}.md`);
+      const auditPath = path.join(tempDir, 'archived/docs', `${slug}.md.audit`);
       await fs.unlink(archivedPath);
       await fs.unlink(auditPath);
+    });
+  });
+
+  describe('Filesystem Path Verification (Regression Prevention)', () => {
+    let testDir: string;
+    let docsDir: string;
+    let manager: DocumentManager;
+    let cache: DocumentCache;
+    let sessionState: SessionState;
+
+    beforeEach(async () => {
+      // Create production-like directory structure
+      const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      testDir = await fs.mkdtemp(path.join(os.tmpdir(), `delete-doc-fs-test-${uniqueId}-`));
+
+      // Create docs subdirectory (matches production structure)
+      docsDir = path.resolve(testDir, 'docs');
+      await fs.mkdir(docsDir, { recursive: true });
+      await fs.mkdir(path.join(docsDir, 'api'), { recursive: true });
+
+      // Set workspace path
+      process.env['MCP_WORKSPACE_PATH'] = testDir;
+
+      // CRITICAL: Create manager with docsDir (correct pattern)
+      cache = new DocumentCache(docsDir);
+      manager = new DocumentManager(docsDir, cache);
+
+      sessionState = {
+        sessionId: `test-${Date.now()}-${Math.random()}`,
+        createDocumentStage: 0,
+      };
+    });
+
+    afterEach(async () => {
+      await cache.destroy();
+      await fs.rm(testDir, { recursive: true, force: true });
+    });
+
+    it('should permanently delete file from correct docs location', async () => {
+      // Create document in docs directory
+      const docPath = path.join(docsDir, 'api', 'test.md');
+      await fs.writeFile(docPath, '# Test\n\nContent', 'utf-8');
+
+      // Invalidate cache to pick up manually created file
+      cache.invalidateDocument('/api/test.md');
+
+      // Delete via tool
+      const result = await deleteDocument({
+        document: '/api/test.md',
+        archive: false
+      }, sessionState, manager);
+
+      expect((result as Record<string, unknown>)['success']).toBe(true);
+      expect((result as Record<string, unknown>)['operation']).toBe('deleted');
+
+      // VERIFY: File deleted from CORRECT location
+      await expect(fs.access(docPath)).rejects.toThrow();
+
+      // VERIFY: No file left at WRONG location
+      const wrongPath = path.join(testDir, 'api', 'test.md');
+      await expect(fs.access(wrongPath)).rejects.toThrow();
+    });
+
+    it('should archive to namespace-specific path', async () => {
+      // Create nested namespace document
+      await fs.mkdir(path.join(docsDir, 'api', 'specs'), { recursive: true });
+      const docPath = path.join(docsDir, 'api', 'specs', 'auth.md');
+      await fs.writeFile(docPath, '# Auth API\n\nEndpoints', 'utf-8');
+
+      // Load document into cache
+      const doc = await manager.getDocument('/api/specs/auth.md');
+      expect(doc).not.toBeNull();
+
+      // Archive via tool
+      const result = await deleteDocument({
+        document: '/api/specs/auth.md',
+        archive: true
+      }, sessionState, manager) as { archived_to: string; audit_file: string };
+
+      expect((result as Record<string, unknown>)['success']).toBe(true);
+      expect((result as Record<string, unknown>)['operation']).toBe('archived');
+
+      // VERIFY: Original deleted from correct location
+      await expect(fs.access(docPath)).rejects.toThrow();
+
+      // VERIFY: Archived to CORRECT location
+      const archivedPath = path.join(testDir, 'archived', 'docs', 'api', 'specs', 'auth.md');
+      await expect(fs.access(archivedPath)).resolves.not.toThrow();
+
+      // VERIFY: Audit file exists
+      const auditPath = `${archivedPath}.audit`;
+      await expect(fs.access(auditPath)).resolves.not.toThrow();
+
+      // VERIFY: NOT archived to wrong locations
+      const wrongArchive1 = path.join(testDir, 'api', 'specs', 'auth.md');
+      await expect(fs.access(wrongArchive1)).rejects.toThrow();
+
+      const wrongArchive2 = path.join(docsDir, 'archived', 'api', 'specs', 'auth.md');
+      await expect(fs.access(wrongArchive2)).rejects.toThrow();
+
+      // Cleanup
+      await fs.unlink(archivedPath);
+      await fs.unlink(auditPath);
+    });
+
+    it('should handle root-level document deletion correctly', async () => {
+      const docPath = path.join(docsDir, 'readme.md');
+      await fs.writeFile(docPath, '# README\n\nProject info', 'utf-8');
+
+      // Load document into cache
+      const doc = await manager.getDocument('/readme.md');
+      expect(doc).not.toBeNull();
+
+      await deleteDocument({
+        document: '/readme.md',
+        archive: false
+      }, sessionState, manager);
+
+      // VERIFY: Deleted from correct location
+      await expect(fs.access(docPath)).rejects.toThrow();
+
+      // VERIFY: Not at wrong location
+      const wrongPath = path.join(testDir, 'readme.md');
+      await expect(fs.access(wrongPath)).rejects.toThrow();
+    });
+
+    it('should create archive directory structure if it does not exist', async () => {
+      const docPath = path.join(docsDir, 'new-namespace', 'test.md');
+      await fs.mkdir(path.join(docsDir, 'new-namespace'), { recursive: true });
+      await fs.writeFile(docPath, '# Test\n\nContent', 'utf-8');
+
+      // Load document into cache
+      const doc = await manager.getDocument('/new-namespace/test.md');
+      expect(doc).not.toBeNull();
+
+      await deleteDocument({
+        document: '/new-namespace/test.md',
+        archive: true
+      }, sessionState, manager);
+
+      // VERIFY: Archive directory was created
+      const archiveDir = path.join(testDir, 'archived', 'docs', 'new-namespace');
+      const archivedFile = path.join(archiveDir, 'test.md');
+      await expect(fs.access(archivedFile)).resolves.not.toThrow();
+
+      // Cleanup
+      await fs.rm(archiveDir, { recursive: true });
+    });
+
+    it('should validate audit file contains correct metadata', async () => {
+      const docPath = path.join(docsDir, 'api', 'test-audit.md');
+      await fs.writeFile(docPath, '# Test\n\nContent for audit', 'utf-8');
+
+      // Load document into cache
+      const doc = await manager.getDocument('/api/test-audit.md');
+      expect(doc).not.toBeNull();
+
+      await deleteDocument({
+        document: '/api/test-audit.md',
+        archive: true
+      }, sessionState, manager);
+
+      // Read and validate audit file
+      const auditPath = path.join(testDir, 'archived', 'docs', 'api', 'test-audit.md.audit');
+      const auditContent = await fs.readFile(auditPath, 'utf-8');
+      const audit = JSON.parse(auditContent);
+
+      expect(audit).toHaveProperty('originalPath');
+      expect(audit).toHaveProperty('archivedAt');
+      expect(audit).toHaveProperty('reason', 'User requested archive');
+      expect(audit.originalPath).toContain('/api/test-audit.md');
+
+      // Cleanup
+      await fs.rm(path.join(testDir, 'archived', 'docs', 'api'), { recursive: true });
     });
   });
 

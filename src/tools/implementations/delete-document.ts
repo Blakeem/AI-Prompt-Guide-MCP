@@ -59,18 +59,8 @@ export async function deleteDocument(
     } else {
       // Permanent deletion
       const { promises: fs } = await import('node:fs');
-      const path = await import('node:path');
 
-      // Use manager's internal routing to get correct base path (docs vs coordinator)
-      const relativePath = addresses.document.path.startsWith('/') ? addresses.document.path.slice(1) : addresses.document.path;
-      const isCoordinatorPath = relativePath.startsWith('coordinator/');
-      const baseRoot = isCoordinatorPath
-        ? manager['coordinatorRoot'] as string
-        : manager['docsRoot'] as string;
-      const pathWithoutPrefix = isCoordinatorPath
-        ? relativePath.slice('coordinator/'.length)
-        : relativePath;
-      const absolutePath = path.join(baseRoot, pathWithoutPrefix);
+      const absolutePath = manager.pathResolver.resolve(addresses.document.path);
 
       await fs.unlink(absolutePath);
 

@@ -12,7 +12,6 @@ import {
   AddressingError,
   DocumentNotFoundError,
 } from '../../shared/addressing-system.js';
-import { loadConfig } from '../../config.js';
 
 /**
  * Move a document from one location to another
@@ -67,12 +66,8 @@ export async function moveDocument(
     }
 
     // Processing - perform the filesystem move
-    const config = loadConfig();
-    const sourceAbsPath = path.join(
-      config.workspaceBasePath,
-      fromAddresses.document.path
-    );
-    const destAbsPath = path.join(config.workspaceBasePath, toAddresses.document.path);
+    const sourceAbsPath = manager.pathResolver.resolve(fromAddresses.document.path);
+    const destAbsPath = manager.pathResolver.resolve(toAddresses.document.path);
 
     // Create destination directory if needed
     const destDir = path.dirname(destAbsPath);
