@@ -237,7 +237,7 @@ async function ensureCoordinatorDocument(manager: DocumentManager, docPath: stri
     // First ensure /coordinator/ directory exists
     const fs = await import('fs/promises');
     const path = await import('path');
-    const coordinatorRoot = manager['coordinatorRoot'] as string;
+    const coordinatorRoot = manager.pathResolver.getCoordinatorRoot();
 
     try {
       await fs.mkdir(coordinatorRoot, { recursive: true });
@@ -265,6 +265,6 @@ async function ensureCoordinatorDocument(manager: DocumentManager, docPath: stri
     await fs.writeFile(docFilePath, withOverview, 'utf8');
 
     // Invalidate cache to pick up the overview
-    manager['cache'].invalidateDocument(docPath);
+    manager.cache.invalidateDocument(docPath);
   }
 }

@@ -27,7 +27,9 @@ describe('Archive Path Generation with /archived/docs/ prefix', () => {
     process.env['MCP_WORKSPACE_PATH'] = tempDir;
 
     cache = new DocumentCache(testDocsRoot);
-    manager = new DocumentManager(testDocsRoot, cache);
+    // Explicitly pass archivedBasePath to ensure it uses test directory
+    const archivedBasePath = path.join(testDocsRoot, 'archived');
+    manager = new DocumentManager(testDocsRoot, cache, undefined, archivedBasePath);
   });
 
   afterEach(async () => {
@@ -50,11 +52,11 @@ describe('Archive Path Generation with /archived/docs/ prefix', () => {
       // Archive the document
       const result = await manager.archiveDocument('/readme.md');
 
-      // Verify archive path includes /archived/docs/ prefix
-      expect(result.archivePath).toBe('/archived/docs/readme.md');
+      // Verify archive path includes /archived/docs/ prefix (now absolute)
+      const expectedArchivePath = path.join(testDocsRoot, 'archived/docs/readme.md');
+      expect(result.archivePath).toBe(expectedArchivePath);
 
       // Verify file exists at correct location
-      const expectedArchivePath = path.join(testDocsRoot, 'archived/docs/readme.md');
       await expect(fs.access(expectedArchivePath)).resolves.not.toThrow();
 
       // Verify audit file exists
@@ -73,11 +75,11 @@ describe('Archive Path Generation with /archived/docs/ prefix', () => {
       // Archive the document
       const result = await manager.archiveDocument('/api/auth.md');
 
-      // Verify archive path includes /archived/docs/ prefix and preserves namespace
-      expect(result.archivePath).toBe('/archived/docs/api/auth.md');
+      // Verify archive path includes /archived/docs/ prefix and preserves namespace (now absolute)
+      const expectedArchivePath = path.join(testDocsRoot, 'archived/docs/api/auth.md');
+      expect(result.archivePath).toBe(expectedArchivePath);
 
       // Verify file exists at correct location
-      const expectedArchivePath = path.join(testDocsRoot, 'archived/docs/api/auth.md');
       await expect(fs.access(expectedArchivePath)).resolves.not.toThrow();
 
       // Verify audit file exists
@@ -96,11 +98,11 @@ describe('Archive Path Generation with /archived/docs/ prefix', () => {
       // Archive the document
       const result = await manager.archiveDocument('/api/v2/endpoints/users.md');
 
-      // Verify archive path includes /archived/docs/ prefix and preserves full namespace
-      expect(result.archivePath).toBe('/archived/docs/api/v2/endpoints/users.md');
+      // Verify archive path includes /archived/docs/ prefix and preserves full namespace (now absolute)
+      const expectedArchivePath = path.join(testDocsRoot, 'archived/docs/api/v2/endpoints/users.md');
+      expect(result.archivePath).toBe(expectedArchivePath);
 
       // Verify file exists at correct location
-      const expectedArchivePath = path.join(testDocsRoot, 'archived/docs/api/v2/endpoints/users.md');
       await expect(fs.access(expectedArchivePath)).resolves.not.toThrow();
 
       // Verify audit file exists
@@ -118,14 +120,16 @@ describe('Archive Path Generation with /archived/docs/ prefix', () => {
 
       // First archive
       const result1 = await manager.archiveDocument('/api/test.md');
-      expect(result1.archivePath).toBe('/archived/docs/api/test.md');
+      const expectedArchivePath1 = path.join(testDocsRoot, 'archived/docs/api/test.md');
+      expect(result1.archivePath).toBe(expectedArchivePath1);
 
       // Create same document again
       await fs.writeFile(absPath, '# Test 2\n\nSecond version.', 'utf8');
 
       // Second archive - should get counter suffix
       const result2 = await manager.archiveDocument('/api/test.md');
-      expect(result2.archivePath).toBe('/archived/docs/api/test_1.md');
+      const expectedArchivePath2 = path.join(testDocsRoot, 'archived/docs/api/test_1.md');
+      expect(result2.archivePath).toBe(expectedArchivePath2);
 
       // Verify both files exist
       const archivePath1 = path.join(testDocsRoot, 'archived/docs/api/test.md');
@@ -160,12 +164,12 @@ describe('Archive Path Generation with /archived/docs/ prefix', () => {
   describe('Archive path format consistency', () => {
     it('should always start archive paths with /archived/docs/', async () => {
       const testCases = [
-        { input: '/simple.md', expected: '/archived/docs/simple.md' },
-        { input: '/guides/tutorial.md', expected: '/archived/docs/guides/tutorial.md' },
-        { input: '/specs/api/v1/auth.md', expected: '/archived/docs/specs/api/v1/auth.md' }
+        { input: '/simple.md', expectedRelative: '/archived/docs/simple.md' },
+        { input: '/guides/tutorial.md', expectedRelative: '/archived/docs/guides/tutorial.md' },
+        { input: '/specs/api/v1/auth.md', expectedRelative: '/archived/docs/specs/api/v1/auth.md' }
       ];
 
-      for (const { input, expected } of testCases) {
+      for (const { input, expectedRelative } of testCases) {
         // Extract path parts
         const parts = input.split('/').filter(p => p !== '');
         const fileName = parts[parts.length - 1] ?? '';
@@ -181,14 +185,14 @@ describe('Archive Path Generation with /archived/docs/ prefix', () => {
 
         await fs.writeFile(absPath, `# Test\n\nContent for ${input}`, 'utf8');
 
-        // Archive and verify
+        // Archive and verify (now expects absolute path)
         const result = await manager.archiveDocument(input);
-        expect(result.archivePath).toBe(expected);
+        const expectedAbsolute = path.join(testDocsRoot, expectedRelative.slice(1)); // Remove leading /
+        expect(result.archivePath).toBe(expectedAbsolute);
 
         // Clean up for next iteration
-        const archivePath = path.join(testDocsRoot, expected.slice(1)); // Remove leading /
-        await fs.unlink(archivePath);
-        await fs.unlink(`${archivePath}.audit`);
+        await fs.unlink(expectedAbsolute);
+        await fs.unlink(`${expectedAbsolute}.audit`);
       }
     });
   });

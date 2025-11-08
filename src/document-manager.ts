@@ -12,6 +12,7 @@ import { listHeadings, buildToc } from './parse.js';
 import { ensureDirectoryExists, writeFileIfUnchanged, readFileSnapshot } from './fsio.js';
 import { getGlobalLogger } from './utils/logger.js';
 import { PathHandler } from './utils/path-handler.js';
+import { VirtualPathResolver } from './utils/virtual-path-resolver.js';
 import type { TocNode, InsertMode } from './types/index.js';
 import { validateHeadingDepth } from './shared/validation-utils.js';
 import type { CachedDocument, FingerprintEntry } from './document-cache.js';
@@ -71,8 +72,10 @@ interface SearchResult {
 export class DocumentManager {
   private readonly docsRoot: string;
   private readonly coordinatorRoot: string;
+  private readonly archivedRoot: string;
   public readonly cache: DocumentCache;
   private readonly pathHandler: PathHandler;
+  public readonly pathResolver: VirtualPathResolver;
   private readonly fingerprintIndex: FingerprintIndex | undefined;
   private readonly pendingTocUpdates = new Map<string, NodeJS.Timeout>();
 
@@ -82,8 +85,14 @@ export class DocumentManager {
     this.coordinatorRoot = coordinatorRoot != null
       ? path.resolve(coordinatorRoot)
       : path.join(path.dirname(this.docsRoot), 'coordinator');
+    // Archived root defaults to sibling of docs root if not provided
+    this.archivedRoot = archivedBasePath != null
+      ? path.resolve(archivedBasePath)
+      : path.join(path.dirname(this.docsRoot), 'archived');
     this.cache = cache;
     this.pathHandler = new PathHandler(this.docsRoot, archivedBasePath);
+    // Initialize virtual path resolver for centralized path routing
+    this.pathResolver = new VirtualPathResolver(this.docsRoot, this.coordinatorRoot, this.archivedRoot);
     this.fingerprintIndex = fingerprintIndex;
   }
 
@@ -133,6 +142,21 @@ export class DocumentManager {
         error
       });
       return defaultContent;
+    }
+  }
+
+  /**
+   * Check if a file exists at the given absolute path
+   *
+   * @param absolutePath - Absolute filesystem path to check
+   * @returns Promise resolving to true if file exists, false otherwise
+   */
+  private async fileExists(absolutePath: string): Promise<boolean> {
+    try {
+      await fs.access(absolutePath);
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -375,7 +399,8 @@ export class DocumentManager {
   async archiveDocument(userPath: string): Promise<{ originalPath: string; archivePath: string; wasFolder: boolean }> {
     // Normalize and validate the path
     const normalizedPath = this.pathHandler.processUserPath(userPath);
-    const absolutePath = this.pathHandler.getAbsolutePath(normalizedPath);
+    // Use VirtualPathResolver to get correct absolute path (handles docs vs coordinator routing)
+    const absolutePath = this.pathResolver.resolve(normalizedPath);
 
     // Check if source exists (use fs.access directly since we already have validated absolute path)
     try {
@@ -383,18 +408,25 @@ export class DocumentManager {
     } catch {
       throw new Error(`Path not found: ${normalizedPath}`);
     }
-    
+
     // Determine if it's a folder or file
     const stats = await fs.stat(absolutePath);
     const isFolder = stats.isDirectory();
 
-    // Generate unique archive path with /docs/ prefix to preserve source context
-    // This distinguishes documents from coordinator tasks in archives
-    // Only prepend "docs" if path doesn't already start with "/docs/"
-    const archiveRelativePath = normalizedPath.startsWith('/docs/')
-      ? normalizedPath.slice(1)  // Remove leading slash, keep "docs/..."
-      : `docs${normalizedPath}`;  // Prepend "docs" to path
-    const uniqueArchivePath = await this.pathHandler.generateUniqueArchivePath(archiveRelativePath);
+    // Use VirtualPathResolver to get archive path with proper namespace routing
+    // This automatically handles docs vs coordinator paths correctly
+    let archivePath = this.pathResolver.getArchivePath(normalizedPath);
+
+    // Handle duplicates by appending counter if file already exists
+    let counter = 1;
+    const originalArchivePath = archivePath;
+    while (await this.fileExists(archivePath)) {
+      const ext = path.extname(originalArchivePath);
+      const nameWithoutExt = originalArchivePath.slice(0, -ext.length);
+      archivePath = `${nameWithoutExt}_${counter}${ext}`;
+      counter++;
+    }
+    const uniqueArchivePath = archivePath;
     
     // Ensure archive directory structure exists
     await ensureDirectoryExists(path.dirname(uniqueArchivePath));
@@ -409,40 +441,36 @@ export class DocumentManager {
       archivedAt: new Date().toISOString(),
       archivedBy: 'MCP Document Manager',
       type: isFolder ? 'folder' : 'file',
+      reason: 'User requested archive',
       note: 'Archived via MCP server'
     };
     await fs.writeFile(auditPath, JSON.stringify(auditInfo, null, 2), 'utf8');
     
     // Invalidate cache for the archived item
     this.cache.invalidateDocument(normalizedPath);
-    
+
     // If it was a folder, invalidate all documents within it
     if (isFolder) {
-      // Get relative archive path for return value
-      const relativeArchivePath = path.relative(this.docsRoot, uniqueArchivePath);
-
       // Invalidate all cached documents that were in this folder
       const invalidatedCount = this.cache.invalidateDocumentsByPrefix(normalizedPath);
 
       logger.info('Archived folder', {
         originalPath: normalizedPath,
-        archivePath: relativeArchivePath,
+        archivePath: uniqueArchivePath,
         invalidatedDocuments: invalidatedCount
       });
-      
+
       return {
         originalPath: normalizedPath,
-        archivePath: `/${relativeArchivePath}`,
+        archivePath: uniqueArchivePath,
         wasFolder: true
       };
     } else {
-      const relativeArchivePath = path.relative(this.docsRoot, uniqueArchivePath);
-      
-      logger.info('Archived document', { originalPath: normalizedPath, archivePath: relativeArchivePath });
-      
+      logger.info('Archived document', { originalPath: normalizedPath, archivePath: uniqueArchivePath });
+
       return {
         originalPath: normalizedPath,
-        archivePath: `/${relativeArchivePath}`,
+        archivePath: uniqueArchivePath,
         wasFolder: false
       };
     }

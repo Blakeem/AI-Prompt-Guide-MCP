@@ -5,7 +5,8 @@ import os from 'node:os';
 import { editDocument } from '../implementations/edit-document.js';
 import type { SessionState } from '../../session/types.js';
 import { createDocumentManager } from '../../shared/utilities.js';
-import type { DocumentManager } from '../../document-manager.js';
+import { DocumentManager } from '../../document-manager.js';
+import { DocumentCache } from '../../document-cache.js';
 import type { CachedDocument } from '../../document-cache.js';
 import { AddressingError, DocumentNotFoundError } from '../../shared/addressing-system.js';
 import * as sections from '../../sections.js';
@@ -646,6 +647,166 @@ API endpoints documentation.
 
       // The real test: these operations should complete without "File not found" errors
       // which would have occurred without the bypassValidation fix
+    });
+  });
+
+  describe('Filesystem Path Verification (Regression Prevention)', () => {
+    let testDir: string;
+    let docsDir: string;
+    let manager: DocumentManager;
+    let cache: DocumentCache;
+    let sessionState: SessionState;
+
+    beforeEach(async () => {
+      // CRITICAL: Restore mocks to allow real filesystem operations
+      // The parent beforeEach() sets up spies that would interfere with these tests
+      vi.restoreAllMocks();
+
+      // Create production-like directory structure
+      const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      testDir = await fs.mkdtemp(path.join(os.tmpdir(), `edit-doc-fs-test-${uniqueId}-`));
+
+      // Create docs subdirectory (matches production structure)
+      docsDir = path.resolve(testDir, 'docs');
+      await fs.mkdir(docsDir, { recursive: true });
+
+      // Create nested namespace directory
+      await fs.mkdir(path.join(docsDir, 'api'), { recursive: true });
+
+      // Set workspace path
+      process.env['MCP_WORKSPACE_PATH'] = testDir;
+
+      // CRITICAL: Create manager directly to avoid config caching issues
+      cache = new DocumentCache(docsDir);
+      manager = new DocumentManager(docsDir, cache);
+
+      sessionState = {
+        sessionId: `test-${Date.now()}-${Math.random()}`,
+        createDocumentStage: 0,
+      };
+    });
+
+    afterEach(async () => {
+      await cache.destroy();
+      await fs.rm(testDir, { recursive: true, force: true });
+    });
+
+    it('should edit file at correct docs namespace location', async () => {
+      // Create document in docs directory
+      const docPath = path.join(docsDir, 'api', 'test.md');
+      await fs.writeFile(docPath, '# Original Title\n\nOriginal overview\n\n## Section\n\nContent', 'utf-8');
+
+      // Load document into cache (bypassing cache forces filesystem read)
+      const doc = await manager.getDocument('/api/test.md');
+      expect(doc).not.toBeNull();
+
+      // Edit via tool
+      const result = await editDocument({
+        document: '/api/test.md',
+        title: 'Updated Title',
+        overview: 'Updated overview'
+      }, sessionState, manager) as Record<string, unknown>;
+
+      expect(result['success']).toBe(true);
+      expect(result['updated']).toEqual(['title', 'overview']);
+
+      // VERIFY: File exists at CORRECT location
+      const content = await fs.readFile(docPath, 'utf-8');
+      expect(content).toContain('# Updated Title');
+      expect(content).toContain('Updated overview');
+
+      // VERIFY: File does NOT exist at WRONG location (this would fail with old path bug)
+      const wrongPath = path.join(testDir, 'api', 'test.md');
+      await expect(fs.access(wrongPath)).rejects.toThrow();
+    });
+
+    it('should handle nested namespace paths correctly', async () => {
+      // Create nested directory structure
+      await fs.mkdir(path.join(docsDir, 'api', 'specs'), { recursive: true });
+      const docPath = path.join(docsDir, 'api', 'specs', 'auth.md');
+      await fs.writeFile(docPath, '# Auth API\n\nAuthentication endpoints', 'utf-8');
+
+      // Load document into cache
+      const doc = await manager.getDocument('/api/specs/auth.md');
+      expect(doc).not.toBeNull();
+
+      // Edit document in nested path
+      await editDocument({
+        document: '/api/specs/auth.md',
+        title: 'Updated Auth API'
+      }, sessionState, manager);
+
+      // VERIFY: File at correct nested location
+      const content = await fs.readFile(docPath, 'utf-8');
+      expect(content).toContain('# Updated Auth API');
+
+      // VERIFY: File NOT at wrong locations
+      const wrongPath1 = path.join(testDir, 'api', 'specs', 'auth.md');
+      await expect(fs.access(wrongPath1)).rejects.toThrow();
+
+      const wrongPath2 = path.join(testDir, 'specs', 'auth.md');
+      await expect(fs.access(wrongPath2)).rejects.toThrow();
+    });
+
+    it('should handle paths with and without leading slash correctly', async () => {
+      const docPath = path.join(docsDir, 'test.md');
+      await fs.writeFile(docPath, '# Test\n\nContent', 'utf-8');
+
+      // Load document into cache
+      const doc = await manager.getDocument('/test.md');
+      expect(doc).not.toBeNull();
+
+      // Test with leading slash
+      await editDocument({
+        document: '/test.md',
+        title: 'Updated Test'
+      }, sessionState, manager);
+
+      let content = await fs.readFile(docPath, 'utf-8');
+      expect(content).toContain('# Updated Test');
+
+      // Reset file
+      await fs.writeFile(docPath, '# Test\n\nContent', 'utf-8');
+      manager.cache.invalidateDocument('/test.md');
+
+      // Test without leading slash (should work the same)
+      await editDocument({
+        document: 'test.md',
+        title: 'Updated Again'
+      }, sessionState, manager);
+
+      content = await fs.readFile(docPath, 'utf-8');
+      expect(content).toContain('# Updated Again');
+
+      // VERIFY: No file created at wrong location
+      const wrongPath = path.join(testDir, 'test.md');
+      await expect(fs.access(wrongPath)).rejects.toThrow();
+    });
+
+    it('should persist changes to actual filesystem', async () => {
+      const docPath = path.join(docsDir, 'persist-test.md');
+      const originalContent = '# Original\n\nOriginal overview\n\n## Section\n\nSection content';
+      await fs.writeFile(docPath, originalContent, 'utf-8');
+
+      // Load document into cache
+      const doc = await manager.getDocument('/persist-test.md');
+      expect(doc).not.toBeNull();
+
+      // Edit document
+      await editDocument({
+        document: '/persist-test.md',
+        overview: 'Modified overview content'
+      }, sessionState, manager);
+
+      // Read file again (new read, not from cache)
+      const updatedContent = await fs.readFile(docPath, 'utf-8');
+      expect(updatedContent).toContain('# Original');
+      expect(updatedContent).toContain('Modified overview content');
+      expect(updatedContent).not.toContain('Original overview');
+
+      // Verify original structure preserved
+      expect(updatedContent).toContain('## Section');
+      expect(updatedContent).toContain('Section content');
     });
   });
 });

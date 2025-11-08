@@ -387,4 +387,136 @@ describe('complete_coordinator_task tool', () => {
       }
     });
   });
+
+  describe('Filesystem Path Verification', () => {
+    it('should verify coordinator tasks are at correct physical location', async () => {
+      // Act - create a coordinator task
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Test Task', content: 'Status: pending\n\nTest content' }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify physical file exists at correct location
+      const coordinatorDir = resolve(testDir, 'coordinator');
+      const activePath = resolve(coordinatorDir, 'active.md');
+
+      // Verify coordinator directory exists
+      await expect(access(coordinatorDir)).resolves.toBeUndefined();
+
+      // Verify active.md file exists
+      await expect(access(activePath)).resolves.toBeUndefined();
+    });
+
+    it('should verify virtual path /coordinator/active.md resolution', async () => {
+      // Act - create task using virtual path
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Verify Path', content: 'Status: pending\n\nVerify path mapping' }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify virtual path resolves correctly
+      const virtualPath = '/coordinator/active.md';
+      const resolvedPath = manager.pathResolver.resolve(virtualPath);
+      const expectedPath = resolve(testDir, 'coordinator', 'active.md');
+
+      expect(resolvedPath).toBe(expectedPath);
+
+      // Verify file exists at resolved path
+      await expect(access(resolvedPath)).resolves.toBeUndefined();
+    });
+
+    it('should verify archive operations use correct paths', async () => {
+      // Arrange - create and complete task to trigger archive
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Archive Test', content: 'Status: pending\n\nTest archive' }
+        ]
+      }, sessionState, manager);
+
+      // Act - complete task (triggers auto-archive)
+      const result = await completeCoordinatorTask({
+        note: 'Testing archive paths'
+      }, sessionState, manager);
+
+      // Assert - verify archive directory structure
+      expect(result.archived).toBe(true);
+      const archiveDir = resolve(testDir, 'archived', 'coordinator');
+      await expect(access(archiveDir)).resolves.toBeUndefined();
+
+      // Verify archived file exists in correct location
+      const fs = await import('node:fs/promises');
+      const files = await fs.readdir(archiveDir);
+      const mdFiles = files.filter(f => f.endsWith('.md'));
+      expect(mdFiles.length).toBeGreaterThan(0);
+
+      // Verify timestamp format in filename
+      expect(mdFiles[0]).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.md$/);
+    });
+
+    it('should use VirtualPathResolver for coordinator namespace routing', async () => {
+      // Act - create coordinator task
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Test Resolver', content: 'Status: pending\n\nTest resolver' }
+        ]
+      }, sessionState, manager);
+
+      // Assert - verify VirtualPathResolver correctly identifies coordinator path
+      const virtualPath = '/coordinator/active.md';
+      expect(manager.pathResolver.isCoordinatorPath(virtualPath)).toBe(true);
+
+      // Verify base root is coordinator root (not docs root)
+      const baseRoot = manager.pathResolver.getBaseRoot(virtualPath);
+      const expectedRoot = manager.pathResolver.getCoordinatorRoot();
+      expect(baseRoot).toBe(expectedRoot);
+
+      // Verify docs paths are NOT coordinator paths
+      expect(manager.pathResolver.isCoordinatorPath('/api/auth.md')).toBe(false);
+    });
+
+    it('should verify pathResolver.getCoordinatorRoot() returns correct directory', async () => {
+      // Act - get coordinator root from resolver
+      const coordinatorRoot = manager.pathResolver.getCoordinatorRoot();
+      const expectedRoot = resolve(testDir, 'coordinator');
+
+      // Assert - verify coordinator root matches expected location
+      expect(coordinatorRoot).toBe(expectedRoot);
+
+      // Create a task to ensure directory is created
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Root Verification', content: 'Status: pending\n\nVerify root' }
+        ]
+      }, sessionState, manager);
+
+      // Verify physical directory exists at the root location
+      await expect(access(coordinatorRoot)).resolves.toBeUndefined();
+    });
+
+    it('should verify archive uses VirtualPathResolver.getArchivedRoot()', async () => {
+      // Arrange - create task
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Archive Base Test', content: 'Status: pending\n\nTest base' }
+        ]
+      }, sessionState, manager);
+
+      // Act - trigger archive by completing task
+      await completeCoordinatorTask({
+        note: 'Testing archive root path'
+      }, sessionState, manager);
+
+      // Assert - verify archived root from resolver
+      const archivedRoot = manager.pathResolver.getArchivedRoot();
+      const expectedArchivedRoot = resolve(testDir, 'archived');
+
+      expect(archivedRoot).toBe(expectedArchivedRoot);
+
+      // Verify archive directory was created at expected location
+      const archiveDir = resolve(testDir, 'archived', 'coordinator');
+      await expect(access(archiveDir)).resolves.toBeUndefined();
+    });
+  });
 });

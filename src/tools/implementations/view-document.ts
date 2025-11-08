@@ -185,6 +185,7 @@ export async function viewDocument(
  * Extract document metadata including title, namespace, and file statistics
  */
 async function extractDocumentMetadata(
+  manager: DocumentManager,
   documentPath: string,
   document: CachedDocument
 ): Promise<{
@@ -199,12 +200,9 @@ async function extractDocumentMetadata(
   const documentAddress = parseDocumentAddress(documentPath);
   const documentInfo = ToolIntegration.formatDocumentInfo(documentAddress, { title: document.metadata.title });
 
-  // Read file content and statistics
-  const { loadConfig } = await import('../../config.js');
-  const config = loadConfig();
+  // Read file content and statistics using VirtualPathResolver
   const { readFile, stat } = await import('node:fs/promises');
-  const path_module = await import('node:path');
-  const absolutePath = path_module.join(config.workspaceBasePath, documentPath);
+  const absolutePath = manager.pathResolver.resolve(documentPath);
 
   let fullContent = '';
   let lastModified = '';
@@ -462,7 +460,7 @@ async function processDocument(
 ): Promise<ViewDocumentResponse['documents'][0]> {
   const { manager, documentPath, document } = params;
   // Extract document metadata
-  const metadata = await extractDocumentMetadata(documentPath, document);
+  const metadata = await extractDocumentMetadata(manager, documentPath, document);
 
   // Analyze document sections - ALWAYS show ALL sections
   const sections = await analyzeDocumentSections({

@@ -233,11 +233,10 @@ async function archiveCoordinatorDocument(
   const fs = await import('fs/promises');
   const path = await import('path');
 
-  // Get coordinator root and archive base from manager
-  const coordinatorRoot = manager['coordinatorRoot'] as string;
-  const pathHandler = manager['pathHandler'] as { getArchivedBasePath: () => string | undefined };
-  const archiveBase = pathHandler.getArchivedBasePath() ?? path.join(path.dirname(coordinatorRoot), FOLDER_NAMES.ARCHIVED);
-  const archiveDir = path.join(archiveBase, FOLDER_NAMES.COORDINATOR);
+  // Use VirtualPathResolver to get coordinator root and archive root
+  const coordinatorRoot = manager.pathResolver.getCoordinatorRoot();
+  const archivedRoot = manager.pathResolver.getArchivedRoot();
+  const archiveDir = path.join(archivedRoot, FOLDER_NAMES.COORDINATOR);
 
   // Ensure archive directory exists
   await fs.mkdir(archiveDir, { recursive: true });
@@ -254,8 +253,8 @@ async function archiveCoordinatorDocument(
   // Delete original document
   await fs.unlink(sourceFilePath);
 
-  // Invalidate cache
-  manager['cache'].invalidateDocument(documentPath);
+  // Invalidate cache using public API
+  manager.cache.invalidateDocument(documentPath);
 
   return { archived_to: archivePath };
 }
