@@ -44,13 +44,20 @@ export async function editDocument(
 
     // Import required modules
     const path = await import('node:path');
-    const { loadConfig } = await import('../../config.js');
     const { readFileSnapshot, writeFileIfUnchanged } = await import('../../fsio.js');
     const { renameHeading } = await import('../../sections.js');
 
     // Processing - prepare file operations
-    const config = loadConfig();
-    const absolutePath = path.join(config.workspaceBasePath, addresses.document.path);
+    // Use manager's internal routing to get correct base path (docs vs coordinator)
+    const relativePath = addresses.document.path.startsWith('/') ? addresses.document.path.slice(1) : addresses.document.path;
+    const isCoordinatorPath = relativePath.startsWith('coordinator/');
+    const baseRoot = isCoordinatorPath
+      ? manager['coordinatorRoot'] as string
+      : manager['docsRoot'] as string;
+    const pathWithoutPrefix = isCoordinatorPath
+      ? relativePath.slice('coordinator/'.length)
+      : relativePath;
+    const absolutePath = path.join(baseRoot, pathWithoutPrefix);
 
     // Read current file content
     const snapshot = await readFileSnapshot(absolutePath, { bypassValidation: true });

@@ -75,7 +75,7 @@ describe('start_coordinator_task tool', () => {
     await mkdir(coordinatorDir, { recursive: true });
 
     // Create document manager using root as testDir
-    manager = createDocumentManager(testDir);
+    manager = createDocumentManager(docsDir);
 
     sessionState = {
       sessionId: `test-${Date.now()}-${Math.random()}`,
@@ -103,11 +103,11 @@ describe('start_coordinator_task tool', () => {
       // Start first task
       const result = await startCoordinatorTask({}, sessionState, manager);
 
-      expect(result.document).toBe('/coordinator/active.md');
+      expect(result.document).toBe('/active.md');
       expect(result.task.slug).toBe('task-1');
       expect(result.task.title).toBe('Task 1');
       expect(result.task.status).toBe('pending');
-      expect(result.task.full_path).toBe('/coordinator/active.md#task-1');
+      expect(result.task.full_path).toBe('/active.md#task-1');
     });
 
     it('should inject Main-Workflow from first task', async () => {
@@ -152,6 +152,43 @@ describe('start_coordinator_task tool', () => {
 
       await expect(startCoordinatorTask({}, sessionState, manager))
         .rejects.toThrow('No available tasks');
+    });
+  });
+
+  describe('Relative Path Returns', () => {
+    it('should return relative paths in document and full_path fields', async () => {
+      // Create task
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Test Task', content: 'Status: pending\n\nTest content' }
+        ]
+      }, sessionState, manager);
+
+      // Start task
+      const result = await startCoordinatorTask({}, sessionState, manager);
+
+      // Document path should be relative (no /coordinator/ prefix)
+      expect(result.document).toBe('/active.md');
+
+      // Full path should also use relative document path
+      expect(result.task.full_path).toBe('/active.md#test-task');
+      expect(result.task.full_path).not.toContain('/coordinator/');
+    });
+
+    it('should use relative paths in enriched response with return_task_context', async () => {
+      // Create task with workflow
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Phase 1', content: 'Status: pending\n\nMain-Workflow: tdd-incremental-orchestration\n\nImplement TDD' }
+        ]
+      }, sessionState, manager);
+
+      const result = await startCoordinatorTask({ return_task_context: true }, sessionState, manager);
+
+      // All paths should be relative
+      expect(result.document).toBe('/active.md');
+      expect(result.task.full_path).toBe('/active.md#phase-1');
+      expect(result.document).not.toContain('/coordinator/');
     });
   });
 

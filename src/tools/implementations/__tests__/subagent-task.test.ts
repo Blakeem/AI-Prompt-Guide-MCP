@@ -34,7 +34,7 @@ describe('task tool - Bulk Operations', () => {
 
     // Create document manager using shared utility
     // Note: testDir is the root, docsDir is {testDir}/docs
-    manager = createDocumentManager(testDir);
+    manager = createDocumentManager(docsDir);
 
     sessionState = {
       sessionId: `test-${Date.now()}-${Math.random()}`,
@@ -55,14 +55,14 @@ describe('task tool - Bulk Operations', () => {
   describe('Parameter Validation', () => {
     it('should throw error when operations array is missing', async () => {
       await expect(subagentTask({
-        document: '/docs/test.md'
+        document: '/test.md'
       }, sessionState, manager))
         .rejects.toThrow('operations array is required');
     });
 
     it('should throw error when operations is not an array', async () => {
       await expect(subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: 'not-an-array'
       }, sessionState, manager))
         .rejects.toThrow('operations array is required');
@@ -70,7 +70,7 @@ describe('task tool - Bulk Operations', () => {
 
     it('should throw error when operations array is empty', async () => {
       await expect(subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: []
       }, sessionState, manager))
         .rejects.toThrow('operations array cannot be empty');
@@ -92,7 +92,7 @@ describe('task tool - Bulk Operations', () => {
       await writeFile(docPath, docContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           {
             operation: 'create',
@@ -119,7 +119,7 @@ describe('task tool - Bulk Operations', () => {
       await writeFile(docPath, docContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           {
             operation: 'create',
@@ -140,7 +140,7 @@ describe('task tool - Bulk Operations', () => {
       await writeFile(docPath, docContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nContent 1' },
           { operation: 'create', title: 'Task 2', content: 'Status: pending\n\nContent 2' },
@@ -161,7 +161,7 @@ describe('task tool - Bulk Operations', () => {
       await writeFile(docPath, docContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           { operation: 'list' }
         ]
@@ -179,7 +179,7 @@ describe('task tool - Bulk Operations', () => {
       await writeFile(docPath, docContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           { operation: 'list', status: 'pending' }
         ]
@@ -211,7 +211,7 @@ Just normal content.
 
 Status: pending
 
-This task references @/docs/other.md for context.
+This task references @/other.md for context.
 
 ### Task 3 Also Without References
 
@@ -226,7 +226,7 @@ Normal content here too.`;
       await writeFile(otherDocPath, otherDocContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           { operation: 'list' }
         ]
@@ -270,7 +270,7 @@ Normal content here too.`;
       await writeFile(docPath, docContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           {
             operation: 'edit',
@@ -290,7 +290,7 @@ Normal content here too.`;
       await writeFile(docPath, docContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           {
             operation: 'edit',
@@ -311,7 +311,7 @@ Normal content here too.`;
       await writeFile(docPath, docContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           { operation: 'create', title: 'New Task', content: 'Status: pending\n\nContent' },
           { operation: 'list' }
@@ -329,7 +329,7 @@ Normal content here too.`;
       await writeFile(docPath, docContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           { operation: 'create', title: 'New Task 1', content: 'Status: pending\n\nContent 1' },
           { operation: 'create', title: 'New Task 2', content: 'Status: pending\n\nContent 2' },
@@ -351,7 +351,7 @@ Normal content here too.`;
       await writeFile(docPath, docContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           { operation: 'create', title: 'Valid Task', content: 'Status: pending\n\nContent' },
           { operation: 'edit', task: 'nonexistent', content: 'Will fail' }
@@ -369,7 +369,7 @@ Normal content here too.`;
       await writeFile(docPath, docContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nContent' },
           { operation: 'create', title: 'Missing content' }, // Will fail
@@ -391,7 +391,7 @@ Normal content here too.`;
       await writeFile(docPath, docContent);
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations: [
           { operation: 'create', title: 'Test Task', content: 'Status: pending\n\nContent' }
         ]
@@ -423,7 +423,7 @@ Normal content here too.`;
       }));
 
       const result = await subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations
       }, sessionState, manager);
 
@@ -444,7 +444,7 @@ Normal content here too.`;
       }));
 
       await expect(subagentTask({
-        document: '/docs/test.md',
+        document: '/test.md',
         operations
       }, sessionState, manager))
         .rejects.toThrow('Batch size 101 exceeds maximum of 100');
@@ -465,7 +465,7 @@ Normal content here too.`;
 
       try {
         await subagentTask({
-          document: '/docs/test.md',
+          document: '/test.md',
           operations
         }, sessionState, manager);
         // Should not reach here
@@ -490,7 +490,7 @@ Normal content here too.`;
 
       // Create a task - should auto-create Tasks section
       const result = await subagentTask({
-        document: '/docs/test-autocreate.md',
+        document: '/test-autocreate.md',
         operations: [
           {
             operation: 'create',
@@ -505,7 +505,7 @@ Normal content here too.`;
       expect(result.results[0]?.task?.slug).toBe('first-task');
 
       // Verify Tasks section was created
-      const document = await manager.getDocument('/docs/test-autocreate.md');
+      const document = await manager.getDocument('/test-autocreate.md');
       expect(document).not.toBeNull();
       if (document != null) {
         const tasksSection = document.headings.find(h =>
@@ -529,7 +529,7 @@ Normal content here too.`;
 
       // Create a task
       const result = await subagentTask({
-        document: '/docs/test-existing.md',
+        document: '/test-existing.md',
         operations: [
           {
             operation: 'create',
@@ -543,7 +543,7 @@ Normal content here too.`;
       expect(result.operations_completed).toBe(1);
 
       // Verify only ONE Tasks section exists
-      const document = await manager.getDocument('/docs/test-existing.md');
+      const document = await manager.getDocument('/test-existing.md');
       expect(document).not.toBeNull();
       if (document != null) {
         const tasksSections = document.headings.filter(h =>
@@ -561,7 +561,7 @@ Normal content here too.`;
 
       // Create a task (auto-creates Tasks)
       await subagentTask({
-        document: '/docs/test-depth.md',
+        document: '/test-depth.md',
         operations: [
           {
             operation: 'create',
@@ -572,7 +572,7 @@ Normal content here too.`;
       }, sessionState, manager);
 
       // Verify Tasks section is H2 (depth 2)
-      const document = await manager.getDocument('/docs/test-depth.md');
+      const document = await manager.getDocument('/test-depth.md');
       expect(document).not.toBeNull();
       if (document != null) {
         const tasksSection = document.headings.find(h =>
@@ -591,7 +591,7 @@ Normal content here too.`;
 
       // Create a task
       const result = await subagentTask({
-        document: '/docs/test-case.md',
+        document: '/test-case.md',
         operations: [
           {
             operation: 'create',
@@ -605,7 +605,7 @@ Normal content here too.`;
       expect(result.operations_completed).toBe(1);
 
       // Verify only ONE tasks section exists
-      const document = await manager.getDocument('/docs/test-case.md');
+      const document = await manager.getDocument('/test-case.md');
       expect(document).not.toBeNull();
       if (document != null) {
         const tasksSections = document.headings.filter(h =>
@@ -623,7 +623,7 @@ Normal content here too.`;
 
       // Try to create a task - should fail with helpful error
       const result = await subagentTask({
-        document: '/docs/test-notitle.md',
+        document: '/test-notitle.md',
         operations: [
           {
             operation: 'create',
@@ -645,7 +645,7 @@ Normal content here too.`;
 
       // Create a task (auto-creates Tasks)
       await subagentTask({
-        document: '/docs/test-content.md',
+        document: '/test-content.md',
         operations: [
           {
             operation: 'create',
@@ -656,7 +656,7 @@ Normal content here too.`;
       }, sessionState, manager);
 
       // Verify Tasks section content
-      const sectionContent = await manager.getSectionContent('/docs/test-content.md', 'tasks');
+      const sectionContent = await manager.getSectionContent('/test-content.md', 'tasks');
       expect(sectionContent).toBeDefined();
       expect(sectionContent).toContain('Task list for this document');
     });
@@ -669,7 +669,7 @@ Normal content here too.`;
 
       // Create multiple tasks in one call
       const result = await subagentTask({
-        document: '/docs/test-multiple.md',
+        document: '/test-multiple.md',
         operations: [
           { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nContent 1' },
           { operation: 'create', title: 'Task 2', content: 'Status: pending\n\nContent 2' },
@@ -682,7 +682,7 @@ Normal content here too.`;
       expect(result.results.every(r => r.task != null)).toBe(true);
 
       // Verify Tasks section exists and contains all tasks
-      const document = await manager.getDocument('/docs/test-multiple.md');
+      const document = await manager.getDocument('/test-multiple.md');
       expect(document).not.toBeNull();
       if (document != null) {
         const tasksSection = document.headings.find(h => h.slug === 'tasks');
@@ -708,7 +708,7 @@ Normal content here too.`;
 
       // Act - create first task in new document
       const result = await subagentTask({
-        document: '/docs/new-project.md',
+        document: '/new-project.md',
         operations: [
           {
             operation: 'create',
@@ -725,7 +725,7 @@ Normal content here too.`;
       expect(result.results[0]?.next_step).toContain('Give subagent this exact instruction');
       expect(result.results[0]?.next_step).toContain('do not run start_subagent_task yourself');
       expect(result.results[0]?.next_step).toContain('start_subagent_task');
-      expect(result.results[0]?.next_step).toContain('/docs/new-project.md#initialize-repository');
+      expect(result.results[0]?.next_step).toContain('/new-project.md#initialize-repository');
     });
 
     it('should NOT show next_step on second task creation', async () => {
@@ -736,7 +736,7 @@ Normal content here too.`;
 
       // Act - create second task
       const result = await subagentTask({
-        document: '/docs/existing-project.md',
+        document: '/existing-project.md',
         operations: [
           {
             operation: 'create',
@@ -774,7 +774,7 @@ Second task content`;
 
       // Act - create third task
       const result = await subagentTask({
-        document: '/docs/multi-task-project.md',
+        document: '/multi-task-project.md',
         operations: [
           {
             operation: 'create',
@@ -797,7 +797,7 @@ Second task content`;
 
       // Act - create multiple tasks at once in new document
       const result = await subagentTask({
-        document: '/docs/batch-project.md',
+        document: '/batch-project.md',
         operations: [
           { operation: 'create', title: 'Setup Environment', content: 'Status: pending\n\nWorkflow: develop-tdd\n\nSetup dev environment' },
           { operation: 'create', title: 'Write Tests', content: 'Status: pending\n\nWrite initial test suite' },
@@ -810,7 +810,7 @@ Second task content`;
       expect(result.results).toHaveLength(3);
       expect(result.results[0]?.next_step).toBeDefined();
       expect(result.results[0]?.next_step).toContain('Give subagent this exact instruction');
-      expect(result.results[0]?.next_step).toContain('/docs/batch-project.md#setup-environment');
+      expect(result.results[0]?.next_step).toContain('/batch-project.md#setup-environment');
       expect(result.results[1]?.next_step).toBeUndefined();
       expect(result.results[2]?.next_step).toBeUndefined();
     });
@@ -823,7 +823,7 @@ Second task content`;
 
       // Act - create task with specific title that creates predictable slug
       const result = await subagentTask({
-        document: '/docs/path-test.md',
+        document: '/path-test.md',
         operations: [
           {
             operation: 'create',
@@ -835,7 +835,7 @@ Second task content`;
 
       // Assert - verify the full path in next_step includes correct document and slug
       expect(result.results[0]?.next_step).toBeDefined();
-      expect(result.results[0]?.next_step).toContain('/docs/path-test.md#test-task-name');
+      expect(result.results[0]?.next_step).toContain('/path-test.md#test-task-name');
       expect(result.results[0]?.task?.slug).toBe('test-task-name');
     });
   });

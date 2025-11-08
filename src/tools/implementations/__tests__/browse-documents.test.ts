@@ -18,10 +18,15 @@ describe('browse_documents tool', () => {
   let manager: DocumentManager;
   let sessionState: SessionState;
   let tempDir: string;
+  let docsDir: string;
 
   beforeEach(async () => {
     // Create temporary directory for test files
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'browse-documents-test-'));
+    docsDir = path.join(tempDir, 'docs');
+
+    // Create docs subdirectory (required for relative path structure)
+    await fs.mkdir(docsDir, { recursive: true });
 
     // Configure MCP_WORKSPACE_PATH for fsio PathHandler to use temp directory
     process.env['MCP_WORKSPACE_PATH'] = tempDir;
@@ -63,8 +68,8 @@ Content for section two.
 Overview content for test 2.
 `;
 
-      await fs.writeFile(path.join(tempDir, 'test1.md'), doc1Content);
-      await fs.writeFile(path.join(tempDir, 'test2.md'), doc2Content);
+      await fs.writeFile(path.join(docsDir, 'test1.md'), doc1Content);
+      await fs.writeFile(path.join(docsDir, 'test2.md'), doc2Content);
     });
 
     it('should default to compact overview mode (verbose=false)', async () => {
@@ -115,7 +120,7 @@ Overview content.
 
 Content.
 `;
-      await fs.writeFile(path.join(tempDir, 'test.md'), docContent);
+      await fs.writeFile(path.join(docsDir, 'test.md'), docContent);
     });
 
     it('should exclude sections array when verbose=false explicitly', async () => {
@@ -146,7 +151,7 @@ Content for section one.
 
 Content for section two.
 `;
-      await fs.writeFile(path.join(tempDir, 'test.md'), docContent);
+      await fs.writeFile(path.join(docsDir, 'test.md'), docContent);
     });
 
     it('should include full sections array when verbose=true', async () => {
@@ -211,7 +216,7 @@ Content for section 2.
 
 Content for section 3.
 `;
-        await fs.writeFile(path.join(tempDir, `doc${i}.md`), docContent);
+        await fs.writeFile(path.join(docsDir, `doc${i}.md`), docContent);
       }
     });
 
@@ -251,7 +256,7 @@ Content for section 3.
   describe('Namespace Browsing with Verbose Mode', () => {
     beforeEach(async () => {
       // Create namespace structure
-      await fs.mkdir(path.join(tempDir, 'api'), { recursive: true });
+      await fs.mkdir(path.join(docsDir, 'api'), { recursive: true });
       const authContent = `# Authentication API
 
 Auth overview.
@@ -260,7 +265,7 @@ Auth overview.
 
 Auth endpoints.
 `;
-      await fs.writeFile(path.join(tempDir, 'api', 'auth.md'), authContent);
+      await fs.writeFile(path.join(docsDir, 'api', 'auth.md'), authContent);
     });
 
     it('should support verbose mode in namespace browsing', async () => {
@@ -294,7 +299,7 @@ Auth endpoints.
 
 Overview.
 `;
-      await fs.writeFile(path.join(tempDir, 'test.md'), docContent);
+      await fs.writeFile(path.join(docsDir, 'test.md'), docContent);
 
       const result = await browseDocuments({
         verbose: false,
@@ -309,7 +314,7 @@ Overview.
 
 Overview.
 `;
-      await fs.writeFile(path.join(tempDir, 'test.md'), docContent);
+      await fs.writeFile(path.join(docsDir, 'test.md'), docContent);
 
       const result = await browseDocuments({
         verbose: true,
@@ -340,7 +345,7 @@ Overview.
 
 Just overview.
 `;
-      await fs.writeFile(path.join(tempDir, 'empty.md'), emptyContent);
+      await fs.writeFile(path.join(docsDir, 'empty.md'), emptyContent);
 
       const result = await browseDocuments({ verbose: false }, sessionState, manager);
 
@@ -359,7 +364,7 @@ Just overview.
 
 Just overview.
 `;
-      await fs.writeFile(path.join(tempDir, 'empty.md'), emptyContent);
+      await fs.writeFile(path.join(docsDir, 'empty.md'), emptyContent);
 
       const result = await browseDocuments({ verbose: true }, sessionState, manager);
 

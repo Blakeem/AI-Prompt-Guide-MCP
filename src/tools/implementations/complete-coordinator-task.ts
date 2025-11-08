@@ -233,19 +233,22 @@ async function archiveCoordinatorDocument(
   const fs = await import('fs/promises');
   const path = await import('path');
 
-  const docsRoot = manager['docsRoot'] as string;
-  const archiveDir = path.join(docsRoot, FOLDER_NAMES.ARCHIVED, FOLDER_NAMES.COORDINATOR);
+  // Get coordinator root and archive base from manager
+  const coordinatorRoot = manager['coordinatorRoot'] as string;
+  const pathHandler = manager['pathHandler'] as { getArchivedBasePath: () => string | undefined };
+  const archiveBase = pathHandler.getArchivedBasePath() ?? path.join(path.dirname(coordinatorRoot), FOLDER_NAMES.ARCHIVED);
+  const archiveDir = path.join(archiveBase, FOLDER_NAMES.COORDINATOR);
 
   // Ensure archive directory exists
   await fs.mkdir(archiveDir, { recursive: true });
 
-  // Generate timestamp-based archive name
+  // Generate timestamp-based archive name (no prefix needed - path provides context)
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19); // 2025-10-14T15-30-45
-  const archivePath = `${ARCHIVE_PREFIXES.COORDINATOR}active-${timestamp}.md`;
-  const archiveFilePath = path.join(docsRoot, FOLDER_NAMES.ARCHIVED, FOLDER_NAMES.COORDINATOR, `active-${timestamp}.md`);
+  const archivePath = `${ARCHIVE_PREFIXES.COORDINATOR}${timestamp}.md`;
+  const archiveFilePath = path.join(archiveDir, `${timestamp}.md`);
 
-  // Copy document to archive
-  const sourceFilePath = path.join(docsRoot, documentPath.substring(1)); // Remove leading /
+  // Get source file from coordinator root
+  const sourceFilePath = path.join(coordinatorRoot, 'active.md');
   await fs.copyFile(sourceFilePath, archiveFilePath);
 
   // Delete original document

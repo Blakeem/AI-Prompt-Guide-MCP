@@ -7,10 +7,16 @@
  * Key Features:
  * - Type-safe addressing with validation
  * - Flexible input format support (#slug, slug, /doc.md#slug)
+ * - Relative path structure (user-facing paths are relative to base folders)
  * - Performance caching for repeated operations
  * - Comparison utilities for address equality
  * - Standard tool integration patterns
  * - Comprehensive error handling
+ *
+ * Path Structure:
+ * - User-facing: /api/auth.md (relative to docs/ folder)
+ * - Internal: May include namespace prefixes for file operations
+ * - Archives: /archived/docs/... (explicit prefix per requirements)
  */
 
 import { pathToNamespace, pathToSlug } from './path-utilities.js';
@@ -353,11 +359,23 @@ export function invalidateAddressCache(docPath: string): void {
  * Core addressing interfaces
  */
 export interface DocumentAddress {
-  /** Full document path starting with / */
+  /**
+   * Full document path starting with /
+   * User-facing paths are relative to base folders:
+   * - /api/auth.md (relative to docs/)
+   * - /active.md (relative to coordinator/)
+   * - /archived/docs/api/auth.md (explicit archive prefix)
+   */
   readonly path: string;
   /** Document slug (filename without extension) */
   readonly slug: string;
-  /** Document namespace (folder path or 'root') */
+  /**
+   * Document namespace (folder path or 'root')
+   * Extracted from the path structure:
+   * - /api/auth.md → 'api'
+   * - /api/specs/auth.md → 'api/specs'
+   * - /active.md → 'root'
+   */
   readonly namespace: string;
   /** Normalized path for internal use */
   readonly normalizedPath: string;
@@ -392,6 +410,36 @@ export interface TaskAddress {
 
 /**
  * Parse and normalize a document path with caching
+ *
+ * Accepts user-facing relative paths:
+ * - /api/auth.md (relative to docs/)
+ * - /active.md (relative to coordinator/)
+ * - /archived/docs/api/auth.md (explicit archive prefix)
+ *
+ * The system does NOT require or validate namespace prefixes like /docs/ or /coordinator/.
+ * Paths are relative to their base folders for cleaner user experience.
+ *
+ * @param docPath - Document path (relative to base folder)
+ * @returns Parsed and cached document address
+ * @throws {InvalidAddressError} When path format is invalid
+ *
+ * @example Regular document
+ * ```typescript
+ * const addr = parseDocumentAddress('/api/auth.md');
+ * // { path: '/api/auth.md', namespace: 'api', slug: 'auth' }
+ * ```
+ *
+ * @example Coordinator document
+ * ```typescript
+ * const addr = parseDocumentAddress('/active.md');
+ * // { path: '/active.md', namespace: 'root', slug: 'active' }
+ * ```
+ *
+ * @example Archived document
+ * ```typescript
+ * const addr = parseDocumentAddress('/archived/docs/api/auth.md');
+ * // { path: '/archived/docs/api/auth.md', namespace: 'archived/docs/api', slug: 'auth' }
+ * ```
  */
 export function parseDocumentAddress(docPath: string): DocumentAddress {
   if (typeof docPath !== 'string') {
@@ -675,12 +723,19 @@ export class ToolIntegration {
    * @throws {InvalidAddressError} When address format is malformed
    * @throws {AddressingError} For general parameter validation failures
    *
-   * @example Basic document validation
+   * @example Basic document validation (relative path)
    * ```typescript
    * const { addresses } = ToolIntegration.validateAndParse({
-   *   document: '/api/auth.md'
+   *   document: '/api/auth.md'  // Relative to docs/
    * });
    * // Returns: { addresses: { document: DocumentAddress }, params: {...} }
+   * ```
+   *
+   * @example Coordinator document
+   * ```typescript
+   * const { addresses } = ToolIntegration.validateAndParse({
+   *   document: '/active.md'  // Relative to coordinator/
+   * });
    * ```
    *
    * @example Document with section

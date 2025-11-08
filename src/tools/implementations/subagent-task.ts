@@ -17,7 +17,7 @@ import {
   listTasksOperation,
   type TaskHierarchicalContext
 } from '../../shared/task-operations.js';
-import { PATH_PREFIXES } from '../../shared/namespace-constants.js';
+import { isDocsPath } from '../../shared/namespace-constants.js';
 
 /**
  * Maximum number of operations allowed in a single batch request
@@ -261,14 +261,14 @@ export async function subagentTask(
       document: documentPath
     });
 
-    // REQUIRED: Subagent tools only work in /docs/ namespace
-    if (!addresses.document.path.startsWith(PATH_PREFIXES.DOCS)) {
+    // REQUIRED: Subagent tools only work in docs namespace (NOT coordinator)
+    if (!isDocsPath(addresses.document.path)) {
       throw new AddressingError(
-        `Subagent tools only work in ${PATH_PREFIXES.DOCS} namespace. Use coordinator tools for /coordinator/ namespace.`,
+        `Subagent tools only work in /docs/ namespace. Use coordinator tools for /coordinator/ namespace.`,
         'INVALID_NAMESPACE_FOR_SUBAGENT',
         {
           document: addresses.document.path,
-          suggestion: `Use ${PATH_PREFIXES.DOCS} prefix (e.g., /docs/api/auth.md) or use coordinator_task for coordinator tasks`
+          suggestion: `Use coordinator_task for coordinator tasks (/coordinator/active.md), subagent_task for regular documents`
         }
       );
     }

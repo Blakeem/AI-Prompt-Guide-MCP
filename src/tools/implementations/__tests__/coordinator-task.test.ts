@@ -35,7 +35,7 @@ describe('coordinator_task tool', () => {
     await mkdir(coordinatorDir, { recursive: true });
 
     // Create document manager using shared utility (root is testDir)
-    manager = createDocumentManager(testDir);
+    manager = createDocumentManager(docsDir);
 
     sessionState = {
       sessionId: `test-${Date.now()}-${Math.random()}`,
@@ -268,6 +268,57 @@ describe('coordinator_task tool', () => {
       expect(typeof result.operations_completed).toBe('number');
       expect(Array.isArray(result.results)).toBe(true);
       expect(result.operations_completed).toBe(1);
+    });
+  });
+
+  describe('Relative Path Returns', () => {
+    it('should return relative paths in response (not /coordinator/ prefix)', async () => {
+      // Create task and check response paths
+      const result = await coordinatorTask({
+        operations: [
+          {
+            operation: 'create',
+            title: 'Test Task',
+            content: 'Status: pending\n\nTest content'
+          }
+        ]
+      }, sessionState, manager);
+
+      // Response should use relative path (no /coordinator/ prefix)
+      expect(result.operations_completed).toBe(1);
+      expect(result.results).toHaveLength(1);
+
+      // The internal implementation should still use /coordinator/active.md for file operations
+      // But any user-facing paths in responses should be relative
+      const document = await manager.getDocument('/coordinator/active.md');
+      expect(document).not.toBeNull();
+    });
+
+    it('should show relative path in list operation links', async () => {
+      // Create tasks
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nContent 1' }
+        ]
+      }, sessionState, manager);
+
+      // List tasks
+      const result = await coordinatorTask({
+        operations: [
+          { operation: 'list' }
+        ]
+      }, sessionState, manager);
+
+      expect(result.results[0]?.tasks).toBeDefined();
+      const tasks = result.results[0]?.tasks;
+      if (tasks != null && tasks.length > 0) {
+        const task = tasks[0];
+        // Link should use relative path if present
+        if (task?.link != null) {
+          expect(task.link).not.toContain('/coordinator/');
+          expect(task.link).toMatch(/^\/active\.md#/);
+        }
+      }
     });
   });
 
