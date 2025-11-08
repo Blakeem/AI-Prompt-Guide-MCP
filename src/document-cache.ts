@@ -309,6 +309,7 @@ export class DocumentCache extends EventEmitter {
   private readonly accessMetadata = new Map<string, AccessMetadata>();
   private readonly options: CacheOptions;
   private readonly docsRoot: string;
+  private readonly coordinatorRoot: string;
   private watcher: ReturnType<typeof watch> | undefined;
   private accessCounter = 0;
   private readonly boostFactors: { search: number; direct: number; reference: number };
@@ -317,9 +318,13 @@ export class DocumentCache extends EventEmitter {
   private pollingInterval: NodeJS.Timeout | undefined;
   private totalHeadingsLoaded = 0;
 
-  constructor(docsRoot: string, options: Partial<CacheOptions> = {}) {
+  constructor(docsRoot: string, options: Partial<CacheOptions> = {}, coordinatorRoot?: string) {
     super();
     this.docsRoot = path.resolve(docsRoot);
+    // Coordinator root defaults to sibling of docs root if not provided
+    this.coordinatorRoot = coordinatorRoot != null
+      ? path.resolve(coordinatorRoot)
+      : path.join(path.dirname(this.docsRoot), 'coordinator');
     this.options = { ...DEFAULT_OPTIONS, ...options };
 
     // Merge boost factors with defaults
@@ -556,7 +561,19 @@ export class DocumentCache extends EventEmitter {
    * Get absolute file path from document path
    */
   private getAbsolutePath(docPath: string): string {
-    return path.join(this.docsRoot, docPath.startsWith('/') ? docPath.slice(1) : docPath);
+    const relativePath = docPath.startsWith('/') ? docPath.slice(1) : docPath;
+
+    // Check if this is a coordinator path
+    if (relativePath.startsWith('coordinator/') || relativePath === 'coordinator') {
+      // Use coordinator root and remove the 'coordinator/' prefix
+      const coordPath = relativePath === 'coordinator'
+        ? ''
+        : relativePath.slice('coordinator/'.length);
+      return path.join(this.coordinatorRoot, coordPath);
+    }
+
+    // Default to docs root
+    return path.join(this.docsRoot, relativePath);
   }
 
   /**
@@ -1288,7 +1305,7 @@ export function getGlobalCache(): DocumentCache {
  * Factory function for creating DocumentCache instances with explicit configuration
  * This is the recommended approach for new code instead of global singletons
  */
-export function createDocumentCache(docsRoot: string, options?: Partial<CacheOptions>): DocumentCache {
-  return new DocumentCache(docsRoot, options);
+export function createDocumentCache(docsRoot: string, options?: Partial<CacheOptions>, coordinatorRoot?: string): DocumentCache {
+  return new DocumentCache(docsRoot, options, coordinatorRoot);
 }
 

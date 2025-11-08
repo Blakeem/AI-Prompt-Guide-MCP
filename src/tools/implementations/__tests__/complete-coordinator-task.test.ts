@@ -74,8 +74,8 @@ describe('complete_coordinator_task tool', () => {
     await mkdir(docsDir, { recursive: true });
     await mkdir(coordinatorDir, { recursive: true });
 
-    // Create document manager using root as testDir
-    manager = createDocumentManager(testDir);
+    // Create document manager using docsDir (NOT testDir)
+    manager = createDocumentManager(docsDir);
 
     sessionState = {
       sessionId: `test-${Date.now()}-${Math.random()}`,
@@ -160,7 +160,7 @@ describe('complete_coordinator_task tool', () => {
       expect(result.archived).toBe(true);
       expect(result.archived_to).toBeDefined();
       if (result.archived_to != null) {
-        expect(result.archived_to).toMatch(/^\/archived\/coordinator\/active-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.md$/);
+        expect(result.archived_to).toMatch(/^\/archived\/coordinator\/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.md$/);
       }
 
       // Should NOT have next_task
@@ -360,6 +360,30 @@ describe('complete_coordinator_task tool', () => {
       if (result.next_task != null) {
         // Should not have workflow field at all
         expect(result.next_task.workflow).toBeUndefined();
+      }
+    });
+  });
+
+  describe('Relative Path Returns', () => {
+    it('should use relative paths in archived_to field', async () => {
+      // Create single task
+      await coordinatorTask({
+        operations: [
+          { operation: 'create', title: 'Only Task', content: 'Status: pending\n\nContent' }
+        ]
+      }, sessionState, manager);
+
+      // Complete the only task (triggers archive)
+      const result = await completeCoordinatorTask({
+        note: 'All done'
+      }, sessionState, manager);
+
+      // Should indicate archived with relative path
+      expect(result.archived).toBe(true);
+      expect(result.archived_to).toBeDefined();
+      if (result.archived_to != null) {
+        // Archive path should still use /archived/coordinator/ prefix (explicit per requirements)
+        expect(result.archived_to).toMatch(/^\/archived\/coordinator\/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.md$/);
       }
     });
   });

@@ -3,7 +3,7 @@
  */
 
 import { join, resolve, dirname, extname, basename } from 'path';
-import { fileExists } from '../fsio.js';
+import { promises as fs } from 'node:fs';
 import { FOLDER_NAMES } from '../shared/namespace-constants.js';
 
 /**
@@ -98,7 +98,9 @@ export class PathHandler {
     let counter = 1;
 
     // Keep trying until we find a unique path
-    while (await fileExists(archivePath)) {
+    // Use fs.access directly since archivePath is already an absolute path
+    // and doesn't need fsio validation
+    while (await this.checkFileExists(archivePath)) {
       const dir = dirname(archivePath);
       const ext = extname(archivePath);
       const name = basename(archivePath, ext);
@@ -108,6 +110,18 @@ export class PathHandler {
     }
 
     return archivePath;
+  }
+
+  /**
+   * Check if file exists using direct fs.access (for internal use with absolute paths)
+   */
+  private async checkFileExists(absolutePath: string): Promise<boolean> {
+    try {
+      await fs.access(absolutePath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -124,5 +138,12 @@ export class PathHandler {
    */
   getWorkspaceBasePath(): string {
     return this.workspaceBasePath;
+  }
+
+  /**
+   * Get archived base path (if configured)
+   */
+  getArchivedBasePath(): string | undefined {
+    return this.archivedBasePath;
   }
 }

@@ -21,8 +21,7 @@ import {
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
 import { validateCoordinatorTaskAccess } from '../../shared/task-validation.js';
 import {
-  PATH_PREFIXES,
-  FOLDER_NAMES
+  PATH_PREFIXES
 } from '../../shared/namespace-constants.js';
 
 /**
@@ -235,14 +234,13 @@ async function ensureCoordinatorDocument(manager: DocumentManager, docPath: stri
 
   if (document == null) {
     // Document doesn't exist - create it
-    // First ensure /coordinator/ directory exists using FOLDER_NAMES constant
+    // First ensure /coordinator/ directory exists
     const fs = await import('fs/promises');
     const path = await import('path');
-    const docsRoot = manager['docsRoot'] as string;
-    const coordinatorDir = path.join(docsRoot, FOLDER_NAMES.COORDINATOR);
+    const coordinatorRoot = manager['coordinatorRoot'] as string;
 
     try {
-      await fs.mkdir(coordinatorDir, { recursive: true });
+      await fs.mkdir(coordinatorRoot, { recursive: true });
     } catch (error) {
       // Ignore if already exists
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
@@ -258,7 +256,7 @@ async function ensureCoordinatorDocument(manager: DocumentManager, docPath: stri
     });
 
     // Add overview content after creation
-    const docFilePath = path.join(docsRoot, docPath.substring(1));
+    const docFilePath = path.join(coordinatorRoot, 'active.md');
     const content = await fs.readFile(docFilePath, 'utf8');
     const withOverview = content.replace(
       /^(# Coordinator Tasks\n\n)/,

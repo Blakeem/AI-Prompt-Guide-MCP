@@ -71,7 +71,8 @@ export function validateNamespaceForCreation(namespace: string): ValidationError
  */
 // ts-unused-exports:disable-next-line
 export function normalizeNamespace(namespace: string): string {
-  return namespace.replace(/^\/+/, '');
+  // Strip both leading and trailing slashes
+  return namespace.replace(/^\/+/, '').replace(/\/+$/, '');
 }
 
 

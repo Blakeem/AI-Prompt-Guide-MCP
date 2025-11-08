@@ -45,10 +45,19 @@ export async function performSectionEdit(
 
     // Get the actual content that will be removed (excluding boundary markers)
     // This ensures the reported removed_content matches what deleteSection actually removes
-    const { loadConfig } = await import('../config.js');
     const path = await import('node:path');
-    const config = loadConfig();
-    const absolutePath = path.join(config.workspaceBasePath, normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath);
+
+    // Use manager's internal routing to get correct base path (docs vs coordinator)
+    const relativePath = normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath;
+    const isCoordinatorPath = relativePath.startsWith('coordinator/');
+    const baseRoot = isCoordinatorPath
+      ? manager['coordinatorRoot'] as string
+      : manager['docsRoot'] as string;
+    const pathWithoutPrefix = isCoordinatorPath
+      ? relativePath.slice('coordinator/'.length)
+      : relativePath;
+    const absolutePath = path.join(baseRoot, pathWithoutPrefix);
+
     const { readFileSnapshot, writeFileIfUnchanged } = await import('../fsio.js');
 
     const snapshot = await readFileSnapshot(absolutePath, { bypassValidation: true });

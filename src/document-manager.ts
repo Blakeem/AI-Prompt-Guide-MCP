@@ -70,13 +70,18 @@ interface SearchResult {
  */
 export class DocumentManager {
   private readonly docsRoot: string;
+  private readonly coordinatorRoot: string;
   public readonly cache: DocumentCache;
   private readonly pathHandler: PathHandler;
   private readonly fingerprintIndex: FingerprintIndex | undefined;
   private readonly pendingTocUpdates = new Map<string, NodeJS.Timeout>();
 
-  constructor(docsRoot: string, cache: DocumentCache, fingerprintIndex?: FingerprintIndex, archivedBasePath?: string) {
+  constructor(docsRoot: string, cache: DocumentCache, fingerprintIndex?: FingerprintIndex, archivedBasePath?: string, coordinatorRoot?: string) {
     this.docsRoot = path.resolve(docsRoot);
+    // Coordinator root defaults to sibling of docs root if not provided
+    this.coordinatorRoot = coordinatorRoot != null
+      ? path.resolve(coordinatorRoot)
+      : path.join(path.dirname(this.docsRoot), 'coordinator');
     this.cache = cache;
     this.pathHandler = new PathHandler(this.docsRoot, archivedBasePath);
     this.fingerprintIndex = fingerprintIndex;
@@ -382,9 +387,14 @@ export class DocumentManager {
     // Determine if it's a folder or file
     const stats = await fs.stat(absolutePath);
     const isFolder = stats.isDirectory();
-    
-    // Generate unique archive path (handles duplicates automatically)
-    const uniqueArchivePath = await this.pathHandler.generateUniqueArchivePath(normalizedPath);
+
+    // Generate unique archive path with /docs/ prefix to preserve source context
+    // This distinguishes documents from coordinator tasks in archives
+    // Only prepend "docs" if path doesn't already start with "/docs/"
+    const archiveRelativePath = normalizedPath.startsWith('/docs/')
+      ? normalizedPath.slice(1)  // Remove leading slash, keep "docs/..."
+      : `docs${normalizedPath}`;  // Prepend "docs" to path
+    const uniqueArchivePath = await this.pathHandler.generateUniqueArchivePath(archiveRelativePath);
     
     // Ensure archive directory structure exists
     await ensureDirectoryExists(path.dirname(uniqueArchivePath));
@@ -894,6 +904,18 @@ export class DocumentManager {
    * Convert document path to absolute filesystem path
    */
   private getAbsolutePath(docPath: string): string {
-    return path.join(this.docsRoot, docPath.startsWith('/') ? docPath.slice(1) : docPath);
+    const relativePath = docPath.startsWith('/') ? docPath.slice(1) : docPath;
+
+    // Check if this is a coordinator path
+    if (relativePath.startsWith('coordinator/') || relativePath === 'coordinator') {
+      // Use coordinator root and remove the 'coordinator/' prefix
+      const coordPath = relativePath === 'coordinator'
+        ? ''
+        : relativePath.slice('coordinator/'.length);
+      return path.join(this.coordinatorRoot, coordPath);
+    }
+
+    // Default to docs root
+    return path.join(this.docsRoot, relativePath);
   }
 }

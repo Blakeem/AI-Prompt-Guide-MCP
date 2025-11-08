@@ -53,12 +53,19 @@ export async function processTemplate(
     // Normalize namespace (strip leading slashes)
     const cleanNamespace = normalizeNamespace(namespace);
 
-    // Prepend /docs/ prefix if not already present (coordinator namespace is explicit)
-    const normalizedNamespace = cleanNamespace.startsWith('coordinator')
-      ? PATH_PREFIXES.COORDINATOR.slice(1, -1) // Remove leading and trailing slashes
-      : `${PATH_PREFIXES.DOCS.slice(1)}${cleanNamespace}`; // /docs/ + namespace
-
-    const docPath = `/${normalizedNamespace}/${slug}.md`;
+    // MCP paths are relative to base folders - no prefix in logical path
+    // Coordinator handling will be updated in separate task to make it symmetric
+    let docPath: string;
+    if (cleanNamespace.startsWith('coordinator')) {
+      // Keep coordinator explicit for now (will be updated to relative path later)
+      docPath = `/${PATH_PREFIXES.COORDINATOR.slice(1, -1)}/${slug}.md`;
+    } else if (cleanNamespace === '') {
+      // Empty namespace - root level document
+      docPath = `/${slug}.md`;
+    } else {
+      // Regular namespace - direct path without /docs/ prefix
+      docPath = `/${cleanNamespace}/${slug}.md`;
+    }
 
     // Validate the generated document path using addressing system
     try {

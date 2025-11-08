@@ -1,10 +1,11 @@
 /**
  * Namespace constants for document and coordinator separation
  *
- * All paths in the system use EXPLICIT folder prefixes:
- * - Regular docs: /docs/api/auth.md → .ai-prompt-guide/docs/api/auth.md
- * - Coordinator: /coordinator/active.md → .ai-prompt-guide/coordinator/active.md
- * - Archives: /archived/docs/... or /archived/coordinator/...
+ * IMPORTANT: PATH_PREFIXES are for INTERNAL file operations only.
+ * User-facing paths should be RELATIVE to their base folders:
+ * - Regular docs: /api/auth.md (relative to docs/) → .ai-prompt-guide/docs/api/auth.md
+ * - Coordinator: /active.md (relative to coordinator/) → .ai-prompt-guide/coordinator/active.md
+ * - Archives: /archived/docs/... or /archived/coordinator/... (explicit prefix per requirements)
  *
  * This provides deterministic, clear path resolution with no implicit behavior.
  */
@@ -26,18 +27,19 @@ export const FOLDER_NAMES = {
 } as const;
 
 /**
- * Logical path prefixes (explicit in all paths)
+ * Logical path prefixes for INTERNAL file operations
  *
- * All paths MUST start with one of these prefixes for deterministic resolution.
+ * These are used for file I/O operations within the system.
+ * User-facing responses should use relative paths via toUserPath().
  */
 export const PATH_PREFIXES = {
-  /** Docs namespace: /docs/ */
+  /** Docs namespace: /docs/ (internal) */
   DOCS: `/${FOLDER_NAMES.DOCS}/`,
 
-  /** Coordinator namespace: /coordinator/ */
+  /** Coordinator namespace: /coordinator/ (internal) */
   COORDINATOR: `/${FOLDER_NAMES.COORDINATOR}/`,
 
-  /** Archive namespace: /archived/ */
+  /** Archive namespace: /archived/ (kept explicit per requirements) */
   ARCHIVED: `/${FOLDER_NAMES.ARCHIVED}/`
 } as const;
 
@@ -61,7 +63,48 @@ export function isCoordinatorPath(logicalPath: string): boolean {
 
 /**
  * Check if a logical path is in the docs namespace
+ * NOTE: With relative paths, docs are anything NOT in coordinator or archived/coordinator
  */
 export function isDocsPath(logicalPath: string): boolean {
-  return logicalPath.startsWith(PATH_PREFIXES.DOCS);
+  // Coordinator paths are NOT docs paths
+  if (logicalPath.startsWith(PATH_PREFIXES.COORDINATOR)) {
+    return false;
+  }
+  // Archived coordinator paths are NOT docs paths
+  if (logicalPath.startsWith(ARCHIVE_PREFIXES.COORDINATOR)) {
+    return false;
+  }
+  // Everything else is docs (including regular paths and archived/docs/)
+  return true;
+}
+
+/**
+ * Convert internal path to user-facing path
+ *
+ * Removes namespace prefixes for user responses:
+ * - /coordinator/active.md → /active.md
+ * - /docs/api/auth.md → /api/auth.md (future)
+ * - /archived/... → /archived/... (kept explicit per requirements)
+ *
+ * @param internalPath - Path with namespace prefix
+ * @returns User-facing relative path
+ */
+export function toUserPath(internalPath: string): string {
+  // Archives keep explicit prefix
+  if (internalPath.startsWith(PATH_PREFIXES.ARCHIVED)) {
+    return internalPath;
+  }
+
+  // Strip coordinator prefix
+  if (internalPath.startsWith(PATH_PREFIXES.COORDINATOR)) {
+    return internalPath.replace(PATH_PREFIXES.COORDINATOR, '/');
+  }
+
+  // Strip docs prefix (future-proofing)
+  if (internalPath.startsWith(PATH_PREFIXES.DOCS)) {
+    return internalPath.replace(PATH_PREFIXES.DOCS, '/');
+  }
+
+  // Return as-is if no known prefix
+  return internalPath;
 }

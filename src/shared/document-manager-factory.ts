@@ -7,7 +7,7 @@
 
 import type { DocumentManager } from '../document-manager.js';
 import { DocumentManager as Manager } from '../document-manager.js';
-import { loadConfig, getDocsPath, getArchivedPath } from '../config.js';
+import { loadConfig, getDocsPath, getArchivedPath, getCoordinatorPath } from '../config.js';
 import { createDocumentCache } from '../document-cache.js';
 import type { DocumentCache } from '../document-cache.js';
 import { FingerprintIndex } from '../fingerprint-index.js';
@@ -33,6 +33,7 @@ export function createDocumentManager(docsRoot?: string): DocumentManager {
   const config = loadConfig();
   const root = docsRoot ?? getDocsPath(config.docsBasePath);
   const archivedPath = getArchivedPath(config.archivedBasePath);
+  const coordinatorPath = getCoordinatorPath(config.coordinatorBasePath);
 
   // Create cache instance with dependency injection using factory function
   const cache: DocumentCache = createDocumentCache(root, {
@@ -40,7 +41,7 @@ export function createDocumentManager(docsRoot?: string): DocumentManager {
     enableWatching: true,
     watchIgnorePatterns: ['**/node_modules/**', '**/.git/**', '**/dist/**'],
     evictionPolicy: 'lru'
-  });
+  }, coordinatorPath);
 
   // Create and initialize fingerprint index for fast search filtering
   const fingerprintIndex = new FingerprintIndex(root);
@@ -62,7 +63,7 @@ export function createDocumentManager(docsRoot?: string): DocumentManager {
     }
   }, 100);
 
-  return new Manager(root, cache, fingerprintIndex, archivedPath);
+  return new Manager(root, cache, fingerprintIndex, archivedPath, coordinatorPath);
 }
 
 /**

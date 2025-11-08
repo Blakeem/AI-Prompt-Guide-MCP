@@ -26,7 +26,7 @@ import {
   findNextAvailableTask
 } from '../../shared/task-view-utilities.js';
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
-import { PATH_PREFIXES } from '../../shared/namespace-constants.js';
+import { PATH_PREFIXES, toUserPath } from '../../shared/namespace-constants.js';
 
 /**
  * Response interface for start_coordinator_task tool
@@ -99,12 +99,14 @@ export async function startCoordinatorTask(
     }
 
     const targetTaskSlug = nextTask.slug;
-    const fullPath = `${PATH_PREFIXES.COORDINATOR}active.md#${targetTaskSlug}`;
+    // User-facing paths use relative format
+    const userDocumentPath = toUserPath(documentPath);
+    const fullPath = `${userDocumentPath}#${targetTaskSlug}`;
 
     // MINIMAL RESPONSE: Return basic task info without context
     if (!returnTaskContext) {
       return {
-        document: documentPath,
+        document: userDocumentPath,
         task: {
           slug: targetTaskSlug,
           title: nextTask.title,
@@ -154,7 +156,7 @@ export async function startCoordinatorTask(
 
     // ENRICHED RESPONSE - spread all enriched data
     return {
-      document: documentPath,
+      document: userDocumentPath,
       task: {
         slug: fullyEnriched.slug,
         title: fullyEnriched.title,
