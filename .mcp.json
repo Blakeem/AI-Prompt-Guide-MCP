@@ -1,14 +1,12 @@
 {
-  "$schema": "https://schemas.modelcontextprotocol.io/0.1.0/mcp.json",
   "mcpServers": {
     "ai-prompt-guide-mcp": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/index.js"],
+      "args": ["./dist/index.js"],
       "env": {
-        "MCP_WORKSPACE_PATH": "${CLAUDE_PLUGIN_ROOT}/.ai-prompt-guide",
+        "MCP_WORKSPACE_PATH": "./.ai-prompt-guide",
         "REFERENCE_EXTRACTION_DEPTH": "3"
-      },
-      "cwd": "${CLAUDE_PLUGIN_ROOT}"
+      }
     }
   }
 }
