@@ -19,6 +19,7 @@ build/
 
 # Project-specific MCP configuration
 .mcp-config.json
+.mcp.json
 
 # IDE and editor files
 .vscode/
