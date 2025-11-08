@@ -1,9 +1,8 @@
 {
-  "$schema": "https://schemas.modelcontextprotocol.io/0.1.0/mcp.json",
   "mcpServers": {
     "ai-prompt-guide-mcp": {
-      "command": "npx",
-      "args": ["-y", "ai-prompt-guide-mcp"],
+      "command": "node",
+      "args": ["./dist/index.js"],
       "env": {
         "MCP_WORKSPACE_PATH": "./.ai-prompt-guide",
         "REFERENCE_EXTRACTION_DEPTH": "3"
