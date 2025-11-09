@@ -10,5 +10,11 @@
   "repository": "https://github.com/Blakeem/AI-Prompt-Guide-MCP",
   "license": "MIT",
   "keywords": ["documentation", "mcp", "workflows", "agent-orchestration", "tdd"],
-  "mcpServers": "./.mcp.json"
+  "mcpServers": {
+    "ai-prompt-guide": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["ai-prompt-guide", "serve"]
+    }
+  }
 }
