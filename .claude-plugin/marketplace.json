@@ -5,8 +5,7 @@
   },
   "plugins": [
     {
-      "name": "ai-prompt-guide",
-      "source": "./"
+      "name": "ai-prompt-guide"
     }
   ]
 }
