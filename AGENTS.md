@@ -104,6 +104,52 @@ This principle applies to:
 
 ## CONFIGURATION
 
+### Zero-Config Operation (Default)
+
+**The MCP server works out-of-the-box with zero configuration required.**
+
+When you run Claude Code from a project directory, the system automatically:
+- Uses the current directory (`process.cwd()`) as the workspace
+- Creates `.ai-prompt-guide/` folder structure in your project
+- Stores project documents in `.ai-prompt-guide/docs/`
+- Archives to `.ai-prompt-guide/archived/`
+- Coordinator tasks in `.ai-prompt-guide/coordinator/`
+
+**Default Structure (Auto-Created):**
+```
+Your Project Directory (where you run Claude Code)
+└── .ai-prompt-guide/
+    ├── docs/                    ← Project-specific documents
+    ├── archived/                ← Archived documents
+    └── coordinator/             ← Coordinator tasks
+```
+
+**Shared Resources (From MCP Server):**
+Workflows and guides are shared across all projects from the MCP server installation:
+```
+MCP Server Installation
+└── .ai-prompt-guide/
+    ├── workflows/               ← Shared workflow templates
+    └── guides/                  ← Shared documentation guides
+```
+
+### Optional Configuration Override
+
+For advanced use cases (monorepos, shared specs, custom locations), create `.mcp-config.json`:
+
+```json
+{
+  "env": {
+    "MCP_WORKSPACE_PATH": "/custom/path/to/workspace",
+    "DOCS_BASE_PATH": "/custom/docs/location",
+    "ARCHIVED_BASE_PATH": "/custom/archive",
+    "COORDINATOR_BASE_PATH": "/custom/coordinator"
+  }
+}
+```
+
+**Note:** All paths can be absolute or relative to `MCP_WORKSPACE_PATH`.
+
 ### Reference Extraction Depth
 Control hierarchical reference loading depth with environment variable:
 
