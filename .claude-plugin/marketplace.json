@@ -4,11 +4,11 @@
   "plugins": [
     {
       "name": "ai-prompt-guide",
-      "source": {
-        "source": "url",
-        "repo": "Blakeem/AI-Prompt-Guide-MCP",
-        "ref": "main"
-      }
+  		"source": {
+    		"source": "url",
+    		"url": "https://github.com/Blakeem/AI-Prompt-Guide-MCP.git"
+  		}
+
     }
   ]
 }
