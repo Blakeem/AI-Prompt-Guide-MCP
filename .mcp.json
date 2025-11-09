@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "ai-prompt-guide-mcp": {
-      "command": "npx",
-      "args": ["-y", "ai-prompt-guide-mcp"],
+      "command": "node",
+      "args": ["./dist/index.js"],
       "env": {
         "REFERENCE_EXTRACTION_DEPTH": "3"
       }

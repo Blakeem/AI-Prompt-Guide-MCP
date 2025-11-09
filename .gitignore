@@ -1,5 +1,5 @@
 # Dependencies
-node_modules/
+# node_modules/ - INCLUDED for zero-config Claude Code plugin
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -8,6 +8,8 @@ pnpm-debug.log*
 # Build outputs
 build/
 *.tsbuildinfo
+dist/index.bundle.*
+build-bundle.mjs
 
 # Environment files
 .env

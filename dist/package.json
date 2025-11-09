@@ -1,0 +1,86 @@
+{
+  "name": "ai-prompt-guide-mcp",
+  "version": "1.0.5",
+  "description": "MCP server for markdown CRUD operations on specification documents",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "build:bundle": "node build-bundle.mjs",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:ci": "SKIP_INTEGRATION_TESTS=true MOCK_ONLY_TESTS=true vitest run",
+    "test:all": "pnpm test:run && pnpm check:all",
+    "test:markdown": "tsx src/test-markdown-tools.ts",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "check:dead-code": "ts-unused-exports tsconfig.analysis.json --excludePathsFromReport=dist/ --allowUnusedTypes --searchNamespaces --ignoreFiles='.*\\/(schemas|prompts|__tests__\\/setup|__tests__\\/mocks)\\/.*\\.ts$|.*\\/link-analysis\\.ts$'",
+    "check:all": "pnpm lint && pnpm typecheck && pnpm check:dead-code",
+    "prepare": "pnpm build",
+    "inspector": "npx --yes @modelcontextprotocol/inspector node dist/index.js",
+    "inspector:dev": "npx --yes @modelcontextprotocol/inspector tsx src/index.ts"
+  },
+  "keywords": [
+    "mcp",
+    "markdown",
+    "crud",
+    "documentation",
+    "specifications",
+    "server"
+  ],
+  "author": "",
+  "license": "MIT",
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "bin": {
+    "ai-prompt-guide-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    ".ai-prompt-guide/workflows",
+    ".ai-prompt-guide/guides",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.4",
+    "chokidar": "^4.0.3",
+    "dotenv": "^16.4.7",
+    "github-slugger": "^2.0.0",
+    "gray-matter": "^4.0.3",
+    "mdast-util-heading-range": "^4.0.0",
+    "mdast-util-to-markdown": "^2.1.2",
+    "mdast-util-to-string": "^4.0.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
+    "unist-util-visit-parents": "^6.0.1",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.34.0",
+    "@types/mdast": "^4.0.4",
+    "@types/node": "^24.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.41.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
+    "esbuild": "^0.26.0",
+    "eslint": "^9.34.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.6.2",
+    "ts-unused-exports": "^11.0.1",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

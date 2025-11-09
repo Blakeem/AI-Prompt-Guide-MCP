@@ -14,11 +14,8 @@
     "ai-prompt-guide": {
       "type": "stdio",
       "command": "node",
-      "args": ["./dist/index.js"],
-      "env": {
-        "NODE_ENV": "production"
-      },
-      "restart": "on-failure"
+      "args": ["./mcp/dist/index.js"],
+      "env": { "NODE_ENV": "production" }
     }
   }
 }
