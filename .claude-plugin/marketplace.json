@@ -6,10 +6,10 @@
   "plugins": [
     {
       "name": "ai-prompt-guide",
-        "source": {
-  	  "source": "github",
-  	  "repo": "Blakeem/AI-Prompt-Guide-MCP"
-  	  }
+  "source": {
+    "source": "git",
+    "url": "https://github.com/Blakeem/AI-Prompt-Guide-MCP.git",
+    "ref": "main"
     }
   ]
 }
