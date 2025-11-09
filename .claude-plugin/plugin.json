@@ -14,11 +14,8 @@
     "ai-prompt-guide": {
       "type": "stdio",
       "command": "node",
-      "args": ["./dist/index.js"],
-      "env": {
-        "NODE_ENV": "production",
-        "REFERENCE_EXTRACTION_DEPTH": "3"
-      }
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/index.js"],
+      "env": { "NODE_ENV": "production" }
     }
   }
 }
