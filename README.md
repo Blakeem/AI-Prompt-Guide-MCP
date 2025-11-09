@@ -150,7 +150,7 @@ Everything is created automatically—no manual setup required. Workflows and gu
 
 ```bash
 /plugin marketplace add https://github.com/Blakeem/AI-Prompt-Guide-MCP
-/plugin install ai-prompt-guide
+/plugin install ai-prompt-guide@ai-prompt-guide-marketplace
 ```
 
 ### Workflows & Commands
