@@ -1,0 +1,56 @@
+/**
+ * Schema definitions for view_section tool
+ */
+/**
+ * Schema constants for view_section tool
+ */
+export const VIEW_SECTION_CONSTANTS = {
+    MAX_SECTIONS: 10, // Limit for multiple section viewing
+};
+/**
+ * Helper functions for section validation
+ */
+export function normalizeSection(section) {
+    return section.startsWith('#') ? section : `#${section}`;
+}
+export function parseSections(section) {
+    if (Array.isArray(section)) {
+        return section.map(normalizeSection);
+    }
+    return [normalizeSection(section)];
+}
+export function validateSectionCount(sections) {
+    return sections.length > 0 && sections.length <= VIEW_SECTION_CONSTANTS.MAX_SECTIONS;
+}
+/**
+ * Get the input schema for view_section tool
+ */
+export function getViewSectionSchema() {
+    return {
+        type: 'object',
+        properties: {
+            document: {
+                type: 'string',
+                description: `Document path with optional section slug(s).
+
+TWO MODES:
+1. Overview: "/docs/api/auth.md"
+   → Returns list of ALL sections with slug, title, and depth (no content)
+   → Use for browsing document structure
+
+2. Detail: "/docs/api/auth.md#endpoints"
+   → Returns FULL section content for the specified section
+   → Supports multiple sections: "/docs/api/auth.md#endpoints,authentication,errors"
+   → Use for viewing specific section details
+
+Examples:
+- Overview: "/docs/api/auth.md" → All sections (titles only)
+- Single detail: "/docs/api/auth.md#endpoints" → Full section content
+- Multiple detail: "/docs/api/auth.md#endpoints,auth" → Multiple full contents`,
+            },
+        },
+        required: ['document'],
+        additionalProperties: false,
+    };
+}
+//# sourceMappingURL=view-section-schemas.js.map

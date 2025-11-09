@@ -1,0 +1,143 @@
+/**
+ * Server factory for creating and configuring MCP server with dependency inversion
+ */
+import { formatLogError } from '../utils/error-formatter.js';
+import { mergeDependencies } from './default-dependencies.js';
+/**
+ * Create and configure MCP server with dependency injection
+ *
+ * This factory function creates a fully configured MCP server using the
+ * dependency inversion principle. All external dependencies can be injected
+ * for testing or customization, while maintaining backward compatibility
+ * through default implementations.
+ *
+ * @param options Configuration options and dependency overrides
+ * @returns Promise resolving to configured server with control methods
+ *
+ * @example
+ * ```typescript
+ * // Basic usage (backward compatible)
+ * const serverResult = await createMCPServer();
+ * await serverResult.start();
+ *
+ * // With custom dependencies for testing
+ * const serverResult = await createMCPServer({
+ *   dependencies: {
+ *     config: mockConfigProvider,
+ *     logger: mockLoggerProvider
+ *   }
+ * });
+ * ```
+ */
+export async function createMCPServer(options = {}) {
+    // Merge custom dependencies with defaults
+    const dependencies = mergeDependencies(options.dependencies);
+    // Load configuration through dependency
+    const serverConfig = dependencies.config.loadConfig();
+    // Initialize logger through dependency
+    const logger = dependencies.logger.createLogger(serverConfig);
+    dependencies.logger.setGlobalLogger(logger);
+    logger.info('Starting Spec-Docs MCP Server', {
+        name: serverConfig.serverName,
+        version: serverConfig.serverVersion,
+        docsPath: serverConfig.workspaceBasePath,
+        logLevel: serverConfig.logLevel,
+    });
+    // Ensure all required directories exist for zero-config operation
+    await dependencies.fileSystem.ensureDirectoryExists(serverConfig.workspaceBasePath);
+    await dependencies.fileSystem.ensureDirectoryExists(serverConfig.docsBasePath);
+    await dependencies.fileSystem.ensureDirectoryExists(serverConfig.archivedBasePath);
+    await dependencies.fileSystem.ensureDirectoryExists(serverConfig.coordinatorBasePath);
+    logger.debug('Directory structure ready', {
+        workspace: serverConfig.workspaceBasePath,
+        docs: serverConfig.docsBasePath,
+        archived: serverConfig.archivedBasePath,
+        coordinator: serverConfig.coordinatorBasePath
+    });
+    // Load workflow prompts from filesystem
+    const { loadWorkflowPrompts } = await import('../prompts/workflow-prompts.js');
+    const prompts = await loadWorkflowPrompts();
+    logger.debug('Workflow prompts loaded', { count: prompts.length });
+    // Create server instance through dependency
+    const server = dependencies.server.createServer(serverConfig.serverName, serverConfig.serverVersion);
+    // Create session store through dependency
+    const sessionStore = dependencies.session.getSessionStore();
+    // Register all handlers through dependency
+    dependencies.handlers.registerToolHandlers(server, sessionStore, serverConfig);
+    // Create transport through dependency
+    const transport = dependencies.server.createTransport();
+    // Handle graceful shutdown
+    const shutdown = async () => {
+        logger.info('Shutting down server...');
+        try {
+            await server.close();
+            logger.info('Server shutdown complete');
+        }
+        catch (error) {
+            logger.error('Error during shutdown', { error });
+        }
+        process.exit(0);
+    };
+    // Configure process signal handling if enabled
+    const handleProcessSignals = options.handleProcessSignals ?? true;
+    if (handleProcessSignals) {
+        process.on('SIGINT', () => { void shutdown(); });
+        process.on('SIGTERM', () => { void shutdown(); });
+    }
+    // Configure unhandled error handling if enabled
+    const handleUnhandledErrors = options.handleUnhandledErrors ?? true;
+    if (handleUnhandledErrors) {
+        process.on('unhandledRejection', (reason, promise) => {
+            logger.error('Unhandled promise rejection', { reason, promise });
+            process.exit(1);
+        });
+        process.on('uncaughtException', (error) => {
+            logger.error('Uncaught exception', { error });
+            process.exit(1);
+        });
+    }
+    logger.info('Server initialization complete');
+    // Create server result with all dependencies injected
+    const serverResult = {
+        server,
+        transport,
+        config: serverConfig,
+        logger,
+        start: async () => {
+            try {
+                logger.info('Connecting to MCP transport...');
+                await server.connect(transport);
+                logger.info('MCP server connected and running');
+            }
+            catch (error) {
+                const { message, context } = formatLogError(error, 'server_startup');
+                logger.error(message, context);
+                process.exit(1);
+            }
+        },
+        close: async () => {
+            await shutdown();
+        },
+    };
+    return serverResult;
+}
+/**
+ * Backward compatibility wrapper for the original createMCPServer API
+ *
+ * This function maintains the exact same interface as the original implementation
+ * while using the new dependency injection system internally. This ensures that
+ * existing code continues to work without any changes.
+ *
+ * @returns Promise resolving to server components for backward compatibility
+ * @deprecated Use createMCPServer() directly for better type safety and additional features
+ */
+export async function createMCPServerLegacy() {
+    const result = await createMCPServer();
+    return {
+        server: result.server,
+        transport: result.transport,
+        start: result.start,
+        close: result.close,
+    };
+}
+//# sourceMappingURL=server-factory.js.map
