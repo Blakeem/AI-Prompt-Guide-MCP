@@ -73,9 +73,17 @@ export async function createMCPServer(
     logLevel: serverConfig.logLevel,
   });
 
-  // Ensure docs directory exists through dependency
+  // Ensure all required directories exist for zero-config operation
   await dependencies.fileSystem.ensureDirectoryExists(serverConfig.workspaceBasePath);
-  logger.debug('Docs directory ready', { path: serverConfig.workspaceBasePath });
+  await dependencies.fileSystem.ensureDirectoryExists(serverConfig.docsBasePath);
+  await dependencies.fileSystem.ensureDirectoryExists(serverConfig.archivedBasePath);
+  await dependencies.fileSystem.ensureDirectoryExists(serverConfig.coordinatorBasePath);
+  logger.debug('Directory structure ready', {
+    workspace: serverConfig.workspaceBasePath,
+    docs: serverConfig.docsBasePath,
+    archived: serverConfig.archivedBasePath,
+    coordinator: serverConfig.coordinatorBasePath
+  });
 
   // Load workflow prompts from filesystem
   const { loadWorkflowPrompts } = await import('../prompts/workflow-prompts.js');
