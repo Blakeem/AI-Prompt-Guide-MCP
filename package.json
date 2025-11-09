@@ -1,6 +1,6 @@
 {
   "name": "ai-prompt-guide-mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "MCP server for markdown CRUD operations on specification documents",
   "type": "module",
   "main": "dist/index.js",
@@ -45,6 +45,8 @@
   },
   "files": [
     "dist",
+    ".ai-prompt-guide/workflows",
+    ".ai-prompt-guide/guides",
     "README.md",
     "LICENSE",
     "package.json"
