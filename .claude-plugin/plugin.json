@@ -12,8 +12,13 @@
   "keywords": ["documentation", "mcp", "workflows", "agent-orchestration", "tdd"],
   "mcpServers": {
     "ai-prompt-guide": {
-      "command": "npx",
-      "args": ["-y", "ai-prompt-guide-mcp"],
+      "type": "stdio",
+      "command": "node",
+      "args": ["./dist/index.js"],
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "restart": "on-failure"
     }
   }
 }

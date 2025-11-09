@@ -1,0 +1,277 @@
+/**
+ * Implementation for the subagent_task tool
+ * Unified tool for creating, editing, completing, and listing tasks in ad-hoc mode
+ * (requires #slug for assigned subagent tasks)
+ */
+import { ToolIntegration, AddressingError } from '../../shared/addressing-system.js';
+import { createTaskOperation, editTaskOperation, listTasksOperation } from '../../shared/task-operations.js';
+import { isDocsPath } from '../../shared/namespace-constants.js';
+/**
+ * Maximum number of operations allowed in a single batch request
+ * Prevents performance issues and potential DoS attacks
+ */
+const MAX_BATCH_SIZE = 100;
+/**
+ * Parse operation target
+ * Supports two formats:
+ * 1. Slug only: "task-slug" or "#task-slug" (uses default document)
+ * 2. Null/undefined (for create operations without specific task reference)
+ */
+function parseOperationTarget(operation, defaultDocument) {
+    const fieldValue = operation.task;
+    if (fieldValue == null) {
+        // Create operations may not have task slug
+        return { document: defaultDocument, slug: '' };
+    }
+    // Check for full path (contains #)
+    if (fieldValue.includes('#')) {
+        const parts = fieldValue.split('#');
+        const docPath = parts[0];
+        const slug = parts[1];
+        if (docPath == null || docPath === '') {
+            throw new AddressingError('Full path must include document path before #', 'MISSING_DOCUMENT_PATH');
+        }
+        if (slug == null || slug === '') {
+            throw new AddressingError('Full path must include task slug after #', 'MISSING_SLUG');
+        }
+        // Override: use embedded document path
+        return { document: docPath, slug };
+    }
+    // Check for path without slug (error case)
+    if (fieldValue.startsWith('/')) {
+        throw new AddressingError('Document path must include task slug after # (e.g., "/doc.md#slug")', 'PATH_WITHOUT_SLUG');
+    }
+    // Slug only: use default document
+    return { document: defaultDocument, slug: fieldValue };
+}
+/**
+ * Get document or auto-create if it doesn't exist
+ * Returns both the document and a flag indicating if it was created
+ */
+async function getOrCreateDocument(documentPath, manager) {
+    // Try to get existing document
+    let document = await manager.getDocument(documentPath);
+    if (document != null) {
+        return { document, created: false };
+    }
+    // Document doesn't exist - auto-create it
+    const { parseDocumentAddress } = await import('../../shared/addressing-system.js');
+    const { createDocumentFile } = await import('../create/file-creator.js');
+    // Parse document address to extract namespace and slug
+    const address = parseDocumentAddress(documentPath);
+    const namespace = address.namespace;
+    const slug = address.slug;
+    // Generate title from slug (convert hyphens to spaces, capitalize words)
+    const title = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    // Create minimal blank document with just H1 header
+    const content = `# ${title}\n\n`;
+    const result = await createDocumentFile(namespace, title, '', // No overview for task documents
+    manager, content, documentPath, slug);
+    // Check if creation was successful
+    if ('error' in result) {
+        throw new AddressingError(`Failed to auto-create document: ${result.error}`, 'DOCUMENT_CREATION_FAILED', { path: documentPath, details: result.details });
+    }
+    // Reload the document from cache
+    document = await manager.getDocument(documentPath);
+    if (document == null) {
+        throw new AddressingError(`Document creation succeeded but document could not be loaded`, 'DOCUMENT_LOAD_FAILED', { path: documentPath });
+    }
+    return { document, created: true };
+}
+/**
+ * Check if this is the first task in the document
+ * A document has its first task if it has no H2+ sections yet
+ */
+function isFirstTaskInDocument(document) {
+    if (document == null)
+        return true;
+    return !document.headings.some(h => h.depth >= 2);
+}
+/**
+ * MCP tool for subagent task management with bulk operations support
+ *
+ * Supports bulk task operations including creation, editing, and listing in a single call.
+ * Always pass operations as an array, even for single task operations.
+ *
+ * VALIDATION: Requires document to be in /docs/ namespace (explicit path prefix required).
+ *
+ * @param args - Object with document path and operations array
+ * @param _state - MCP session state (unused in current implementation)
+ * @returns Bulk operation results with created/edited tasks and filtered lists
+ *
+ * @example
+ * // Single task creation (uses operations array)
+ * const result = await subagentTask({
+ *   document: "/docs/project/setup.md",
+ *   operations: [{
+ *     operation: "create",
+ *     title: "Initialize Database",
+ *     content: "Status: pending\n\nSet up PostgreSQL database"
+ *   }]
+ * });
+ *
+ * // Multiple operations in one call
+ * const result = await subagentTask({
+ *   document: "/docs/project/setup.md",
+ *   operations: [
+ *     { operation: "create", title: "Task 1", content: "Status: pending\n\nContent 1" },
+ *     { operation: "create", title: "Task 2", content: "Status: pending\n\nContent 2" },
+ *     { operation: "list" }
+ *   ]
+ * });
+ *
+ * @throws {AddressingError} When document or task addresses are invalid or not found
+ * @throws {Error} When task operations fail due to content constraints or structural issues
+ */
+export async function subagentTask(args, _state, manager) {
+    try {
+        // Validate operations array exists and is valid
+        const operations = args['operations'];
+        if (!Array.isArray(operations)) {
+            throw new AddressingError('operations array is required and must be an array', 'MISSING_OPERATIONS', { provided: operations, type: typeof operations });
+        }
+        if (operations.length === 0) {
+            throw new AddressingError('operations array cannot be empty - must contain at least one operation', 'EMPTY_OPERATIONS');
+        }
+        // Extract and validate document path
+        const documentPath = ToolIntegration.validateStringParameter(args['document'], 'document');
+        // Use addressing system for document validation
+        const { addresses } = ToolIntegration.validateAndParse({
+            document: documentPath
+        });
+        // REQUIRED: Subagent tools only work in docs namespace (NOT coordinator)
+        if (!isDocsPath(addresses.document.path)) {
+            throw new AddressingError(`Subagent tools only work in /docs/ namespace. Use coordinator tools for /coordinator/ namespace.`, 'INVALID_NAMESPACE_FOR_SUBAGENT', {
+                document: addresses.document.path,
+                suggestion: `Use coordinator_task for coordinator tasks (/coordinator/active.md), subagent_task for regular documents`
+            });
+        }
+        // Get document or auto-create if it doesn't exist
+        const { created: documentCreated } = await getOrCreateDocument(addresses.document.path, manager);
+        // Process all operations
+        const response = await processTaskOperations(addresses.document.path, operations, manager);
+        // Add document_created flag if we auto-created the document
+        if (documentCreated) {
+            response.document_created = true;
+        }
+        return response;
+    }
+    catch (error) {
+        if (error instanceof AddressingError) {
+            const errorResponse = ToolIntegration.formatHierarchicalError(error, 'Verify task section structure and document organization');
+            throw new AddressingError(errorResponse.error, error.code, errorResponse.context);
+        }
+        throw new AddressingError(`Task operation failed: ${error instanceof Error ? error.message : String(error)}`, 'OPERATION_FAILED');
+    }
+}
+/**
+ * Process bulk task operations
+ */
+async function processTaskOperations(documentPath, operations, manager) {
+    // Validate batch size to prevent performance issues
+    if (operations.length > MAX_BATCH_SIZE) {
+        throw new AddressingError(`Batch size ${operations.length} exceeds maximum of ${MAX_BATCH_SIZE}`, 'BATCH_TOO_LARGE', { batchSize: operations.length, maxSize: MAX_BATCH_SIZE });
+    }
+    const results = [];
+    for (const op of operations) {
+        try {
+            // Validate operation type
+            const operation = ToolIntegration.validateOperation(op['operation'] ?? '', ['create', 'edit', 'list'], 'task');
+            // Process based on operation type
+            if (operation === 'create') {
+                const title = ToolIntegration.validateOptionalStringParameter(op['title'], 'title');
+                const content = ToolIntegration.validateOptionalStringParameter(op['content'], 'content');
+                if (title == null || content == null) {
+                    throw new AddressingError('Missing required parameters for create: title and content', 'MISSING_PARAMETER');
+                }
+                // Parse operation target with potential document override
+                const { document: targetDoc, slug: taskSlug } = parseOperationTarget(op, documentPath);
+                // Validate target document (may be different from default)
+                const targetAddresses = ToolIntegration.validateAndParse({
+                    document: targetDoc
+                });
+                // Get or auto-create target document
+                const { document: targetDocument } = await getOrCreateDocument(targetAddresses.addresses.document.path, manager);
+                // Check if this is the first task in the document (before creating)
+                const isFirstTask = isFirstTaskInDocument(targetDocument);
+                // Convert empty string to undefined for createTaskOperation parameter
+                const referenceSlug = taskSlug === '' ? undefined : taskSlug;
+                const createResult = await createTaskOperation(manager, targetAddresses.addresses.document.path, title, content, referenceSlug);
+                const result = {
+                    task: {
+                        slug: createResult.slug,
+                        title: createResult.title,
+                        ...(createResult.hierarchical_context != null && {
+                            hierarchical_context: createResult.hierarchical_context
+                        })
+                    }
+                };
+                // Only show next_step on first task in document
+                if (isFirstTask) {
+                    const fullPath = `${targetAddresses.addresses.document.path}#${createResult.slug}`;
+                    result.next_step = `Give subagent this exact instruction (do not run start_subagent_task yourself): "Run: start_subagent_task ${fullPath}. Then execute the task and respond 'Done' or 'Blocked: [reason]'"`;
+                }
+                results.push(result);
+            }
+            else if (operation === 'edit') {
+                const content = ToolIntegration.validateOptionalStringParameter(op['content'], 'content');
+                if (content == null) {
+                    throw new AddressingError('Missing required parameters for edit: content', 'MISSING_PARAMETER');
+                }
+                // Parse operation target with potential document override
+                const { document: targetDoc, slug: taskSlug } = parseOperationTarget(op, documentPath);
+                if (taskSlug === '') {
+                    throw new AddressingError('Missing required parameter for edit: task slug', 'MISSING_PARAMETER');
+                }
+                // Parse task address with potentially overridden document
+                const taskAddresses = ToolIntegration.validateAndParse({
+                    document: targetDoc,
+                    task: taskSlug
+                });
+                if (taskAddresses.addresses.task == null) {
+                    throw new AddressingError('Task address validation failed', 'INVALID_TASK');
+                }
+                // Get or auto-create target document
+                await getOrCreateDocument(taskAddresses.addresses.document.path, manager);
+                await editTaskOperation(manager, taskAddresses.addresses.document.path, taskSlug, content);
+                results.push({});
+            }
+            else if (operation === 'list') {
+                const statusFilter = ToolIntegration.validateOptionalStringParameter(op['status'], 'status');
+                // Parse operation target with potential document override
+                const { document: targetDoc } = parseOperationTarget(op, documentPath);
+                // Validate target document (may be different from default)
+                const targetAddresses = ToolIntegration.validateAndParse({
+                    document: targetDoc
+                });
+                // Get or auto-create target document
+                await getOrCreateDocument(targetAddresses.addresses.document.path, manager);
+                const listResult = await listTasksOperation(manager, targetAddresses.addresses.document.path, statusFilter);
+                const result = {
+                    count: listResult.tasks.length
+                };
+                if (listResult.tasks.length > 0) {
+                    result.tasks = listResult.tasks;
+                }
+                if (listResult.hierarchical_summary != null) {
+                    result.hierarchical_summary = listResult.hierarchical_summary;
+                }
+                if (listResult.next_task != null) {
+                    result.next_task = listResult.next_task;
+                }
+                results.push(result);
+            }
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            results.push({
+                error: message
+            });
+        }
+    }
+    return {
+        operations_completed: results.filter(r => r.error == null).length,
+        results
+    };
+}
+//# sourceMappingURL=subagent-task.js.map

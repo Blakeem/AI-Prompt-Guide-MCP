@@ -1,0 +1,1229 @@
+/**
+ * Markdown sections CRUD operations using heading ranges
+ */
+import { unified } from 'unified';
+import remarkParse from 'remark-parse';
+import { toMarkdown } from 'mdast-util-to-markdown';
+import { toString } from 'mdast-util-to-string';
+import { headingRange } from 'mdast-util-heading-range';
+import { visitParents } from 'unist-util-visit-parents';
+import { titleToSlug } from './slug.js';
+import { listHeadings } from './parse.js';
+import { ERROR_CODES, DEFAULT_LIMITS } from './constants/defaults.js';
+import { AddressingError } from './shared/addressing-system.js';
+import { validateHeadingDepth } from './shared/validation-utils.js';
+/**
+ * Specialized error classes for section operations using standardized AddressingError hierarchy
+ */
+/**
+ * Base error class for all section operation failures
+ *
+ * This error provides structured information about section operation failures,
+ * including operation context and recovery patterns specific to section manipulation.
+ *
+ * @param message - Human-readable error description
+ * @param code - Machine-readable error code for programmatic handling
+ * @param context - Additional context about the failed operation
+ *
+ * @example Basic section error handling
+ * ```typescript
+ * try {
+ *   await performSectionOperation(document, section, operation);
+ * } catch (error) {
+ *   if (error instanceof SectionOperationError) {
+ *     console.error('Section operation failed:', error.code);
+ *     console.error('Context:', error.context);
+ *     // Implement recovery based on error code
+ *   }
+ * }
+ * ```
+ *
+ * @example Error code patterns
+ * ```typescript
+ * try {
+ *   await editSection(docPath, sectionSlug, content);
+ * } catch (error) {
+ *   if (error instanceof SectionOperationError) {
+ *     switch (error.code) {
+ *       case 'HEADING_NOT_FOUND':
+ *         // Suggest similar section names or create section
+ *         break;
+ *       case 'INVALID_OPERATION':
+ *         // Provide valid operation options
+ *         break;
+ *       case 'DUPLICATE_HEADING':
+ *         // Handle heading conflicts
+ *         break;
+ *     }
+ *   }
+ * }
+ * ```
+ */
+class SectionOperationError extends AddressingError {
+    constructor(message, code, context) {
+        super(message, code, context);
+        this.name = 'SectionOperationError';
+    }
+}
+/**
+ * Error thrown when section content is invalid or malformed
+ *
+ * This error indicates that the provided section content violates format requirements,
+ * contains invalid markup, or fails content validation rules.
+ *
+ * @param message - Specific validation error description
+ * @param context - Additional context about the invalid content
+ *
+ * @example Handling invalid content
+ * ```typescript
+ * try {
+ *   await updateSectionContent(docPath, sectionSlug, content);
+ * } catch (error) {
+ *   if (error instanceof InvalidSectionContentError) {
+ *     console.error('Invalid content:', error.message);
+ *     console.error('Content length:', error.context?.contentLength);
+ *     // Provide content formatting guidance
+ *   }
+ * }
+ * ```
+ *
+ * @example Content validation patterns
+ * ```typescript
+ * function validateSectionContent(content: string): void {
+ *   try {
+ *     if (!content || content.trim() === '') {
+ *       throw new InvalidSectionContentError('Section content cannot be empty');
+ *     }
+ *     if (content.length > MAX_SECTION_LENGTH) {
+ *       throw new InvalidSectionContentError('Section content exceeds maximum length', {
+ *         contentLength: content.length,
+ *         maxLength: MAX_SECTION_LENGTH
+ *       });
+ *     }
+ *   } catch (error) {
+ *     // Handle validation failure with user-friendly guidance
+ *     throw error;
+ *   }
+ * }
+ * ```
+ *
+ * @throws {InvalidSectionContentError} When content validation fails
+ * @see {@link SectionOperationError} Base class for section operation errors
+ */
+class InvalidSectionContentError extends SectionOperationError {
+    constructor(message, context) {
+        super(message, ERROR_CODES.INVALID_SECTION_CONTENT, context);
+        this.name = 'InvalidSectionContentError';
+    }
+}
+/**
+ * Error thrown when a section slug is invalid or malformed
+ *
+ * This error indicates that the provided section slug does not conform to
+ * slug formatting rules, contains invalid characters, or conflicts with
+ * hierarchical addressing patterns.
+ *
+ * @param message - Specific slug validation error description
+ * @param context - Additional context about the invalid slug
+ *
+ * @example Handling invalid slugs
+ * ```typescript
+ * try {
+ *   const section = parseSectionSlug(userProvidedSlug);
+ * } catch (error) {
+ *   if (error instanceof InvalidSlugError) {
+ *     console.error('Invalid slug format:', error.message);
+ *     console.error('Provided slug:', error.context?.slug);
+ *     // Suggest valid slug format
+ *     console.log('Valid format: lowercase letters, numbers, hyphens only');
+ *   }
+ * }
+ * ```
+ *
+ * @example Slug validation and normalization
+ * ```typescript
+ * function normalizeSlug(rawSlug: string): string {
+ *   try {
+ *     // Remove invalid characters and normalize
+ *     const normalized = rawSlug.toLowerCase()
+ *       .replace(/[^a-z0-9-]/g, '-')
+ *       .replace(/-+/g, '-')
+ *       .replace(/^-|-$/g, '');
+ *
+ *     if (!normalized) {
+ *       throw new InvalidSlugError('Slug cannot be empty after normalization', {
+ *         originalSlug: rawSlug,
+ *         normalizedSlug: normalized
+ *       });
+ *     }
+ *
+ *     return normalized;
+ *   } catch (error) {
+ *     if (error instanceof InvalidSlugError) {
+ *       // Provide alternative slug suggestions
+ *       throw error;
+ *     }
+ *     throw new InvalidSlugError('Slug normalization failed', { originalSlug: rawSlug });
+ *   }
+ * }
+ * ```
+ *
+ * @throws {InvalidSlugError} When slug format validation fails
+ * @see {@link SectionOperationError} Base class for section operation errors
+ * @see {@link parseDocumentAddress} Related addressing functionality
+ */
+class InvalidSlugError extends SectionOperationError {
+    constructor(message, context) {
+        super(message, ERROR_CODES.INVALID_SLUG, context);
+        this.name = 'InvalidSlugError';
+    }
+}
+/**
+ * Error thrown when a heading cannot be found in the document
+ *
+ * This error indicates that the specified heading slug does not match any
+ * existing heading in the document. It provides context for recovery including
+ * similar headings and hierarchical path suggestions.
+ *
+ * @param slug - The heading slug that was not found
+ * @param context - Additional context including available headings
+ *
+ * @example Handling missing headings
+ * ```typescript
+ * try {
+ *   const heading = findHeadingBySlug(document, targetSlug);
+ * } catch (error) {
+ *   if (error instanceof HeadingNotFoundError) {
+ *     console.error('Heading not found:', error.context.slug);
+ *     console.log('Available headings:', error.context.availableHeadings);
+ *     // Suggest similar headings for recovery
+ *   }
+ * }
+ * ```
+ *
+ * @example Hierarchical heading recovery
+ * ```typescript
+ * try {
+ *   return findHeadingBySlug(document, hierarchicalSlug);
+ * } catch (error) {
+ *   if (error instanceof HeadingNotFoundError) {
+ *     const slug = error.context.slug as string;
+ *
+ *     // Try parent heading for hierarchical addresses
+ *     if (slug.includes('/')) {
+ *       const parentSlug = slug.split('/').slice(0, -1).join('/');
+ *       console.log(`Heading not found. Try parent: ${parentSlug}`);
+ *       return findHeadingBySlug(document, parentSlug);
+ *     }
+ *
+ *     // Suggest similar headings based on edit distance
+ *     const suggestions = findSimilarHeadings(document, slug);
+ *     console.log('Similar headings:', suggestions);
+ *   }
+ *   throw error;
+ * }
+ * ```
+ *
+ * @example Creating missing headings
+ * ```typescript
+ * async function getOrCreateHeading(document: Document, slug: string): Promise<Heading> {
+ *   try {
+ *     return findHeadingBySlug(document, slug);
+ *   } catch (error) {
+ *     if (error instanceof HeadingNotFoundError) {
+ *       // Prompt user to create the heading
+ *       const shouldCreate = await promptUser(`Create heading "${slug}"?`);
+ *       if (shouldCreate) {
+ *         return await createHeading(document, slug);
+ *       }
+ *     }
+ *     throw error;
+ *   }
+ * }
+ * ```
+ *
+ * @throws {HeadingNotFoundError} When heading lookup fails
+ * @see {@link SectionOperationError} Base class for section operation errors
+ * @see {@link findTargetHierarchicalHeading} Hierarchical heading lookup
+ */
+class HeadingNotFoundError extends SectionOperationError {
+    constructor(slug, context) {
+        super(`Heading not found: ${slug}`, ERROR_CODES.HEADING_NOT_FOUND, { slug, ...context });
+        this.name = 'HeadingNotFoundError';
+    }
+}
+/**
+ * Error thrown when attempting to create a duplicate heading
+ *
+ * This error indicates that a heading with the same title already exists at the
+ * specified depth level, which would create ambiguous addressing. It provides
+ * context for resolving the conflict through slug disambiguation or restructuring.
+ *
+ * @param title - The duplicate heading title
+ * @param slug - The conflicting slug that would be generated
+ * @param depth - The heading depth where the conflict occurs
+ * @param context - Additional context including existing headings
+ *
+ * @example Handling duplicate headings
+ * ```typescript
+ * try {
+ *   await createHeading(document, title, depth);
+ * } catch (error) {
+ *   if (error instanceof DuplicateHeadingError) {
+ *     console.error('Duplicate heading:', error.context.title);
+ *     console.error('Existing slug:', error.context.slug);
+ *     console.error('Conflict at depth:', error.context.depth);
+ *     // Suggest disambiguation strategies
+ *   }
+ * }
+ * ```
+ *
+ * @example Automatic slug disambiguation
+ * ```typescript
+ * async function createHeadingWithDisambiguation(
+ *   document: Document,
+ *   title: string,
+ *   depth: number
+ * ): Promise<Heading> {
+ *   try {
+ *     return await createHeading(document, title, depth);
+ *   } catch (error) {
+ *     if (error instanceof DuplicateHeadingError) {
+ *       // Automatically add suffix for disambiguation
+ *       const baseSlug = error.context.slug as string;
+ *       let counter = 1;
+ *
+ *       while (true) {
+ *         try {
+ *           const disambiguatedTitle = `${title} ${counter}`;
+ *           return await createHeading(document, disambiguatedTitle, depth);
+ *         } catch (duplicateError) {
+ *           if (duplicateError instanceof DuplicateHeadingError) {
+ *             counter++;
+ *             continue;
+ *           }
+ *           throw duplicateError;
+ *         }
+ *       }
+ *     }
+ *     throw error;
+ *   }
+ * }
+ * ```
+ *
+ * @example Manual conflict resolution
+ * ```typescript
+ * function handleDuplicateHeading(error: DuplicateHeadingError): void {
+ *   const { title, slug, depth } = error.context;
+ *
+ *   console.log(`Conflict: Heading "${title}" already exists at depth ${depth}`);
+ *   console.log(`Current slug: ${slug}`);
+ *   console.log('Resolution options:');
+ *   console.log('1. Use different title');
+ *   console.log('2. Move to different section');
+ *   console.log('3. Merge with existing heading');
+ *   console.log('4. Add disambiguating suffix');
+ * }
+ * ```
+ *
+ * @throws {DuplicateHeadingError} When heading title conflicts with existing heading
+ * @see {@link SectionOperationError} Base class for section operation errors
+ * @see {@link GithubSlugger} Slug generation with automatic disambiguation
+ */
+class DuplicateHeadingError extends SectionOperationError {
+    constructor(title, slug, depth, context) {
+        super(`Duplicate heading at depth ${depth}: "${title}" (slug: ${slug})`, ERROR_CODES.DUPLICATE_HEADING, {
+            title,
+            slug,
+            depth,
+            ...context
+        });
+        this.name = 'DuplicateHeadingError';
+    }
+}
+/**
+ * Error thrown when a section title is invalid or malformed
+ *
+ * This error indicates that the provided section title violates title formatting
+ * rules, contains invalid characters, or fails title validation constraints.
+ *
+ * @param message - Specific title validation error description
+ * @param context - Additional context about the invalid title
+ *
+ * @example Handling invalid titles
+ * ```typescript
+ * try {
+ *   await createSectionWithTitle(document, invalidTitle);
+ * } catch (error) {
+ *   if (error instanceof InvalidTitleError) {
+ *     console.error('Invalid title format:', error.message);
+ *     console.error('Provided title:', error.context?.title);
+ *     // Provide title formatting guidance
+ *   }
+ * }
+ * ```
+ *
+ * @example Title validation patterns
+ * ```typescript
+ * function validateSectionTitle(title: string): void {
+ *   if (!title || title.trim() === '') {
+ *     throw new InvalidTitleError('Section title cannot be empty', { title });
+ *   }
+ *
+ *   if (title.length > MAX_TITLE_LENGTH) {
+ *     throw new InvalidTitleError('Section title too long', {
+ *       title,
+ *       length: title.length,
+ *       maxLength: MAX_TITLE_LENGTH
+ *     });
+ *   }
+ *
+ *   if (title.includes('#')) {
+ *     throw new InvalidTitleError('Section title cannot contain # characters', { title });
+ *   }
+ *
+ *   // Check for markdown formatting issues
+ *   if (title.startsWith('*') || title.startsWith('_')) {
+ *     throw new InvalidTitleError('Section title cannot start with markdown formatting', { title });
+ *   }
+ * }
+ * ```
+ *
+ * @example Title normalization and recovery
+ * ```typescript
+ * function normalizeSectionTitle(rawTitle: string): string {
+ *   try {
+ *     validateSectionTitle(rawTitle);
+ *     return rawTitle.trim();
+ *   } catch (error) {
+ *     if (error instanceof InvalidTitleError) {
+ *       // Attempt automatic title fixing
+ *       let normalized = rawTitle.trim();
+ *
+ *       // Remove problematic characters
+ *       normalized = normalized.replace(/[#*_]/g, '');
+ *
+ *       // Truncate if too long
+ *       if (normalized.length > MAX_TITLE_LENGTH) {
+ *         normalized = normalized.substring(0, MAX_TITLE_LENGTH - 3) + '...';
+ *       }
+ *
+ *       if (normalized) {
+ *         console.warn(`Title normalized: "${rawTitle}" -> "${normalized}"`);
+ *         return normalized;
+ *       }
+ *     }
+ *     throw error;
+ *   }
+ * }
+ * ```
+ *
+ * @throws {InvalidTitleError} When title validation fails
+ * @see {@link SectionOperationError} Base class for section operation errors
+ * @see {@link InvalidSlugError} Related slug validation errors
+ */
+class InvalidTitleError extends SectionOperationError {
+    constructor(message, context) {
+        super(message, ERROR_CODES.INVALID_TITLE, context);
+        this.name = 'InvalidTitleError';
+    }
+}
+/**
+ * Error thrown when a section operation is invalid or not supported
+ *
+ * This error indicates that the requested operation cannot be performed due to
+ * invalid operation type, incompatible parameters, or operation constraints.
+ *
+ * @param message - Specific operation validation error description
+ * @param context - Additional context about the invalid operation
+ *
+ * @example Handling invalid operations
+ * ```typescript
+ * try {
+ *   await performSectionOperation(document, section, operation, params);
+ * } catch (error) {
+ *   if (error instanceof InvalidOperationError) {
+ *     console.error('Invalid operation:', error.message);
+ *     console.error('Operation:', error.context?.operation);
+ *     console.error('Valid operations:', error.context?.validOperations);
+ *   }
+ * }
+ * ```
+ *
+ * @example Operation validation patterns
+ * ```typescript
+ * function validateSectionOperation(
+ *   operation: string,
+ *   section: Section,
+ *   content?: string
+ * ): void {
+ *   const validOperations = ['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child', 'remove'];
+ *
+ *   if (!validOperations.includes(operation)) {
+ *     throw new InvalidOperationError('Unknown section operation', {
+ *       operation,
+ *       validOperations
+ *     });
+ *   }
+ *
+ *   // Content required for most operations
+ *   if (['replace', 'append', 'prepend', 'insert_before', 'insert_after', 'append_child'].includes(operation)) {
+ *     if (!content || content.trim() === '') {
+ *       throw new InvalidOperationError(`Content required for operation: ${operation}`, {
+ *         operation,
+ *         hasContent: !!content
+ *       });
+ *     }
+ *   }
+ *
+ *   // Title required for creation operations
+ *   if (['insert_before', 'insert_after', 'append_child'].includes(operation)) {
+ *     if (!context?.title) {
+ *       throw new InvalidOperationError(`Title required for creation operation: ${operation}`, {
+ *         operation,
+ *         requiredFields: ['title', 'content']
+ *       });
+ *     }
+ *   }
+ * }
+ * ```
+ *
+ * @example Operation compatibility checking
+ * ```typescript
+ * async function performCompatibleOperation(
+ *   document: Document,
+ *   section: Section,
+ *   operation: string,
+ *   params: OperationParams
+ * ): Promise<OperationResult> {
+ *   try {
+ *     validateSectionOperation(operation, section, params.content);
+ *     return await executeSectionOperation(document, section, operation, params);
+ *   } catch (error) {
+ *     if (error instanceof InvalidOperationError) {
+ *       // Suggest compatible operations
+ *       const suggestions = getCompatibleOperations(section, params);
+ *       console.log('Suggested operations:', suggestions);
+ *
+ *       // Try fallback operation if available
+ *       if (suggestions.length > 0) {
+ *         console.log(`Trying fallback operation: ${suggestions[0]}`);
+ *         return await executeSectionOperation(document, section, suggestions[0], params);
+ *       }
+ *     }
+ *     throw error;
+ *   }
+ * }
+ * ```
+ *
+ * @throws {InvalidOperationError} When operation validation fails
+ * @see {@link SectionOperationError} Base class for section operation errors
+ * @see {@link SECTION_CONSTANTS.OPERATIONS} Valid operation types
+ */
+class InvalidOperationError extends SectionOperationError {
+    constructor(message, context) {
+        super(message, ERROR_CODES.INVALID_OPERATION, context);
+        this.name = 'InvalidOperationError';
+    }
+}
+/**
+ * Parses markdown into AST
+ */
+function parseMarkdown(markdown) {
+    try {
+        return unified().use(remarkParse).parse(markdown);
+    }
+    catch (error) {
+        throw new InvalidSectionContentError('Failed to parse markdown', { error: error instanceof Error ? error.message : String(error) });
+    }
+}
+/**
+ * Creates a heading matcher function for the given slug with hierarchical support
+ */
+function matchHeadingBySlug(slug, headings) {
+    let headingIndex = -1; // Track which heading we're currently testing
+    return (value) => {
+        headingIndex++; // Increment for each heading tested
+        const basicSlug = titleToSlug(value.trim());
+        // For hierarchical paths, we need to match the specific heading, not just any heading with the same title
+        if (slug.includes('/') && headings) {
+            // Find the target heading using our hierarchical logic
+            const targetHeading = findTargetHierarchicalHeading(slug, headings);
+            if (targetHeading) {
+                // Only match if this is the exact heading we want
+                return headingIndex === targetHeading.index && titleToSlug(targetHeading.title) === basicSlug;
+            }
+            return false;
+        }
+        // Direct flat match (current behavior)
+        return basicSlug === slug;
+    };
+}
+/**
+ * Finds all headings that could potentially match a given slug, including disambiguated versions
+ *
+ * @param finalSlug - The target slug to match (e.g., "overview")
+ * @param headings - Array of all headings in the document
+ * @returns Array of candidate headings that match the slug exactly or with disambiguation suffix
+ *
+ * @example
+ * // For slug "overview", finds headings with slugs: "overview", "overview-1", "overview-2", etc.
+ * const candidateHeadings = findCandidateHeadings("overview", headings);
+ */
+function findCandidateHeadings(finalSlug, headings) {
+    return headings.filter(h => {
+        return h.slug === finalSlug || h.slug.startsWith(`${finalSlug}-`);
+    });
+}
+// HierarchyIndex interface removed (dead code cleanup)
+// buildHierarchyIndex function removed (dead code cleanup)
+// buildHierarchicalPathOptimized function removed (dead code cleanup)
+/**
+ * Build hierarchical path using parent pointers - O(depth) instead of O(n)
+ *
+ * Leverages existing parentIndex field to follow parent chain upward.
+ * Typical performance: 1-6 iterations for standard markdown heading depths.
+ *
+ * Performance improvement: For a 100-heading document with target at index 50:
+ * - Old: ~50 iterations (walks back from index 50 to 0)
+ * - New: ~3 iterations (follows 3 parent pointers for depth-3 heading)
+ * - Result: 10-30x faster
+ *
+ * @param targetHeading - The heading to build the path for
+ * @param headings - Complete array of all headings in the document (must be in document order)
+ * @returns Array of slugs representing the hierarchical path from root to target
+ *
+ * @example
+ * // For a heading at depth 3 with parents, returns something like:
+ * // ["api", "authentication", "jwt-tokens"]
+ * const path = buildHierarchicalPath(jwtHeading, allHeadings);
+ */
+function buildHierarchicalPath(targetHeading, headings) {
+    const pathSegments = [];
+    let current = targetHeading;
+    // Follow parent pointers backward - O(depth) typically 1-6 iterations
+    while (current != null) {
+        pathSegments.unshift(current.slug);
+        // Move to parent using parentIndex
+        if (current.parentIndex !== null) {
+            const parent = headings[current.parentIndex];
+            current = parent ?? null; // Handle case where parent index is invalid
+        }
+        else {
+            current = null; // Reached root (depth 1 heading has parentIndex: null)
+        }
+    }
+    return pathSegments;
+}
+/**
+ * Checks if an actual path matches the expected path pattern (exact or suffix match)
+ *
+ * @param actualPath - The actual hierarchical path built from document structure
+ * @param expectedParts - The expected path parts to match against
+ * @returns true if the actual path exactly matches or ends with the expected pattern
+ *
+ * @example
+ * // Exact match
+ * matchesPathPattern(["api", "auth"], ["api", "auth"]) // → true
+ *
+ * // Suffix match (allows deeper nesting)
+ * matchesPathPattern(["docs", "api", "auth"], ["api", "auth"]) // → true
+ */
+function matchesPathPattern(actualPath, expectedParts) {
+    const actualPathString = actualPath.join('/');
+    const expectedPathString = expectedParts.join('/');
+    // For hierarchical matching, check if the expected path is a suffix of the actual path
+    return actualPathString === expectedPathString || actualPathString.endsWith(`/${expectedPathString}`);
+}
+/**
+ * Attempts to match paths by handling disambiguation in intermediate path components
+ *
+ * @param actualPath - The actual hierarchical path with potential disambiguation suffixes
+ * @param expectedParts - The expected path parts without disambiguation suffixes
+ * @returns true if the paths match when accounting for disambiguation (e.g., "-1", "-2" suffixes)
+ *
+ * @example
+ * // Handles disambiguation in path components
+ * const actual = ["frontend", "authentication-1", "jwt-tokens-1"];
+ * const expected = ["frontend", "authentication", "jwt-tokens"];
+ * tryDisambiguationMatching(actual, expected) // → true
+ *
+ * @throws Never throws - returns false for any invalid input
+ */
+function tryDisambiguationMatching(actualPath, expectedParts) {
+    if (expectedParts.length <= 1) {
+        return false;
+    }
+    // Build expected path with potential disambiguation
+    const expectedWithPossibleDisambiguation = expectedParts.map((part, index) => {
+        // For each part, see if there's a disambiguated version in the actual path
+        const actualPart = actualPath[actualPath.length - expectedParts.length + index];
+        if (actualPart != null && actualPart !== '' && (actualPart === part || actualPart.startsWith(`${part}-`))) {
+            return actualPart;
+        }
+        return part;
+    });
+    return matchesPathPattern(actualPath, expectedWithPossibleDisambiguation);
+}
+/**
+ * Finds the specific heading that matches the hierarchical path
+ *
+ * This function implements a three-stage matching algorithm to handle both flat and hierarchical
+ * section addressing with automatic disambiguation support (e.g., "overview", "overview-1", "overview-2").
+ *
+ * Algorithm stages:
+ * 1. Exact/suffix matching: Direct path comparison for simple hierarchical paths
+ * 2. Intermediate disambiguation: Handles disambiguation in parent path components
+ * 3. Final slug disambiguation: Handles disambiguation in the target section itself
+ *
+ * @param targetPath - Hierarchical path to match (e.g., "api/auth/jwt-tokens")
+ * @param headings - Complete array of all headings in the document (must be in document order)
+ * @returns The matching heading or null if no match found
+ *
+ * @example
+ * // Find a heading using hierarchical path
+ * const heading = findTargetHierarchicalHeading("api/auth/jwt-tokens", allHeadings);
+ * if (heading) {
+ *   console.log(`Found heading: ${heading.title} (slug: ${heading.slug})`);
+ * }
+ *
+ * @throws Never throws - returns null for invalid input or no match
+ */
+function findTargetHierarchicalHeading(targetPath, headings) {
+    // Step 1: Parse target path into components
+    const pathParts = targetPath.toLowerCase().split('/');
+    const finalSlug = pathParts[pathParts.length - 1];
+    if (finalSlug == null) {
+        return null; // Empty path parts, should not happen due to validation
+    }
+    // Step 2: Find all headings that could match the target slug
+    // This includes exact matches ("overview") and disambiguated versions ("overview-1", "overview-2")
+    const candidateHeadings = findCandidateHeadings(finalSlug, headings);
+    // Step 3: Test each candidate heading against the target path using three matching strategies
+    for (const candidateHeading of candidateHeadings) {
+        // Build the actual hierarchical path for this candidate by walking up the document structure
+        const actualPath = buildHierarchicalPath(candidateHeading, headings);
+        // Strategy 1: Try exact or suffix matching first
+        // Example: ["api", "auth"] matches ["api", "auth"] or ["docs", "api", "auth"]
+        if (matchesPathPattern(actualPath, pathParts)) {
+            return candidateHeading;
+        }
+        // Strategy 2: Try disambiguation matching for intermediate path components
+        // This handles cases where parent sections have disambiguation suffixes
+        // Example: User searches for "api/auth" but actual path is "api-1/auth-1"
+        if (tryDisambiguationMatching(actualPath, pathParts)) {
+            return candidateHeading;
+        }
+        // Strategy 3: Check if we can match by replacing the final slug with the disambiguated version
+        // This handles cases where the target section itself has a disambiguation suffix
+        // Example: User searches for "api/auth/jwt" but actual slug is "jwt-tokens-1"
+        const expectedWithDisambiguated = pathParts.slice(0, -1).concat([candidateHeading.slug]);
+        if (matchesPathPattern(actualPath, expectedWithDisambiguated)) {
+            return candidateHeading;
+        }
+    }
+    // Step 4: No match found after trying all strategies
+    return null;
+}
+// Function removed as it was unused (dead code cleanup)
+// findCommonPrefix function removed (dead code cleanup)
+/**
+ * Finds the parent heading index for a given slug
+ */
+function findParentHeadingIndex(tree, slug) {
+    const headings = [];
+    let counter = -1;
+    visitParents(tree, 'heading', (node) => {
+        counter++;
+        headings.push({ node, index: counter });
+    });
+    const target = headings.find(h => titleToSlug(toString(h.node).trim()) === slug);
+    if (!target) {
+        return null;
+    }
+    // Find the most recent heading with smaller depth
+    for (let i = target.index - 1; i >= 0; i--) {
+        const heading = headings[i];
+        if (heading && heading.node.depth < target.node.depth) {
+            return i;
+        }
+    }
+    return null; // Top-level heading
+}
+/**
+ * Ensures uniqueness among sibling headings
+ */
+function ensureUniqueAmongSiblings(tree, parentIndex, depth, newTitle) {
+    const targetSlug = titleToSlug(newTitle);
+    const headings = [];
+    let counter = -1;
+    visitParents(tree, 'heading', (node) => {
+        counter++;
+        headings.push({ node, index: counter });
+    });
+    // Get parent index for each heading
+    const getParentIndex = (index) => {
+        for (let i = index - 1; i >= 0; i--) {
+            const heading = headings[i];
+            const targetHeading = headings[index];
+            if (heading && targetHeading && heading.node.depth < targetHeading.node.depth) {
+                return i;
+            }
+        }
+        return null;
+    };
+    // Check for duplicates among siblings
+    for (let i = 0; i < headings.length; i++) {
+        const heading = headings[i];
+        if (heading?.node === undefined)
+            continue;
+        const headingParentIndex = getParentIndex(i);
+        if (headingParentIndex === parentIndex && heading.node.depth === depth) {
+            const existingSlug = titleToSlug(toString(heading.node).trim());
+            if (existingSlug === targetSlug) {
+                throw new DuplicateHeadingError(newTitle, targetSlug, depth, {
+                    parentIndex,
+                    conflictingIndex: i,
+                });
+            }
+        }
+    }
+}
+/**
+ * Validates hierarchical path for security and format compliance
+ */
+function validateHierarchicalPath(slug) {
+    // Maximum path length (total characters)
+    const MAX_PATH_LENGTH = 1000;
+    // Maximum path depth (number of segments)
+    const MAX_PATH_DEPTH = 20;
+    // Maximum individual component length
+    const MAX_COMPONENT_LENGTH = 200;
+    if (slug.length > MAX_PATH_LENGTH) {
+        throw new InvalidSlugError(`Hierarchical path too long (max: ${MAX_PATH_LENGTH} characters)`, { slug, length: slug.length, maxLength: MAX_PATH_LENGTH });
+    }
+    // Normalize Unicode to prevent normalization attacks
+    const normalizedSlug = slug.normalize('NFC');
+    if (normalizedSlug !== slug) {
+        throw new InvalidSlugError('Path contains non-normalized Unicode characters', { slug, normalized: normalizedSlug });
+    }
+    // Check for dangerous characters
+    // eslint-disable-next-line no-control-regex
+    const dangerousChars = /[\x00-\x1F\x7F\uFFFE\uFFFF\\%]/;
+    if (dangerousChars.test(slug)) {
+        throw new InvalidSlugError('Path contains dangerous characters (control chars, null bytes, backslashes, or percent encoding)', { slug });
+    }
+    // Check for whitespace at start/end or in problematic positions
+    if (slug.trim() !== slug || /\s{2,}/.test(slug)) {
+        throw new InvalidSlugError('Path contains leading/trailing whitespace or multiple consecutive spaces', { slug });
+    }
+    // Split into components for detailed validation
+    const components = slug.split('/');
+    if (components.length > MAX_PATH_DEPTH) {
+        throw new InvalidSlugError(`Path too deep (max: ${MAX_PATH_DEPTH} levels)`, { slug, depth: components.length, maxDepth: MAX_PATH_DEPTH });
+    }
+    for (const component of components) {
+        if (component.length === 0) {
+            throw new InvalidSlugError('Path contains empty components (double slashes)', { slug });
+        }
+        if (component.length > MAX_COMPONENT_LENGTH) {
+            throw new InvalidSlugError(`Path component too long (max: ${MAX_COMPONENT_LENGTH} characters)`, { slug, component, length: component.length, maxLength: MAX_COMPONENT_LENGTH });
+        }
+        // Check for path traversal attempts
+        if (component === '.' || component === '..' || component.includes('..')) {
+            throw new InvalidSlugError('Path contains path traversal attempts', { slug, component });
+        }
+        // Check for percent encoding (simple detection)
+        if (component.includes('%')) {
+            throw new InvalidSlugError('Path contains percent encoding which is not allowed', { slug, component });
+        }
+    }
+    // Additional security checks
+    if (slug.startsWith('/') || slug.endsWith('/')) {
+        throw new InvalidSlugError('Path cannot start or end with forward slash', { slug });
+    }
+    if (slug.includes('//')) {
+        throw new InvalidSlugError('Path cannot contain double slashes', { slug });
+    }
+}
+/**
+ * Validates section body content
+ */
+function validateSectionBody(body) {
+    if (typeof body !== 'string') {
+        throw new InvalidSectionContentError('Section body must be a string', { type: typeof body });
+    }
+    if (body.length > DEFAULT_LIMITS.MAX_SECTION_BODY_LENGTH) {
+        throw new InvalidSectionContentError(`Section body too long (max: ${DEFAULT_LIMITS.MAX_SECTION_BODY_LENGTH} characters)`, { length: body.length, maxLength: DEFAULT_LIMITS.MAX_SECTION_BODY_LENGTH });
+    }
+}
+/**
+ * Validates a slug for security and format compliance (both flat and hierarchical)
+ * Returns the normalized slug for further processing
+ */
+function validateSlugSecurity(slug) {
+    // Auto-normalize Unicode to prevent normalization attacks
+    const normalizedSlug = slug.normalize('NFC');
+    // Check for dangerous characters in the normalized slug
+    // eslint-disable-next-line no-control-regex
+    const dangerousChars = /[\x00-\x1F\x7F\uFFFE\uFFFF\\%]/;
+    if (dangerousChars.test(normalizedSlug)) {
+        throw new InvalidSlugError('Slug contains dangerous characters (control chars, null bytes, backslashes, or percent encoding)', { slug: normalizedSlug });
+    }
+    // Check for length limits
+    const MAX_SLUG_LENGTH = 1000;
+    if (normalizedSlug.length > MAX_SLUG_LENGTH) {
+        throw new InvalidSlugError(`Slug too long (max: ${MAX_SLUG_LENGTH} characters)`, { slug: normalizedSlug, length: normalizedSlug.length, maxLength: MAX_SLUG_LENGTH });
+    }
+    // Check for whitespace issues
+    if (normalizedSlug.trim() !== normalizedSlug || /\s{2,}/.test(normalizedSlug)) {
+        throw new InvalidSlugError('Slug contains leading/trailing whitespace or multiple consecutive spaces', { slug: normalizedSlug });
+    }
+    return normalizedSlug;
+}
+/**
+ * Extracts the content of a specific section from a markdown document
+ *
+ * Supports both flat slug addressing (e.g., "overview") and hierarchical addressing
+ * (e.g., "api/auth/jwt-tokens") with comprehensive security validation and disambiguation handling.
+ *
+ * @param markdown - The complete markdown content to search
+ * @param slug - Section identifier (flat slug or hierarchical path)
+ * @returns The section content (heading + body) or null if not found
+ *
+ * @example
+ * // Flat addressing
+ * const content = readSection(markdownContent, "overview");
+ *
+ * // Hierarchical addressing
+ * const content = readSection(markdownContent, "api/auth/jwt-tokens");
+ *
+ * // Returns the heading and body content:
+ * // "## Overview\n\nThis section covers..."
+ *
+ * @throws {Error} When slug is invalid, contains dangerous characters, or violates security constraints
+ * @throws {Error} When hierarchical path validation fails (too long, dangerous chars, etc.)
+ */
+export function readSection(markdown, slug) {
+    // Validate markdown parameter
+    if (typeof markdown !== 'string') {
+        throw new InvalidSectionContentError('Markdown content must be a string', { type: typeof markdown });
+    }
+    if (markdown.trim() === '') {
+        throw new InvalidSectionContentError('Markdown content cannot be empty', { length: markdown.length });
+    }
+    if (!slug || typeof slug !== 'string') {
+        throw new InvalidSlugError('Slug must be a non-empty string', { slug });
+    }
+    // Validate slug security and get normalized version
+    const normalizedSlug = validateSlugSecurity(slug);
+    // For hierarchical paths, perform additional hierarchical validation
+    if (normalizedSlug.includes('/')) {
+        validateHierarchicalPath(normalizedSlug);
+        const headings = listHeadings(markdown);
+        const targetHeading = findTargetHierarchicalHeading(normalizedSlug, headings);
+        if (!targetHeading) {
+            throw new HeadingNotFoundError(normalizedSlug, { hierarchicalContext: true });
+        }
+    }
+    const tree = parseMarkdown(markdown);
+    const headings = listHeadings(markdown); // Get heading context
+    let captured = null;
+    headingRange(tree, matchHeadingBySlug(normalizedSlug, headings), (start, nodes, end) => {
+        // Serialize the captured section INCLUDING the heading BUT EXCLUDING the end boundary
+        // The end parameter is the next section's heading and should not be part of this section's content
+        const section = {
+            type: 'root',
+            children: [start, ...nodes].filter(Boolean),
+        };
+        try {
+            captured = toMarkdown(section);
+        }
+        catch (error) {
+            throw new InvalidSectionContentError('Failed to serialize section', {
+                slug: normalizedSlug,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+        return [start, ...nodes, end]; // Still return all nodes (no modification to AST)
+    });
+    return captured;
+}
+/**
+ * Replaces the body of a section while keeping the heading
+ */
+export function replaceSectionBody(markdown, slug, newBodyMarkdown) {
+    if (!slug || typeof slug !== 'string') {
+        throw new InvalidSlugError('Slug must be a non-empty string', { slug });
+    }
+    validateSectionBody(newBodyMarkdown);
+    const tree = parseMarkdown(markdown);
+    const headings = listHeadings(markdown); // Get heading context
+    const newBodyTree = parseMarkdown(newBodyMarkdown);
+    // Filter out any heading nodes from the new body (safety measure)
+    const sanitizedChildren = newBodyTree.children.filter(node => node.type !== 'heading');
+    let found = false;
+    headingRange(tree, matchHeadingBySlug(slug, headings), (start, _nodes, end) => {
+        found = true;
+        return [start, ...sanitizedChildren, end].filter(Boolean);
+    });
+    if (!found) {
+        throw new HeadingNotFoundError(slug);
+    }
+    try {
+        return toMarkdown(tree);
+    }
+    catch (error) {
+        throw new InvalidSectionContentError('Failed to serialize updated markdown', {
+            slug,
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+}
+/**
+ * Strategy for inserting a section before the reference heading
+ */
+class InsertBeforeStrategy {
+    determineParentAndDepth(context) {
+        return {
+            parentIndex: findParentHeadingIndex(context.tree, context.refSlug),
+            finalDepth: context.newDepth
+        };
+    }
+    insertInAST(start, nodes, end, insertNodes) {
+        return [...insertNodes, start, ...nodes, end].filter((node) => node != null);
+    }
+}
+/**
+ * Strategy for inserting a section after the reference heading
+ */
+class InsertAfterStrategy {
+    determineParentAndDepth(context) {
+        return {
+            parentIndex: findParentHeadingIndex(context.tree, context.refSlug),
+            finalDepth: context.newDepth
+        };
+    }
+    insertInAST(start, nodes, end, insertNodes) {
+        return [start, ...nodes, end, ...insertNodes].filter((node) => node != null);
+    }
+}
+/**
+ * Strategy for appending a section as a child of the reference heading
+ */
+class AppendChildStrategy {
+    determineParentAndDepth(context) {
+        // Find the reference heading to use as parent
+        const headings = [];
+        let counter = -1;
+        visitParents(context.tree, 'heading', (node) => {
+            counter++;
+            headings.push({ node, index: counter });
+        });
+        const refHeading = headings.find(h => titleToSlug(toString(h.node).trim()) === context.refSlug);
+        if (!refHeading) {
+            throw new HeadingNotFoundError(context.refSlug);
+        }
+        const calculatedDepth = refHeading.node.depth + 1;
+        return {
+            parentIndex: refHeading.index,
+            finalDepth: validateHeadingDepth(calculatedDepth)
+        };
+    }
+    insertInAST(start, nodes, end, insertNodes) {
+        return [start, ...nodes, ...insertNodes, end].filter((node) => node != null);
+    }
+}
+/**
+ * Factory for creating insertion strategies
+ */
+class SectionInsertionStrategyFactory {
+    static createStrategy(mode) {
+        switch (mode) {
+            case 'insert_before':
+                return new InsertBeforeStrategy();
+            case 'insert_after':
+                return new InsertAfterStrategy();
+            case 'append_child':
+                return new AppendChildStrategy();
+            default:
+                throw new InvalidOperationError(`Invalid insert mode: ${mode}`, { mode });
+        }
+    }
+}
+/**
+ * Inserts a new section relative to an existing heading
+ */
+export function insertRelative(markdown, refSlug, mode, newDepth, newTitle, bodyMarkdown = '') {
+    // Input validation
+    if (!refSlug || typeof refSlug !== 'string') {
+        throw new InvalidSlugError('Reference slug must be a non-empty string', { slug: refSlug });
+    }
+    if (!newTitle || typeof newTitle !== 'string') {
+        throw new InvalidTitleError('New title must be a non-empty string', { title: newTitle });
+    }
+    validateSectionBody(bodyMarkdown);
+    // Parse markdown and prepare context
+    const tree = parseMarkdown(markdown);
+    const headings = listHeadings(markdown);
+    const context = {
+        markdown,
+        refSlug,
+        newTitle,
+        newDepth,
+        bodyMarkdown,
+        tree,
+        headings
+    };
+    // Get strategy for the specified mode
+    const strategy = SectionInsertionStrategyFactory.createStrategy(mode);
+    // Determine parent and depth using strategy
+    const { parentIndex, finalDepth } = strategy.determineParentAndDepth(context);
+    // Ensure uniqueness among siblings
+    ensureUniqueAmongSiblings(tree, parentIndex, finalDepth, newTitle);
+    // Parse body content and create insertion nodes
+    const bodyTree = parseMarkdown(bodyMarkdown);
+    const bodyChildren = bodyTree.children.filter(node => node.type !== 'heading');
+    const headingNode = {
+        type: 'heading',
+        depth: finalDepth,
+        children: [{ type: 'text', value: newTitle }],
+    };
+    const insertNodes = [headingNode, ...bodyChildren];
+    // Perform the insertion using strategy
+    let found = false;
+    const resultTree = parseMarkdown(markdown); // Fresh tree for mutation
+    headingRange(resultTree, matchHeadingBySlug(refSlug, headings), (start, nodes, end) => {
+        found = true;
+        return strategy.insertInAST(start, nodes, end, insertNodes);
+    });
+    if (!found) {
+        throw new HeadingNotFoundError(refSlug);
+    }
+    try {
+        return toMarkdown(resultTree);
+    }
+    catch (error) {
+        throw new InvalidSectionContentError('Failed to serialize updated markdown', {
+            refSlug,
+            newTitle,
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+}
+/**
+ * Renames a heading (changes its title and thus its slug)
+ */
+export function renameHeading(markdown, slug, newTitle) {
+    if (!slug || typeof slug !== 'string') {
+        throw new InvalidSlugError('Slug must be a non-empty string', { slug });
+    }
+    if (!newTitle || typeof newTitle !== 'string') {
+        throw new InvalidTitleError('New title must be a non-empty string', { title: newTitle });
+    }
+    const tree = parseMarkdown(markdown);
+    // Find the target heading
+    const headings = [];
+    let counter = -1;
+    visitParents(tree, 'heading', (node) => {
+        counter++;
+        headings.push({ node, index: counter });
+    });
+    let targetHeading = null;
+    let targetIndex = -1;
+    for (const { node, index } of headings) {
+        if (titleToSlug(toString(node).trim()) === slug) {
+            targetHeading = node;
+            targetIndex = index;
+            break;
+        }
+    }
+    if (!targetHeading) {
+        throw new HeadingNotFoundError(slug);
+    }
+    // Find parent of target heading
+    let parentIndex = null;
+    for (let i = targetIndex - 1; i >= 0; i--) {
+        const heading = headings[i];
+        if (heading && heading.node.depth < targetHeading.depth) {
+            parentIndex = i;
+            break;
+        }
+    }
+    // Ensure uniqueness among siblings
+    const validatedDepth = validateHeadingDepth(targetHeading.depth);
+    ensureUniqueAmongSiblings(tree, parentIndex, validatedDepth, newTitle);
+    // Update the heading's text
+    targetHeading.children = [{ type: 'text', value: newTitle }];
+    try {
+        return toMarkdown(tree);
+    }
+    catch (error) {
+        throw new InvalidSectionContentError('Failed to serialize updated markdown', {
+            slug,
+            newTitle,
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+}
+/**
+ * Gets the content that would be removed by a deleteSection operation
+ * This excludes the end boundary marker to match actual removal behavior
+ */
+export function getSectionContentForRemoval(markdown, slug) {
+    if (!slug || typeof slug !== 'string') {
+        throw new InvalidSlugError('Slug must be a non-empty string', { slug });
+    }
+    const tree = parseMarkdown(markdown);
+    const headings = listHeadings(markdown); // Get heading context
+    let captured = null;
+    headingRange(tree, matchHeadingBySlug(slug, headings), (start, nodes, _end) => {
+        // Serialize only the content that will be removed (excluding end boundary)
+        // This matches the behavior of deleteSection which preserves the end marker
+        const section = {
+            type: 'root',
+            children: [start, ...nodes].filter(Boolean),
+        };
+        try {
+            captured = toMarkdown(section);
+        }
+        catch (error) {
+            throw new InvalidSectionContentError('Failed to serialize section content for removal', {
+                slug,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+        return [start, ...nodes]; // No modification (not actually removing anything here)
+    });
+    return captured;
+}
+/**
+ * Deletes an entire section (heading and its content)
+ */
+export function deleteSection(markdown, slug) {
+    if (!slug || typeof slug !== 'string') {
+        throw new InvalidSlugError('Slug must be a non-empty string', { slug });
+    }
+    const tree = parseMarkdown(markdown);
+    const headings = listHeadings(markdown); // Get heading context
+    let found = false;
+    headingRange(tree, matchHeadingBySlug(slug, headings), (_start, _nodes, end) => {
+        found = true;
+        // CRITICAL BUG FIX: Preserve the end heading to prevent data loss
+        // The end heading marks the start of the next section and must not be deleted
+        return end ? [end] : [];
+    });
+    if (!found) {
+        throw new HeadingNotFoundError(slug);
+    }
+    try {
+        return toMarkdown(tree);
+    }
+    catch (error) {
+        throw new InvalidSectionContentError('Failed to serialize updated markdown', {
+            slug,
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+}
+//# sourceMappingURL=sections.js.map
