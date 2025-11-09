@@ -5,7 +5,8 @@
   },
   "plugins": [
     {
-      "name": "ai-prompt-guide"
+      "name": "ai-prompt-guide",
+      "source": "${CLAUDE_PLUGIN_ROOT}"
     }
   ]
 }
