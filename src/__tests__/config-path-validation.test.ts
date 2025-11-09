@@ -61,8 +61,8 @@ describe('Config Path Validation', () => {
       const nonExistentPath = join(tempDir, 'non-existent-docs');
       process.env['MCP_WORKSPACE_PATH'] = nonExistentPath;
 
-      // Act & Assert: Should throw error for non-existent required path
-      expect(() => loadConfig()).toThrow(/MCP_WORKSPACE_PATH directory does not exist/);
+      // Act & Assert: Should throw error for non-existent workspace path
+      expect(() => loadConfig()).toThrow(/Workspace directory does not exist/);
     });
 
     it('should succeed when MCP_WORKSPACE_PATH exists', () => {
@@ -80,7 +80,7 @@ describe('Config Path Validation', () => {
       process.env['MCP_WORKSPACE_PATH'] = './non-existent-docs';
 
       // Act & Assert: Should throw error after resolution
-      expect(() => loadConfig()).toThrow(/MCP_WORKSPACE_PATH directory does not exist/);
+      expect(() => loadConfig()).toThrow(/Workspace directory does not exist/);
     });
 
     it('should succeed when relative MCP_WORKSPACE_PATH resolves to existing directory', () => {
@@ -254,7 +254,7 @@ describe('Config Path Validation', () => {
       );
 
       // Act & Assert: Should throw error
-      expect(() => loadConfig()).toThrow(/MCP_WORKSPACE_PATH directory does not exist/);
+      expect(() => loadConfig()).toThrow(/Workspace directory does not exist/);
     });
 
     it('should validate optional paths from .mcp-config.json', () => {

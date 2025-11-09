@@ -259,21 +259,22 @@ describe('loadConfig', () => {
       expect(config.serverName).toBe('custom-server');
     });
 
-    test('should throw validation error when MCP_WORKSPACE_PATH is missing but REFERENCE_EXTRACTION_DEPTH is valid', async () => {
-      // Set only the optional field, not the required one
+    test('should use zero-config defaults when MCP_WORKSPACE_PATH is missing', async () => {
+      // Zero-config mode: MCP_WORKSPACE_PATH defaults to process.cwd()
       process.env['REFERENCE_EXTRACTION_DEPTH'] = '3';
       delete process.env['MCP_WORKSPACE_PATH'];
 
       const { loadConfig } = await import('../config.js');
 
-      expect(() => loadConfig()).toThrow();
-      try {
-        loadConfig();
-      } catch (error) {
-        const specError = error as SpecDocsError;
-        expect(specError.code).toBe(ERROR_CODES.ENVIRONMENT_ERROR);
-        expect(specError.message).toContain('MCP_WORKSPACE_PATH is required');
-      }
+      // Should NOT throw - defaults to process.cwd()
+      const config = loadConfig();
+
+      expect(config.workspaceBasePath).toBe(process.cwd());
+      expect(config.referenceExtractionDepth).toBe(3);
+      // In zero-config mode, paths should use .ai-prompt-guide/ prefix
+      expect(config.docsBasePath).toContain('.ai-prompt-guide/docs');
+      expect(config.archivedBasePath).toContain('.ai-prompt-guide/archived');
+      expect(config.coordinatorBasePath).toContain('.ai-prompt-guide/coordinator');
     });
   });
 });

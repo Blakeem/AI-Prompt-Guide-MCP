@@ -143,7 +143,7 @@ const ServerConfigSchema = z.object({
 
 /**
  * Loads and validates environment variables
- * Only loads essential user-configurable settings, others use defaults
+ * All settings are optional - defaults provide zero-config operation
  */
 function loadEnvironmentVariables(): Record<string, string | undefined> {
   // Load .env file if it exists
@@ -163,7 +163,7 @@ function loadEnvironmentVariables(): Record<string, string | undefined> {
     // Optional: Allow override of reference extraction depth
     REFERENCE_EXTRACTION_DEPTH: process.env['REFERENCE_EXTRACTION_DEPTH'],
 
-    // Required: The only setting users must configure
+    // Optional: Workspace path (defaults to process.cwd() for zero-config)
     MCP_WORKSPACE_PATH: process.env['MCP_WORKSPACE_PATH'],
 
     // Optional: Allow override of workflows and guides paths
@@ -179,7 +179,8 @@ function loadEnvironmentVariables(): Record<string, string | undefined> {
 
 /**
  * Converts environment variables to typed configuration object
- * Uses sensible defaults for most settings, only requires MCP_WORKSPACE_PATH from user
+ * Zero-config by default - all settings have sensible defaults
+ * MCP_WORKSPACE_PATH defaults to process.cwd() for automatic project detection
  *
  * @param env - Environment variables to parse
  * @param projectConfig - Optional project config from .mcp-config.json (takes precedence)
@@ -229,22 +230,24 @@ function parseEnvironmentVariables(
   // Determine if project config exists (has any keys)
   const hasProjectConfig = Object.keys(projectConfig).length > 0;
 
-  // Required: MCP_WORKSPACE_PATH is the only setting users must provide
+  // Optional: MCP_WORKSPACE_PATH defaults to process.cwd() for zero-config operation
   // Project config takes complete precedence - if project config exists, only use project config values
-  let workspaceBasePath: string | undefined;
+  let workspaceBasePath: string;
+  let isZeroConfig = false;  // Track if using default (zero-config) mode
+
   if (hasProjectConfig) {
-    // Project config exists - only use project config value or process.env if not overridden
-    workspaceBasePath = (projectConfig['MCP_WORKSPACE_PATH'] as string | undefined) ?? env['MCP_WORKSPACE_PATH'];
+    // Project config exists - use project config value, or process.env, or default to process.cwd()
+    const configuredPath = (projectConfig['MCP_WORKSPACE_PATH'] as string | undefined) ?? env['MCP_WORKSPACE_PATH'];
+    workspaceBasePath = configuredPath ?? process.cwd();
+    isZeroConfig = configuredPath == null;  // Zero-config if neither source provided a value
   } else {
-    // No project config - use process.env
-    workspaceBasePath = env['MCP_WORKSPACE_PATH'];
+    // No project config - use process.env or default to process.cwd()
+    const envPath = env['MCP_WORKSPACE_PATH'];
+    workspaceBasePath = envPath ?? process.cwd();
+    isZeroConfig = envPath == null;  // Zero-config if env didn't provide a value
   }
 
-  if (workspaceBasePath == null || workspaceBasePath.length === 0) {
-    errors.push('MCP_WORKSPACE_PATH is required - specify the path to your MCP workspace directory');
-  } else {
-    config['workspaceBasePath'] = workspaceBasePath;
-  }
+  config['workspaceBasePath'] = workspaceBasePath;
 
   // Optional: WORKFLOWS_BASE_PATH with precedence merging
   // If project config exists: project config value > default (ignore process.env)
@@ -273,55 +276,82 @@ function parseEnvironmentVariables(
   config['guidesBasePath'] = guidesBasePath;
 
   // Optional: DOCS_BASE_PATH (relative to workspace)
-  // Defaults to {workspaceBasePath}/docs
+  // Zero-config mode: use .ai-prompt-guide/docs for clean isolation
+  // Configured mode: use docs directly for backward compatibility
   let docsBasePath: string;
   if (workspaceBasePath != null) {
     if (hasProjectConfig) {
       const projectDocsPath = projectConfig['DOCS_BASE_PATH'] as string | undefined;
-      docsBasePath = projectDocsPath != null
-        ? (isAbsolute(projectDocsPath) ? projectDocsPath : join(workspaceBasePath, projectDocsPath))
-        : join(workspaceBasePath, DEFAULT_CONFIG.DOCS_BASE_PATH);
+      if (projectDocsPath != null) {
+        docsBasePath = isAbsolute(projectDocsPath) ? projectDocsPath : join(workspaceBasePath, projectDocsPath);
+      } else {
+        // Use zero-config or configured default
+        const defaultPath = isZeroConfig ? '.ai-prompt-guide/docs' : DEFAULT_CONFIG.DOCS_BASE_PATH;
+        docsBasePath = join(workspaceBasePath, defaultPath);
+      }
     } else {
       const envDocsPath = env['DOCS_BASE_PATH'];
-      docsBasePath = envDocsPath != null
-        ? (isAbsolute(envDocsPath) ? envDocsPath : join(workspaceBasePath, envDocsPath))
-        : join(workspaceBasePath, DEFAULT_CONFIG.DOCS_BASE_PATH);
+      if (envDocsPath != null) {
+        docsBasePath = isAbsolute(envDocsPath) ? envDocsPath : join(workspaceBasePath, envDocsPath);
+      } else {
+        // Use zero-config or configured default
+        const defaultPath = isZeroConfig ? '.ai-prompt-guide/docs' : DEFAULT_CONFIG.DOCS_BASE_PATH;
+        docsBasePath = join(workspaceBasePath, defaultPath);
+      }
     }
     config['docsBasePath'] = docsBasePath;
   }
 
   // Optional: ARCHIVED_BASE_PATH (relative to workspace)
-  // Defaults to {workspaceBasePath}/archived
+  // Zero-config mode: use .ai-prompt-guide/archived for clean isolation
+  // Configured mode: use archived directly for backward compatibility
   let archivedBasePath: string;
   if (workspaceBasePath != null) {
     if (hasProjectConfig) {
       const projectArchivedPath = projectConfig['ARCHIVED_BASE_PATH'] as string | undefined;
-      archivedBasePath = projectArchivedPath != null
-        ? (isAbsolute(projectArchivedPath) ? projectArchivedPath : join(workspaceBasePath, projectArchivedPath))
-        : join(workspaceBasePath, DEFAULT_CONFIG.ARCHIVED_BASE_PATH);
+      if (projectArchivedPath != null) {
+        archivedBasePath = isAbsolute(projectArchivedPath) ? projectArchivedPath : join(workspaceBasePath, projectArchivedPath);
+      } else {
+        // Use zero-config or configured default
+        const defaultPath = isZeroConfig ? '.ai-prompt-guide/archived' : DEFAULT_CONFIG.ARCHIVED_BASE_PATH;
+        archivedBasePath = join(workspaceBasePath, defaultPath);
+      }
     } else {
       const envArchivedPath = env['ARCHIVED_BASE_PATH'];
-      archivedBasePath = envArchivedPath != null
-        ? (isAbsolute(envArchivedPath) ? envArchivedPath : join(workspaceBasePath, envArchivedPath))
-        : join(workspaceBasePath, DEFAULT_CONFIG.ARCHIVED_BASE_PATH);
+      if (envArchivedPath != null) {
+        archivedBasePath = isAbsolute(envArchivedPath) ? envArchivedPath : join(workspaceBasePath, envArchivedPath);
+      } else {
+        // Use zero-config or configured default
+        const defaultPath = isZeroConfig ? '.ai-prompt-guide/archived' : DEFAULT_CONFIG.ARCHIVED_BASE_PATH;
+        archivedBasePath = join(workspaceBasePath, defaultPath);
+      }
     }
     config['archivedBasePath'] = archivedBasePath;
   }
 
   // Optional: COORDINATOR_BASE_PATH (relative to workspace)
-  // Defaults to {workspaceBasePath}/coordinator
+  // Zero-config mode: use .ai-prompt-guide/coordinator for clean isolation
+  // Configured mode: use coordinator directly for backward compatibility
   let coordinatorBasePath: string;
   if (workspaceBasePath != null) {
     if (hasProjectConfig) {
       const projectCoordinatorPath = projectConfig['COORDINATOR_BASE_PATH'] as string | undefined;
-      coordinatorBasePath = projectCoordinatorPath != null
-        ? (isAbsolute(projectCoordinatorPath) ? projectCoordinatorPath : join(workspaceBasePath, projectCoordinatorPath))
-        : join(workspaceBasePath, DEFAULT_CONFIG.COORDINATOR_BASE_PATH);
+      if (projectCoordinatorPath != null) {
+        coordinatorBasePath = isAbsolute(projectCoordinatorPath) ? projectCoordinatorPath : join(workspaceBasePath, projectCoordinatorPath);
+      } else {
+        // Use zero-config or configured default
+        const defaultPath = isZeroConfig ? '.ai-prompt-guide/coordinator' : DEFAULT_CONFIG.COORDINATOR_BASE_PATH;
+        coordinatorBasePath = join(workspaceBasePath, defaultPath);
+      }
     } else {
       const envCoordinatorPath = env['COORDINATOR_BASE_PATH'];
-      coordinatorBasePath = envCoordinatorPath != null
-        ? (isAbsolute(envCoordinatorPath) ? envCoordinatorPath : join(workspaceBasePath, envCoordinatorPath))
-        : join(workspaceBasePath, DEFAULT_CONFIG.COORDINATOR_BASE_PATH);
+      if (envCoordinatorPath != null) {
+        coordinatorBasePath = isAbsolute(envCoordinatorPath) ? envCoordinatorPath : join(workspaceBasePath, envCoordinatorPath);
+      } else {
+        // Use zero-config or configured default
+        const defaultPath = isZeroConfig ? '.ai-prompt-guide/coordinator' : DEFAULT_CONFIG.COORDINATOR_BASE_PATH;
+        coordinatorBasePath = join(workspaceBasePath, defaultPath);
+      }
     }
     config['coordinatorBasePath'] = coordinatorBasePath;
   }
@@ -337,12 +367,10 @@ function parseEnvironmentVariables(
   // Validate path existence after resolution
   const logger = getGlobalLogger();
 
-  // Required: MCP_WORKSPACE_PATH must exist
-  if (workspaceBasePath != null) {
-    const resolvedWorkspacePath = resolvePath(workspaceBasePath);
-    if (!existsSync(resolvedWorkspacePath)) {
-      errors.push(`MCP_WORKSPACE_PATH directory does not exist: ${resolvedWorkspacePath}`);
-    }
+  // MCP_WORKSPACE_PATH should always exist (defaults to process.cwd())
+  const resolvedWorkspacePath = resolvePath(workspaceBasePath);
+  if (!existsSync(resolvedWorkspacePath)) {
+    errors.push(`Workspace directory does not exist: ${resolvedWorkspacePath}`);
   }
 
   // Optional: WORKFLOWS_BASE_PATH - log warning if doesn't exist

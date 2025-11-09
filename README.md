@@ -79,7 +79,9 @@ pnpm inspector
 
 ### Configuration
 
-Set environment variables in your MCP client config:
+**Zero-config by default** - the server works immediately with no setup required. When you run Claude Code from a project directory, it automatically creates a `.ai-prompt-guide/` folder in your project to store documents, tasks, and archives.
+
+**Optional configuration** for custom paths:
 
 ```json
 {
@@ -88,80 +90,58 @@ Set environment variables in your MCP client config:
       "command": "npx",
       "args": ["-y", "ai-prompt-guide-mcp"],
       "env": {
-        "MCP_WORKSPACE_PATH": "./.ai-prompt-guide"
+        "MCP_WORKSPACE_PATH": "/custom/workspace/path"
       }
     }
   }
 }
 ```
 
-**Required:**
-- `MCP_WORKSPACE_PATH` - Path to your project workspace (absolute or relative to project root)
+**Optional Settings:**
 
-**Optional - Project-Specific Folders:**
-
-These folders store your project data and default to subdirectories within `MCP_WORKSPACE_PATH`:
-
-- `DOCS_BASE_PATH` - Documents and subagent tasks (default: `{workspace}/docs`)
-- `ARCHIVED_BASE_PATH` - Completed work (default: `{workspace}/archived`)
-- `COORDINATOR_BASE_PATH` - Sequential tasks (default: `{workspace}/coordinator`)
-
-**Optional - Plugin-Global Resources:**
-
-These folders contain reusable workflows and guides, independent of `MCP_WORKSPACE_PATH`:
-
-- `WORKFLOWS_BASE_PATH` - Workflow protocols (default: bundled with plugin)
-- `GUIDES_BASE_PATH` - Documentation guides (default: bundled with plugin)
-
-**Optional - Other Settings:**
-
-- `REFERENCE_EXTRACTION_DEPTH` - How deep to follow @references (1-5, default 3)
+- `MCP_WORKSPACE_PATH` - Custom workspace path (default: current directory)
+- `DOCS_BASE_PATH` - Documents location (default: `.ai-prompt-guide/docs` in zero-config mode)
+- `ARCHIVED_BASE_PATH` - Archived documents (default: `.ai-prompt-guide/archived` in zero-config mode)
+- `COORDINATOR_BASE_PATH` - Coordinator tasks (default: `.ai-prompt-guide/coordinator` in zero-config mode)
+- `REFERENCE_EXTRACTION_DEPTH` - How deep to follow @references (1-5, default: 3)
 - `LOG_LEVEL` - Logging verbosity (debug, info, warn, error)
-
-**Path Resolution:**
-- Relative paths are resolved from `MCP_WORKSPACE_PATH` (for project folders) or plugin directory (for workflows/guides)
-- Absolute paths are used as-is
-- Example: `DOCS_BASE_PATH: "custom-docs"` → `{workspace}/custom-docs`
-- Example: `DOCS_BASE_PATH: "/abs/path/docs"` → `/abs/path/docs`
 
 **Per-Project Configuration:**
 
-Use `.mcp-config.json` in your project root to override paths without modifying MCP client settings:
+Create `.mcp-config.json` in your project root for project-specific settings:
 
 ```json
 {
   "env": {
-    "MCP_WORKSPACE_PATH": "./.ai-prompt-guide",
-    "DOCS_BASE_PATH": "documentation",
-    "ARCHIVED_BASE_PATH": "archive"
+    "DOCS_BASE_PATH": "/custom/docs",
+    "ARCHIVED_BASE_PATH": "/custom/archive"
   }
 }
 ```
 
-This is useful when different projects need different folder structures.
-
 ### Directory Structure
 
-**Default structure** (created automatically):
+**Zero-config structure** (created automatically in your project):
 
 ```
-.ai-prompt-guide/
-├── docs/               # Your documents and subagent tasks
-├── coordinator/        # Sequential project tasks
-├── archived/          # Completed work (auto-populated)
-│   ├── docs/          # Archived documents
-│   └── coordinator/   # Archived task lists
+your-project/
+└── .ai-prompt-guide/
+    ├── docs/               # Your documents and subagent tasks
+    ├── coordinator/        # Sequential project tasks
+    └── archived/           # Completed work (auto-populated)
+        ├── docs/           # Archived documents
+        └── coordinator/    # Archived task lists
 ```
 
-**Plugin-global resources** (bundled, rarely customized):
+**Shared resources** (bundled with the MCP server):
 
 ```
-{plugin-dir}/.ai-prompt-guide/
+{mcp-server}/.ai-prompt-guide/
 ├── workflows/         # Reusable workflow protocols
 └── guides/           # Documentation best practices
 ```
 
-Only `docs/` is required in your project—everything else is created automatically. Workflows and guides are provided by the plugin unless you override them.
+Everything is created automatically—no manual setup required. Workflows and guides are shared across all your projects.
 
 ## Claude Code Plugin
 
