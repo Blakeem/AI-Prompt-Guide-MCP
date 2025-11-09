@@ -5,7 +5,7 @@
     {
       "name": "ai-prompt-guide",
       "source": {
-        "source": "github",
+        "source": "url",
         "repo": "Blakeem/AI-Prompt-Guide-MCP",
         "ref": "main"
       }
