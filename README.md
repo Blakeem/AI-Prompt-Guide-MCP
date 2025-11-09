@@ -114,7 +114,8 @@ Create `.mcp-config.json` in your project root for project-specific settings:
 {
   "env": {
     "DOCS_BASE_PATH": "/custom/docs",
-    "ARCHIVED_BASE_PATH": "/custom/archive"
+    "ARCHIVED_BASE_PATH": "/custom/archive",
+    "COORDINATOR_BASE_PATH": "/custom/coordinator"
   }
 }
 ```
