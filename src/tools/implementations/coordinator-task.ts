@@ -161,7 +161,7 @@ export async function coordinatorTask(
 
           // Only show next_step on first task in document
           if (isFirstTask) {
-            result.next_step = 'Call start_coordinator_task() to begin (omit return_task_context on first start)';
+            result.next_step = 'start_coordinator_task';
           }
 
           results.push(result);

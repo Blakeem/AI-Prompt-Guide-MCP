@@ -8,7 +8,7 @@ export { findRelatedByContent, analyzeSectionContent } from './content-analyzer.
 // Search engine exports
 export { getSectionStructure } from './search-engine.js';
 // Folder navigator exports - only export what browse-documents.ts actually uses
-export { parseSectionPath, generateBreadcrumb, getFolderStructure } from './folder-navigator.js';
+export { parseSectionPath, getFolderStructure } from './folder-navigator.js';
 // Relationship classifier exports
 export { classifyRelationship } from './relationship-classifier.js';
 //# sourceMappingURL=index.js.map

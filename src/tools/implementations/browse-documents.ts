@@ -16,7 +16,6 @@ import {
   analyzeSectionContent,
   getSectionStructure,
   parseSectionPath,
-  generateBreadcrumb,
   getFolderStructure,
   classifyRelationship,
   findRelatedByContent,
@@ -27,7 +26,6 @@ import {
 } from '../browse/index.js';
 
 interface BrowseResponse {
-  path?: string;
   structure: {
     folders: FolderInfo[];
     documents: DocumentInfo[];
@@ -46,8 +44,6 @@ interface BrowseResponse {
     status: string;
   }>;
   related_documents?: RelatedDocuments;
-  breadcrumb?: string[];
-  totalItems: number;
 }
 
 /**
@@ -132,14 +128,12 @@ export async function browseDocuments(
         );
 
       const result: BrowseResponse = {
-        path: normalizedPath,
         structure: {
           folders: [],
           documents: []
         },
         ...(document_context != null && { document_context }),
-        sections,
-        totalItems: sections.length
+        sections
       };
 
         // Add related documents analysis if requested
@@ -154,10 +148,6 @@ export async function browseDocuments(
           if (relatedDocuments != null) {
             result.related_documents = relatedDocuments;
           }
-        }
-
-        if (normalizedPath !== '/') {
-          result.breadcrumb = generateBreadcrumb(normalizedPath);
         }
 
         return result;
@@ -178,17 +168,11 @@ export async function browseDocuments(
       const { folders, documents } = await getFolderStructure(manager, config.docsBasePath, normalizedPath, verbose);
 
       const result: BrowseResponse = {
-        path: normalizedPath,
         structure: {
           folders,
           documents
-        },
-        totalItems: folders.length + documents.length
+        }
       };
-
-      if (normalizedPath !== '/') {
-        result.breadcrumb = generateBreadcrumb(normalizedPath);
-      }
 
       return result;
     }
@@ -199,18 +183,7 @@ export async function browseDocuments(
       throw error;
     }
 
-    const message = error instanceof Error ? error.message : String(error);
-
-    // Return error response with helpful guidance for other errors
-    return {
-      path: args['path'] as string ?? '/',
-      structure: {
-        folders: [],
-        documents: []
-      },
-      totalItems: 0,
-      // Include error information in a way that's helpful
-      breadcrumb: [`Error: ${message}`]
-    };
+    // For other errors, rethrow - MCP will handle error responses
+    throw error;
   }
 }

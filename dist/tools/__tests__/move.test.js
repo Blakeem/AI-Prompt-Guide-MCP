@@ -300,9 +300,7 @@ describe('move tool', () => {
             // Second call: create in new location
             expect(performSectionEditSpy).toHaveBeenNthCalledWith(2, manager, '/docs/api/doc.md', 'section-one', 'Content two', 'insert_before', 'Section Two');
             // Verify result structure
-            expect(result['success']).toBe(true);
             expect(result['moved_to']).toBe('/docs/api/doc.md#section-two');
-            expect(result['position']).toBe('before section-one');
         });
         it('should move section within same document with position "after"', async () => {
             const mockDoc = {
@@ -339,7 +337,8 @@ describe('move tool', () => {
             expect(performSectionEditSpy).toHaveBeenNthCalledWith(1, manager, '/docs/api/doc.md', 'section-one', '', 'remove');
             // Second call: create at new location with insert_after mode
             expect(performSectionEditSpy).toHaveBeenNthCalledWith(2, manager, '/docs/api/doc.md', 'section-two', 'Content one', 'insert_after', 'Section One');
-            expect(result['position']).toBe('after section-two');
+            // Verify result structure
+            expect(result['moved_to']).toBe('/docs/api/doc.md#section-one');
         });
         it('should move section within same document with position "child"', async () => {
             const mockDoc = {
@@ -376,7 +375,8 @@ describe('move tool', () => {
             expect(performSectionEditSpy).toHaveBeenNthCalledWith(1, manager, '/docs/api/doc.md', 'section', '', 'remove');
             // Second call: create at new location with append_child mode
             expect(performSectionEditSpy).toHaveBeenNthCalledWith(2, manager, '/docs/api/doc.md', 'parent', 'Section content', 'append_child', 'Section');
-            expect(result['position']).toBe('child of parent');
+            // Verify result structure
+            expect(result['moved_to']).toBe('/docs/api/doc.md#section');
         });
     });
     describe('Successful Move Operations - Between Documents', () => {
@@ -436,9 +436,7 @@ describe('move tool', () => {
             // Second call: delete from source
             expect(performSectionEditSpy).toHaveBeenNthCalledWith(2, manager, '/docs/api/source.md', 'section', '', 'remove');
             // Verify result
-            expect(result['success']).toBe(true);
             expect(result['moved_to']).toBe('/docs/api/dest.md#section');
-            expect(result['position']).toBe('after overview');
         });
     });
     describe('Task Move Operations', () => {
@@ -495,9 +493,7 @@ describe('move tool', () => {
                 position: 'after'
             }, sessionState, manager);
             // Verify response uses standard minimal format (no type field)
-            expect(result['success']).toBe(true);
             expect(result['moved_to']).toBe('/docs/project/dest.md#task-one');
-            expect(result['position']).toBe('after task-two');
         });
     });
     describe('Reference Slug Normalization', () => {
@@ -849,7 +845,7 @@ describe('move tool', () => {
         });
     });
     describe('Response Structure', () => {
-        it('should return minimal result with all required fields', async () => {
+        it('should return minimal result with only moved_to field', async () => {
             const mockSourceDoc = {
                 content: '# Source\n\n## Section\n\nContent',
                 headings: [
@@ -897,12 +893,13 @@ describe('move tool', () => {
                 reference: 'overview',
                 position: 'after'
             }, sessionState, manager);
-            // Verify all required fields
-            expect(result['success']).toBe(true);
+            // Verify only moved_to field is present (context efficiency)
             expect(result['moved_to']).toBe('/docs/api/dest.md#section');
-            expect(result['position']).toBe('after overview');
+            expect(result['success']).toBeUndefined();
+            expect(result['position']).toBeUndefined();
+            expect(Object.keys(result)).toEqual(['moved_to']);
         });
-        it('should return position description in readable format', async () => {
+        it('should return moved_to field with correct slug based on section title', async () => {
             const mockDoc = {
                 content: '# Doc\n\n## Section One\n\nOne\n\n## Section Two\n\nTwo',
                 headings: [
@@ -931,8 +928,8 @@ describe('move tool', () => {
                 reference: 'section-one',
                 position: 'before'
             }, sessionState, manager);
-            expect(result['position']).toBe('before section-one');
-            expect(typeof result['position']).toBe('string');
+            expect(result['moved_to']).toBe('/docs/api/doc.md#section-two');
+            expect(typeof result['moved_to']).toBe('string');
         });
     });
 });

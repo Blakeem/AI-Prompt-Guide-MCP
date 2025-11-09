@@ -18,10 +18,6 @@ export declare function parseSectionPath(fullPath: string): {
     sectionSlug?: string;
 };
 /**
- * Generate breadcrumb trail for a path (including section context)
- */
-export declare function generateBreadcrumb(docPath: string): string[];
-/**
  * Check if a directory exists
  */
 export declare function directoryExists(dirPath: string): Promise<boolean>;

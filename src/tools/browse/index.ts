@@ -27,7 +27,6 @@ export {
 // Folder navigator exports - only export what browse-documents.ts actually uses
 export {
   parseSectionPath,
-  generateBreadcrumb,
   getFolderStructure,
   type FolderInfo
 } from './folder-navigator.js';

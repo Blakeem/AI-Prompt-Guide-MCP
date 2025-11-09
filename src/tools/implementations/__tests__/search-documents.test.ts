@@ -125,8 +125,9 @@ describe('search_documents tool', () => {
         max_results: 50
       }, sessionState, manager);
 
-      expect(result).toHaveProperty('query', 'test');
-      expect(result).toHaveProperty('search_type', 'fulltext');
+      expect(result).toHaveProperty('results');
+      expect(result).toHaveProperty('total_matches');
+      expect(result).toHaveProperty('truncated');
     });
   });
 
@@ -139,20 +140,13 @@ describe('search_documents tool', () => {
       }, sessionState, manager);
 
       // Verify response structure
-      expect(result).toHaveProperty('query');
-      expect(result).toHaveProperty('search_type');
-      expect(result).toHaveProperty('scope');
       expect(result).toHaveProperty('results');
       expect(result).toHaveProperty('total_matches');
-      expect(result).toHaveProperty('total_documents');
       expect(result).toHaveProperty('truncated');
 
       // Verify types
-      expect(typeof result.query).toBe('string');
-      expect(typeof result.search_type).toBe('string');
       expect(Array.isArray(result.results)).toBe(true);
       expect(typeof result.total_matches).toBe('number');
-      expect(typeof result.total_documents).toBe('number');
       expect(typeof result.truncated).toBe('boolean');
     });
 
@@ -164,7 +158,6 @@ describe('search_documents tool', () => {
         type: 'fulltext'
       }, sessionState, manager);
 
-      expect(result.total_documents).toBe(0);
       expect(result.total_matches).toBe(0);
       expect(result.results).toHaveLength(0);
       expect(result.truncated).toBe(false);
@@ -179,7 +172,8 @@ describe('search_documents tool', () => {
         query: 'test'
       }, sessionState, manager);
 
-      expect(result.search_type).toBe('fulltext');
+      // Search type is no longer in response, just verify request works
+      expect(result).toHaveProperty('results');
     });
 
     it('should accept regex search type', async () => {
@@ -190,7 +184,8 @@ describe('search_documents tool', () => {
         type: 'regex'
       }, sessionState, manager);
 
-      expect(result.search_type).toBe('regex');
+      // Search type is no longer in response, just verify request works
+      expect(result).toHaveProperty('results');
     });
   });
 
@@ -203,7 +198,8 @@ describe('search_documents tool', () => {
         scope: '/api/'
       }, sessionState, manager);
 
-      expect(result.scope).toBe('/api/');
+      // Scope is no longer in response, just verify request works
+      expect(result).toHaveProperty('results');
     });
 
     it('should default scope to null when not provided', async () => {
@@ -213,7 +209,8 @@ describe('search_documents tool', () => {
         query: 'test'
       }, sessionState, manager);
 
-      expect(result.scope).toBeNull();
+      // Scope is no longer in response, just verify request works
+      expect(result).toHaveProperty('results');
     });
   });
 
@@ -267,7 +264,7 @@ describe('search_documents tool', () => {
         max_match_length: 100
       }, sessionState, manager);
 
-      expect(result).toHaveProperty('query', 'test');
+      expect(result).toHaveProperty('results');
     });
 
     it('should default to 80 characters when max_match_length not provided', async () => {
@@ -278,7 +275,7 @@ describe('search_documents tool', () => {
       }, sessionState, manager);
 
       // Default behavior confirmed
-      expect(result).toHaveProperty('query', 'test');
+      expect(result).toHaveProperty('results');
     });
 
     it('should truncate long match text to specified length', async () => {

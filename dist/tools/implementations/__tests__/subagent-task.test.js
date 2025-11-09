@@ -607,14 +607,11 @@ Normal content here too.`;
                     }
                 ]
             }, sessionState, manager);
-            // Assert - verify next_step is present and contains expected guidance
+            // Assert - verify next_step is present with simplified format
             expect(result.operations_completed).toBe(1);
             expect(result.results).toHaveLength(1);
             expect(result.results[0]?.next_step).toBeDefined();
-            expect(result.results[0]?.next_step).toContain('Give subagent this exact instruction');
-            expect(result.results[0]?.next_step).toContain('do not run start_subagent_task yourself');
-            expect(result.results[0]?.next_step).toContain('start_subagent_task');
-            expect(result.results[0]?.next_step).toContain('/new-project.md#initialize-repository');
+            expect(result.results[0]?.next_step).toBe('start_subagent_task /new-project.md#initialize-repository');
         });
         it('should NOT show next_step on second task creation', async () => {
             // Arrange - create document with first task (setup)
@@ -685,12 +682,11 @@ Second task content`;
                     { operation: 'create', title: 'Implement Features', content: 'Status: pending\n\nImplement core features' }
                 ]
             }, sessionState, manager);
-            // Assert - only first result should have next_step
+            // Assert - only first result should have next_step with simplified format
             expect(result.operations_completed).toBe(3);
             expect(result.results).toHaveLength(3);
             expect(result.results[0]?.next_step).toBeDefined();
-            expect(result.results[0]?.next_step).toContain('Give subagent this exact instruction');
-            expect(result.results[0]?.next_step).toContain('/batch-project.md#setup-environment');
+            expect(result.results[0]?.next_step).toBe('start_subagent_task /batch-project.md#setup-environment');
             expect(result.results[1]?.next_step).toBeUndefined();
             expect(result.results[2]?.next_step).toBeUndefined();
         });

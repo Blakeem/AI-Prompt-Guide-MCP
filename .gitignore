@@ -1,5 +1,7 @@
 # Dependencies
 # node_modules/ - INCLUDED for zero-config Claude Code plugin
+# PRODUCTION DEPENDENCIES ONLY (35MB instead of 145MB)
+# Use 'pnpm install' to add dev dependencies locally for development
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

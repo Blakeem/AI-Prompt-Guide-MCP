@@ -87,7 +87,6 @@ Configuration section content.
       const result = await section(args, mockSessionState, mockDocumentManager as unknown as DocumentManager);
 
       expect(result).toMatchObject({
-        success: true,
         operations_completed: 2,
         results: [
           expect.objectContaining({ status: 'updated' }),

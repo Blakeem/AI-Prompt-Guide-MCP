@@ -6,10 +6,10 @@ import type { SessionState } from '../../session/types.js';
 import type { DocumentManager } from '../../document-manager.js';
 /**
  * Enhanced response format for view_section with hierarchical support
+ * Mode is deterministic from input (has # = detail, no # = overview)
+ * Document path is already known by caller from their input
  */
 interface ViewSectionResponse {
-    mode: 'overview' | 'detail';
-    document: string;
     sections: Array<{
         slug: string;
         title: string;

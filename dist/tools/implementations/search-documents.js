@@ -234,12 +234,8 @@ export async function searchDocuments(args, _state, manager) {
         }
     }
     return {
-        query,
-        search_type: searchType,
-        scope,
         results,
         total_matches: totalMatches,
-        total_documents: results.length,
         truncated
     };
 }

@@ -309,22 +309,11 @@ async function handleBatchOperations(
 
   const batchResults: SectionOperationResult[] = [];
   let sectionsModified = 0;
-  const documentsModified = new Set<string>();
 
   // Process each operation sequentially with addressing validation
   for (const op of operations) {
     try {
-      // Parse with potential document override
-      const defaultDoc = op.document ?? '';
-      const { document: targetDoc } = parseOperationTarget(
-        { section: op.section ?? '' },
-        defaultDoc
-      );
-
-      // Track which documents were modified (may be different from default)
-      documentsModified.add(targetDoc);
-
-      const result = await processSectionOperation(manager, op, defaultDoc);
+      const result = await processSectionOperation(manager, op, op.document ?? '');
       batchResults.push(result);
 
       if (result.success) {
@@ -341,7 +330,7 @@ async function handleBatchOperations(
     }
   }
 
-  return formatBatchResponse(batchResults, documentsModified, sectionsModified);
+  return formatBatchResponse(batchResults, sectionsModified);
 }
 
 
@@ -350,7 +339,6 @@ async function handleBatchOperations(
  */
 async function formatBatchResponse(
   batchResults: SectionOperationResult[],
-  documentsModified: Set<string>,
   sectionsModified: number
 ): Promise<unknown> {
   // Convert batch results to new format with status field only
@@ -370,13 +358,7 @@ async function formatBatchResponse(
     }
   });
 
-  // Get single document path if all operations on same document
-  const docPaths = Array.from(documentsModified);
-  const singleDocPath = docPaths.length === 1 ? docPaths[0] : undefined;
-
   return {
-    success: true,
-    document: singleDocPath,
     operations_completed: sectionsModified,
     results
   };

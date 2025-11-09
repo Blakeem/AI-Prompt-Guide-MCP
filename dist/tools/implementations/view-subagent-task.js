@@ -5,7 +5,7 @@
  */
 import { ToolIntegration, DocumentNotFoundError, AddressingError, parseTaskAddress } from '../../shared/addressing-system.js';
 import { getTaskHeadings } from '../../shared/task-utilities.js';
-import { enrichTaskWithReferences, calculateTaskSummary, extractTaskMetadata } from '../../shared/task-view-utilities.js';
+import { enrichTaskWithReferences, extractTaskMetadata } from '../../shared/task-view-utilities.js';
 import { extractWorkflowName, extractMainWorkflowName } from '../../shared/workflow-prompt-utilities.js';
 /**
  * Execute view_subagent_task tool
@@ -65,42 +65,14 @@ export async function viewSubagentTask(args, _state, manager) {
         const overviewTasks = await Promise.all(taskHeadings.map(async (heading) => {
             const content = await manager.getSectionContent(addresses.document.path, heading.slug) ?? '';
             const metadata = extractTaskMetadata(content);
-            const workflowName = extractWorkflowName(content);
-            const mainWorkflowName = extractMainWorkflowName(content);
             return {
                 slug: heading.slug,
                 title: heading.title,
-                status: metadata.status,
-                depth: heading.depth,
-                full_path: `${addresses.document.path}#${heading.slug}`,
-                has_workflow: workflowName != null && workflowName !== '',
-                ...(workflowName != null && workflowName !== '' && { workflow_name: workflowName }),
-                ...(mainWorkflowName != null && mainWorkflowName !== '' && { main_workflow_name: mainWorkflowName })
+                status: metadata.status
             };
         }));
-        // Calculate summary for overview
-        const statusCounts = {};
-        let tasksWithWorkflows = 0;
-        let tasksWithMainWorkflow = 0;
-        for (const task of overviewTasks) {
-            statusCounts[task.status] = (statusCounts[task.status] ?? 0) + 1;
-            if (task.has_workflow)
-                tasksWithWorkflows++;
-            if (task.main_workflow_name != null)
-                tasksWithMainWorkflow++;
-        }
         return {
-            mode: 'overview',
-            document: addresses.document.path,
-            tasks: overviewTasks,
-            summary: {
-                total_tasks: overviewTasks.length,
-                by_status: statusCounts,
-                with_links: 0,
-                with_references: 0,
-                tasks_with_workflows: tasksWithWorkflows,
-                tasks_with_main_workflow: tasksWithMainWorkflow
-            }
+            tasks: overviewTasks
         };
     }
     // Detail Mode: Process specified tasks with full content
@@ -199,10 +171,9 @@ export async function viewSubagentTask(args, _state, manager) {
         const taskData = {
             slug: enrichedTask.slug,
             title: enrichedTask.title,
+            status: enrichedTask.status,
             content: enrichedTask.content,
             depth: enrichedTask.depth ?? heading.depth,
-            full_path: enrichedTask.fullPath ?? ToolIntegration.formatTaskPath(taskAddr),
-            status: enrichedTask.status,
             word_count: enrichedTask.wordCount ?? 0,
             has_workflow: hasWorkflow
         };
@@ -247,36 +218,8 @@ export async function viewSubagentTask(args, _state, manager) {
             throw firstError.error;
         }
     }
-    // Calculate summary statistics using shared utility
-    const taskViewData = processedTasks.map(task => {
-        const viewData = {
-            slug: task.slug,
-            title: task.title,
-            content: task.content ?? '', // Default to empty string for summary calculation
-            status: task.status
-        };
-        // Only add optional fields if they exist
-        if (task.linked_document != null) {
-            viewData.linkedDocument = task.linked_document;
-        }
-        if (task.referenced_documents != null && task.referenced_documents.length > 0) {
-            viewData.referencedDocuments = task.referenced_documents;
-        }
-        return viewData;
-    });
-    const baseSummary = calculateTaskSummary(taskViewData);
-    // Calculate workflow-specific counts
-    const tasksWithWorkflows = processedTasks.filter(task => task.has_workflow).length;
-    const tasksWithMainWorkflow = processedTasks.filter(task => task.main_workflow_name != null).length;
     return {
-        mode: 'detail',
-        document: addresses.document.path,
-        tasks: processedTasks,
-        summary: {
-            ...baseSummary,
-            tasks_with_workflows: tasksWithWorkflows,
-            tasks_with_main_workflow: tasksWithMainWorkflow
-        }
+        tasks: processedTasks
     };
 }
 // Utility functions moved to shared/task-view-utilities.ts to eliminate duplication

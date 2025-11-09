@@ -335,12 +335,11 @@ describe('coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      // Assert - verify next_step is present and contains expected guidance
+      // Assert - verify next_step is present with simplified guidance
       expect(result.operations_completed).toBe(1);
       expect(result.results).toHaveLength(1);
       expect(result.results[0]?.next_step).toBeDefined();
-      expect(result.results[0]?.next_step).toContain('Call start_coordinator_task()');
-      expect(result.results[0]?.next_step).toContain('omit return_task_context on first start');
+      expect(result.results[0]?.next_step).toBe('start_coordinator_task');
     });
 
     it('should NOT show next_step on second task creation', async () => {
@@ -403,11 +402,11 @@ describe('coordinator_task tool', () => {
         ]
       }, sessionState, manager);
 
-      // Assert - only first result should have next_step
+      // Assert - only first result should have simplified next_step
       expect(result.operations_completed).toBe(3);
       expect(result.results).toHaveLength(3);
       expect(result.results[0]?.next_step).toBeDefined();
-      expect(result.results[0]?.next_step).toContain('Call start_coordinator_task()');
+      expect(result.results[0]?.next_step).toBe('start_coordinator_task');
       expect(result.results[1]?.next_step).toBeUndefined();
       expect(result.results[2]?.next_step).toBeUndefined();
     });

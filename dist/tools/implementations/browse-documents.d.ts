@@ -6,7 +6,6 @@ import type { SessionState } from '../../session/types.js';
 import type { DocumentManager } from '../../document-manager.js';
 import { type FolderInfo, type DocumentInfo, type SectionInfo, type RelatedDocuments } from '../browse/index.js';
 interface BrowseResponse {
-    path?: string;
     structure: {
         folders: FolderInfo[];
         documents: DocumentInfo[];
@@ -25,8 +24,6 @@ interface BrowseResponse {
         status: string;
     }>;
     related_documents?: RelatedDocuments;
-    breadcrumb?: string[];
-    totalItems: number;
 }
 /**
  * Browse documents implementation with dependency injection

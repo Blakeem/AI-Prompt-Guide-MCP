@@ -69,7 +69,8 @@ describe('view_subagent_task tool', () => {
             vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
             vi.spyOn(manager, 'getSectionContent').mockResolvedValue('- Status: pending');
             const result = await viewSubagentTask({ document: '/docs/project/tasks.md' }, sessionState, manager);
-            expect(result).toHaveProperty('mode', 'overview');
+            expect(result).toHaveProperty('tasks');
+            expect(Array.isArray(result.tasks)).toBe(true);
         });
         it('should throw error when document parameter is empty string', async () => {
             await expect(viewSubagentTask({ document: '' }, sessionState, manager))
@@ -145,19 +146,17 @@ Third task content.`;
                 return null;
             });
             const result = await viewSubagentTask({ document: '/docs/project/tasks.md' }, sessionState, manager);
-            expect(result.mode).toBe('overview');
             expect(result.tasks.length).toBe(3);
-            // Verify minimal data structure for each task
+            // Verify minimal data structure for each task (overview mode: only slug, title, status)
             for (const task of result.tasks) {
                 expect(task).toHaveProperty('slug');
                 expect(task).toHaveProperty('title');
                 expect(task).toHaveProperty('status');
-                expect(task).toHaveProperty('depth');
-                expect(task).toHaveProperty('full_path');
-                expect(task).toHaveProperty('has_workflow');
                 // Should NOT have these fields in overview mode
                 expect(task.content).toBeUndefined();
                 expect(task.word_count).toBeUndefined();
+                expect(task.depth).toBeUndefined();
+                expect(task.has_workflow).toBeUndefined();
             }
             // Verify specific task data
             const firstTask = result.tasks[0];
@@ -166,21 +165,12 @@ Third task content.`;
             expect(firstTask).toBeDefined();
             expect(firstTask?.slug).toBe('first-task');
             expect(firstTask?.status).toBe('pending');
-            expect(firstTask?.has_workflow).toBe(true);
-            expect(firstTask?.workflow_name).toBe('multi-option-tradeoff');
             expect(secondTask).toBeDefined();
             expect(secondTask?.slug).toBe('second-task');
             expect(secondTask?.status).toBe('in_progress');
-            expect(secondTask?.has_workflow).toBe(false);
-            expect(secondTask?.workflow_name).toBeUndefined();
             expect(thirdTask).toBeDefined();
             expect(thirdTask?.slug).toBe('third-task');
             expect(thirdTask?.status).toBe('completed');
-            expect(thirdTask?.has_workflow).toBe(true);
-            expect(thirdTask?.workflow_name).toBe('simplicity-gate');
-            // Verify summary
-            expect(result.summary.total_tasks).toBe(3);
-            expect(result.summary.tasks_with_workflows).toBe(2);
         });
     });
     describe('Document and Task Resolution', () => {
@@ -636,191 +626,6 @@ Second task.`;
             expect(result.tasks[0]).toHaveProperty('workflow_name', 'simplicity-gate');
         });
     });
-    describe('Summary Statistics', () => {
-        it('should count tasks_with_workflows correctly', async () => {
-            const task1Content = `### Task 1
-
-- Status: pending
-- Workflow: multi-option-tradeoff
-
-Has workflow.`;
-            const task2Content = `### Task 2
-
-- Status: pending
-
-No workflow.`;
-            const mockDocument = {
-                content: `# Doc\n\n## Tasks\n\n${task1Content}\n\n${task2Content}`,
-                headings: [
-                    { slug: 'doc', title: 'Doc', depth: 1 },
-                    { slug: 'tasks', title: 'Tasks', depth: 2 },
-                    { slug: 'task-1', title: 'Task 1', depth: 3 },
-                    { slug: 'task-2', title: 'Task 2', depth: 3 }
-                ],
-                sections: new Map([
-                    ['doc', ''],
-                    ['tasks', ''],
-                    ['task-1', task1Content],
-                    ['task-2', task2Content]
-                ]),
-                metadata: {
-                    path: '/docs/test.md',
-                    title: 'Test',
-                    lastModified: new Date(),
-                    contentHash: 'hash',
-                    wordCount: 15
-                }
-            };
-            vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
-            vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-                if (slug === 'task-1')
-                    return task1Content;
-                if (slug === 'task-2')
-                    return task2Content;
-                return null;
-            });
-            const result = await viewSubagentTask({
-                document: '/docs/test.md#task-1,task-2'
-            }, sessionState, manager);
-            expect(result.summary).toHaveProperty('tasks_with_workflows', 1);
-        });
-        it('should count tasks_with_main_workflow correctly', async () => {
-            const firstTaskContent = `### First Task
-
-- Status: pending
-- Main-Workflow: spec-first-integration
-
-First task.`;
-            const secondTaskContent = `### Second Task
-
-- Status: pending
-
-Second task.`;
-            const mockDocument = {
-                content: `# Doc\n\n## Tasks\n\n${firstTaskContent}\n\n${secondTaskContent}`,
-                headings: [
-                    { slug: 'doc', title: 'Doc', depth: 1 },
-                    { slug: 'tasks', title: 'Tasks', depth: 2 },
-                    { slug: 'first-task', title: 'First Task', depth: 3 },
-                    { slug: 'second-task', title: 'Second Task', depth: 3 }
-                ],
-                sections: new Map([
-                    ['doc', ''],
-                    ['tasks', ''],
-                    ['first-task', firstTaskContent],
-                    ['second-task', secondTaskContent]
-                ]),
-                metadata: {
-                    path: '/docs/test.md',
-                    title: 'Test',
-                    lastModified: new Date(),
-                    contentHash: 'hash',
-                    wordCount: 14
-                }
-            };
-            vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
-            vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-                if (slug === 'first-task')
-                    return firstTaskContent;
-                if (slug === 'second-task')
-                    return secondTaskContent;
-                return null;
-            });
-            const result = await viewSubagentTask({
-                document: '/docs/test.md#first-task,second-task'
-            }, sessionState, manager);
-            // Both tasks have access to main workflow from first task
-            expect(result.summary).toHaveProperty('tasks_with_main_workflow', 2);
-        });
-        it('should show zero workflow counts when no workflows present', async () => {
-            const task1Content = `### Task 1
-
-- Status: pending
-
-No workflow.`;
-            const task2Content = `### Task 2
-
-- Status: pending
-
-Also no workflow.`;
-            const mockDocument = {
-                content: `# Doc\n\n## Tasks\n\n${task1Content}\n\n${task2Content}`,
-                headings: [
-                    { slug: 'doc', title: 'Doc', depth: 1 },
-                    { slug: 'tasks', title: 'Tasks', depth: 2 },
-                    { slug: 'task-1', title: 'Task 1', depth: 3 },
-                    { slug: 'task-2', title: 'Task 2', depth: 3 }
-                ],
-                sections: new Map([
-                    ['doc', ''],
-                    ['tasks', ''],
-                    ['task-1', task1Content],
-                    ['task-2', task2Content]
-                ]),
-                metadata: {
-                    path: '/docs/test.md',
-                    title: 'Test',
-                    lastModified: new Date(),
-                    contentHash: 'hash',
-                    wordCount: 12
-                }
-            };
-            vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
-            vi.spyOn(manager, 'getSectionContent').mockImplementation(async (_path, slug) => {
-                if (slug === 'task-1')
-                    return task1Content;
-                if (slug === 'task-2')
-                    return task2Content;
-                return null;
-            });
-            const result = await viewSubagentTask({
-                document: '/docs/test.md#task-1,task-2'
-            }, sessionState, manager);
-            expect(result.summary).toHaveProperty('tasks_with_workflows', 0);
-            expect(result.summary).toHaveProperty('tasks_with_main_workflow', 0);
-        });
-        it('should include existing summary fields along with workflow counts', async () => {
-            const taskContent = `### Test Task
-
-- Status: pending
-- Workflow: multi-option-tradeoff
-
-Task content.`;
-            const mockDocument = {
-                content: `# Doc\n\n## Tasks\n\n${taskContent}`,
-                headings: [
-                    { slug: 'doc', title: 'Doc', depth: 1 },
-                    { slug: 'tasks', title: 'Tasks', depth: 2 },
-                    { slug: 'test-task', title: 'Test Task', depth: 3 }
-                ],
-                sections: new Map([
-                    ['doc', ''],
-                    ['tasks', ''],
-                    ['test-task', taskContent]
-                ]),
-                metadata: {
-                    path: '/docs/test.md',
-                    title: 'Test',
-                    lastModified: new Date(),
-                    contentHash: 'hash',
-                    wordCount: 10
-                }
-            };
-            vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
-            vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
-            const result = await viewSubagentTask({
-                document: '/docs/test.md#test-task'
-            }, sessionState, manager);
-            // Verify existing summary fields
-            expect(result.summary).toHaveProperty('total_tasks', 1);
-            expect(result.summary).toHaveProperty('by_status');
-            expect(result.summary).toHaveProperty('with_links');
-            expect(result.summary).toHaveProperty('with_references');
-            // Verify new workflow fields
-            expect(result.summary).toHaveProperty('tasks_with_workflows', 1);
-            expect(result.summary).toHaveProperty('tasks_with_main_workflow', 0);
-        });
-    });
     describe('No Content Injection', () => {
         it('should verify workflow_name is string, not object with content', async () => {
             const taskContent = `### Test Task
@@ -984,14 +789,9 @@ Test task content.`;
             const result = await viewSubagentTask({
                 document: '/docs/project/tasks.md#test-task'
             }, sessionState, manager);
-            // Verify response structure
-            expect(result).toHaveProperty('mode', 'detail');
-            expect(result).toHaveProperty('document');
+            // Verify response structure (streamlined - removed redundant fields)
             expect(result).toHaveProperty('tasks');
-            expect(result).toHaveProperty('summary');
-            expect(typeof result.document).toBe('string');
             expect(Array.isArray(result.tasks)).toBe(true);
-            expect(typeof result.summary).toBe('object');
             // Verify task structure
             const task = result.tasks[0];
             expect(task).toHaveProperty('slug');
@@ -999,7 +799,6 @@ Test task content.`;
             expect(task).toHaveProperty('content');
             expect(task).toHaveProperty('status');
             expect(task).toHaveProperty('depth');
-            expect(task).toHaveProperty('full_path');
             expect(task).toHaveProperty('word_count');
             expect(task).toHaveProperty('workflow_name');
             expect(task).toHaveProperty('has_workflow');
@@ -1050,7 +849,6 @@ Second task.`;
                 document: '/docs/test.md#task-1,task-2'
             }, sessionState, manager);
             expect(result.tasks).toHaveLength(2);
-            expect(result.summary.total_tasks).toBe(2);
         });
     });
     describe('Integration with Existing Features', () => {

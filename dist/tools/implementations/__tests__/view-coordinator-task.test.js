@@ -66,7 +66,7 @@ describe('view_coordinator_task tool', () => {
             vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
             vi.spyOn(manager, 'getSectionContent').mockResolvedValue('- Status: pending');
             const result = await viewCoordinatorTask({}, sessionState, manager);
-            expect(result).toHaveProperty('mode', 'overview');
+            expect(result).toHaveProperty('tasks');
         });
         it('should accept detail mode with single slug', async () => {
             const taskContent = `### Phase 1
@@ -97,7 +97,7 @@ Task content.`;
             vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
             vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
             const result = await viewCoordinatorTask({ slug: 'phase-1' }, sessionState, manager);
-            expect(result).toHaveProperty('mode', 'detail');
+            expect(result).toHaveProperty('tasks');
         });
         it('should throw error when slug is empty string', async () => {
             await expect(viewCoordinatorTask({ slug: '' }, sessionState, manager))
@@ -209,19 +209,17 @@ Third phase content.`;
                 return null;
             });
             const result = await viewCoordinatorTask({}, sessionState, manager);
-            expect(result.mode).toBe('overview');
             expect(result.tasks.length).toBe(3);
             // Verify minimal data structure for each task
             for (const task of result.tasks) {
                 expect(task).toHaveProperty('slug');
                 expect(task).toHaveProperty('title');
                 expect(task).toHaveProperty('status');
-                expect(task).toHaveProperty('depth');
-                expect(task).toHaveProperty('full_path');
-                expect(task).toHaveProperty('has_workflow');
                 // Should NOT have these fields in overview mode
+                expect(task.depth).toBeUndefined();
                 expect(task.content).toBeUndefined();
                 expect(task.word_count).toBeUndefined();
+                expect(task.has_workflow).toBeUndefined();
             }
             // Verify specific task data
             const firstTask = result.tasks[0];
@@ -230,21 +228,12 @@ Third phase content.`;
             expect(firstTask).toBeDefined();
             expect(firstTask?.slug).toBe('phase-1');
             expect(firstTask?.status).toBe('pending');
-            expect(firstTask?.has_workflow).toBe(true);
-            expect(firstTask?.workflow_name).toBe('multi-option-tradeoff');
             expect(secondTask).toBeDefined();
             expect(secondTask?.slug).toBe('phase-2');
             expect(secondTask?.status).toBe('in_progress');
-            expect(secondTask?.has_workflow).toBe(false);
-            expect(secondTask?.workflow_name).toBeUndefined();
             expect(thirdTask).toBeDefined();
             expect(thirdTask?.slug).toBe('phase-3');
             expect(thirdTask?.status).toBe('completed');
-            expect(thirdTask?.has_workflow).toBe(true);
-            expect(thirdTask?.workflow_name).toBe('simplicity-gate');
-            // Verify summary
-            expect(result.summary.total_tasks).toBe(3);
-            expect(result.summary.tasks_with_workflows).toBe(2);
         });
         it('should handle empty tasks section', async () => {
             const mockDocument = {
@@ -267,9 +256,7 @@ Third phase content.`;
             };
             vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
             const result = await viewCoordinatorTask({}, sessionState, manager);
-            expect(result.mode).toBe('overview');
             expect(result.tasks).toHaveLength(0);
-            expect(result.summary.total_tasks).toBe(0);
         });
     });
     describe('Detail Mode', () => {
@@ -303,7 +290,6 @@ Implement the first phase of the project.`;
             vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
             vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
             const result = await viewCoordinatorTask({ slug: 'phase-1' }, sessionState, manager);
-            expect(result.mode).toBe('detail');
             expect(result.tasks).toHaveLength(1);
             const task = result.tasks[0];
             expect(task).toHaveProperty('slug', 'phase-1');
@@ -357,9 +343,7 @@ Second phase.`;
                 return null;
             });
             const result = await viewCoordinatorTask({ slug: 'phase-1,phase-2' }, sessionState, manager);
-            expect(result.mode).toBe('detail');
             expect(result.tasks).toHaveLength(2);
-            expect(result.summary.total_tasks).toBe(2);
         });
     });
     describe('Document and Task Resolution', () => {
@@ -861,7 +845,9 @@ No workflow.`;
             const result = await viewCoordinatorTask({
                 slug: 'phase-1,phase-2'
             }, sessionState, manager);
-            expect(result.summary).toHaveProperty('tasks_with_workflows', 1);
+            // Verify at least one task has workflow
+            const tasksWithWorkflows = result.tasks.filter(t => t.has_workflow === true).length;
+            expect(tasksWithWorkflows).toBe(1);
         });
         it('should count tasks_with_main_workflow correctly', async () => {
             const firstTaskContent = `### Phase 1
@@ -909,7 +895,8 @@ Second phase.`;
                 slug: 'phase-1,phase-2'
             }, sessionState, manager);
             // Both tasks have access to main workflow from first task
-            expect(result.summary).toHaveProperty('tasks_with_main_workflow', 2);
+            const tasksWithMainWorkflow = result.tasks.filter(t => t.main_workflow_name != null).length;
+            expect(tasksWithMainWorkflow).toBe(2);
         });
         it('should show zero workflow counts when no workflows present', async () => {
             const task1Content = `### Phase 1
@@ -955,8 +942,11 @@ Also no workflow.`;
             const result = await viewCoordinatorTask({
                 slug: 'phase-1,phase-2'
             }, sessionState, manager);
-            expect(result.summary).toHaveProperty('tasks_with_workflows', 0);
-            expect(result.summary).toHaveProperty('tasks_with_main_workflow', 0);
+            // Verify no tasks have workflows
+            const tasksWithWorkflows = result.tasks.filter(t => t.has_workflow === true).length;
+            const tasksWithMainWorkflow = result.tasks.filter(t => t.main_workflow_name != null).length;
+            expect(tasksWithWorkflows).toBe(0);
+            expect(tasksWithMainWorkflow).toBe(0);
         });
         it('should include existing summary fields along with workflow counts', async () => {
             const taskContent = `### Phase 1
@@ -990,14 +980,12 @@ Phase content.`;
             const result = await viewCoordinatorTask({
                 slug: 'phase-1'
             }, sessionState, manager);
-            // Verify existing summary fields
-            expect(result.summary).toHaveProperty('total_tasks', 1);
-            expect(result.summary).toHaveProperty('by_status');
-            expect(result.summary).toHaveProperty('with_links');
-            expect(result.summary).toHaveProperty('with_references');
-            // Verify new workflow fields
-            expect(result.summary).toHaveProperty('tasks_with_workflows', 1);
-            expect(result.summary).toHaveProperty('tasks_with_main_workflow', 0);
+            // Verify task has workflow data
+            expect(result.tasks).toHaveLength(1);
+            const task = result.tasks[0];
+            expect(task?.has_workflow).toBe(true);
+            expect(task?.workflow_name).toBe('multi-option-tradeoff');
+            expect(task?.main_workflow_name).toBeUndefined();
         });
     });
     describe('No Content Injection', () => {
@@ -1164,13 +1152,8 @@ Phase content.`;
                 slug: 'phase-1'
             }, sessionState, manager);
             // Verify response structure
-            expect(result).toHaveProperty('mode', 'detail');
-            expect(result).toHaveProperty('document');
             expect(result).toHaveProperty('tasks');
-            expect(result).toHaveProperty('summary');
-            expect(typeof result.document).toBe('string');
             expect(Array.isArray(result.tasks)).toBe(true);
-            expect(typeof result.summary).toBe('object');
             // Verify task structure
             const task = result.tasks[0];
             expect(task).toHaveProperty('slug');
@@ -1178,7 +1161,6 @@ Phase content.`;
             expect(task).toHaveProperty('content');
             expect(task).toHaveProperty('status');
             expect(task).toHaveProperty('depth');
-            expect(task).toHaveProperty('full_path');
             expect(task).toHaveProperty('word_count');
             expect(task).toHaveProperty('workflow_name');
             expect(task).toHaveProperty('has_workflow');
@@ -1229,7 +1211,6 @@ Second phase.`;
                 slug: 'phase-1,phase-2'
             }, sessionState, manager);
             expect(result.tasks).toHaveLength(2);
-            expect(result.summary.total_tasks).toBe(2);
         });
     });
     describe('Integration with Existing Features', () => {
@@ -1363,9 +1344,9 @@ Task content.`;
             vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
             vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
             const result = await viewCoordinatorTask({ slug: 'phase-1' }, sessionState, manager);
-            // Verify correct document path
-            expect(result.document).toBe('/coordinator/active.md');
-            expect(result.tasks[0]?.full_path).toContain('/coordinator/active.md#');
+            // Verify task returned
+            expect(result.tasks).toHaveLength(1);
+            expect(result.tasks[0]?.slug).toBe('phase-1');
         });
         it('should work in overview mode without any parameters', async () => {
             const taskContent = `### Phase 1
@@ -1396,8 +1377,9 @@ Task content.`;
             vi.spyOn(manager, 'getDocument').mockResolvedValue(mockDocument);
             vi.spyOn(manager, 'getSectionContent').mockResolvedValue(taskContent);
             const result = await viewCoordinatorTask({}, sessionState, manager);
-            expect(result.mode).toBe('overview');
-            expect(result.document).toBe('/coordinator/active.md');
+            // Verify overview mode returns task list
+            expect(result.tasks).toHaveLength(1);
+            expect(result.tasks[0]?.slug).toBe('phase-1');
         });
     });
 });

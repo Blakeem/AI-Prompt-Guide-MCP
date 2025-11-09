@@ -24,7 +24,10 @@
     "check:dead-code": "ts-unused-exports tsconfig.analysis.json --excludePathsFromReport=dist/ --allowUnusedTypes --searchNamespaces --ignoreFiles='.*\\/(schemas|prompts|__tests__\\/setup|__tests__\\/mocks)\\/.*\\.ts$|.*\\/link-analysis\\.ts$'",
     "check:all": "pnpm lint && pnpm typecheck && pnpm check:dead-code",
     "inspector": "npx --yes @modelcontextprotocol/inspector node dist/index.js",
-    "inspector:dev": "npx --yes @modelcontextprotocol/inspector tsx src/index.ts"
+    "inspector:dev": "npx --yes @modelcontextprotocol/inspector tsx src/index.ts",
+    "deps:prod": "pnpm prune --prod && echo 'Production dependencies only (optimized for git commit)'",
+    "deps:dev": "pnpm install && echo 'All dependencies installed (dev tools available)'",
+    "postinstall": "echo '\\nℹ️  This repo includes production node_modules (35MB) for zero-config setup.\\n   For development, dev dependencies are available via: pnpm install\\n'"
   },
   "keywords": [
     "mcp",

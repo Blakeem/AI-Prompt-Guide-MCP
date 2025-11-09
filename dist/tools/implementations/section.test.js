@@ -93,8 +93,6 @@ describe('Section Tool - Bulk Operations Only', () => {
             const result = await section(args, mockSessionState, mockDocumentManager);
             expect(mockPerformSectionEdit).toHaveBeenCalledWith(mockDocumentManager, '/test-doc.md', 'overview', 'Updated overview content.', 'replace', undefined);
             expect(result).toEqual({
-                success: true,
-                document: '/test-doc.md',
                 operations_completed: 1,
                 results: [{
                         section: 'overview',
@@ -131,8 +129,6 @@ describe('Section Tool - Bulk Operations Only', () => {
             const result = await section(args, mockSessionState, mockDocumentManager);
             expect(mockPerformSectionEdit).toHaveBeenCalledTimes(3);
             expect(result).toEqual({
-                success: true,
-                document: '/test-doc.md',
                 operations_completed: 3,
                 results: [
                     { section: 'overview', status: 'updated' },
@@ -158,8 +154,6 @@ describe('Section Tool - Bulk Operations Only', () => {
             });
             const result = await section(args, mockSessionState, mockDocumentManager);
             expect(result).toEqual({
-                success: true,
-                document: '/test-doc.md',
                 operations_completed: 1,
                 results: [{
                         section: 'new-section',
@@ -184,8 +178,6 @@ describe('Section Tool - Bulk Operations Only', () => {
             });
             const result = await section(args, mockSessionState, mockDocumentManager);
             expect(result).toEqual({
-                success: true,
-                document: '/test-doc.md',
                 operations_completed: 1,
                 results: [{
                         section: 'deprecated',
@@ -249,8 +241,6 @@ describe('Section Tool - Bulk Operations Only', () => {
                 .mockResolvedValueOnce({ action: 'edited', section: 'features' });
             const result = await section(args, mockSessionState, mockDocumentManager);
             expect(result).toEqual({
-                success: true,
-                document: '/test-doc.md',
                 operations_completed: 2, // Only successful operations count
                 results: [
                     { section: 'overview', status: 'updated' },
@@ -303,7 +293,7 @@ describe('Section Tool - Bulk Operations Only', () => {
                 .mockResolvedValueOnce({ action: 'edited', section: 'overview' })
                 .mockResolvedValueOnce({ action: 'edited', section: 'features' });
             const result = await section(args, mockSessionState, mockDocumentManager);
-            expect(result).toHaveProperty('document', '/test-doc.md');
+            expect(result).toHaveProperty('operations_completed');
         });
     });
     describe('Multiple Documents', () => {
@@ -324,8 +314,6 @@ describe('Section Tool - Bulk Operations Only', () => {
             });
             const result = await section(args, mockSessionState, mockDocumentManager);
             expect(result).toEqual({
-                success: true,
-                document: '/doc1.md',
                 operations_completed: 1,
                 results: [
                     { section: 'section1', status: 'updated' }
@@ -361,7 +349,6 @@ describe('Section Tool - Bulk Operations Only', () => {
                 });
                 const result = await section(args, mockSessionState, mockDocumentManager);
                 expect(result).toMatchObject({
-                    success: true,
                     operations_completed: 1
                 });
             }

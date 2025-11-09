@@ -55,8 +55,6 @@ export async function viewSection(args, _state, manager) {
             depth: heading.depth
         }));
         return {
-            mode: 'overview',
-            document: addresses.document.path,
             sections: overviewSections
         };
     }
@@ -159,8 +157,6 @@ export async function viewSection(args, _state, manager) {
         }
     }
     return {
-        mode: 'detail',
-        document: addresses.document.path,
         sections: processedSections
     };
 }

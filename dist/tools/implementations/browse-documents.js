@@ -3,7 +3,7 @@
  * Unified browsing and searching with namespace awareness
  */
 import { AddressingError, DocumentNotFoundError, parseDocumentAddress, parseSectionAddress } from '../../shared/addressing-system.js';
-import { analyzeDocumentLinks, analyzeSectionContent, getSectionStructure, parseSectionPath, generateBreadcrumb, getFolderStructure, classifyRelationship, findRelatedByContent } from '../browse/index.js';
+import { analyzeDocumentLinks, analyzeSectionContent, getSectionStructure, parseSectionPath, getFolderStructure, classifyRelationship, findRelatedByContent } from '../browse/index.js';
 /**
  * Validates a numeric parameter with range constraints
  * @param value - The value to validate
@@ -52,14 +52,12 @@ export async function browseDocuments(args, _state, manager) {
                 }
                 const { sections, document_context } = await getSectionStructure(manager, documentAddress.path, analyzeSectionContent, sectionAddress?.slug);
                 const result = {
-                    path: normalizedPath,
                     structure: {
                         folders: [],
                         documents: []
                     },
                     ...(document_context != null && { document_context }),
-                    sections,
-                    totalItems: sections.length
+                    sections
                 };
                 // Add related documents analysis if requested
                 if (includeRelated && document_context != null) {
@@ -67,9 +65,6 @@ export async function browseDocuments(args, _state, manager) {
                     if (relatedDocuments != null) {
                         result.related_documents = relatedDocuments;
                     }
-                }
-                if (normalizedPath !== '/') {
-                    result.breadcrumb = generateBreadcrumb(normalizedPath);
                 }
                 return result;
             }
@@ -88,16 +83,11 @@ export async function browseDocuments(args, _state, manager) {
             const config = loadConfig();
             const { folders, documents } = await getFolderStructure(manager, config.docsBasePath, normalizedPath, verbose);
             const result = {
-                path: normalizedPath,
                 structure: {
                     folders,
                     documents
-                },
-                totalItems: folders.length + documents.length
+                }
             };
-            if (normalizedPath !== '/') {
-                result.breadcrumb = generateBreadcrumb(normalizedPath);
-            }
             return result;
         }
     }
@@ -106,18 +96,8 @@ export async function browseDocuments(args, _state, manager) {
         if (error instanceof AddressingError) {
             throw error;
         }
-        const message = error instanceof Error ? error.message : String(error);
-        // Return error response with helpful guidance for other errors
-        return {
-            path: args['path'] ?? '/',
-            structure: {
-                folders: [],
-                documents: []
-            },
-            totalItems: 0,
-            // Include error information in a way that's helpful
-            breadcrumb: [`Error: ${message}`]
-        };
+        // For other errors, rethrow - MCP will handle error responses
+        throw error;
     }
 }
 //# sourceMappingURL=browse-documents.js.map

@@ -41,8 +41,6 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
             };
             const result = await section(args, mockSessionState, mockDocumentManager);
             expect(result).toMatchObject({
-                success: true,
-                document: '/docs/test-document.md',
                 operations_completed: 1,
                 results: [{ section: 'overview', status: 'updated' }]
             });
@@ -57,7 +55,6 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
             };
             const result = await section(args, mockSessionState, mockDocumentManager);
             expect(result).toMatchObject({
-                success: true,
                 operations_completed: 2,
                 results: expect.arrayContaining([
                     expect.objectContaining({ section: 'overview', status: 'updated' }),
@@ -97,7 +94,6 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
             const result = await section(args, mockSessionState, mockDocumentManager);
             // Should return error in results for missing title
             expect(result).toMatchObject({
-                success: true,
                 operations_completed: 0,
                 results: [
                     expect.objectContaining({ status: 'error', section: 'features' })
@@ -116,7 +112,6 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
             const result = await section(args, mockSessionState, mockDocumentManager);
             // Should return error in results, not throw
             expect(result).toMatchObject({
-                success: true,
                 operations_completed: 0,
                 results: [
                     expect.objectContaining({ status: 'error', section: 'overview' })
@@ -137,7 +132,6 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
             };
             const result = await section(args, mockSessionState, mockDocumentManager);
             expect(result).toMatchObject({
-                success: true,
                 operations_completed: 1
             });
         });
@@ -166,7 +160,6 @@ describe('Section Tool - Integration Tests (Bulk Operations)', () => {
             };
             const result = await section(args, mockSessionState, mockDocumentManager);
             expect(result).toMatchObject({
-                success: true,
                 operations_completed: 2, // Only successful operations
                 results: [
                     expect.objectContaining({ section: 'overview', status: 'updated' }),

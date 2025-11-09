@@ -41,28 +41,6 @@ export function parseSectionPath(fullPath: string): { documentPath: string; sect
 }
 
 /**
- * Generate breadcrumb trail for a path (including section context)
- */
-export function generateBreadcrumb(docPath: string): string[] {
-  const { documentPath, sectionSlug } = parseSectionPath(docPath);
-  const parts = documentPath.split('/').filter(part => part !== '' && part !== '.');
-  const breadcrumb: string[] = [];
-
-  // Add folder breadcrumbs
-  for (let i = 0; i < parts.length; i++) {
-    const pathUpToHere = `/${parts.slice(0, i + 1).join('/')}`;
-    breadcrumb.push(pathUpToHere);
-  }
-
-  // Add section breadcrumb if applicable
-  if (sectionSlug != null && sectionSlug !== '') {
-    breadcrumb.push(`${documentPath}#${sectionSlug}`);
-  }
-
-  return breadcrumb;
-}
-
-/**
  * Check if a directory exists
  */
 // ts-unused-exports:disable-next-line

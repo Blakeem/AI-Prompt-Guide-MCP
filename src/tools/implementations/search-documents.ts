@@ -30,12 +30,8 @@ interface DocumentResult {
 }
 
 interface SearchResponse {
-  query: string;
-  search_type: 'fulltext' | 'regex';
-  scope: string | null;
   results: DocumentResult[];
   total_matches: number;
-  total_documents: number;
   truncated: boolean;
 }
 
@@ -356,12 +352,8 @@ export async function searchDocuments(
   }
 
   return {
-    query,
-    search_type: searchType,
-    scope,
     results,
     total_matches: totalMatches,
-    total_documents: results.length,
     truncated
   };
 }

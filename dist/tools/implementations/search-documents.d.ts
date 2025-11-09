@@ -23,12 +23,8 @@ interface DocumentResult {
     match_count: number;
 }
 interface SearchResponse {
-    query: string;
-    search_type: 'fulltext' | 'regex';
-    scope: string | null;
     results: DocumentResult[];
     total_matches: number;
-    total_documents: number;
     truncated: boolean;
 }
 /**

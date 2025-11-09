@@ -138,15 +138,9 @@ export async function move(args, _state, manager) {
             await performSectionEdit(manager, sourceAddresses.document.path, sourceSectionAddress.slug, '', // Content doesn't matter for remove operation
             'remove');
         }
-        // Determine the position description based on the operation
-        const positionDescription = position === 'before' ? `before ${normalizedReference}` :
-            position === 'after' ? `after ${normalizedReference}` :
-                `child of ${normalizedReference}`;
-        // Format minimal response
+        // Format minimal response - only return final location
         return {
-            success: true,
             moved_to: `${destAddresses.document.path}#${titleToSlug(sourceTitle)}`,
-            position: positionDescription,
         };
     }
     catch (error) {

@@ -18,10 +18,10 @@ import { ReferenceExtractor } from '../../shared/reference-extractor.js';
 
 /**
  * Enhanced response format for view_section with hierarchical support
+ * Mode is deterministic from input (has # = detail, no # = overview)
+ * Document path is already known by caller from their input
  */
 interface ViewSectionResponse {
-  mode: 'overview' | 'detail';
-  document: string;
   sections: Array<{
     slug: string;
     title: string;
@@ -103,8 +103,6 @@ export async function viewSection(
     }));
 
     return {
-      mode: 'overview',
-      document: addresses.document.path,
       sections: overviewSections
     };
   }
@@ -225,8 +223,6 @@ export async function viewSection(
   }
 
   return {
-    mode: 'detail',
-    document: addresses.document.path,
     sections: processedSections
   };
 }

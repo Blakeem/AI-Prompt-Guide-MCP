@@ -8,33 +8,23 @@ import type { DocumentManager } from '../../document-manager.js';
 import type { HierarchicalContent } from '../../shared/reference-loader.js';
 /**
  * Clean response format for view_subagent_task
+ * Optimized for context efficiency - removed redundant fields
  */
 interface ViewSubagentTaskResponse {
-    mode: 'overview' | 'detail';
-    document: string;
     tasks: Array<{
         slug: string;
         title: string;
-        content?: string;
-        depth: number;
-        full_path: string;
-        parent?: string;
         status: string;
+        depth?: number;
+        content?: string;
+        parent?: string;
         linked_document?: string;
         referenced_documents?: HierarchicalContent[];
         word_count?: number;
         workflow_name?: string;
         main_workflow_name?: string;
-        has_workflow: boolean;
+        has_workflow?: boolean;
     }>;
-    summary: {
-        total_tasks: number;
-        by_status: Record<string, number>;
-        with_links: number;
-        with_references: number;
-        tasks_with_workflows: number;
-        tasks_with_main_workflow: number;
-    };
 }
 /**
  * Execute view_subagent_task tool

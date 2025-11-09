@@ -57,12 +57,29 @@ The system preserves context across sessions while keeping your main agent focus
 - Node.js 18+
 - pnpm 10.x
 
-### Install & Build
+### Zero-Config Setup (Recommended)
+
+This repository includes **production dependencies (35MB)** for true zero-config operation:
 
 ```bash
-pnpm install
-pnpm build
+# Clone and use immediately - no install needed!
+git clone https://github.com/your-org/AI-Prompt-Guide-MCP.git
+cd AI-Prompt-Guide-MCP
+pnpm start  # Or use with Claude Code plugin directly
 ```
+
+**For Contributors/Developers:**
+
+To add development tools (linting, testing, TypeScript):
+
+```bash
+pnpm install  # Adds dev dependencies on top of committed prod deps
+pnpm build    # Rebuild after code changes
+```
+
+Helpful scripts:
+- `pnpm deps:dev` - Install all dependencies including dev tools
+- `pnpm deps:prod` - Strip back to production-only (for commit)
 
 ### Run the Server
 

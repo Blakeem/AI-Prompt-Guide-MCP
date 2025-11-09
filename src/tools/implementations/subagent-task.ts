@@ -371,8 +371,7 @@ async function processTaskOperations(
 
         // Only show next_step on first task in document
         if (isFirstTask) {
-          const fullPath = `${targetAddresses.addresses.document.path}#${createResult.slug}`;
-          result.next_step = `Give subagent this exact instruction (do not run start_subagent_task yourself): "Run: start_subagent_task ${fullPath}. Then execute the task and respond 'Done' or 'Blocked: [reason]'"`;
+          result.next_step = `start_subagent_task ${targetAddresses.addresses.document.path}#${createResult.slug}`;
         }
 
         results.push(result);
