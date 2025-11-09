@@ -14,8 +14,11 @@
     "ai-prompt-guide": {
       "type": "stdio",
       "command": "node",
-      "args": ["./mcp/dist/index.js"],
-      "env": { "NODE_ENV": "production" }
+      "args": ["./dist/index.js"],
+      "env": {
+        "NODE_ENV": "production",
+        "REFERENCE_EXTRACTION_DEPTH": "3"
+      }
     }
   }
 }
