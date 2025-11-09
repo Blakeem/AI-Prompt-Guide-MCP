@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "ai-prompt-guide-mcp": {
+      "command": "node",
+      "args": ["./dist/index.js"],
+      "env": {
+        "MCP_WORKSPACE_PATH": "./.ai-prompt-guide",
+        "REFERENCE_EXTRACTION_DEPTH": "3"
+      }
+    }
+  }
+}
