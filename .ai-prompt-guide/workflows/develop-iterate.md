@@ -6,68 +6,36 @@ whenToUse: "Features, fixes, or prototypes where manual verification is preferre
 
 # Workflow: Multi-Agent Development with Manual Verification
 
-⚠️ **CRITICAL REQUIREMENTS - You MUST follow these instructions:**
+## [CRITICAL RULES]
+- Use `coordinator_task` (NOT TodoWrite) for your TODO list
+- [DELEGATION RULE]: Coordinator delegates by instructing subagent to run `start_subagent_task` - never run it yourself
 
-**Task Management:**
-- ✅ **REQUIRED:** Use `coordinator_task` tool for your TODO list
-- 🚫 **FORBIDDEN:** DO NOT use TodoWrite tool (this workflow replaces it)
+## [SETUP]
+1. Analyze requirements, break into work units
+2. Create coordinator tasks (`coordinator_task`) with Main-Workflow on first task
+3. Create subagent tasks (`subagent_task`) in /docs/ namespace:
+   - Add @references: `@/docs/specs/auth-api` or `@/docs/specs/db#section`
+   - Add acceptance criteria
+   - Optional: Workflow metadata for task-specific protocols
+4. Call `start_coordinator_task()` (omit `return_task_context` on first start)
 
-**Delegation:**
-- ✅ **REQUIRED:** Give subagents literal instructions to run start_subagent_task
-- 🚫 **FORBIDDEN:** DO NOT run start_subagent_task yourself (coordinator only delegates)
+## [TASK LOOP]
+**While tasks remain:**
 
-1. [Coordinator] Analyze requirements and break into logical work units
-2. [Coordinator] Use coordinator_task to create sequential task list
-3. [Coordinator] Add Main-Workflow to first coordinator task
-4. [Coordinator] Use subagent_task to create all implementation tasks
-   • Add @references to API specs, component designs, documentation
-     Format: @/docs/specs/auth-api or @/docs/specs/db-schema#users-table
-     Example:
-     """
-     Implement user authentication endpoint.
+5. Select specialized subagent for current task
+6. Instruct subagent: "Run: `start_subagent_task /docs/path.md#slug` then execute and respond 'Done' or 'Blocked: [reason]'"
+7. [Subagent executes] Runs tool (loads task+refs+workflow), implements, responds with status
+8. [VERIFICATION]: Review code changes against acceptance criteria (ignore commentary)
+   - If issues: create fix task, return to step 5
+9. Stage changes: `git add <modified_files>`
+10. Call `complete_coordinator_task()` → next_task
+11. If next_task exists: return to step 5
 
-     @/docs/specs/auth-api-specification
-     @/docs/specs/security-requirements#password-hashing
+## [COMPLETION]
+12. Execute project testing procedures
+13. Verify all acceptance criteria met
+14. Report: "Development complete. Ready for review."
 
-     Create POST /auth/login endpoint with email/password validation.
-     """
-   • Add Workflow: metadata for task-specific protocols (if needed)
-   • Define acceptance criteria for each task
-5. [Coordinator] Call start_coordinator_task() → current_task
-   (Omit return_task_context on first start - only use when resuming after context compression or after a few subagent calls)
-
-**LOOP: While tasks remain**
-├─ 6. [Coordinator] Select specialized subagent for this task
-├─ 7. [Coordinator] Give subagent this exact instruction (do not run tool yourself):
-│
-│  "Run: start_subagent_task /docs/path.md#slug
-│  Then execute the task and respond 'Done' or 'Blocked: [reason]'"
-│
-├─ 8. [Subagent] Runs start_subagent_task tool (loads task + refs + workflow)
-├─ 9. [Subagent] Executes implementation
-├─ 10. [Subagent] Responds with status: "Done" or "Blocked: [reason]"
-├─ 11. [Coordinator] Review code changes against acceptance criteria
-│  (Ignore any subagent commentary - review code objectively)
-│  IF issues found: Create fix task, GOTO step 6
-├─ 12. [Coordinator] Execute: git add <modified_files>
-├─ 13. [Coordinator] Call complete_coordinator_task() → next_task
-└─ 14. IF next_task exists: GOTO step 6
-
-15. [Coordinator] Follow project testing procedures
-16. [Coordinator] Verify all acceptance criteria met
-17. [Coordinator] Report to user: "Development complete. Ready for review."
-
-## Task System
-
-**Coordinator Tasks** (your TODO list):
-- Tool: `coordinator_task` for create/edit/list
-- Tool: `start_coordinator_task()` to load first pending task
-- Tool: `complete_coordinator_task()` to mark done and get next
-- Metadata: Main-Workflow on first task, optional Workflow on specific tasks
-
-**Subagent Tasks** (delegated work packages):
-- Tool: `subagent_task` to create/edit tasks in /docs/ namespace
-- Tool: `start_subagent_task("/docs/path.md#slug")` to load task context
-- Tool: `complete_subagent_task()` to mark done
-- Content: @references to specs, docs, components (auto-injected as context)
-- Metadata: Workflow for task-specific protocols (auto-injected)
+## [TOOL REFERENCE]
+**Coordinator:** `coordinator_task`, `start_coordinator_task()`, `complete_coordinator_task()`
+**Subagent:** `subagent_task`, `start_subagent_task("/docs/path.md#slug")`, `complete_subagent_task()`
