@@ -98,14 +98,16 @@ pnpm inspector
 
 **Zero-config by default** - the server works immediately with no setup required. When you run Claude Code from a project directory, it automatically creates a `.ai-prompt-guide/` folder in your project to store documents, tasks, and archives.
 
-**Optional configuration** for custom paths:
+**MCP Server Setup** (for non-Claude Code Plugin users):
+
+Add to your MCP client configuration (e.g., `.mcp.json`):
 
 ```json
 {
   "mcpServers": {
     "ai-prompt-guide-mcp": {
-      "command": "npx",
-      "args": ["-y", "ai-prompt-guide-mcp"],
+      "command": "node",
+      "args": ["/path/to/AI-Prompt-Guide-MCP/dist/index.js"],
       "env": {
         "MCP_WORKSPACE_PATH": "/custom/workspace/path"
       }
@@ -113,6 +115,8 @@ pnpm inspector
   }
 }
 ```
+
+Replace `/path/to/AI-Prompt-Guide-MCP` with your actual clone location. No build step required—built files are included.
 
 **Optional Settings:**
 
