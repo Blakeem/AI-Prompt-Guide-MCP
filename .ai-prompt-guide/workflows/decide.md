@@ -6,41 +6,15 @@ whenToUse: "Multiple valid implementation approaches or architecture/optimizatio
 
 # Workflow: Structured Decision Making
 
-1. [Agent] Identify decision point and constraints
-2. [Agent] Generate 2-4 viable options (include simple baseline)
-3. [Agent] Document each option:
-   • Description: 1-2 sentence summary
-   • Assumptions: what must be true for this to work
-   • Pros: benefits, advantages, strengths
-   • Cons: drawbacks, risks, limitations
-   • Evidence: documentation, prior art, examples
-   • Pattern alignment: fits existing codebase patterns
+1. Identify decision point and constraints
+2. Generate 2-4 viable options (include simple baseline)
+3. Document each option: Description | Assumptions | Pros | Cons | Evidence | Pattern alignment
+4. Select 4-6 evaluation criteria (correctness, risk, maintainability, testability, simplicity, performance, pattern consistency)
+5. Create decision matrix: Score 0-10 per criterion, apply weights (critical: 3-5, important: 2, nice-to-have: 1), calculate weighted sum
+6. Select highest-scoring option
+7. Document disqualifiers for rejected options
+8. Record decision rationale
 
-4. [Agent] Select 4-6 evaluation criteria:
-   • Correctness: solves problem accurately
-   • Risk: failure modes and likelihood
-   • Pattern Consistency: aligns with codebase conventions
-   • Maintainability: long-term code health
-   • Testability: ease of verification
-   • Simplicity: minimal complexity for requirements
-   • Performance: efficiency (if applicable)
-
-5. [Agent] Create decision matrix:
-   • Score each option per criterion (0-10 scale)
-   • Apply weights based on project priorities
-   • Calculate: Score = Σ (weight × normalized_criterion)
-
-6. [Agent] Select highest-scoring option
-7. [Agent] Document why NOT the other options (key disqualifiers)
-8. [Agent] Record decision rationale for future reference
-
-## Scoring Guidelines
-
-**Weights:**
-- High weight (3-5): Critical project priorities
-- Medium weight (2): Important but negotiable
-- Low weight (1): Nice-to-have considerations
-
-**Disqualification:**
-- Options failing non-negotiable requirements score 0 regardless of other merits
-- Simple option losing to complex requires explicit justification
+**Rules:**
+- Non-negotiable failures score 0
+- Simple losing to complex requires explicit justification

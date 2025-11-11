@@ -6,46 +6,25 @@ whenToUse: "Reviewing pull requests, specific changes, or individual modules bef
 
 # Workflow: Code Review
 
-1. [Reviewer] Define review scope:
-   • Pull request or commit range
-   • Specific files or modules
-   • Focused area or component
+1. **Define scope**: PR/commit range, specific files/modules, or focused component
 
-2. [Reviewer] Review across quality dimensions:
-   • Correctness: logic accuracy, edge cases, error handling
-   • Code Quality: readability, maintainability, naming
+2. **Assess quality dimensions** (prioritize changed code):
+   • Correctness: logic, edge cases, error handling
+   • Security: validation, auth, sensitive data
    • Testing: coverage, assertions, edge cases
-   • Security: validation, auth, sensitive data handling
+   • Code Quality: readability, maintainability, patterns
    • Performance: efficiency, resource usage
-   • Pattern Consistency: aligns with codebase conventions
+   • Simplicity: minimal complexity for requirements
 
-3. [Reviewer] Identify issues by severity:
-   • Critical: security vulnerabilities, data loss risks, breaking changes
-   • High: performance issues, major logic errors, missing critical tests
-   • Medium: code smells, moderate improvements, minor bugs
-   • Low: style inconsistencies, minor optimizations, naming
+3. **Categorize by severity**:
+   • **Critical**: security vulnerabilities, data loss, breaking changes
+   • **High**: performance issues, logic errors, missing critical tests
+   • **Medium**: code smells, moderate improvements, minor bugs
+   • **Low**: style inconsistencies, optimizations, naming
 
-4. [Reviewer] Provide actionable feedback per finding:
-   • Location (file:line)
-   • Clear description and impact
-   • Concrete recommendation
-   • Code examples (if applicable)
+4. **Document findings** (file:line):
+   • Impact and root cause
+   • Concrete fix recommendation
+   • Code example when helpful
 
-5. [Reviewer] Summarize findings:
-   • Overall assessment (approve/request changes/comment)
-   • Count by severity
-   • Priority recommendations
-   • Blocking vs non-blocking items
-
-## Review Focus
-
-**Prioritize:**
-- Correctness and security
-- Maintainability impact
-- Changed code (not unchanged)
-
-**Provide:**
-- Specific, actionable feedback
-- Explain "why" behind suggestions
-- Acknowledge good practices
-- Timely feedback
+5. **Summarize**: Decision (approve/changes/comment) • Severity counts • Blocking items • Acknowledge good practices

@@ -6,86 +6,55 @@ whenToUse: "Complex decisions requiring multiple viewpoints or when trade-offs s
 
 # Workflow: Multi-Perspective Decision Making
 
-⚠️ **CRITICAL REQUIREMENTS - You MUST follow these instructions:**
+**CRITICAL:** Use `subagent_task` tool for task creation (NOT TodoWrite). Coordinator delegates to subagents who run `start_subagent_task` themselves.
 
-**Task Management:**
-- ✅ **REQUIRED:** Use `subagent_task` tool to create analysis tasks for each lens
-- 🚫 **FORBIDDEN:** DO NOT use TodoWrite tool (use subagent_task instead)
+## [SETUP]
 
-**Delegation:**
-- ✅ **REQUIRED:** Give subagents literal instructions to run start_subagent_task
-- 🚫 **FORBIDDEN:** DO NOT run start_subagent_task yourself (coordinator only delegates)
+**[Coordinator] Define decision specification:**
+- Problem statement and non-negotiable constraints
+- Evaluation criteria (4-6) with project-level weights
+- Evidence requirements
 
-1. [Coordinator] Define decision specification:
-   • Problem statement and context
-   • Non-negotiable constraints
-   • Evaluation criteria (4-6) with project weights
-   • Evidence requirements
+**[Coordinator] Create lens analysis tasks:**
+1. Select 3-5 lenses from standard set below
+2. Use `subagent_task` to create task per lens with:
+   - Lens focus area
+   - @references to patterns/constraints (format: `@/docs/path` or `@/docs/path#section`)
+   - Evidence requirements
 
-2. [Coordinator] Select 3-5 analysis lenses from standard set
-3. [Coordinator] Use subagent_task to create analysis task for each lens:
-   • Specify lens focus (performance, UX, maintainability, etc.)
-   • Add @references to codebase patterns, constraints, requirements
-     Format: @/docs/architecture/patterns or @/docs/constraints#performance
-   • Define evidence requirements for this lens
+3. Launch all specialist agents in parallel
 
-4. [Coordinator] Launch all lens specialist agents simultaneously in parallel
+## [PARALLEL ANALYSIS]
 
-5. [Specialists - Parallel Execution] Each specialist independently:
-   • Generate 2-4 viable options optimized for lens priority
-   • Document each option: description, assumptions, pros/cons, evidence, pattern alignment
-   • Create decision matrix with lens-specific weights
-   • Select best option for this lens → recommended_option
-   • Document rationale and key trade-offs
-   • Return recommendation to coordinator
+**[Each Specialist] Execute lens analysis:**
+- Generate 2-4 options optimized for assigned lens
+- Document: description, assumptions, pros/cons, evidence, pattern alignment
+- Build decision matrix with lens-specific weights (score 0-10)
+- Recommend best option with rationale and trade-offs
 
-6. [Coordinator] Collect all lens recommendations
-7. [Coordinator] Verify options are meaningfully distinct (interface, structure, approach)
-8. [Coordinator] Enforce non-negotiables → drop violators
-9. [Coordinator] Identify hybridization opportunities (combine strengths from multiple lenses)
-10. [Coordinator] Create global decision matrix with project-level weights
-11. [Coordinator] Select final option (highest score or reasoned choice)
-12. [Coordinator] Document decision:
-    • Why this option wins
-    • Why NOT other options (key discriminators)
-    • Trade-offs and follow-up actions
-13. [Coordinator] Record rationale with matrix, evidence, disqualifiers
+## [SYNTHESIS]
 
-## Analysis Lenses
+**[Coordinator] Integrate recommendations:**
+1. Verify options are meaningfully distinct
+2. Enforce non-negotiables, drop violators
+3. Identify hybridization opportunities
+4. Build global decision matrix with project weights
+5. Select winner (highest score or justified choice)
+6. Document: why this wins, why NOT others (discriminators), trade-offs, follow-up actions
 
-**Performance:**
-- Runtime efficiency, memory usage, throughput
-- Focus: algorithmic complexity, resource optimization
+## Standard Lenses
 
-**UX/Ergonomics:**
-- API clarity, cognitive load, sensible defaults
-- Focus: developer experience, ease of use
+| Lens | Focus Areas |
+|------|-------------|
+| **Performance** | Runtime efficiency, memory, throughput, algorithmic complexity |
+| **UX/Ergonomics** | API clarity, cognitive load, sensible defaults, developer experience |
+| **Maintainability** | Readability, minimal churn, code longevity, team velocity |
+| **Pattern Consistency** | Alignment with existing idioms, error handling, conventions |
+| **Risk/Security** | Failure modes, dependency risks, attack surface, production readiness |
+| **Simplicity Baseline** | Minimal complexity, boring solutions, proven approaches |
 
-**Maintainability:**
-- Readability, long-term health, minimal churn
-- Focus: code longevity, team velocity
+## Evaluation Standards
 
-**Pattern Consistency:**
-- Alignment with existing idioms, error handling, conventions
-- Focus: cognitive load reduction, team familiarity
+**Per-Lens:** Optimize for lens priority, score with lens weights, recommend single best option.
 
-**Risk/Security:**
-- Failure modes, dependency risks, attack surface
-- Focus: robustness, safety, production readiness
-
-**Simplicity Baseline:**
-- Minimal moving parts, boring solutions, proven approaches
-- Focus: lowest viable complexity
-
-## Evaluation Guidelines
-
-**Per-Lens Analysis:**
-- Generate options optimized for lens priority
-- Score 0-10 per criterion with lens-specific weights
-- Select single best option for that perspective
-
-**Global Synthesis:**
-- Use project-level weights across all criteria
-- Consider hybrid solutions combining lens strengths
-- Disqualify any option failing non-negotiables
-- Explicitly justify why complex option beats simple baseline
+**Global:** Apply project weights, consider hybrids, enforce non-negotiables, justify complexity over simplicity.

@@ -6,45 +6,23 @@ whenToUse: "Integrating SDKs, webhooks, auth flows, or documenting external serv
 
 # Workflow: Document External API Specification
 
-1. [Agent] Identify authoritative sources:
-   • Official documentation, API references, RFCs
-   • Versions relevant to runtime/environment
-   • Verify current and accurate (not third-party tutorials)
+1. [Agent] Identify authoritative sources (official docs, RFCs) matching runtime/environment versions
 
-2. [Agent] Extract complete API contract:
-   • Capabilities: supported features, limitations
-   • Invariants: must-hold conditions
-   • Limits: rate limits, size limits, timeouts
-   • Error semantics: codes, formats, retry policies
-   • Version gates: feature availability per version
-   • Authentication/authorization requirements
+2. [Agent] Extract API contract from source documentation:
+   • Capabilities, invariants, limits (rate/size/timeout)
+   • Error semantics (codes, retry policies, version gates)
+   • Auth requirements
 
-3. [Agent] Use create_document to create specification document
+3. [Agent] Use create_document, then section tool to structure:
+   • Endpoints with signatures
+   • Request/response formats + examples
+   • Error conditions + handling
+   • Rate limits, quotas, auth flows
+   • Version compatibility
 
-4. [Agent] Use section tool to add specification sections:
-   • Endpoints/methods with full signatures
-   • Request/response formats with examples
-   • Error conditions and handling
-   • Rate limits and quotas
-   • Authentication flows
-   • Version compatibility matrix
+4. [Agent] Define acceptance criteria:
+   • Happy path + edge cases (boundaries, limits)
+   • Error handling per specification
+   • Performance requirements (latency/throughput)
 
-5. [Agent] Document integration acceptance criteria:
-   • Happy path: normal expected behavior
-   • Edge cases: boundaries, limits, unusual inputs
-   • Error handling: all specified error conditions
-   • Performance boundaries: latency/throughput requirements
-
-## Specification Principles
-
-**Correctness Priority:**
-- Official documentation is source of truth
-- Spec compliance before simplicity
-- Test against specification, not assumptions
-- Verify examples from official docs
-
-**Documentation Quality:**
-- Complete API surface coverage
-- Clear examples for common use cases
-- Comprehensive error documentation
-- Version-specific notes where applicable
+**Principle:** Official docs are truth. Spec compliance before simplicity. Test against specification, not assumptions.
