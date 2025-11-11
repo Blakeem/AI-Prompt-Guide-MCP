@@ -23,7 +23,7 @@ whenToUse: "Multiple valid implementation approaches or architecture/optimizatio
    • Maintainability: long-term code health
    • Testability: ease of verification
    • Simplicity: minimal complexity for requirements
-   • Performance: efficiency (if applicable)
+   • Performance: efficiency
 
 5. [Agent] Create decision matrix:
    • Score each option per criterion (0-10 scale)

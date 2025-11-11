@@ -18,6 +18,7 @@ whenToUse: "Reviewing pull requests, specific changes, or individual modules bef
    • Security: validation, auth, sensitive data handling
    • Performance: efficiency, resource usage
    • Pattern Consistency: aligns with codebase conventions
+   • Simplicity: minimal complexity for requirements
 
 3. [Reviewer] Identify issues by severity:
    • Critical: security vulnerabilities, data loss risks, breaking changes
