@@ -8,8 +8,8 @@ An MCP server that orchestrates AI agents through structured markdown documents.
 
 - [What It Does](#what-it-does)
 - [Key Features](#key-features)
-- [Getting Started](#getting-started)
 - [Claude Code Plugin](#claude-code-plugin)
+- [Direct MCP Server Installation](#direct-mcp-server-installation)
 - [Tools Overview](#tools-overview)
 - [Use Case](#use-case)
 - [License](#license)
@@ -50,7 +50,68 @@ The system preserves context across sessions while keeping your main agent focus
 - Reference workflows in task metadata for automatic injection
 - Create your own custom workflows easily
 
-## Getting Started
+## Claude Code Plugin
+
+### Install
+
+```bash
+/plugin marketplace add https://github.com/Blakeem/AI-Prompt-Guide-MCP
+/plugin install ai-prompt-guide@ai-prompt-guide-marketplace
+```
+
+### Workflows & Commands
+
+The plugin provides **11 workflows** accessible both as slash commands and via the `get_workflow` MCP tool:
+
+**Development Workflows:**
+- `/ai-prompt-guide:develop` – Simple development with anti-pattern detection and regression prevention
+- `/ai-prompt-guide:develop-fix` – Bug fixing with root cause analysis and regression prevention
+- `/ai-prompt-guide:develop-tdd` – Orchestrate multi-agent development with TDD
+- `/ai-prompt-guide:develop-iterate` – Orchestrate multi-agent development with manual verification
+
+**Quality & Review Workflows:**
+- `/ai-prompt-guide:review` – Targeted review of PRs or components
+- `/ai-prompt-guide:audit` – Quality audit with specialized agents
+- `/ai-prompt-guide:coverage` – Add comprehensive test coverage
+
+**Decision Workflows:**
+- `/ai-prompt-guide:decide` – Structured decision making with trade-off analysis
+- `/ai-prompt-guide:decide-iterate` – Multi-perspective decision analysis with parallel agents
+
+**Specification Workflows:**
+- `/ai-prompt-guide:spec-feature` – Document internal feature specifications
+- `/ai-prompt-guide:spec-external` – Document external API specifications
+
+**Commands are shortcuts to workflows.** When using Claude Code, the plugin commands provide a convenient way to invoke workflows. When using the MCP server directly, access the same workflows via:
+
+```typescript
+get_workflow({ workflow: "develop" })
+get_workflow({ workflow: "develop-fix" })
+get_workflow({ workflow: "develop-tdd" })
+get_workflow({ workflow: "audit" })
+// ... etc
+```
+
+### Examples
+
+**Simple development (no multi-agent orchestration):**
+```
+/ai-prompt-guide:develop Add a dark mode toggle to the settings page with persistence to localStorage
+```
+
+**Bug fixing:**
+```
+/ai-prompt-guide:develop-fix The form submission fails when the email field is empty - returns undefined instead of validation error
+```
+
+**Multi-agent development with TDD:**
+```
+/ai-prompt-guide:develop-tdd Build an admin dashboard with user activity charts, region filtering, and CSV export. Include tests for the aggregation logic.
+```
+
+The plugin loads the appropriate workflow and guides you through the implementation process.
+
+## Direct MCP Server Installation
 
 ### Requirements
 
@@ -164,67 +225,6 @@ your-project/
 ```
 
 Everything is created automatically—no manual setup required. Workflows and guides are shared across all your projects.
-
-## Claude Code Plugin
-
-### Install
-
-```bash
-/plugin marketplace add https://github.com/Blakeem/AI-Prompt-Guide-MCP
-/plugin install ai-prompt-guide@ai-prompt-guide-marketplace
-```
-
-### Workflows & Commands
-
-The plugin provides **11 workflows** accessible both as slash commands and via the `get_workflow` MCP tool:
-
-**Development Workflows:**
-- `/ai-prompt-guide:develop` – Simple development with anti-pattern detection and regression prevention
-- `/ai-prompt-guide:develop-fix` – Bug fixing with root cause analysis and regression prevention
-- `/ai-prompt-guide:develop-tdd` – Orchestrate multi-agent development with TDD
-- `/ai-prompt-guide:develop-iterate` – Orchestrate multi-agent development with manual verification
-
-**Quality & Review Workflows:**
-- `/ai-prompt-guide:review` – Targeted review of PRs or components
-- `/ai-prompt-guide:audit` – Quality audit with specialized agents
-- `/ai-prompt-guide:coverage` – Add comprehensive test coverage
-
-**Decision Workflows:**
-- `/ai-prompt-guide:decide` – Structured decision making with trade-off analysis
-- `/ai-prompt-guide:decide-iterate` – Multi-perspective decision analysis with parallel agents
-
-**Specification Workflows:**
-- `/ai-prompt-guide:spec-feature` – Document internal feature specifications
-- `/ai-prompt-guide:spec-external` – Document external API specifications
-
-**Commands are shortcuts to workflows.** When using Claude Code, the plugin commands provide a convenient way to invoke workflows. When using the MCP server directly, access the same workflows via:
-
-```typescript
-get_workflow({ workflow: "develop" })
-get_workflow({ workflow: "develop-fix" })
-get_workflow({ workflow: "develop-tdd" })
-get_workflow({ workflow: "audit" })
-// ... etc
-```
-
-### Examples
-
-**Simple development (no multi-agent orchestration):**
-```
-/ai-prompt-guide:develop Add a dark mode toggle to the settings page with persistence to localStorage
-```
-
-**Bug fixing:**
-```
-/ai-prompt-guide:develop-fix The form submission fails when the email field is empty - returns undefined instead of validation error
-```
-
-**Multi-agent development with TDD:**
-```
-/ai-prompt-guide:develop-tdd Build an admin dashboard with user activity charts, region filtering, and CSV export. Include tests for the aggregation logic.
-```
-
-The plugin loads the appropriate workflow and guides you through the implementation process.
 
 ## Tools Overview
 
