@@ -134,13 +134,16 @@ pnpm start  # Or use with Claude Code plugin directly
 To add development tools (linting, testing, TypeScript):
 
 ```bash
-pnpm install  # Adds dev dependencies on top of committed prod deps
-pnpm build    # Rebuild after code changes
+./scripts/dev-mode-on.sh  # Install dev tools, hide from git
+pnpm build                # Rebuild after code changes
 ```
 
-Helpful scripts:
-- `pnpm deps:dev` - Install all dependencies including dev tools
-- `pnpm deps:prod` - Strip back to production-only (for commit)
+📖 **See [DEV_WORKFLOW.md](./DEV_WORKFLOW.md) for complete development documentation**
+
+Key scripts:
+- `./scripts/dev-mode-on.sh` - Enable development mode (adds dev tools, hides from git)
+- `./scripts/dev-mode-off.sh` - Disable development mode (shows production state)
+- `./scripts/update-prod-deps.sh` - Update production dependencies
 
 ### Run the Server
 
