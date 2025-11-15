@@ -26,13 +26,14 @@ whenToUse: "Features or fixes requiring test-driven development and quality gate
 
 **Per Task:**
 1. Select specialized subagent
-2. Instruct: "Run: start_subagent_task /docs/path.md#slug → Execute via TDD → Report status"
-3. Subagent loads context, implements TDD cycle, responds
-4. Review code against acceptance criteria (ignore commentary)
-5. Run quality gates → if fail: create fix task, return to [Execution Loop]
-6. Stage changes: `git add <modified_files>`
-7. Call `complete_coordinator_task()` → next_task
-8. If tasks remain: return to [Execution Loop]
+2. Instruct: "Run: start_subagent_task /docs/path.md#slug → Execute via TDD → Report 'Done' or 'Blocked: [reason]'"
+3. Subagent loads context, implements TDD cycle, responds with status only
+4. **Review code changes directly** (clean slate—examine actual changes, only consult notes if needed)
+5. Verify against acceptance criteria
+6. Run quality gates → if fail: create fix task, return to [Execution Loop]
+7. Stage changes: `git add <modified_files>`
+8. Call `complete_coordinator_task()` → next_task
+9. If tasks remain: return to [Execution Loop]
 
 ## [Finalization]
 

@@ -24,12 +24,13 @@ whenToUse: "Features, fixes, or prototypes where manual verification is preferre
 
 5. Select specialized subagent for current task
 6. Instruct subagent: "Run: `start_subagent_task /docs/path.md#slug` then execute and respond 'Done' or 'Blocked: [reason]'"
-7. [Subagent executes] Runs tool (loads task+refs+workflow), implements, responds with status
-8. [VERIFICATION]: Review code changes against acceptance criteria (ignore commentary)
+7. [Subagent executes] Runs tool (loads task+refs+workflow), implements, responds with status only
+8. **[CLEAN SLATE REVIEW]**: Review code changes directly (examine actual changes first, only consult notes if needed)
+9. Verify against acceptance criteria
    - If issues: create fix task, return to step 5
-9. Stage changes: `git add <modified_files>`
-10. Call `complete_coordinator_task()` → next_task
-11. If next_task exists: return to step 5
+10. Stage changes: `git add <modified_files>`
+11. Call `complete_coordinator_task()` → next_task
+12. If next_task exists: return to step 5
 
 ## [COMPLETION]
 12. Execute project testing procedures
