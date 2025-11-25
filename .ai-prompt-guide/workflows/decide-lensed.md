@@ -1,12 +1,12 @@
 ---
-title: "Decide (Iterate)"
+title: "Decide (Lensed)"
 description: "⚖️ DECISION: Multi-perspective decision analysis with parallel specialist agents"
 whenToUse: "Complex decisions requiring multiple viewpoints or when trade-offs span different quality dimensions"
 ---
 
 # Workflow: Multi-Perspective Decision Making
 
-**CRITICAL:** Use `subagent_task` tool for task creation (NOT TodoWrite). Coordinator delegates to subagents who run `start_subagent_task` themselves.
+**Purpose:** Analyze a decision from multiple quality perspectives, then synthesize into a recommendation.
 
 ## [SETUP]
 
@@ -14,17 +14,18 @@ whenToUse: "Complex decisions requiring multiple viewpoints or when trade-offs s
 - Problem statement and non-negotiable constraints
 - Evaluation criteria (4-6) with project-level weights
 - Evidence requirements
+- Document paths for context (if any): `/docs/specs/api.md`, `/docs/constraints.md#performance`
 
-**[Coordinator] Create lens analysis tasks:**
-1. Select 3-5 lenses from standard set below
-2. Use `subagent_task` to create task per lens with:
-   - Lens focus area
-   - @references to patterns/constraints (format: `@/docs/path` or `@/docs/path#section`)
-   - Evidence requirements
-
-3. Launch all specialist agents in parallel
+**[Coordinator] Select lenses:**
+- Choose 3-5 lenses from standard set below
+- Each lens will analyze the problem from its perspective
 
 ## [PARALLEL ANALYSIS]
+
+Launch parallel agents, one per lens. For each agent, provide:
+- Assigned lens and focus areas
+- Document paths to read (if needed)
+- Non-negotiable constraints
 
 **[Each Specialist] Execute lens analysis:**
 - Generate 2-4 options optimized for assigned lens

@@ -6,7 +6,9 @@ whenToUse: "Adding tests to legacy code or improving coverage for critical code 
 
 # Workflow: Add Test Coverage
 
-🚫 **FORBIDDEN:** TodoWrite tool, coordinator running start_subagent_task
+## [CRITICAL RULES]
+- **Coordinator:** Use `coordinator_task` (NOT TodoWrite) - persists across sessions
+- **Delegation:** Instruct subagent to run `start_subagent_task` - never run it yourself
 
 ## [SETUP] Analysis & Task Creation
 1. Analyze code → identify coverage gaps, prioritize by regression risk
@@ -51,3 +53,7 @@ Write passing tests using AAA pattern, respond 'Done' or 'Blocked: [reason]'"
 - Deterministic, order-independent
 - One concept per test with clear names
 - Minimal setup complexity
+
+## [TOOL REFERENCE]
+**Coordinator:** `coordinator_task`, `start_coordinator_task()`, `complete_coordinator_task()`
+**Subagent:** `subagent_task`, `start_subagent_task("/docs/path.md#slug")`, `complete_subagent_task()`

@@ -330,7 +330,7 @@ describe('coordinator_task tool', () => {
           {
             operation: 'create',
             title: 'Phase 1: Initialize',
-            content: 'Status: pending\n\nMain-Workflow: develop-tdd\n\nInitialize the project'
+            content: 'Status: pending\n\nMain-Workflow: develop-staged-tdd\n\nInitialize the project'
           }
         ]
       }, sessionState, manager);
@@ -349,7 +349,7 @@ describe('coordinator_task tool', () => {
           {
             operation: 'create',
             title: 'Phase 1: Setup',
-            content: 'Status: pending\n\nMain-Workflow: develop-tdd\n\nSetup environment'
+            content: 'Status: pending\n\nMain-Workflow: develop-staged-tdd\n\nSetup environment'
           }
         ]
       }, sessionState, manager);
@@ -375,7 +375,7 @@ describe('coordinator_task tool', () => {
       // Arrange - create first and second tasks
       await coordinatorTask({
         operations: [
-          { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nMain-Workflow: develop-tdd\n\nFirst task' },
+          { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nMain-Workflow: develop-staged-tdd\n\nFirst task' },
           { operation: 'create', title: 'Task 2', content: 'Status: pending\n\nSecond task' }
         ]
       }, sessionState, manager);
@@ -396,7 +396,7 @@ describe('coordinator_task tool', () => {
       // Act - create multiple tasks at once in new document
       const result = await coordinatorTask({
         operations: [
-          { operation: 'create', title: 'First Task', content: 'Status: pending\n\nMain-Workflow: develop-tdd\n\nContent 1' },
+          { operation: 'create', title: 'First Task', content: 'Status: pending\n\nMain-Workflow: develop-staged-tdd\n\nContent 1' },
           { operation: 'create', title: 'Second Task', content: 'Status: pending\n\nContent 2' },
           { operation: 'create', title: 'Third Task', content: 'Status: pending\n\nContent 3' }
         ]

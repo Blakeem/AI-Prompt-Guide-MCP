@@ -49,20 +49,20 @@ describe('Workflow Prompt Utilities', () => {
     it('should extract workflow from bold format', () => {
       const content = `
 ### Task Title
-**Workflow:** develop-tdd
+**Workflow:** develop-staged-tdd
 `;
-      expect(extractWorkflowName(content)).toBe('develop-tdd');
+      expect(extractWorkflowName(content)).toBe('develop-staged-tdd');
     });
 
     it('should extract workflow from bold format with surrounding text', () => {
       const content = `
 ### Task Title
 
-**Workflow:** develop-iterate
+**Workflow:** develop-staged
 
 This is the task description.
 `;
-      expect(extractWorkflowName(content)).toBe('develop-iterate');
+      expect(extractWorkflowName(content)).toBe('develop-staged');
     });
 
     it('should extract workflow from plain format (no list marker)', () => {
@@ -133,9 +133,9 @@ Workflow: audit
     it('should trim whitespace from workflow name in bold format', () => {
       const content = `
 ### Task Title
-**Workflow:**   develop-tdd
+**Workflow:**   develop-staged-tdd
 `;
-      expect(extractWorkflowName(content)).toBe('develop-tdd');
+      expect(extractWorkflowName(content)).toBe('develop-staged-tdd');
     });
 
     it('should handle workflow with hyphens and underscores', () => {
@@ -158,7 +158,7 @@ Workflow: audit
     it('should NOT match malformed partial bold format (only opening)', () => {
       const content = `
 ### Task Title
-**Workflow: develop-tdd
+**Workflow: develop-staged-tdd
 `;
       // Malformed markdown - missing closing **, should not match
       expect(extractWorkflowName(content)).toBeNull();
@@ -167,33 +167,33 @@ Workflow: audit
     it('should match plain format with spurious asterisks in value', () => {
       const content = `
 ### Task Title
-Workflow:** develop-tdd
+Workflow:** develop-staged-tdd
 `;
       // Plain format matches Workflow: and captures everything after (including spurious **)
-      expect(extractWorkflowName(content)).toBe('** develop-tdd');
+      expect(extractWorkflowName(content)).toBe('** develop-staged-tdd');
     });
 
     it('should handle workflow at start of content', () => {
-      const content = `**Workflow:** develop-tdd
+      const content = `**Workflow:** develop-staged-tdd
 Some task content here.
 `;
-      expect(extractWorkflowName(content)).toBe('develop-tdd');
+      expect(extractWorkflowName(content)).toBe('develop-staged-tdd');
     });
 
     it('should handle workflow with extra spaces after colon', () => {
       const content = `
 ### Task Title
-**Workflow:**    develop-tdd
+**Workflow:**    develop-staged-tdd
 `;
-      expect(extractWorkflowName(content)).toBe('develop-tdd');
+      expect(extractWorkflowName(content)).toBe('develop-staged-tdd');
     });
 
     it('should handle workflow with tabs after colon', () => {
       const content = `
 ### Task Title
-**Workflow:**\t\tdevelop-tdd
+**Workflow:**\t\tdevelop-staged-tdd
 `;
-      expect(extractWorkflowName(content)).toBe('develop-tdd');
+      expect(extractWorkflowName(content)).toBe('develop-staged-tdd');
     });
   });
 
@@ -238,11 +238,11 @@ Some task content here.
       const content = `
 ### Task Title
 
-**Main-Workflow:** develop-tdd
+**Main-Workflow:** develop-staged-tdd
 
 This is the task description.
 `;
-      expect(extractMainWorkflowName(content)).toBe('develop-tdd');
+      expect(extractMainWorkflowName(content)).toBe('develop-staged-tdd');
     });
 
     it('should extract main workflow from plain format (no list marker)', () => {
@@ -330,26 +330,26 @@ Main-Workflow: audit
     });
 
     it('should handle main workflow at start of content', () => {
-      const content = `**Main-Workflow:** develop-tdd
+      const content = `**Main-Workflow:** develop-staged-tdd
 Some task content here.
 `;
-      expect(extractMainWorkflowName(content)).toBe('develop-tdd');
+      expect(extractMainWorkflowName(content)).toBe('develop-staged-tdd');
     });
 
     it('should handle main workflow with extra spaces after colon', () => {
       const content = `
 ### Task Title
-**Main-Workflow:**    develop-tdd
+**Main-Workflow:**    develop-staged-tdd
 `;
-      expect(extractMainWorkflowName(content)).toBe('develop-tdd');
+      expect(extractMainWorkflowName(content)).toBe('develop-staged-tdd');
     });
 
     it('should handle main workflow with tabs after colon', () => {
       const content = `
 ### Task Title
-**Main-Workflow:**\t\tdevelop-tdd
+**Main-Workflow:**\t\tdevelop-staged-tdd
 `;
-      expect(extractMainWorkflowName(content)).toBe('develop-tdd');
+      expect(extractMainWorkflowName(content)).toBe('develop-staged-tdd');
     });
   });
 

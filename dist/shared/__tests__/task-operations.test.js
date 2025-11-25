@@ -200,14 +200,14 @@ Additional context here.`;
             it('should handle task with workflow metadata', () => {
                 const content = `**Status:** pending
 
-**Workflow:** develop-tdd
+**Workflow:** develop-staged-tdd
 
 Task implementation details.
 
 @/docs/spec.md`;
                 const result = updateTaskStatus(content, 'completed', 'All tests passing', testDate);
                 expect(result).toContain('**Status:** completed');
-                expect(result).toContain('**Workflow:** develop-tdd');
+                expect(result).toContain('**Workflow:** develop-staged-tdd');
                 expect(result).toContain('- Note: All tests passing');
             });
             it('should handle status change from in_progress to completed', () => {

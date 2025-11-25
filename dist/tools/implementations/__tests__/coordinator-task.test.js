@@ -283,16 +283,15 @@ describe('coordinator_task tool', () => {
                     {
                         operation: 'create',
                         title: 'Phase 1: Initialize',
-                        content: 'Status: pending\n\nMain-Workflow: develop-tdd\n\nInitialize the project'
+                        content: 'Status: pending\n\nMain-Workflow: develop-staged-tdd\n\nInitialize the project'
                     }
                 ]
             }, sessionState, manager);
-            // Assert - verify next_step is present and contains expected guidance
+            // Assert - verify next_step is present with simplified guidance
             expect(result.operations_completed).toBe(1);
             expect(result.results).toHaveLength(1);
             expect(result.results[0]?.next_step).toBeDefined();
-            expect(result.results[0]?.next_step).toContain('Call start_coordinator_task()');
-            expect(result.results[0]?.next_step).toContain('omit return_task_context on first start');
+            expect(result.results[0]?.next_step).toBe('start_coordinator_task');
         });
         it('should NOT show next_step on second task creation', async () => {
             // Arrange - create first task (setup)
@@ -301,7 +300,7 @@ describe('coordinator_task tool', () => {
                     {
                         operation: 'create',
                         title: 'Phase 1: Setup',
-                        content: 'Status: pending\n\nMain-Workflow: develop-tdd\n\nSetup environment'
+                        content: 'Status: pending\n\nMain-Workflow: develop-staged-tdd\n\nSetup environment'
                     }
                 ]
             }, sessionState, manager);
@@ -324,7 +323,7 @@ describe('coordinator_task tool', () => {
             // Arrange - create first and second tasks
             await coordinatorTask({
                 operations: [
-                    { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nMain-Workflow: develop-tdd\n\nFirst task' },
+                    { operation: 'create', title: 'Task 1', content: 'Status: pending\n\nMain-Workflow: develop-staged-tdd\n\nFirst task' },
                     { operation: 'create', title: 'Task 2', content: 'Status: pending\n\nSecond task' }
                 ]
             }, sessionState, manager);
@@ -342,16 +341,16 @@ describe('coordinator_task tool', () => {
             // Act - create multiple tasks at once in new document
             const result = await coordinatorTask({
                 operations: [
-                    { operation: 'create', title: 'First Task', content: 'Status: pending\n\nMain-Workflow: develop-tdd\n\nContent 1' },
+                    { operation: 'create', title: 'First Task', content: 'Status: pending\n\nMain-Workflow: develop-staged-tdd\n\nContent 1' },
                     { operation: 'create', title: 'Second Task', content: 'Status: pending\n\nContent 2' },
                     { operation: 'create', title: 'Third Task', content: 'Status: pending\n\nContent 3' }
                 ]
             }, sessionState, manager);
-            // Assert - only first result should have next_step
+            // Assert - only first result should have simplified next_step
             expect(result.operations_completed).toBe(3);
             expect(result.results).toHaveLength(3);
             expect(result.results[0]?.next_step).toBeDefined();
-            expect(result.results[0]?.next_step).toContain('Call start_coordinator_task()');
+            expect(result.results[0]?.next_step).toBe('start_coordinator_task');
             expect(result.results[1]?.next_step).toBeUndefined();
             expect(result.results[2]?.next_step).toBeUndefined();
         });

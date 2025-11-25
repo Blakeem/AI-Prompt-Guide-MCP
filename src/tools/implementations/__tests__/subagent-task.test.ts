@@ -713,7 +713,7 @@ Normal content here too.`;
           {
             operation: 'create',
             title: 'Initialize Repository',
-            content: 'Status: pending\n\nWorkflow: develop-tdd\n\nSet up initial repository structure'
+            content: 'Status: pending\n\nWorkflow: develop-staged-tdd\n\nSet up initial repository structure'
           }
         ]
       }, sessionState, manager);
@@ -796,7 +796,7 @@ Second task content`;
       const result = await subagentTask({
         document: '/batch-project.md',
         operations: [
-          { operation: 'create', title: 'Setup Environment', content: 'Status: pending\n\nWorkflow: develop-tdd\n\nSetup dev environment' },
+          { operation: 'create', title: 'Setup Environment', content: 'Status: pending\n\nWorkflow: develop-staged-tdd\n\nSetup dev environment' },
           { operation: 'create', title: 'Write Tests', content: 'Status: pending\n\nWrite initial test suite' },
           { operation: 'create', title: 'Implement Features', content: 'Status: pending\n\nImplement core features' }
         ]

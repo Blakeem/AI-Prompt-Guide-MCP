@@ -1,6 +1,6 @@
 ---
-title: "Develop (TDD)"
-description: "🎯 DEVELOP: Orchestrate multi-agent development with TDD and quality gates"
+title: "Develop (Staged TDD)"
+description: "🎯 DEVELOP: Orchestrate multi-agent staged development with TDD and quality gates"
 whenToUse: "Features or fixes requiring test-driven development and quality gates"
 ---
 
@@ -29,6 +29,10 @@ whenToUse: "Features or fixes requiring test-driven development and quality gate
 2. Instruct: "Run: start_subagent_task /docs/path.md#slug → Execute via TDD → Report 'Done' or 'Blocked: [reason]'"
 3. Subagent loads context, implements TDD cycle, responds with status only
 4. **Review code changes directly** (clean slate—examine actual changes, only consult notes if needed)
+   - **Security:** input validation, auth checks, data exposure
+   - **Performance:** Big O complexity, unnecessary iterations, resource leaks
+   - **Correctness:** edge cases, null handling, error paths
+   - **Patterns:** consistency with codebase idioms, SOLID principles
 5. Verify against acceptance criteria
 6. Run quality gates → if fail: create fix task, return to [Execution Loop]
 7. Stage changes: `git add <modified_files>`

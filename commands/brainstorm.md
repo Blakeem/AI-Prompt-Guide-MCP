@@ -1,12 +1,12 @@
 ---
-description: Multi-perspective decision analysis with parallel specialist agents
+description: Generate multiple distinct ideas/designs with parallel specialist lenses
 ---
 
-# Decide (Iterate)
+# Brainstorm
 
 ⚠️ **REQUIRED WORKFLOW - You MUST follow these instructions:**
 
 **Load workflow via get_workflow (once per conversation):**
 ```typescript
-get_workflow({ workflow: "decide-iterate" })
+get_workflow({ workflow: "brainstorm" })
 ```

@@ -1,6 +1,6 @@
 ---
-title: "Develop (Iterate)"
-description: "🔄 DEVELOP: Orchestrate multi-agent development with manual verification"
+title: "Develop (Staged)"
+description: "🔄 DEVELOP: Orchestrate multi-agent staged development with manual verification"
 whenToUse: "Features, fixes, or prototypes where manual verification is preferred over automated testing"
 ---
 
@@ -26,6 +26,10 @@ whenToUse: "Features, fixes, or prototypes where manual verification is preferre
 6. Instruct subagent: "Run: `start_subagent_task /docs/path.md#slug` then execute and respond 'Done' or 'Blocked: [reason]'"
 7. [Subagent executes] Runs tool (loads task+refs+workflow), implements, responds with status only
 8. **[CLEAN SLATE REVIEW]**: Review code changes directly (examine actual changes first, only consult notes if needed)
+   - **Security:** input validation, auth checks, data exposure
+   - **Performance:** Big O complexity, unnecessary iterations, resource leaks
+   - **Correctness:** edge cases, null handling, error paths
+   - **Patterns:** consistency with codebase idioms, SOLID principles
 9. Verify against acceptance criteria
    - If issues: create fix task, return to step 5
 10. Stage changes: `git add <modified_files>`
