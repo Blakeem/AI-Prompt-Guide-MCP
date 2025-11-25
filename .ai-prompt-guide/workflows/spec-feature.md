@@ -7,19 +7,19 @@ whenToUse: "Defining requirements, API contracts, or acceptance criteria for new
 # Workflow: Document Internal Feature Specification
 
 ## [Requirements Phase]
-1. [Agent] Gather requirements: purpose, user behavior, use cases, priorities
-2. [Agent] Systematically analyze for gaps: UX details, edge cases, scope boundaries
+1. Gather requirements: purpose, user behavior, use cases, priorities
+2. Systematically analyze for gaps: UX details, edge cases, scope boundaries
 
 ## [Clarification Loop]
 **WHILE gaps exist:**
-├─ 3. [Agent] Ask user: UX interactions, requirements, edge cases, priorities
-├─ 4. [Agent] Use decide workflow for technical choices (apply independently)
-├─ 5. [Agent] Update requirements
+├─ 3. Ask user: UX interactions, requirements, edge cases, priorities
+├─ 4. Use decide workflow for technical choices
+├─ 5. Update requirements
 └─ 6. IF gaps remain: GOTO step 3
 
 ## [Specification Creation]
-7. [Agent] Use create_document for specification
-8. [Agent] Use section tool to structure specification:
+7. Use create_document for specification
+8. Use section tool to structure specification:
    • Overview & rationale
    • Functionality with API signatures
    • Request/response formats with examples
@@ -28,8 +28,8 @@ whenToUse: "Defining requirements, API contracts, or acceptance criteria for new
    • @references to external APIs: @/docs/specs/api-name or @/docs/specs/api#endpoint
 
 ## [Acceptance Criteria]
-9. [Agent] Document criteria: happy path, edge cases, error handling, performance/security boundaries
-10. [Agent] Document implementation approach from decide workflow
+9. Document criteria: happy path, edge cases, error handling, performance/security boundaries
+10. Document implementation approach from decide workflow
 
 ## Principles
 

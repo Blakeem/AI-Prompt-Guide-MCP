@@ -6,21 +6,21 @@ whenToUse: "Integrating SDKs, webhooks, auth flows, or documenting external serv
 
 # Workflow: Document External API Specification
 
-1. [Agent] Identify authoritative sources (official docs, RFCs) matching runtime/environment versions
+1. Identify authoritative sources (official docs, RFCs) matching runtime/environment versions
 
-2. [Agent] Extract API contract from source documentation:
+2. Extract API contract from source documentation:
    • Capabilities, invariants, limits (rate/size/timeout)
    • Error semantics (codes, retry policies, version gates)
    • Auth requirements
 
-3. [Agent] Use create_document, then section tool to structure:
+3. Use create_document, then section tool to structure:
    • Endpoints with signatures
    • Request/response formats + examples
    • Error conditions + handling
    • Rate limits, quotas, auth flows
    • Version compatibility
 
-4. [Agent] Define acceptance criteria:
+4. Define acceptance criteria:
    • Happy path + edge cases (boundaries, limits)
    • Error handling per specification
    • Performance requirements (latency/throughput)
