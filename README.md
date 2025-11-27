@@ -61,7 +61,7 @@ The system preserves context across sessions while keeping your main agent focus
 
 ### Workflows & Commands
 
-The plugin provides **14 workflows** accessible both as slash commands and via the `get_workflow` MCP tool:
+The plugin provides **15 workflows** accessible both as slash commands and via the `get_workflow` MCP tool:
 
 **Development Workflows:**
 - `/ai-prompt-guide:develop` – Simple development with anti-pattern detection and regression prevention
@@ -72,6 +72,9 @@ The plugin provides **14 workflows** accessible both as slash commands and via t
 **Quality Workflows:**
 - `/ai-prompt-guide:audit` – Comprehensive code audit (full codebase or targeted PR/component)
 - `/ai-prompt-guide:coverage` – Add comprehensive test coverage
+
+**Planning Workflows:**
+- `/ai-prompt-guide:plan` – Structured information assessment before action (works well with Claude Code planning mode)
 
 **Decision Workflows:**
 - `/ai-prompt-guide:decide` – Structured decision making with trade-off analysis
@@ -88,6 +91,7 @@ The plugin provides **14 workflows** accessible both as slash commands and via t
 **Commands are shortcuts to workflows.** When using Claude Code, the plugin commands provide a convenient way to invoke workflows. When using the MCP server directly, access the same workflows via:
 
 ```typescript
+get_workflow({ workflow: "plan" })
 get_workflow({ workflow: "develop" })
 get_workflow({ workflow: "develop-fix" })
 get_workflow({ workflow: "develop-staged" })
@@ -97,6 +101,11 @@ get_workflow({ workflow: "brainstorm" })
 ```
 
 ### Examples
+
+**Planning before implementation:**
+```
+/ai-prompt-guide:plan How should we approach migrating from REST to GraphQL? I want to understand the key decision points and information gaps.
+```
 
 **Simple development (no multi-agent orchestration):**
 ```

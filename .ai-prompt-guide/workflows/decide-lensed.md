@@ -8,6 +8,8 @@ whenToUse: "Complex decisions requiring multiple viewpoints or when trade-offs s
 
 **Purpose:** Analyze a decision from multiple quality perspectives, then synthesize into a recommendation.
 
+**Prerequisite:** Consider using the `plan` workflow first to assess information gaps and map consequences before launching parallel analysis.
+
 ## [SETUP]
 
 **[Coordinator] Define decision specification:**

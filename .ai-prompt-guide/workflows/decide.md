@@ -6,6 +6,8 @@ whenToUse: "Multiple valid implementation approaches or architecture/optimizatio
 
 # Workflow: Structured Decision Making
 
+**Prerequisite:** Consider using the `plan` workflow first to assess information gaps and map consequences before generating options.
+
 1. Identify decision point and constraints
 2. Generate 2-4 viable options (include simple baseline)
 3. Document each option: Description | Assumptions | Pros | Cons | Evidence | Pattern alignment
